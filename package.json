@@ -1,0 +1,10 @@
+{
+  "name": "ai-marketer-mvp",
+  "version": "1.0.0",
+  "description": "AI Marketer MVP",
+  "private": true,
+  "scripts": {
+    "build": "cd backend && npm install && npm run build",
+    "start": "cd backend && npm start"
+  }
+}

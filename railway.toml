@@ -1,10 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npm run build"
-workdir = "backend"
+buildCommand = "npm run build"
 
 [deploy]
-startCommand = "node dist/index.js"
+startCommand = "npm start"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
