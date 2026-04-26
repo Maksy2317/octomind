@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OctoMind — AI Marketing Assistant</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0A0A14;
+      --surface: #12121E;
+      --surface2: #1A1A2E;
+      --surface3: #222238;
+      --border: #2A2A4A;
+      --accent: #6C63FF;
+      --accent2: #A78BFA;
+      --green: #4CAF50;
+      --text: #FFFFFF;
+      --text2: #C8C8E8;
+      --text3: #8B8BA7;
+      --text4: #5A5A7A;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ========== QUIZ ========== */
+    #quizWrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(ellipse at top, #1a1040 0%, #0A0A14 60%);
+    }
+    .quiz-box {
+      max-width: 520px;
+      width: 100%;
+    }
+    .quiz-logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .octo-img {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 12px;
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 32px #6C63FF55;
+      background: #1A1A2E;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      margin: 0 auto 12px;
+    }
+    .quiz-logo h1 { font-size: 28px; font-weight: 900; }
+    .quiz-logo h1 span { color: var(--accent2); }
+    .quiz-logo p { font-size: 13px; color: var(--text3); margin-top: 4px; }
+
+    .quiz-progress {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 24px;
+    }
+    .quiz-progress-dot {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      transition: background 0.4s;
+    }
+    .quiz-progress-dot.active { background: var(--accent); }
+    .quiz-progress-dot.done { background: var(--accent2); }
+
+    .quiz-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+      display: none;
+      animation: slideUp 0.4s ease;
+    }
+    .quiz-card.active { display: block; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .octo-reaction {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface2);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .octo-face { font-size: 28px; }
+    .octo-reaction-text { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+    .quiz-q-label {
+      font-size: 11px;
+      color: var(--accent2);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .quiz-q-text {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 20px;
+      line-height: 1.3;
+    }
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .quiz-option {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text2);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .quiz-option:hover { border-color: var(--accent); background: #1A1A3A; color: var(--text); }
+    .quiz-option.selected { border-color: var(--accent); background: #1E1E40; color: var(--text); }
+    .quiz-option-icon { font-size: 20px; }
+
+    /* Final quiz screen */
+    .quiz-final { display: none; }
+    .quiz-final.active { display: block; animation: slideUp 0.4s ease; }
+    .quiz-final-header { text-align: center; margin-bottom: 24px; }
+    .quiz-final-octo { font-size: 72px; margin-bottom: 12px; }
+    .quiz-final-header h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .quiz-final-header p { font-size: 14px; color: var(--text3); }
+    .quiz-results {
+      background: var(--surface2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .quiz-result-title { font-size: 13px; color: var(--text3); margin-bottom: 12px; font-weight: 600; }
+    .quiz-result-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--text2);
+    }
+    .quiz-result-item:last-child { border-bottom: none; }
+    .quiz-needs {
+      background: linear-gradient(135deg, #1A1A3A, #12122A);
+      border: 1px solid var(--accent);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .quiz-needs h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--accent2); }
+    .quiz-need-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 14px;
+      color: var(--text2);
+    }
+    .quiz-cta {
+      background: linear-gradient(135deg, var(--accent), #9B6EFF);
+      border: none;
+      border-radius: 16px;
+      padding: 18px;
+      width: 100%;
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 8px 32px #6C63FF44;
+    }
+    .quiz-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 40px #6C63FF66; }
+
+    /* ========== APP ========== */
+    #appWrap { display: none; }
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 250px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 20px 14px;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      margin-bottom: 28px;
+    }
+    .sidebar-octo { font-size: 32px; }
+    .sidebar-brand h2 { font-size: 16px; font-weight: 900; }
+    .sidebar-brand h2 span { color: var(--accent2); }
+    .sidebar-brand p { font-size: 10px; color: var(--text4); margin-top: 1px; }
+
+    .nav-label { font-size: 10px; color: var(--text4); text-transform: uppercase; letter-spacing: 1px; padding: 0 10px; margin: 16px 0 6px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px; border-radius: 10px; cursor: pointer;
+      transition: all 0.2s; font-size: 13px; color: var(--text3); margin-bottom: 2px;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text2); }
+    .nav-item.active { background: var(--accent); color: white; }
+    .nav-icon { font-size: 17px; width: 20px; text-align: center; }
+    .nav-badge {
+      margin-left: auto; background: var(--accent); color: white;
+      font-size: 9px; padding: 2px 6px; border-radius: 8px; font-weight: 700;
+    }
+    .nav-badge.new { background: #FF6EC7; }
+
+    .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+    .plan-box {
+      background: var(--surface2); border-radius: 12px; padding: 12px; margin-bottom: 10px;
+    }
+    .plan-box h4 { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+    .plan-box p { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+    .plan-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .plan-bar-fill { height: 100%; background: var(--accent); width: 30%; }
+
+    .main { margin-left: 250px; flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .topbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .topbar-left h1 { font-size: 18px; font-weight: 800; }
+    .topbar-left p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+    .topbar-octo {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 6px 14px; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: var(--text2);
+      transition: all 0.2s;
+    }
+    .topbar-octo:hover { border-color: var(--accent); color: var(--text); }
+
+    .content { padding: 28px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+    .screen { display: none; }
+    .screen#advisor { flex: 1; min-height: 0; display: none; flex-direction: column; }
+    .screen#advisor.active { display: flex; }
+    .screen.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Cards & shared */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .card-sub { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
+
+    .btn {
+      padding: 11px 18px; border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { background: var(--border); cursor: not-allowed; }
+    .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--surface3); }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn-sm { padding: 8px 14px; font-size: 12px; }
+
+    /* Dashboard */
+    .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+    .stat-icon { font-size: 22px; margin-bottom: 8px; }
+    .stat-value { font-size: 26px; font-weight: 800; margin-bottom: 3px; }
+    .stat-label { font-size: 11px; color: var(--text3); }
+    .stat-change { font-size: 10px; color: var(--green); margin-top: 3px; }
+
+    .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+    .tool-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px; cursor: pointer; transition: all 0.2s;
+    }
+    .tool-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .tool-icon { font-size: 28px; margin-bottom: 10px; }
+    .tool-name { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+    .tool-desc { font-size: 12px; color: var(--text3); line-height: 1.5; margin-bottom: 10px; }
+    .tool-tag { display: inline-block; background: var(--surface2); border-radius: 5px; padding: 3px 7px; font-size: 10px; color: var(--text4); margin: 2px; }
+
+    /* Ask Octo Chat */
+    .chat-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .chat-header {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 14px 18px; margin-bottom: 14px;
+    }
+    .chat-octo-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, #6C63FF, #A78BFA);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+      box-shadow: 0 4px 16px #6C63FF44;
+    }
+    .chat-octo-info h3 { font-size: 15px; font-weight: 800; }
+    .chat-octo-info p { font-size: 11px; color: var(--green); }
+    .chat-octo-status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text3); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 4px 0; }
+    .msg { display: flex; gap: 10px; max-width: 85%; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; background: var(--surface2);
+    }
+    .msg.ai .msg-avatar { background: linear-gradient(135deg, #6C63FF, #A78BFA); }
+    .msg-bubble {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 11px 14px; font-size: 13px;
+      line-height: 1.6; color: var(--text2);
+    }
+    .msg.user .msg-bubble { background: var(--accent); border-color: var(--accent); color: white; }
+    .msg-time { font-size: 10px; color: var(--text4); margin-top: 3px; }
+
+    .chat-input-area { border-top: 1px solid var(--border); padding-top: 14px; }
+    .quick-prompts { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .qp {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 5px 11px; font-size: 11px;
+      color: var(--text3); cursor: pointer; transition: all 0.2s;
+    }
+    .qp:hover { border-color: var(--accent); color: var(--text2); }
+    .chat-row { display: flex; gap: 8px; }
+    .chat-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 11px 14px; font-size: 13px;
+      color: var(--text); resize: none; font-family: inherit; outline: none;
+    }
+    .chat-input:focus { border-color: var(--accent); }
+
+    /* Analyzer */
+    .url-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .url-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; font-size: 13px;
+      color: var(--text); outline: none;
+    }
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--text4); }
+
+    .score-wrap { text-align: center; padding: 20px 0; }
+    .score-ring {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: conic-gradient(var(--accent) 252deg, var(--border) 0deg);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+    }
+    .score-inner {
+      width: 72px; height: 72px; background: var(--surface);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; flex-direction: column;
+    }
+    .score-num { font-size: 20px; font-weight: 900; }
+    .score-lbl { font-size: 9px; color: var(--text3); }
+
+    .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .ai { background: var(--surface2); border-radius: 10px; padding: 12px; }
+    .ai-icon { font-size: 18px; margin-bottom: 5px; }
+    .ai-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; margin-bottom: 3px; }
+    .ai-val { font-size: 13px; font-weight: 700; }
+    .ai-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+    .fb-list { display: flex; flex-direction: column; gap: 7px; }
+    .fb { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border-radius: 10px; font-size: 12px; color: var(--text2); line-height: 1.5; }
+    .fb.good { background: #1A2A1A; border: 1px solid #2A4A2A; }
+    .fb.bad { background: #2A1A1A; border: 1px solid #4A2A2A; }
+    .fb.tip { background: var(--surface2); border: 1px solid var(--border); }
+
+    /* Video */
+    .vsteps { display: flex; gap: 0; margin-bottom: 20px; background: var(--surface2); border-radius: 10px; padding: 4px; }
+    .vstep {
+      flex: 1; text-align: center; padding: 7px; border-radius: 7px;
+      font-size: 11px; font-weight: 600; color: var(--text3);
+    }
+    .vstep.active { background: var(--accent); color: white; }
+    .vstep.done { color: var(--green); }
+
+    .dropzone {
+      border: 2px dashed var(--border); border-radius: 14px; padding: 40px 20px;
+      text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 14px;
+    }
+    .dropzone:hover { border-color: var(--accent); background: #12123A; }
+    .dropzone h3 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+    .dropzone p { font-size: 12px; color: var(--text3); }
+
+    .format-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+    .fc {
+      background: var(--surface2); border: 2px solid var(--border);
+      border-radius: 12px; padding: 14px; cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .fc:hover, .fc.selected { border-color: var(--accent); background: #1A1A3A; }
+    .fc-icon { font-size: 26px; margin-bottom: 6px; }
+    .fc-name { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+    .fc-meta { font-size: 10px; color: var(--text3); }
+
+    .tgrid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+    .tc {
+      background: var(--surface2); border: 2px solid var(--border);
+      border-radius: 12px; padding: 10px; cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .tc:hover, .tc.selected { border-color: var(--accent); background: #1A1A3A; }
+    .tc-preview { height: 70px; border-radius: 8px; margin-bottom: 7px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .tc-name { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+    .tc-desc { font-size: 10px; color: var(--text3); }
+    .ai-badge {
+      position: absolute; top: 5px; right: 5px; background: var(--accent);
+      color: white; font-size: 8px; font-weight: 700; padding: 2px 5px; border-radius: 5px;
+    }
+
+    /* Carousel */
+    .pgrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+    .pslot {
+      aspect-ratio: 1; background: var(--surface2); border: 2px dashed var(--border);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 22px; transition: all 0.2s;
+    }
+    .pslot:hover { border-color: var(--accent); }
+    .pslot.filled { border-style: solid; border-color: var(--accent); }
+    .styles-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .sopt {
+      flex: 1; height: 60px; border-radius: 10px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+      border: 2px solid transparent; transition: all 0.2s;
+    }
+    .sopt:hover { transform: scale(1.05); }
+    .sopt.selected { border-color: white; }
+
+    /* Pricing */
+    .pgrid2 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .pcard {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 22px; position: relative;
+    }
+    .pcard.popular { border-color: var(--accent); background: linear-gradient(135deg,#1A1A3A,#12121E); }
+    .pop-badge {
+      position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: white; font-size: 10px; font-weight: 700;
+      padding: 3px 12px; border-radius: 20px;
+    }
+    .pplan { font-size: 11px; color: var(--text3); text-transform: uppercase; margin-bottom: 6px; font-weight: 700; }
+    .pprice { font-size: 32px; font-weight: 900; margin-bottom: 3px; }
+    .pprice span { font-size: 13px; font-weight: 400; color: var(--text3); }
+    .pdesc { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+    .pfeatures { list-style: none; margin-bottom: 20px; }
+    .pfeatures li {
+      font-size: 12px; color: var(--text2); padding: 5px 0;
+      border-bottom: 1px solid var(--border); display: flex; gap: 7px;
+    }
+    .pfeatures li:last-child { border-bottom: none; }
+
+    /* Settings */
+    .srow {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; margin-bottom: 7px;
+    }
+    .sinfo h4 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .sinfo p { font-size: 11px; color: var(--text3); }
+    .toggle { width: 40px; height: 22px; background: var(--border); border-radius: 11px; position: relative; cursor: pointer; transition: background 0.2s; }
+    .toggle.on { background: var(--accent); }
+    .toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+    .toggle.on::after { left: 21px; }
+    select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 7px; font-size: 12px; }
+    input[type=text] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 7px; font-size: 12px; width: 180px; outline: none; }
+
+    .tag { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 3px 8px; font-size: 11px; color: var(--text3); margin: 2px; }
+
+    .loading { display: flex; gap: 6px; align-items: center; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: bounce 1s infinite; }
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 800px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .tools-grid, .pgrid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============ QUIZ ============ -->
+<div id="quizWrap">
+  <div class="quiz-box">
+    <div class="quiz-logo">
+      <img class="octo-img" src="assets/octo_happy.png" alt="Octo">
+      <h1>Octo<span>Mind</span></h1>
+      <p>AI Marketing Assistant — давай познакомимся</p>
+    </div>
+
+    <div class="quiz-progress">
+      <div class="quiz-progress-dot active" id="qd1"></div>
+      <div class="quiz-progress-dot" id="qd2"></div>
+      <div class="quiz-progress-dot" id="qd3"></div>
+      <div class="quiz-progress-dot" id="qd4"></div>
+    </div>
+
+    <!-- Q1 -->
+    <div class="quiz-card active" id="q1">
+      <div class="quiz-q-label">Вопрос 1 из 4</div>
+      <div class="quiz-q-text">В какой сфере ты работаешь?</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="selectQ(1,'E-commerce',this)">
+          <span class="quiz-option-icon">🛒</span> E-commerce
+        </div>
+        <div class="quiz-option" onclick="selectQ(1,'Личный бренд / блогер',this)">
+          <span class="quiz-option-icon">🌟</span> Личный бренд / блогер
+        </div>
+        <div class="quiz-option" onclick="selectQ(1,'Услуги (салон, агентство и т.д.)',this)">
+          <span class="quiz-option-icon">💼</span> Услуги (салон, агентство и т.д.)
+        </div>
+        <div class="quiz-option" onclick="selectQ(1,'Другое',this)">
+          <span class="quiz-option-icon">✨</span> Другое
+        </div>
+      </div>
+    </div>
+
+    <!-- Q1 reaction -->
+    <div class="quiz-card" id="q1r">
+      <div class="octo-reaction">
+        <span class="octo-face"><img src="assets/octo_search.png" style="width:28px;height:28px;object-fit:contain;"></span>
+        <span class="octo-reaction-text">Окей, понял твою сферу… уже думаю, как тебе увеличить продажи 👀</span>
+      </div>
+      <div class="quiz-q-label">Вопрос 2 из 4</div>
+      <div class="quiz-q-text">Какая твоя главная цель сейчас?</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="selectQ(2,'Больше клиентов',this)">
+          <span class="quiz-option-icon">👥</span> Больше клиентов
+        </div>
+        <div class="quiz-option" onclick="selectQ(2,'Рост подписчиков',this)">
+          <span class="quiz-option-icon">📈</span> Рост подписчиков
+        </div>
+        <div class="quiz-option" onclick="selectQ(2,'Увеличить продажи',this)">
+          <span class="quiz-option-icon">💰</span> Увеличить продажи
+        </div>
+        <div class="quiz-option" onclick="selectQ(2,'Узнаваемость бренда',this)">
+          <span class="quiz-option-icon">🎯</span> Узнаваемость бренда
+        </div>
+      </div>
+    </div>
+
+    <!-- Q2 reaction -->
+    <div class="quiz-card" id="q2r">
+      <div class="octo-reaction">
+        <span class="octo-face"><img src="assets/octo_thumbsup.png" style="width:28px;height:28px;object-fit:contain;"></span>
+        <span class="octo-reaction-text">Хорошо… фокус на результат. Значит будем давить туда, где быстрее всего рост 🚀</span>
+      </div>
+      <div class="quiz-q-label">Вопрос 3 из 4</div>
+      <div class="quiz-q-text">Что сейчас больше всего тормозит твой рост?</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="selectQ(3,'Нет идей для контента',this)">
+          <span class="quiz-option-icon">💡</span> Нет идей для контента
+        </div>
+        <div class="quiz-option" onclick="selectQ(3,'Реклама не работает',this)">
+          <span class="quiz-option-icon">📢</span> Реклама не работает
+        </div>
+        <div class="quiz-option" onclick="selectQ(3,'Мало времени',this)">
+          <span class="quiz-option-icon">⏰</span> Мало времени
+        </div>
+        <div class="quiz-option" onclick="selectQ(3,'Не понимаю маркетинг',this)">
+          <span class="quiz-option-icon">🤯</span> Не понимаю маркетинг
+        </div>
+      </div>
+    </div>
+
+    <!-- Q3 reaction -->
+    <div class="quiz-card" id="q3r">
+      <div class="octo-reaction">
+        <span class="octo-face"><img src="assets/octo_idea.png" style="width:28px;height:28px;object-fit:contain;"></span>
+        <span class="octo-reaction-text">Ага… вот где узкое место. Я как раз умею это закрывать 👌</span>
+      </div>
+      <div class="quiz-q-label">Вопрос 4 из 4</div>
+      <div class="quiz-q-text">Где ты сейчас продвигаешься?</div>
+      <div class="quiz-options">
+        <div class="quiz-option" onclick="selectQ(4,'TikTok',this)">
+          <span class="quiz-option-icon">🎵</span> TikTok
+        </div>
+        <div class="quiz-option" onclick="selectQ(4,'Instagram',this)">
+          <span class="quiz-option-icon">📸</span> Instagram
+        </div>
+        <div class="quiz-option" onclick="selectQ(4,'YouTube',this)">
+          <span class="quiz-option-icon">▶️</span> YouTube
+        </div>
+        <div class="quiz-option" onclick="selectQ(4,'Всё сразу',this)">
+          <span class="quiz-option-icon">⚡</span> Всё сразу
+        </div>
+      </div>
+    </div>
+
+    <!-- Final -->
+    <div class="quiz-final" id="qfinal">
+      <div class="quiz-final-header">
+        <img src="assets/octo_celebrate.png" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;">
+        <h2>Я проанализировал твою ситуацию…</h2>
+        <p>Вот что тебе нужно прямо сейчас</p>
+      </div>
+
+      <div class="quiz-results">
+        <div class="quiz-result-title">Твой профиль</div>
+        <div class="quiz-result-item"><span>🎯</span> <span id="qr1">—</span></div>
+        <div class="quiz-result-item"><span>🚀</span> <span id="qr2">—</span></div>
+        <div class="quiz-result-item"><span>⚡</span> <span id="qr3">—</span></div>
+        <div class="quiz-result-item"><span>📱</span> <span id="qr4">—</span></div>
+      </div>
+
+      <div class="quiz-needs">
+        <h3>👉 Тебе нужно:</h3>
+        <div class="quiz-need-item"><span>✅</span> Больше системного контента</div>
+        <div class="quiz-need-item"><span>✅</span> Автоматизация маркетинга</div>
+        <div class="quiz-need-item"><span>✅</span> Быстрые тесты гипотез</div>
+        <div style="margin-top:10px; font-size:13px; color:var(--text3); font-style:italic;">
+          🐙 Я могу сделать это за тебя.
+        </div>
+      </div>
+
+      <button class="quiz-cta" onclick="enterApp()">
+        🎯 Создать мою стратегию с AI →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="appWrap">
+  <div class="app-layout">
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <img class="sidebar-octo" src="assets/octo_magician.png" style="width:36px;height:36px;object-fit:contain;">
+        <div class="sidebar-brand">
+          <h2>Octo<span>Mind</span></h2>
+          <p>AI Marketing Assistant</p>
+        </div>
+      </div>
+
+      <div class="nav-label">Главное</div>
+      <div class="nav-item active" onclick="showScreen('dashboard',this)">
+        <span class="nav-icon">🏠</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showScreen('advisor',this)">
+        <span class="nav-icon">🐙</span> Ask Octo
+        <span class="nav-badge">AI</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('analyzer',this)">
+        <span class="nav-icon">🔍</span> Profile Analyzer
+        <span class="nav-badge new">New</span>
+      </div>
+
+      <div class="nav-label">Создать</div>
+      <div class="nav-item" onclick="showScreen('video',this)">
+        <span class="nav-icon">🎬</span> Video
+      </div>
+      <div class="nav-item" onclick="showScreen('carousel',this)">
+        <span class="nav-icon">🖼️</span> Carousel
+      </div>
+      <div class="nav-item" onclick="showScreen('photo',this)">
+        <span class="nav-icon">📸</span> Photo Edit
+      </div>
+
+      <div class="nav-label">Аккаунт</div>
+      <div class="nav-item" onclick="showScreen('pricing',this)">
+        <span class="nav-icon">💎</span> Pricing
+      </div>
+      <div class="nav-item" onclick="showScreen('settings',this)">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="plan-box">
+          <h4>Free Plan</h4>
+          <p>3 из 5 кредитов использовано</p>
+          <div class="plan-bar"><div class="plan-bar-fill"></div></div>
+        </div>
+        <div class="nav-item" onclick="showScreen('pricing',null)">
+          <span class="nav-icon">⬆️</span> Upgrade to Pro
+        </div>
+      </div>
+    </nav>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="topbar-left">
+          <h1 id="topTitle">Dashboard</h1>
+          <p id="topSub">Welcome back! Your marketing overview.</p>
+        </div>
+        <div class="topbar-octo" onclick="showScreen('advisor',null)">
+          <img src='assets/octo_thinking.png' style='width:20px;height:20px;object-fit:contain;'> Ask Octo
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- Dashboard -->
+        <div class="screen active" id="dashboard">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value">12</div><div class="stat-label">Видео создано</div><div class="stat-change">↑ 3 на этой неделе</div></div>
+            <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value">5</div><div class="stat-label">Карусели</div><div class="stat-change">↑ 2 на этой неделе</div></div>
+            <div class="stat-card"><div class="stat-icon">🔍</div><div class="stat-value">3</div><div class="stat-label">Профилей проанализировано</div><div class="stat-change">↑ 1 на этой неделе</div></div>
+            <div class="stat-card"><div class="stat-icon"><img src="assets/octo_laptop.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value">28</div><div class="stat-label">Ask Octo запросов</div><div class="stat-change">↑ 8 на этой неделе</div></div>
+          </div>
+
+          <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg,#1A1040,#12121E); border-color:#6C63FF44;">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <img src="assets/octo_happy.png" style="width:64px;height:64px;object-fit:contain;">
+              <div style="flex:1;">
+                <div style="font-size:16px; font-weight:800; margin-bottom:4px;">Привет! Я Octo — твой AI маркетолог</div>
+                <div style="font-size:13px; color:var(--text3); margin-bottom:12px;">Основываясь на твоём квизе, я уже знаю чем тебе помочь. Спроси меня что угодно по маркетингу!</div>
+                <button class="btn btn-primary btn-sm" onclick="showScreen('advisor',null)">🐙 Спросить Octo →</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tools-grid">
+            <div class="tool-card" onclick="showScreen('advisor',null)">
+              <div class="tool-icon"><img src="assets/octo_smart.png" style="width:36px;height:36px;object-fit:contain;"></div>
+              <div class="tool-name">Ask Octo</div>
+              <div class="tool-desc">Задай любой вопрос по маркетингу — стратегия, подписи, контент-план, советы для роста.</div>
+              <span class="tool-tag">Чат</span><span class="tool-tag">Стратегия</span><span class="tool-tag">Контент</span>
+            </div>
+            <div class="tool-card" onclick="showScreen('analyzer',null)">
+              <div class="tool-icon">🔍</div>
+              <div class="tool-name">Profile Analyzer</div>
+              <div class="tool-desc">Вставь ссылку Instagram или TikTok — получи полный аудит профиля с планом улучшений.</div>
+              <span class="tool-tag">Instagram</span><span class="tool-tag">TikTok</span><span class="tool-tag">Аудит</span>
+            </div>
+            <div class="tool-card" onclick="showScreen('video',null)">
+              <div class="tool-icon">🎬</div>
+              <div class="tool-name">Video Creator</div>
+              <div class="tool-desc">Загрузи видео — AI выберет шаблон и обработает под Stories, Reels или TikTok.</div>
+              <span class="tool-tag">Reels</span><span class="tool-tag">TikTok</span><span class="tool-tag">Stories</span>
+            </div>
+            <div class="tool-card" onclick="showScreen('carousel',null)">
+              <div class="tool-icon">🖼️</div>
+              <div class="tool-name">Carousel Builder</div>
+              <div class="tool-desc">Загрузи фото — AI объединит в единый стиль и напишет подписи к каждому слайду.</div>
+              <span class="tool-tag">Дизайн</span><span class="tool-tag">Подписи</span><span class="tool-tag">Стиль</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">💡 Советы Octo на сегодня</div>
+            <div class="card-sub" style="margin-bottom:12px;">Актуальные тренды в соцсетях</div>
+            <div class="fb-list">
+              <div class="fb tip"><span>🔥</span><span>Reels, опубликованные с 9 до 11 утра, получают в 2 раза больше охватов. Планируй публикации!</span></div>
+              <div class="fb tip"><span>📌</span><span>Карусели получают в 3х больше сохранений, чем одиночные фото. Создай карусель через Carousel Builder.</span></div>
+              <div class="fb tip"><span>🎯</span><span>Профили с единым визуальным стилем получают на 40% больше подписчиков. Используй наши шаблоны.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ask Octo -->
+        <div class="screen" id="advisor">
+          <div class="chat-wrap">
+            <div class="chat-header">
+              <div class="chat-octo-avatar"><img src="assets/octo_laptop.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
+              <div class="chat-octo-info">
+                <h3>Octo — AI Маркетолог</h3>
+                <p>● Онлайн и готов помочь</p>
+              </div>
+              <div class="chat-octo-status">
+                <div class="status-dot"></div> AI активен
+              </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+              <div class="msg ai">
+                <div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
+                <div>
+                  <div class="msg-bubble">
+                    Привет! Я Octo — твой личный AI маркетолог 🐙<br><br>
+                    Я помогу тебе с:<br>
+                    📊 <strong>Контент-стратегией</strong> — что, когда и как публиковать<br>
+                    ✍️ <strong>Подписями и текстами</strong> — цепляющие captions<br>
+                    🔍 <strong>Анализом конкурентов</strong> — что у них работает<br>
+                    📈 <strong>Ростом аудитории</strong> — конкретные шаги<br>
+                    🔥 <strong>Трендами</strong> — что сейчас взлетает в твоей нише<br><br>
+                    Задай свой первый вопрос!
+                  </div>
+                  <div class="msg-time">Octo • сейчас</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <div class="quick-prompts">
+                <div class="qp" onclick="qpSend(this)">📊 Контент-план на неделю</div>
+                <div class="qp" onclick="qpSend(this)">✍️ Напиши подпись к посту</div>
+                <div class="qp" onclick="qpSend(this)">📈 Как расти в TikTok</div>
+                <div class="qp" onclick="qpSend(this)">🔥 Тренды этой недели</div>
+                <div class="qp" onclick="qpSend(this)">🎯 Как найти свою аудиторию</div>
+              </div>
+              <div class="chat-row">
+                <textarea class="chat-input" id="chatInput" rows="2" placeholder="Спроси Octo что угодно по маркетингу..." onkeydown="chatKey(event)"></textarea>
+                <button class="btn btn-primary" onclick="sendMsg()">→</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analyzer -->
+        <div class="screen" id="analyzer">
+          <div class="card">
+            <div class="card-title">🔍 Анализ профиля</div>
+            <div class="card-sub">Вставь ссылку на Instagram или TikTok — Octo проведёт полный аудит</div>
+            <div class="url-row">
+              <input class="url-input" id="profileUrl" placeholder="https://instagram.com/username или https://tiktok.com/@username" />
+              <button class="btn btn-primary" onclick="analyzeProfile()">Анализировать →</button>
+            </div>
+            <span class="tag">📸 Instagram</span>
+            <span class="tag">🎵 TikTok</span>
+            <span class="tag">Бесплатно</span>
+          </div>
+
+          <div id="analysisResult" style="display:none">
+            <div class="card" style="text-align:center; margin-bottom:14px;">
+              <div class="score-wrap">
+                <div class="score-ring">
+                  <div class="score-inner"><div class="score-num">70</div><div class="score-lbl">/ 100</div></div>
+                </div>
+                <div style="font-size:15px; font-weight:800;" id="profileName">@username</div>
+                <div style="font-size:12px; color:var(--text3); margin-top:4px;">Marketing Score — есть куда расти</div>
+              </div>
+            </div>
+
+            <div class="analysis-grid">
+              <div class="ai"><div class="ai-icon">📊</div><div class="ai-lbl">Engagement Rate</div><div class="ai-val">3.2%</div><div class="ai-sub">Выше среднего (2.1%)</div></div>
+              <div class="ai"><div class="ai-icon">🎨</div><div class="ai-lbl">Визуальный стиль</div><div class="ai-val">Средний</div><div class="ai-sub">Нет единой темы</div></div>
+              <div class="ai"><div class="ai-icon">📅</div><div class="ai-lbl">Частота постинга</div><div class="ai-val">4 раза/нед</div><div class="ai-sub">Хорошо, можно больше</div></div>
+              <div class="ai"><div class="ai-icon">🎯</div><div class="ai-lbl">Целевая аудитория</div><div class="ai-val">Размыта</div><div class="ai-sub">Нужно сузить нишу</div></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🐙 Разбор от Octo</div>
+              <div style="margin-top:10px;" class="fb-list">
+                <div class="fb good"><span>✅</span><span>Хорошая частота постинга — ты постишь регулярно, алгоритм тебя замечает</span></div>
+                <div class="fb good"><span>✅</span><span>Engagement выше среднего по нише — аудитория вовлечена в контент</span></div>
+                <div class="fb bad"><span>❌</span><span>Нет единого визуального стиля — посты разных цветов, это путает алгоритм и аудиторию</span></div>
+                <div class="fb bad"><span>❌</span><span>Подписи слишком короткие — используй 3-5 предложений + CTA для роста охватов</span></div>
+                <div class="fb bad"><span>❌</span><span>Нет Reels/TikTok — видеоконтент получает в 5–10x больше органического охвата</span></div>
+                <div class="fb tip"><span>🐙</span><span>Выбери 3 основных цвета и используй их во всех постах. Создай карусель с единым стилем прямо сейчас.</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🎯 План Octo на 30 дней</div>
+              <div style="margin-top:10px;" class="fb-list">
+                <div class="fb tip"><span>📌</span><span><strong>Неделя 1:</strong> Выбери визуальный стиль. Сделай 3 карусели в едином стиле через Carousel Builder.</span></div>
+                <div class="fb tip"><span>📌</span><span><strong>Неделя 2:</strong> Сними и опубликуй 3 Reels. Используй шаблоны из Video Creator.</span></div>
+                <div class="fb tip"><span>📌</span><span><strong>Неделя 3–4:</strong> Розыгрыш + коллаборация с 2 аккаунтами из своей ниши.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video -->
+        <div class="screen" id="video">
+          <div class="vsteps">
+            <div class="vstep active" id="vn1">1. Загрузка</div>
+            <div class="vstep" id="vn2">2. Формат</div>
+            <div class="vstep" id="vn3">3. Шаблон</div>
+            <div class="vstep" id="vn4">4. Готово</div>
+          </div>
+          <div id="vs1">
+            <div class="dropzone" onclick="document.getElementById('vf').click()">
+              <div style="font-size:44px;margin-bottom:10px;">🎥</div>
+              <h3>Загрузи видео</h3>
+              <p>MP4, MOV, AVI · до 200MB</p>
+              <input type="file" id="vf" style="display:none" accept="video/*" onchange="vFileOk(event)">
+            </div>
+            <div id="vfInfo" style="display:none;" class="fb good" style="margin-bottom:14px;">
+              <span>✅</span><span id="vfName" style="color:var(--text2)"></span>
+            </div>
+            <button class="btn btn-primary btn-full" id="vb1" disabled onclick="vs(2)">Далее →</button>
+          </div>
+          <div id="vs2" style="display:none">
+            <div class="card-title" style="margin-bottom:12px;">Выбери платформу</div>
+            <div class="format-grid">
+              <div class="fc" onclick="vFmt('stories',this)"><div class="fc-icon">📸</div><div class="fc-name">Stories</div><div class="fc-meta">15 сек · 9:16</div></div>
+              <div class="fc" onclick="vFmt('reels',this)"><div class="fc-icon">🎬</div><div class="fc-name">Reels</div><div class="fc-meta">15–90 сек · 9:16</div></div>
+              <div class="fc" onclick="vFmt('tiktok',this)"><div class="fc-icon">🎵</div><div class="fc-name">TikTok</div><div class="fc-meta">15–60 сек · 9:16</div></div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="vs(1)" style="margin-right:8px">← Назад</button>
+            <button class="btn btn-primary btn-sm" id="vb2" disabled onclick="vAI()">🐙 Анализировать →</button>
+          </div>
+          <div id="vs3" style="display:none">
+            <div class="fb tip" style="margin-bottom:14px;"><span>🐙</span><span style="font-size:12px;color:var(--text2);">Octo проанализировал: <strong>высокая энергия, яркий контент, молодая аудитория</strong></span></div>
+            <div class="card-title" style="margin-bottom:4px;">Выбери шаблон <span style="color:var(--text4);font-size:11px;font-weight:400;" id="vtc"></span></div>
+            <div class="card-sub">Octo рекомендует первый вариант</div>
+            <div class="tgrid" id="vtg"></div>
+            <button class="btn btn-secondary btn-sm" onclick="vs(2)" style="margin-right:8px">← Назад</button>
+            <button class="btn btn-primary btn-sm" id="vb3" disabled onclick="vs(4)">Применить →</button>
+          </div>
+          <div id="vs4" style="display:none">
+            <div class="card" style="text-align:center;padding:36px;">
+              <div style="font-size:60px;margin-bottom:14px;">🎉</div>
+              <div class="card-title">Видео готово!</div>
+              <div class="card-sub" id="vrd">Шаблон применён</div>
+              <div style="display:flex;gap:10px;margin-top:18px;justify-content:center;">
+                <button class="btn btn-primary" id="vdb" onclick="fakeDl()">💾 Скачать</button>
+                <button class="btn btn-secondary" onclick="alert('Поделиться...')">📤 Поделиться</button>
+              </div>
+              <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="vReset()">+ Создать ещё</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Carousel -->
+        <div class="screen" id="carousel">
+          <div class="card">
+            <div class="card-title">🖼️ Carousel Builder</div>
+            <div class="card-sub">Загрузи 2–10 фото — Octo создаёт единый стиль и подписи</div>
+            <div class="pgrid">
+              <div class="pslot filled">🌆</div>
+              <div class="pslot filled">🏙️</div>
+              <div class="pslot filled">🌇</div>
+              <div class="pslot" onclick="alert('Выбери фото')">+</div>
+              <div class="pslot" onclick="alert('Выбери фото')">+</div>
+              <div class="pslot" onclick="alert('Выбери фото')">+</div>
+              <div class="pslot" onclick="alert('Выбери фото')">+</div>
+              <div class="pslot" onclick="alert('Выбери фото')">+</div>
+            </div>
+            <div class="card-title" style="margin-bottom:10px;">Стиль оформления</div>
+            <div class="styles-row">
+              <div class="sopt selected" style="background:linear-gradient(135deg,#1A1A2E,#6C63FF)" onclick="sStyle(this)">🌙</div>
+              <div class="sopt" style="background:linear-gradient(135deg,#FF6B6B,#FFE66D)" onclick="sStyle(this)">☀️</div>
+              <div class="sopt" style="background:linear-gradient(135deg,#0F0F0F,#333)" onclick="sStyle(this)">🖤</div>
+              <div class="sopt" style="background:linear-gradient(135deg,#F8BBD9,#E1BEE7)" onclick="sStyle(this)">🌸</div>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="buildCarousel()">🐙 Создать карусель</button>
+          </div>
+          <div id="carRes" style="display:none">
+            <div class="card">
+              <div class="card-title">✅ Карусель готова!</div>
+              <div class="card-sub">Octo добавил единый стиль и подписи к каждому слайду</div>
+              <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                <div style="background:linear-gradient(135deg,#1A1A2E,#6C63FF);border-radius:8px;padding:10px;font-size:10px;width:72px;text-align:center;"><div style="font-size:22px;margin-bottom:3px;">🌆</div><div style="color:#A78BFA">Slide 1</div></div>
+                <div style="background:linear-gradient(135deg,#1A1A2E,#6C63FF);border-radius:8px;padding:10px;font-size:10px;width:72px;text-align:center;"><div style="font-size:22px;margin-bottom:3px;">🏙️</div><div style="color:#A78BFA">Slide 2</div></div>
+                <div style="background:linear-gradient(135deg,#1A1A2E,#6C63FF);border-radius:8px;padding:10px;font-size:10px;width:72px;text-align:center;"><div style="font-size:22px;margin-bottom:3px;">🌇</div><div style="color:#A78BFA">Slide 3</div></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:14px;">
+                <button class="btn btn-primary btn-sm">💾 Скачать все</button>
+                <button class="btn btn-secondary btn-sm">📤 Поделиться</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">🐙 Подписи от Octo</div>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;">
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;"><strong>Слайд 1:</strong> Каждый закат — новое начало 🌆 Сохрани этот момент.</div>
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;"><strong>Слайд 2:</strong> Город не спит — и ты не должен 🏙️ #hustle #city</div>
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;"><strong>Слайд 3:</strong> Золотой час — время для новых идей 🌇 Что создашь сегодня?</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Photo -->
+        <div class="screen" id="photo">
+          <div class="card">
+            <div class="card-title">📸 Photo Edit</div>
+            <div class="card-sub">Загрузи фото — Octo улучшит его под Instagram стандарты</div>
+            <div class="dropzone" style="margin-bottom:14px;" onclick="alert('Выбери фото')">
+              <div style="font-size:40px;margin-bottom:8px;">📸</div>
+              <h3>Загрузи фото</h3>
+              <p>JPG, PNG · до 50MB</p>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🌈</span><span style="font-size:11px;font-weight:700;">Яркий стиль</span></div>
+              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🖤</span><span style="font-size:11px;font-weight:700;">Тёмный</span></div>
+              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🌸</span><span style="font-size:11px;font-weight:700;">Пастель</span></div>
+              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🎞️</span><span style="font-size:11px;font-weight:700;">Плёночный</span></div>
+            </div>
+            <button class="btn btn-primary btn-full">🐙 Улучшить фото</button>
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="screen" id="pricing">
+          <div style="text-align:center;margin-bottom:28px;">
+            <img src="assets/octo_wizard.png" style="width:72px;height:72px;object-fit:contain;margin-bottom:10px;">
+            <h2 style="font-size:26px;margin-bottom:6px;">Выбери свой план</h2>
+            <p style="color:var(--text3);">Начни бесплатно. Расти с OctoMind.</p>
+          </div>
+
+          <!-- INTERACTIVE SAVINGS CALCULATOR -->
+          <div style="background:linear-gradient(135deg,#1a0a3e 0%,#0d0d20 100%);border:1px solid #6C63FF55;border-radius:24px;padding:28px;margin-bottom:32px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-60px;right:-60px;width:250px;height:250px;background:radial-gradient(circle,#6C63FF33 0%,transparent 70%);pointer-events:none;"></div>
+            <div style="position:absolute;bottom:-40px;left:-40px;width:180px;height:180px;background:radial-gradient(circle,#A78BFA22 0%,transparent 70%);pointer-events:none;"></div>
+
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+              <img src="assets/octo_idea.png" style="width:60px;height:60px;object-fit:contain;">
+              <div>
+                <div style="font-size:11px;color:#A78BFA;font-weight:800;letter-spacing:2px;text-transform:uppercase;">💸 Интерактивный калькулятор</div>
+                <h3 style="font-size:20px;font-weight:900;margin-top:2px;">Сколько стоит твоя команда vs Octo?</h3>
+              </div>
+            </div>
+
+            <!-- SLIDERS -->
+            <div style="margin-bottom:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;color:var(--text2);">👨‍💼 Маркетолог / SMM</span>
+                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_marketer">$2 000</span>
+              </div>
+              <input type="range" min="500" max="5000" step="100" value="2000" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'marketer')">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Джун $500</span><span>Senior $5 000</span></div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;color:var(--text2);">🎬 Видеограф / монтажёр</span>
+                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_video">$800</span>
+              </div>
+              <input type="range" min="0" max="3000" step="100" value="800" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'video')">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Не нанимаю</span><span>Профессионал $3 000</span></div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;color:var(--text2);">✍️ Копирайтер</span>
+                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_copy">$500</span>
+              </div>
+              <input type="range" min="0" max="2000" step="100" value="500" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'copy')">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Не нанимаю</span><span>Топ-автор $2 000</span></div>
+            </div>
+
+            <div style="margin-bottom:24px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;color:var(--text2);">🎨 Дизайнер / карусели</span>
+                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_design">$400</span>
+              </div>
+              <input type="range" min="0" max="2000" step="100" value="400" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'design')">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Не нанимаю</span><span>Арт-директор $2 000</span></div>
+            </div>
+
+            <!-- RESULT CARD -->
+            <div style="background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(56,142,60,0.08));border:2px solid #4CAF5066;border-radius:18px;padding:20px;display:flex;align-items:center;gap:16px;">
+              <img src="assets/octo_celebrate.png" id="calcMascot" style="width:72px;height:72px;object-fit:contain;transition:transform 0.3s;flex-shrink:0;">
+              <div style="flex:1;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                  <span style="font-size:13px;color:#C8E6C9;font-weight:700;">Команда без Octo:</span>
+                  <span style="font-size:20px;font-weight:900;color:#ff7a7a;text-decoration:line-through;" id="totalWithout">$3 700 / мес</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+                  <span style="font-size:13px;color:#C8E6C9;font-weight:700;">OctoMind Pro:</span>
+                  <span style="font-size:20px;font-weight:900;color:#A78BFA;">$19.99 / мес</span>
+                </div>
+                <div style="background:rgba(76,175,80,0.2);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+                  <div>
+                    <div style="font-size:11px;color:#C8E6C9;font-weight:800;text-transform:uppercase;letter-spacing:1px;">🎉 Твоя экономия</div>
+                    <div style="font-size:28px;font-weight:900;color:#4CAF50;line-height:1.1;" id="savingMonth">$3 680 / мес</div>
+                    <div style="font-size:12px;color:#a5d6a7;margin-top:2px;" id="savingYear">= $44 160 в год ✈️</div>
+                  </div>
+                  <div style="background:#4CAF50;border-radius:12px;padding:8px 14px;text-align:center;">
+                    <div style="font-size:28px;font-weight:900;color:#fff;line-height:1;" id="savingPct">99%</div>
+                    <div style="font-size:10px;color:#E8F5E9;font-weight:800;text-transform:uppercase;letter-spacing:1px;">дешевле</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px;padding:14px;background:rgba(108,99,255,0.1);border-radius:12px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text2);">
+              <img src="assets/octo_smart.png" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;">
+              <span><strong style="color:#fff;">Окупаемость:</strong> Один привлечённый клиент в месяц уже покрывает Pro в 5–10 раз. ROI с первого дня 🚀</span>
+            </div>
+          </div>
+
+
+          <div class="pgrid2">
+            <div class="pcard">
+              <div class="pplan">Free</div>
+              <div class="pprice">$0 <span>/ мес</span></div>
+              <div class="pdesc">Для знакомства с платформой</div>
+              <ul class="pfeatures">
+                <li><span>✅</span> 5 видео в месяц</li>
+                <li><span>✅</span> 3 карусели</li>
+                <li><span>✅</span> 1 анализ профиля</li>
+                <li><span>✅</span> Ask Octo (10 вопросов)</li>
+                <li><span>❌</span> Без водяного знака</li>
+              </ul>
+              <button class="btn btn-secondary btn-full">Текущий план</button>
+            </div>
+            <div class="pcard popular">
+              <div class="pop-badge">⭐ Популярный</div>
+              <div class="pplan">Pro</div>
+              <div class="pprice">$19.99 <span>/ мес</span></div>
+              <div class="pdesc">Для серьёзного контент-мейкера</div>
+              <ul class="pfeatures">
+                <li><span>✅</span> 150 видео в месяц</li>
+                <li><span>✅</span> Неограниченные карусели</li>
+                <li><span>✅</span> 10 анализов профиля</li>
+                <li><span>✅</span> Ask Octo безлимит</li>
+                <li><span>✅</span> Без водяного знака</li>
+                <li><span>✅</span> Своя база знаний</li>
+              </ul>
+              <button class="btn btn-primary btn-full" onclick="alert('Переходим к оплате!')">Выбрать Pro →</button>
+            </div>
+            <div class="pcard">
+              <div class="pplan">Agency</div>
+              <div class="pprice">$49.99 <span>/ мес</span></div>
+              <div class="pdesc">Для агентств и команд</div>
+              <ul class="pfeatures">
+                <li><span>✅</span> Безлимитные видео</li>
+                <li><span>✅</span> Безлимитные карусели</li>
+                <li><span>✅</span> Безлимитный анализ</li>
+                <li><span>✅</span> 5 аккаунтов в команде</li>
+                <li><span>✅</span> API доступ</li>
+                <li><span>✅</span> Белая метка (White Label)</li>
+              </ul>
+              <button class="btn btn-secondary btn-full" onclick="alert('Свяжемся с вами!')">Связаться →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="screen" id="settings">
+          <div style="margin-bottom:20px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">Профиль бренда</div>
+            <div class="srow"><div class="sinfo"><h4>Название бренда</h4><p>AI использует при генерации контента</p></div><input type="text" placeholder="Твой бренд"></div>
+            <div class="srow"><div class="sinfo"><h4>Ниша</h4><p>Octo подберёт шаблоны под сферу</p></div><select><option>Fashion & Style</option><option>Food</option><option>Fitness</option><option>Tech</option><option>Travel</option><option>Business</option></select></div>
+            <div class="srow"><div class="sinfo"><h4>Целевая аудитория</h4><p>Возраст подписчиков</p></div><select><option>18–24 (Gen Z)</option><option>25–34</option><option>35–44</option><option>B2B</option></select></div>
+            <div class="srow"><div class="sinfo"><h4>Язык контента</h4><p>Язык для подписей от Octo</p></div><select><option>Русский</option><option>English</option><option>Ukrainian</option></select></div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">Настройки Octo</div>
+            <div class="srow"><div class="sinfo"><h4>Тон контента</h4><p>Как Octo пишет тексты</p></div><select><option>Дружелюбный</option><option>Профессиональный</option><option>Продающий</option><option>Развлекательный</option></select></div>
+            <div class="srow"><div class="sinfo"><h4>Авто-выбор шаблона</h4><p>Octo выбирает лучший шаблон сам</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="srow"><div class="sinfo"><h4>Уведомления</h4><p>Когда видео готово</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <button class="btn btn-primary" onclick="alert('Настройки сохранены! 🐙')">💾 Сохранить</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const quiz = { a1: null, a2: null, a3: null, a4: null, step: 1 };
+
+  const cards = { 1: 'q1', 2: 'q1r', 3: 'q2r', 4: 'q3r' };
+
+  function selectQ(q, answer, el) {
+    quiz['a' + q] = answer;
+    document.querySelectorAll('#' + (cards[q] || '') + ' .quiz-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+
+    // Update progress dots
+    document.querySelectorAll('.quiz-progress-dot').forEach((d, i) => {
+      d.className = 'quiz-progress-dot' + (i < q ? ' done' : i === q ? ' active' : '');
+    });
+
+    setTimeout(() => {
+      // Show next card
+      document.querySelectorAll('.quiz-card').forEach(c => c.classList.remove('active'));
+      if (q < 4) {
+        const nextKeys = { 1: 'q1r', 2: 'q2r', 3: 'q3r' };
+        document.getElementById(nextKeys[q]).classList.add('active');
+      } else {
+        // Show final
+        document.querySelectorAll('.quiz-card').forEach(c => c.classList.remove('active'));
+        document.getElementById('qr1').textContent = 'Сфера: ' + quiz.a1;
+        document.getElementById('qr2').textContent = 'Цель: ' + quiz.a2;
+        document.getElementById('qr3').textContent = 'Проблема: ' + quiz.a3;
+        document.getElementById('qr4').textContent = 'Платформа: ' + quiz.a4;
+        document.getElementById('qfinal').classList.add('active');
+      }
+    }, 300);
+  }
+
+  function enterApp() {
+    document.getElementById('quizWrap').style.display = 'none';
+    document.getElementById('appWrap').style.display = 'block';
+  }
+
+  // === PRICING CALCULATOR ===
+  const calcVals = { marketer: 2000, video: 800, copy: 500, design: 400 };
+  const OCTO_PRICE = 19.99;
+
+  function calcSavings(slider, key) {
+    const val = parseInt(slider.value);
+    calcVals[key] = val;
+    const labels = { marketer: 'v_marketer', video: 'v_video', copy: 'v_copy', design: 'v_design' };
+    document.getElementById(labels[key]).textContent = '$' + val.toLocaleString('ru');
+
+    const total = Object.values(calcVals).reduce((a, b) => a + b, 0);
+    const saving = total - OCTO_PRICE;
+    const pct = Math.round((saving / total) * 100);
+    const savingYear = saving * 12;
+
+    document.getElementById('totalWithout').textContent = '$' + total.toLocaleString('ru') + ' / мес';
+    document.getElementById('savingMonth').textContent = '$' + Math.round(saving).toLocaleString('ru') + ' / мес';
+
+    // Year label with emoji based on amount
+    let emoji = saving > 5000 ? '🏠' : saving > 3000 ? '✈️' : saving > 1000 ? '🚗' : '☕';
+    document.getElementById('savingYear').textContent = '= $' + Math.round(savingYear).toLocaleString('ru') + ' в год ' + emoji;
+    document.getElementById('savingPct').textContent = pct + '%';
+
+    // Animate mascot
+    const mascot = document.getElementById('calcMascot');
+    mascot.style.transform = 'scale(1.2) rotate(-5deg)';
+    setTimeout(() => mascot.style.transform = 'scale(1) rotate(0deg)', 300);
+  }
+
+  // App screens
+  const titles = {
+    dashboard: ['Dashboard', 'Welcome back! Твой маркетинговый обзор.'],
+    advisor: ['Ask Octo 🐙', 'Задай вопрос своему AI маркетологу'],
+    analyzer: ['Profile Analyzer', 'Получи полный аудит Instagram или TikTok'],
+    video: ['Video Creator', 'Обработай видео с AI шаблонами'],
+    carousel: ['Carousel Builder', 'Создай карусель с единым стилем'],
+    photo: ['Photo Edit', 'Улучши фото для Instagram'],
+    pricing: ['Pricing', 'Выбери подходящий план'],
+    settings: ['Settings', 'Настрой Octo под свой бренд'],
+  };
+
+  function showScreen(id, navEl) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (navEl) navEl.classList.add('active');
+    const [t, s] = titles[id] || ['', ''];
+    document.getElementById('topTitle').textContent = t;
+    document.getElementById('topSub').textContent = s;
+    window.scrollTo(0, 0);
+    // Скрываем маскота на экране чата — он мешает кнопке отправки
+    const w = document.getElementById('octoWidget');
+    if (w) w.style.display = id === 'advisor' ? 'none' : 'block';
+  }
+
+  // Chat
+  const aiR = {
+    'контент': 'Вот контент-план на неделю 📅<br><br><strong>Пн:</strong> Образовательная карусель "3 совета"<br><strong>Вт:</strong> Reels с трендовым звуком (15–30 сек)<br><strong>Ср:</strong> Stories — опрос аудитории<br><strong>Чт:</strong> Закулисье / день из жизни<br><strong>Пт:</strong> Продающий пост<br><strong>Сб:</strong> Отзыв клиента или UGC<br><strong>Вс:</strong> Личный пост, история<br><br>💡 Публикуй Reels 3x в неделю — максимальный органический охват.',
+    'подпись': 'Вот варианты подписей 🐙<br><br>🔥 <strong>Продающий:</strong><br>"Ты уже пробовал [продукт]? Вот почему 1000+ клиентов выбрали нас 👇 Ссылка в шапке."<br><br>💡 <strong>Вовлекающий:</strong><br>"Согласен? Напиши + в комментах и я пришлю тебе [бонус] 🎁"<br><br>📊 <strong>Образовательный:</strong><br>"3 ошибки, которые убивают охваты 👇<br>1. Нерегулярный постинг<br>2. Нет CTA<br>3. Плохое качество<br><br>Сохрани, чтобы не забыть!"',
+    'tiktok': 'Как расти в TikTok в 2025 🚀<br><br>🔥 <strong>Алгоритм любит:</strong><br>• Видео до 30 сек с высоким completion rate<br>• Первые 2 секунды должны зацепить<br>• Трендовые звуки (обновляй каждую неделю)<br>• Серийный контент (часть 1, 2, 3...)<br><br>📈 <strong>Стратегия:</strong><br>• Постить 1–2 раза в день первый месяц<br>• 3–5 хэштегов (не 30!)<br>• Отвечать на ВСЕ комменты первые 2 часа',
+    'тренд': '🔥 Тренды этой недели:<br><br><strong>TikTok:</strong><br>• "POV" формат — от лица клиента<br>• Трансформации "before/after"<br>• "Day in my life" за кулисами бизнеса<br><br><strong>Instagram Reels:</strong><br>• Образовательные карусели "N причин"<br>• Закулисье создания продукта<br>• Отзывы клиентов в видео<br><br><strong>Сейчас работает:</strong><br>• Аутентичность > полировка<br>• Короткие факты с цифрами<br>• Личные истории',
+    'аудитори': 'Как найти целевую аудиторию 🎯<br><br><strong>1. Определи боль</strong> — что твой продукт решает?<br><strong>2. Анализ конкурентов</strong> — кто комментирует их посты?<br><strong>3. Instagram Analytics</strong> → Insights → Audience<br><strong>4. Тест гипотез</strong> — 3 поста для разных сегментов<br><br>💡 Твоя аудитория судя по квизу: 22–35 лет, хотят расти в соцсетях и экономить время на маркетинге.',
+  };
+
+  function qpSend(el) {
+    document.getElementById('chatInput').value = el.textContent.replace(/[📊✍️📈🔥🎯]/g, '').trim();
+    sendMsg();
+  }
+
+  function chatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+  }
+
+  function sendMsg() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const msgs = document.getElementById('chatMessages');
+
+    msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${text}</div><div class="msg-time">Вы • сейчас</div></div></div>`;
+    msgs.innerHTML += `<div class="msg ai" id="loadMsg"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+    input.value = '';
+
+    const key = Object.keys(aiR).find(k => text.toLowerCase().includes(k));
+    const resp = key ? aiR[key] : `Отличный вопрос про "<strong>${text}</strong>" 🐙<br><br>Для роста в соцсетях главное — системность и понимание аудитории. Начни с анализа профиля через <strong>Profile Analyzer</strong>, потом создадим контент-план специально под твою нишу.<br><br>💡 Хочешь контент-план на неделю?`;
+
+    setTimeout(() => {
+      document.getElementById('loadMsg').outerHTML = `<div class="msg ai"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${resp}</div><div class="msg-time">Octo • сейчас</div></div></div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+    }, 1200);
+  }
+
+  // Analyzer
+  function analyzeProfile() {
+    const url = document.getElementById('profileUrl').value;
+    if (!url) { alert('Вставь ссылку на профиль'); return; }
+    const name = url.split('/').filter(Boolean).pop() || 'username';
+    document.getElementById('profileName').textContent = '@' + name;
+    document.getElementById('analysisResult').style.display = 'block';
+    document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Video
+  const vT = {
+    stories: [
+      { n:'Vibrant Pop', d:'Яркие цвета', e:'🌈', c:'linear-gradient(135deg,#FF6B6B,#FFE66D)', ai:true },
+      { n:'Minimal Clean', d:'Чистый стиль', e:'⬜', c:'linear-gradient(135deg,#2C2C3E,#4A4A6A)', ai:false },
+      { n:'Glitch Art', d:'Глитч эффект', e:'⚡', c:'linear-gradient(135deg,#0F0F1A,#6C63FF)', ai:false },
+    ],
+    reels: [
+      { n:'Cinematic Flow', d:'Кинематограф', e:'🎬', c:'linear-gradient(135deg,#1A1A2E,#16213E)', ai:true },
+      { n:'Neon Dreams', d:'Неон', e:'🌃', c:'linear-gradient(135deg,#0F0F1A,#FF6EC7)', ai:false },
+      { n:'Retro Wave', d:'Синтвейв', e:'🌅', c:'linear-gradient(135deg,#2D1B69,#FF6B35)', ai:false },
+    ],
+    tiktok: [
+      { n:'Trending Beat', d:'Для вирального', e:'🔥', c:'linear-gradient(135deg,#FF0050,#00F2EA)', ai:true },
+      { n:'Energetic Flash', d:'Высокий контраст', e:'⚡', c:'linear-gradient(135deg,#FF4500,#FFD700)', ai:false },
+      { n:'Aesthetic Fade', d:'Пастель', e:'🌸', c:'linear-gradient(135deg,#F8BBD9,#C5CAE9)', ai:false },
+    ],
+  };
+  const fmtN = { stories:'Instagram Stories', reels:'Instagram Reels', tiktok:'TikTok' };
+  const vS = { fmt: null, tmpl: null, file: null };
+
+  function vFileOk(e) {
+    const f = e.target.files[0]; if (!f) return;
+    vS.file = f.name;
+    document.getElementById('vfInfo').style.display = 'flex';
+    document.getElementById('vfName').textContent = f.name;
+    document.getElementById('vb1').disabled = false;
+  }
+
+  function vs(n) {
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById('vs' + i).style.display = i === n ? 'block' : 'none';
+      const el = document.getElementById('vn' + i);
+      el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
+    }
+    if (n === 4) document.getElementById('vrd').textContent = (vS.tmpl?.n || '') + ' применён для ' + (fmtN[vS.fmt] || '');
+  }
+
+  function vFmt(fmt, el) {
+    vS.fmt = fmt;
+    document.querySelectorAll('.fc').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('vb2').disabled = false;
+  }
+
+  function vAI() {
+    vs(3);
+    const t = vT[vS.fmt];
+    document.getElementById('vtc').textContent = '(' + t.length + ' шаблона)';
+    document.getElementById('vtg').innerHTML = t.map((x, i) =>
+      `<div class="tc ${i===0?'selected':''}" onclick="vTmpl(${i},this)">
+        ${x.ai ? '<div class="ai-badge">🐙 Pick</div>' : ''}
+        <div class="tc-preview" style="background:${x.c}">${x.e}</div>
+        <div class="tc-name">${x.n}</div>
+        <div class="tc-desc">${x.d}</div>
+      </div>`
+    ).join('');
+    vS.tmpl = t[0];
+    document.getElementById('vb3').disabled = false;
+  }
+
+  function vTmpl(i, el) {
+    document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    vS.tmpl = vT[vS.fmt][i];
+    document.getElementById('vb3').disabled = false;
+  }
+
+  function fakeDl() {
+    const b = document.getElementById('vdb');
+    b.textContent = '✓ Скачано!';
+    b.style.background = '#2A4A2A';
+    b.disabled = true;
+  }
+
+  function vReset() {
+    vS.fmt = null; vS.tmpl = null; vS.file = null;
+    document.getElementById('vfInfo').style.display = 'none';
+    document.getElementById('vb1').disabled = true;
+    vs(1);
+  }
+
+  function buildCarousel() {
+    document.getElementById('carRes').style.display = 'block';
+    document.getElementById('carRes').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function sStyle(el) {
+    document.querySelectorAll('.sopt').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  // =============================================
+  // 🐙 ЖИВОЙ МАСКОТ — следит за мышкой
+  // =============================================
+  (function() {
+    // Создаём виджет
+    const widget = document.createElement('div');
+    widget.id = 'octoWidget';
+    widget.innerHTML = `
+      <div id="octoBody">
+        <img id="octoImg" src="assets/octo_happy.png" alt="Octo">
+        <div id="octoBubble"></div>
+      </div>
+    `;
+    widget.style.cssText = `
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 9999;
+      cursor: pointer;
+      user-select: none;
+    `;
+    document.body.appendChild(widget);
+
+    const octoImg  = document.getElementById('octoImg');
+    const octoBody = document.getElementById('octoBody');
+    const bubble   = document.getElementById('octoBubble');
+
+    // Стили
+    const style = document.createElement('style');
+    style.textContent = `
+      #octoBody {
+        width: 100px;
+        height: 100px;
+        position: relative;
+        animation: octoFloat 3s ease-in-out infinite;
+        transition: transform 0.15s ease-out;
+        filter: drop-shadow(0 12px 24px rgba(108,99,255,0.5));
+      }
+      #octoImg {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transition: transform 0.2s ease-out;
+      }
+      @keyframes octoFloat {
+        0%,100% { transform: translateY(0px) rotate(0deg); }
+        25%      { transform: translateY(-8px) rotate(1.5deg); }
+        75%      { transform: translateY(-4px) rotate(-1deg); }
+      }
+      #octoBubble {
+        position: absolute;
+        bottom: 110%;
+        right: 0;
+        background: #1A1A2E;
+        border: 1.5px solid #6C63FF;
+        border-radius: 16px 16px 4px 16px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: #fff;
+        white-space: nowrap;
+        box-shadow: 0 4px 20px rgba(108,99,255,0.4);
+        opacity: 0;
+        transform: scale(0.8) translateY(8px);
+        transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        pointer-events: none;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      #octoBubble.show {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+      #octoWidget:hover #octoBody {
+        filter: drop-shadow(0 16px 32px rgba(108,99,255,0.8));
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Фразы маскота
+    const phrases = [
+      '👋 Привет! Чем помочь?',
+      '📈 Твой контент огонь!',
+      '🚀 Давай сделаем Reels?',
+      '💡 Есть идея для поста!',
+      '🎯 Хочешь контент-план?',
+      '🐙 Я всегда рядом!',
+      '✨ Проверь Profile Analyzer!',
+      '🔥 Тренды обновились!',
+    ];
+    let phraseIdx = 0;
+    let bubbleTimer = null;
+
+    function showBubble(text) {
+      bubble.textContent = text || phrases[phraseIdx++ % phrases.length];
+      bubble.classList.add('show');
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 3000);
+    }
+
+    // Клик — показывает фразу и меняет маскота
+    const mascots = ['assets/octo_happy.png','assets/octo_thumbsup.png','assets/octo_celebrate.png','assets/octo_idea.png','assets/octo_search.png'];
+    let mascotIdx = 0;
+    widget.addEventListener('click', () => {
+      mascotIdx = (mascotIdx + 1) % mascots.length;
+      octoImg.style.transform = 'scale(1.3) rotate(-10deg)';
+      setTimeout(() => {
+        octoImg.src = mascots[mascotIdx];
+        octoImg.style.transform = 'scale(1) rotate(0deg)';
+      }, 150);
+      showBubble();
+    });
+
+    // Слежение за мышкой
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let currentTiltX = 0, currentTiltY = 0;
+    let rafId;
+
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    function animateTilt() {
+      const rect = widget.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const dx = mouseX - centerX;
+      const dy = mouseY - centerY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      // Угол взгляда — максимум 20 градусов
+      const maxTilt = 20;
+      const factor = Math.min(dist / 400, 1);
+      const targetTiltX = -(dy / (dist || 1)) * maxTilt * factor;
+      const targetTiltY =  (dx / (dist || 1)) * maxTilt * factor;
+
+      // Плавная интерполяция
+      currentTiltX += (targetTiltX - currentTiltX) * 0.08;
+      currentTiltY += (targetTiltY - currentTiltY) * 0.08;
+
+      octoBody.style.transform = `rotateX(${currentTiltX}deg) rotateY(${currentTiltY}deg)`;
+
+      // Если мышь близко — маскот "замечает"
+      if (dist < 120 && Math.random() < 0.002) {
+        showBubble('👀 Заметил тебя!');
+      }
+
+      rafId = requestAnimationFrame(animateTilt);
+    }
+
+    // Проверяем — не на экране чата ли мы?
+    function isAdvisorActive() {
+      const s = document.getElementById('advisor');
+      return s && s.classList.contains('active');
+    }
+
+    function startOcto() {
+      if (document.getElementById('appWrap').style.display !== 'none' && !isAdvisorActive()) {
+        widget.style.display = 'block';
+        if (!rafId) animateTilt();
+      }
+    }
+
+    // На каждый клик перепроверяем — если открыли чат, прячем
+    document.addEventListener('click', () => {
+      setTimeout(() => {
+        if (isAdvisorActive()) {
+          widget.style.display = 'none';
+        } else {
+          startOcto();
+        }
+      }, 50);
+    });
+
+    // Скрываем изначально
+    widget.style.display = 'none';
+
+    // Автоматические фразы — только не в чате
+    setInterval(() => {
+      if (document.getElementById('appWrap').style.display !== 'none' && !isAdvisorActive()) {
+        showBubble();
+      }
+    }, 15000);
+
+    // Первое появление
+    setTimeout(() => {
+      if (document.getElementById('appWrap').style.display !== 'none' && !isAdvisorActive()) {
+        widget.style.display = 'block';
+        animateTilt();
+        setTimeout(() => showBubble('👋 Привет! Я Octo — кликни на меня!'), 1000);
+      }
+    }, 500);
+
+  })();
+</script>
+</body>
+</html>

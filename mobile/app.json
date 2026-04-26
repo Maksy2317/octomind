@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "AI Marketer",
+    "slug": "ai-marketer",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0F1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.aimarketer.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Access your photo library to select videos for marketing.",
+        "NSCameraUsageDescription": "Record videos directly in the app.",
+        "NSMicrophoneUsageDescription": "Record audio for your marketing videos."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F0F1A"
+      },
+      "package": "com.aimarketer.app",
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow AI Marketer to access your photos.",
+          "savePhotosPermission": "Allow AI Marketer to save videos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ],
+    "scheme": "ai-marketer",
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    }
+  }
+}
