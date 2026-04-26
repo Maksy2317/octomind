@@ -1061,8 +1061,54 @@
         <div class="screen" id="pricing">
           <div style="text-align:center;margin-bottom:28px;">
             <img src="assets/octo_wizard.png" style="width:72px;height:72px;object-fit:contain;margin-bottom:10px;">
-            <h2 style="font-size:26px;margin-bottom:6px;">Выбери свой план</h2>
-            <p style="color:var(--text3);">Начни бесплатно. Расти с OctoMind.</p>
+            <h2 style="font-size:26px;margin-bottom:6px;" data-i18n="pricing_title">Выбери свой план</h2>
+            <p style="color:var(--text3);" data-i18n="pricing_sub">Начни бесплатно. Расти с OctoMind.</p>
+          </div>
+
+          <!-- PRICING CARDS FIRST -->
+          <div class="pgrid2" style="margin-bottom:32px;">
+            <div class="pcard">
+              <div class="pplan" data-i18n="plan_free">Free</div>
+              <div class="pprice">$0 <span data-i18n="per_month">/ мес</span></div>
+              <div class="pdesc" data-i18n="plan_free_desc">Для знакомства с платформой</div>
+              <ul class="pfeatures">
+                <li><span>✅</span> <span data-i18n="f_videos5">5 видео в месяц</span></li>
+                <li><span>✅</span> <span data-i18n="f_carousels3">3 карусели</span></li>
+                <li><span>✅</span> <span data-i18n="f_analysis1">1 анализ профиля</span></li>
+                <li><span>✅</span> <span data-i18n="f_octo10">Ask Octo (10 вопросов)</span></li>
+                <li><span>❌</span> <span data-i18n="f_nowatermark">Без водяного знака</span></li>
+              </ul>
+              <button class="btn btn-secondary btn-full" data-i18n="btn_current">Текущий план</button>
+            </div>
+            <div class="pcard popular">
+              <div class="pop-badge">⭐ <span data-i18n="popular">Популярный</span></div>
+              <div class="pplan">Pro</div>
+              <div class="pprice">$19.99 <span data-i18n="per_month">/ мес</span></div>
+              <div class="pdesc" data-i18n="plan_pro_desc">Для серьёзного контент-мейкера</div>
+              <ul class="pfeatures">
+                <li><span>✅</span> <span data-i18n="f_videos150">150 видео в месяц</span></li>
+                <li><span>✅</span> <span data-i18n="f_carousels_unlimited">Неограниченные карусели</span></li>
+                <li><span>✅</span> <span data-i18n="f_analysis10">10 анализов профиля</span></li>
+                <li><span>✅</span> <span data-i18n="f_octo_unlimited">Ask Octo безлимит</span></li>
+                <li><span>✅</span> <span data-i18n="f_nowatermark">Без водяного знака</span></li>
+                <li><span>✅</span> <span data-i18n="f_kb">Своя база знаний</span></li>
+              </ul>
+              <button class="btn btn-primary btn-full" onclick="alert('Переходим к оплате!')" data-i18n="btn_choose_pro">Выбрать Pro →</button>
+            </div>
+            <div class="pcard">
+              <div class="pplan">Agency</div>
+              <div class="pprice">$49.99 <span data-i18n="per_month">/ мес</span></div>
+              <div class="pdesc" data-i18n="plan_agency_desc">Для агентств и команд</div>
+              <ul class="pfeatures">
+                <li><span>✅</span> <span data-i18n="f_videos_unlimited">Безлимитные видео</span></li>
+                <li><span>✅</span> <span data-i18n="f_carousels_unlimited">Безлимитные карусели</span></li>
+                <li><span>✅</span> <span data-i18n="f_analysis_unlimited">Безлимитный анализ</span></li>
+                <li><span>✅</span> <span data-i18n="f_team5">5 аккаунтов в команде</span></li>
+                <li><span>✅</span> <span data-i18n="f_api">API доступ</span></li>
+                <li><span>✅</span> <span data-i18n="f_whitelabel">Белая метка (White Label)</span></li>
+              </ul>
+              <button class="btn btn-secondary btn-full" onclick="alert('Свяжемся с вами!')" data-i18n="btn_contact">Связаться →</button>
+            </div>
           </div>
 
           <!-- INTERACTIVE SAVINGS CALCULATOR -->
@@ -1148,68 +1194,34 @@
           </div>
 
 
-          <div class="pgrid2">
-            <div class="pcard">
-              <div class="pplan">Free</div>
-              <div class="pprice">$0 <span>/ мес</span></div>
-              <div class="pdesc">Для знакомства с платформой</div>
-              <ul class="pfeatures">
-                <li><span>✅</span> 5 видео в месяц</li>
-                <li><span>✅</span> 3 карусели</li>
-                <li><span>✅</span> 1 анализ профиля</li>
-                <li><span>✅</span> Ask Octo (10 вопросов)</li>
-                <li><span>❌</span> Без водяного знака</li>
-              </ul>
-              <button class="btn btn-secondary btn-full">Текущий план</button>
-            </div>
-            <div class="pcard popular">
-              <div class="pop-badge">⭐ Популярный</div>
-              <div class="pplan">Pro</div>
-              <div class="pprice">$19.99 <span>/ мес</span></div>
-              <div class="pdesc">Для серьёзного контент-мейкера</div>
-              <ul class="pfeatures">
-                <li><span>✅</span> 150 видео в месяц</li>
-                <li><span>✅</span> Неограниченные карусели</li>
-                <li><span>✅</span> 10 анализов профиля</li>
-                <li><span>✅</span> Ask Octo безлимит</li>
-                <li><span>✅</span> Без водяного знака</li>
-                <li><span>✅</span> Своя база знаний</li>
-              </ul>
-              <button class="btn btn-primary btn-full" onclick="alert('Переходим к оплате!')">Выбрать Pro →</button>
-            </div>
-            <div class="pcard">
-              <div class="pplan">Agency</div>
-              <div class="pprice">$49.99 <span>/ мес</span></div>
-              <div class="pdesc">Для агентств и команд</div>
-              <ul class="pfeatures">
-                <li><span>✅</span> Безлимитные видео</li>
-                <li><span>✅</span> Безлимитные карусели</li>
-                <li><span>✅</span> Безлимитный анализ</li>
-                <li><span>✅</span> 5 аккаунтов в команде</li>
-                <li><span>✅</span> API доступ</li>
-                <li><span>✅</span> Белая метка (White Label)</li>
-              </ul>
-              <button class="btn btn-secondary btn-full" onclick="alert('Свяжемся с вами!')">Связаться →</button>
-            </div>
-          </div>
         </div>
 
         <!-- Settings -->
         <div class="screen" id="settings">
+
+          <!-- LANGUAGE SWITCHER -->
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_language">🌐 Язык интерфейса</div>
+            <div style="display:flex;gap:10px;">
+              <button id="lang-ru" onclick="setLang('ru')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#1A1A3A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇷🇺 Русский</button>
+              <button id="lang-uk" onclick="setLang('uk')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇺🇦 Українська</button>
+              <button id="lang-en" onclick="setLang('en')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇬🇧 English</button>
+            </div>
+          </div>
+
           <div style="margin-bottom:20px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">Профиль бренда</div>
-            <div class="srow"><div class="sinfo"><h4>Название бренда</h4><p>AI использует при генерации контента</p></div><input type="text" placeholder="Твой бренд"></div>
-            <div class="srow"><div class="sinfo"><h4>Ниша</h4><p>Octo подберёт шаблоны под сферу</p></div><select><option>Fashion & Style</option><option>Food</option><option>Fitness</option><option>Tech</option><option>Travel</option><option>Business</option></select></div>
-            <div class="srow"><div class="sinfo"><h4>Целевая аудитория</h4><p>Возраст подписчиков</p></div><select><option>18–24 (Gen Z)</option><option>25–34</option><option>35–44</option><option>B2B</option></select></div>
-            <div class="srow"><div class="sinfo"><h4>Язык контента</h4><p>Язык для подписей от Octo</p></div><select><option>Русский</option><option>English</option><option>Ukrainian</option></select></div>
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;" data-i18n="s_brand">Профиль бренда</div>
+            <div class="srow"><div class="sinfo"><h4 data-i18n="s_brandname">Название бренда</h4><p data-i18n="s_brandname_sub">AI использует при генерации контента</p></div><input type="text" placeholder="Твой бренд"></div>
+            <div class="srow"><div class="sinfo"><h4 data-i18n="s_niche">Ниша</h4><p data-i18n="s_niche_sub">Octo подберёт шаблоны под сферу</p></div><select><option>Fashion & Style</option><option>Food</option><option>Fitness</option><option>Tech</option><option>Travel</option><option>Business</option></select></div>
+            <div class="srow"><div class="sinfo"><h4 data-i18n="s_audience">Целевая аудитория</h4><p data-i18n="s_audience_sub">Возраст подписчиков</p></div><select><option>18–24 (Gen Z)</option><option>25–34</option><option>35–44</option><option>B2B</option></select></div>
           </div>
           <div style="margin-bottom:20px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">Настройки Octo</div>
-            <div class="srow"><div class="sinfo"><h4>Тон контента</h4><p>Как Octo пишет тексты</p></div><select><option>Дружелюбный</option><option>Профессиональный</option><option>Продающий</option><option>Развлекательный</option></select></div>
-            <div class="srow"><div class="sinfo"><h4>Авто-выбор шаблона</h4><p>Octo выбирает лучший шаблон сам</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-            <div class="srow"><div class="sinfo"><h4>Уведомления</h4><p>Когда видео готово</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;" data-i18n="s_octo_settings">Настройки Octo</div>
+            <div class="srow"><div class="sinfo"><h4 data-i18n="s_tone">Тон контента</h4><p data-i18n="s_tone_sub">Как Octo пишет тексты</p></div><select><option data-i18n="tone_friendly">Дружелюбный</option><option data-i18n="tone_pro">Профессиональный</option><option data-i18n="tone_sales">Продающий</option><option data-i18n="tone_fun">Развлекательный</option></select></div>
+            <div class="srow"><div class="sinfo"><h4 data-i18n="s_autotemplate">Авто-выбор шаблона</h4><p data-i18n="s_autotemplate_sub">Octo выбирает лучший шаблон сам</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="srow"><div class="sinfo"><h4 data-i18n="s_notifications">Уведомления</h4><p data-i18n="s_notifications_sub">Когда видео готово</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
           </div>
-          <button class="btn btn-primary" onclick="alert('Настройки сохранены! 🐙')">💾 Сохранить</button>
+          <button class="btn btn-primary" onclick="alert('Настройки сохранены! 🐙')" data-i18n="btn_save">💾 Сохранить</button>
         </div>
 
       </div>
@@ -1295,6 +1307,97 @@
     pricing: ['Pricing', 'Выбери подходящий план'],
     settings: ['Settings', 'Настрой Octo под свой бренд'],
   };
+
+  // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
+  const translations = {
+    ru: {
+      pricing_title:'Выбери свой план', pricing_sub:'Начни бесплатно. Расти с OctoMind.',
+      plan_free:'Free', plan_free_desc:'Для знакомства с платформой',
+      plan_pro_desc:'Для серьёзного контент-мейкера', plan_agency_desc:'Для агентств и команд',
+      per_month:'/ мес', popular:'Популярный',
+      f_videos5:'5 видео в месяц', f_carousels3:'3 карусели', f_analysis1:'1 анализ профиля',
+      f_octo10:'Ask Octo (10 вопросов)', f_nowatermark:'Без водяного знака',
+      f_videos150:'150 видео в месяц', f_carousels_unlimited:'Неограниченные карусели',
+      f_analysis10:'10 анализов профиля', f_octo_unlimited:'Ask Octo безлимит', f_kb:'Своя база знаний',
+      f_videos_unlimited:'Безлимитные видео', f_analysis_unlimited:'Безлимитный анализ',
+      f_team5:'5 аккаунтов в команде', f_api:'API доступ', f_whitelabel:'Белая метка (White Label)',
+      btn_current:'Текущий план', btn_choose_pro:'Выбрать Pro →', btn_contact:'Связаться →', btn_save:'💾 Сохранить',
+      s_language:'🌐 Язык интерфейса', s_brand:'Профиль бренда',
+      s_brandname:'Название бренда', s_brandname_sub:'AI использует при генерации контента',
+      s_niche:'Ниша', s_niche_sub:'Octo подберёт шаблоны под сферу',
+      s_audience:'Целевая аудитория', s_audience_sub:'Возраст подписчиков',
+      s_octo_settings:'Настройки Octo', s_tone:'Тон контента', s_tone_sub:'Как Octo пишет тексты',
+      tone_friendly:'Дружелюбный', tone_pro:'Профессиональный', tone_sales:'Продающий', tone_fun:'Развлекательный',
+      s_autotemplate:'Авто-выбор шаблона', s_autotemplate_sub:'Octo выбирает лучший шаблон сам',
+      s_notifications:'Уведомления', s_notifications_sub:'Когда видео готово',
+    },
+    uk: {
+      pricing_title:'Обери свій план', pricing_sub:'Починай безкоштовно. Зростай з OctoMind.',
+      plan_free:'Free', plan_free_desc:'Для знайомства з платформою',
+      plan_pro_desc:'Для серйозного контент-мейкера', plan_agency_desc:'Для агентств і команд',
+      per_month:'/ міс', popular:'Популярний',
+      f_videos5:'5 відео на місяць', f_carousels3:'3 каруселі', f_analysis1:'1 аналіз профілю',
+      f_octo10:'Ask Octo (10 питань)', f_nowatermark:'Без водяного знаку',
+      f_videos150:'150 відео на місяць', f_carousels_unlimited:'Необмежені каруселі',
+      f_analysis10:'10 аналізів профілю', f_octo_unlimited:'Ask Octo безліміт', f_kb:'Власна база знань',
+      f_videos_unlimited:'Безлімітні відео', f_analysis_unlimited:'Безлімітний аналіз',
+      f_team5:'5 акаунтів у команді', f_api:'API доступ', f_whitelabel:'Біла мітка (White Label)',
+      btn_current:'Поточний план', btn_choose_pro:'Обрати Pro →', btn_contact:'Зв\'язатися →', btn_save:'💾 Зберегти',
+      s_language:'🌐 Мова інтерфейсу', s_brand:'Профіль бренду',
+      s_brandname:'Назва бренду', s_brandname_sub:'AI використовує при генерації контенту',
+      s_niche:'Ніша', s_niche_sub:'Octo підбере шаблони під сферу',
+      s_audience:'Цільова аудиторія', s_audience_sub:'Вік підписників',
+      s_octo_settings:'Налаштування Octo', s_tone:'Тон контенту', s_tone_sub:'Як Octo пише тексти',
+      tone_friendly:'Дружній', tone_pro:'Професійний', tone_sales:'Продажний', tone_fun:'Розважальний',
+      s_autotemplate:'Авто-вибір шаблону', s_autotemplate_sub:'Octo вибирає кращий шаблон сам',
+      s_notifications:'Сповіщення', s_notifications_sub:'Коли відео готове',
+    },
+    en: {
+      pricing_title:'Choose your plan', pricing_sub:'Start free. Grow with OctoMind.',
+      plan_free:'Free', plan_free_desc:'Get started with the platform',
+      plan_pro_desc:'For serious content creators', plan_agency_desc:'For agencies and teams',
+      per_month:'/ mo', popular:'Popular',
+      f_videos5:'5 videos per month', f_carousels3:'3 carousels', f_analysis1:'1 profile analysis',
+      f_octo10:'Ask Octo (10 questions)', f_nowatermark:'No watermark',
+      f_videos150:'150 videos per month', f_carousels_unlimited:'Unlimited carousels',
+      f_analysis10:'10 profile analyses', f_octo_unlimited:'Ask Octo unlimited', f_kb:'Custom knowledge base',
+      f_videos_unlimited:'Unlimited videos', f_analysis_unlimited:'Unlimited analysis',
+      f_team5:'5 team accounts', f_api:'API access', f_whitelabel:'White Label',
+      btn_current:'Current plan', btn_choose_pro:'Choose Pro →', btn_contact:'Contact us →', btn_save:'💾 Save',
+      s_language:'🌐 Interface language', s_brand:'Brand profile',
+      s_brandname:'Brand name', s_brandname_sub:'AI uses it when generating content',
+      s_niche:'Niche', s_niche_sub:'Octo picks templates for your niche',
+      s_audience:'Target audience', s_audience_sub:'Subscriber age range',
+      s_octo_settings:'Octo settings', s_tone:'Content tone', s_tone_sub:'How Octo writes texts',
+      tone_friendly:'Friendly', tone_pro:'Professional', tone_sales:'Sales', tone_fun:'Entertainment',
+      s_autotemplate:'Auto template', s_autotemplate_sub:'Octo picks the best template automatically',
+      s_notifications:'Notifications', s_notifications_sub:'When video is ready',
+    }
+  };
+
+  let currentLang = 'ru';
+
+  function setLang(lang) {
+    currentLang = lang;
+    const t = translations[lang];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (t[key]) el.textContent = t[key];
+    });
+    ['ru','uk','en'].forEach(l => {
+      const btn = document.getElementById('lang-' + l);
+      if (!btn) return;
+      if (l === lang) {
+        btn.style.borderColor = 'var(--accent)';
+        btn.style.background = '#1A1A3A';
+        btn.style.color = '#fff';
+      } else {
+        btn.style.borderColor = 'var(--border)';
+        btn.style.background = 'var(--surface2)';
+        btn.style.color = 'var(--text2)';
+      }
+    });
+  }
 
   function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('open');
