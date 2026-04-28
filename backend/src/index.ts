@@ -4,6 +4,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { videoRouter } from './routes/video';
+import { chatRouter } from './routes/chat';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/output', express.static(path.resolve(outputDir)));
 
 app.use('/api/video', videoRouter);
+app.use('/api/chat', chatRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

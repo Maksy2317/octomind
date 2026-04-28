@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OctoMind — AI Marketing Assistant</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#6C63FF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OctoMind">
+  <link rel="apple-touch-icon" href="assets/icon.png">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -511,6 +517,47 @@
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+    /* ========== AUTH MODAL ========== */
+    .auth-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 24px; backdrop-filter: blur(8px);
+    }
+    .auth-overlay.hidden { display: none; }
+    .auth-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 28px; padding: 36px 28px; width: 100%; max-width: 400px;
+      animation: slideUp 0.4s ease;
+    }
+    .auth-logo { text-align: center; margin-bottom: 28px; }
+    .auth-logo img { width: 72px; height: 72px; object-fit: contain; margin-bottom: 12px; }
+    .auth-logo h2 { font-size: 22px; font-weight: 900; }
+    .auth-logo h2 span { color: var(--accent2); }
+    .auth-logo p { font-size: 13px; color: var(--text3); margin-top: 4px; }
+    .auth-tabs { display: flex; background: var(--surface2); border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+    .auth-tab {
+      flex: 1; padding: 10px; text-align: center; border-radius: 10px;
+      font-size: 14px; font-weight: 700; cursor: pointer; color: var(--text3); transition: all 0.2s;
+    }
+    .auth-tab.active { background: var(--accent); color: white; }
+    .auth-input {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 14px 16px; font-size: 14px; color: var(--text);
+      outline: none; margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .auth-input:focus { border-color: var(--accent); }
+    .auth-btn {
+      width: 100%; background: linear-gradient(135deg, var(--accent), #9B6EFF);
+      border: none; border-radius: 14px; padding: 16px; font-size: 15px;
+      font-weight: 800; color: white; cursor: pointer; margin-top: 4px;
+      box-shadow: 0 8px 24px #6C63FF44; transition: all 0.2s;
+    }
+    .auth-btn:hover { transform: translateY(-2px); }
+    .auth-divider { text-align: center; color: var(--text4); font-size: 12px; margin: 16px 0; }
+    .auth-skip { text-align: center; margin-top: 14px; font-size: 13px; color: var(--text3); }
+    .auth-skip a { color: var(--accent2); cursor: pointer; text-decoration: none; }
+    .auth-error { background: #2A1A1A; border: 1px solid #4A2A2A; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #ff7a7a; margin-bottom: 12px; display: none; }
+
     /* Mobile hamburger button */
     .hamburger {
       display: none;
@@ -557,8 +604,30 @@
 </head>
 <body>
 
+<!-- ============ AUTH ============ -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <img src="assets/octo_happy.png" alt="Octo">
+      <h2>Octo<span>Mind</span></h2>
+      <p>AI Marketing Assistant</p>
+    </div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Войти</div>
+      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Регистрация</div>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <input class="auth-input" id="auth-email" type="email" placeholder="Email">
+    <input class="auth-input" id="auth-password" type="password" placeholder="Пароль">
+    <input class="auth-input hidden" id="auth-name" type="text" placeholder="Твоё имя" style="display:none;">
+    <button class="auth-btn" id="auth-submit" onclick="submitAuth()">🚀 Войти</button>
+    <div class="auth-divider">или</div>
+    <div class="auth-skip">Хочешь просто посмотреть? <a onclick="skipAuth()">Пропустить →</a></div>
+  </div>
+</div>
+
 <!-- ============ QUIZ ============ -->
-<div id="quizWrap">
+<div id="quizWrap" style="display:none;">
   <div class="quiz-box">
     <div class="quiz-logo">
       <img class="octo-img" src="assets/octo_happy.png" alt="Octo">
@@ -1308,6 +1377,64 @@
     settings: ['Settings', 'Настрой Octo под свой бренд'],
   };
 
+  // ── AUTH ─────────────────────────────────────────────────────────────────────
+  const SUPABASE_URL = 'https://tguuovuvwlsfmmjybnoq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndXVvdnV2d2xzZm1tanlibm9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczODY3NTYsImV4cCI6MjA5Mjk2Mjc1Nn0.88uj4GzF7vHD0ju51InPG2suyo0XFJ5FLPTpVQ5I3Wo';
+
+  function switchTab(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('auth-name').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('auth-submit').textContent = tab === 'login' ? '🚀 Войти' : '✨ Создать аккаунт';
+  }
+
+  async function submitAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+    errEl.style.display = 'none';
+
+    if (!email || !password) { errEl.textContent = 'Заполни email и пароль'; errEl.style.display = 'block'; return; }
+
+    if (!SUPABASE_URL) {
+      skipAuth();
+      return;
+    }
+
+    const isLogin = document.getElementById('tab-login').classList.contains('active');
+    const endpoint = isLogin ? '/auth/v1/token?grant_type=password' : '/auth/v1/signup';
+    try {
+      const res = await fetch(SUPABASE_URL + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.error) { errEl.textContent = data.error.message || data.error; errEl.style.display = 'block'; return; }
+      localStorage.setItem('octo_user', JSON.stringify({ email, token: data.access_token }));
+      document.getElementById('authOverlay').classList.add('hidden');
+      document.getElementById('quizWrap').style.display = '';
+    } catch {
+      errEl.textContent = 'Ошибка подключения'; errEl.style.display = 'block';
+    }
+  }
+
+  function skipAuth() {
+    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('quizWrap').style.display = '';
+  }
+
+  // Check if already logged in
+  if (localStorage.getItem('octo_user') || !SUPABASE_URL) {
+    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('quizWrap').style.display = '';
+  }
+
+  // ── SERVICE WORKER ────────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
   // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
   const translations = {
     ru: {
@@ -1442,24 +1569,58 @@
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
   }
 
-  function sendMsg() {
+  // ── REAL AI CHAT ─────────────────────────────────────────────────────────────
+  const chatHistory = [];
+
+  async function sendMsg() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if (!text) return;
+    input.value = '';
     const msgs = document.getElementById('chatMessages');
 
+    chatHistory.push({ role: 'user', content: text });
+
     msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${text}</div><div class="msg-time">Вы • сейчас</div></div></div>`;
-    msgs.innerHTML += `<div class="msg ai" id="loadMsg"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
+    const aiId = 'ai-' + Date.now();
+    msgs.innerHTML += `<div class="msg ai" id="${aiId}"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble" id="bubble-${aiId}"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
     msgs.scrollTop = msgs.scrollHeight;
-    input.value = '';
 
-    const key = Object.keys(aiR).find(k => text.toLowerCase().includes(k));
-    const resp = key ? aiR[key] : `Отличный вопрос про "<strong>${text}</strong>" 🐙<br><br>Для роста в соцсетях главное — системность и понимание аудитории. Начни с анализа профиля через <strong>Profile Analyzer</strong>, потом создадим контент-план специально под твою нишу.<br><br>💡 Хочешь контент-план на неделю?`;
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: chatHistory })
+      });
 
-    setTimeout(() => {
-      document.getElementById('loadMsg').outerHTML = `<div class="msg ai"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${resp}</div><div class="msg-time">Octo • сейчас</div></div></div>`;
-      msgs.scrollTop = msgs.scrollHeight;
-    }, 1200);
+      const bubble = document.getElementById('bubble-' + aiId);
+      bubble.innerHTML = '';
+      let fullText = '';
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const lines = decoder.decode(value).split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') break;
+          try {
+            const { text: chunk } = JSON.parse(data);
+            if (chunk) { fullText += chunk; bubble.innerHTML = fullText.replace(/\n/g, '<br>'); }
+          } catch {}
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+
+      chatHistory.push({ role: 'assistant', content: fullText });
+    } catch (e) {
+      document.getElementById('bubble-' + aiId).innerHTML = '❌ Ошибка подключения к AI';
+    }
+    msgs.scrollTop = msgs.scrollHeight;
   }
 
   // Analyzer
