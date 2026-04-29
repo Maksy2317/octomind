@@ -3,6 +3,12 @@ import path from 'path';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
+} catch { /* rely on system FFmpeg */ }
+
 export function extractFrames(videoPath: string, count: number): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const tmpDir = os.tmpdir();

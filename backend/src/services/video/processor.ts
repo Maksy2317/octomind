@@ -1,6 +1,15 @@
 import ffmpeg from 'fluent-ffmpeg';
 import { TemplateConfig, VideoFormat } from '../../types';
 
+// Use bundled ffmpeg-static binary if system FFmpeg is not available
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
+} catch {
+  // ffmpeg-static not installed — rely on system FFmpeg (Railway has it via nixpacks)
+}
+
 const FORMAT_DIMENSIONS: Record<VideoFormat, { width: number; height: number }> = {
   stories: { width: 1080, height: 1920 },
   reels: { width: 1080, height: 1920 },
