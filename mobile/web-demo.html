@@ -1435,17 +1435,41 @@
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const errEl = document.getElementById('auth-error');
+    const btn = document.getElementById('auth-submit');
+    const isLogin = document.getElementById('tab-login').classList.contains('active');
+
     errEl.style.display = 'none';
+    errEl.style.cssText = ''; // reset any success styling
 
-    if (!email || !password) { errEl.textContent = 'Заполни email и пароль'; errEl.style.display = 'block'; return; }
-
-    if (!SUPABASE_URL) {
-      skipAuth();
-      return;
+    // ── Frontend validation ──
+    if (!email || !password) {
+      errEl.textContent = 'Заполни email и пароль'; errEl.style.display = 'block'; return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = 'Введи корректный email (например: name@gmail.com)'; errEl.style.display = 'block'; return;
+    }
+    if (password.length < 6) {
+      errEl.textContent = 'Пароль — минимум 6 символов'; errEl.style.display = 'block'; return;
     }
 
-    const isLogin = document.getElementById('tab-login').classList.contains('active');
+    if (!SUPABASE_URL) { skipAuth(); return; }
+
+    btn.textContent = '⏳ Загружаем...';
+    btn.disabled = true;
+
     const endpoint = isLogin ? '/auth/v1/token?grant_type=password' : '/auth/v1/signup';
+
+    // Error messages in Russian
+    const errMap = {
+      'Invalid login credentials': 'Неверный email или пароль',
+      'Email not confirmed': 'Сначала подтверди email — проверь почту 📬',
+      'User already registered': 'Этот email уже зарегистрирован — попробуй войти',
+      'Password should be at least 6 characters': 'Пароль — минимум 6 символов',
+      'Unable to validate email address: invalid format': 'Неверный формат email',
+      'email_address_invalid': 'Неверный формат email',
+      'invalid_credentials': 'Неверный email или пароль',
+    };
+
     try {
       const res = await fetch(SUPABASE_URL + endpoint, {
         method: 'POST',
@@ -1453,12 +1477,36 @@
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-      if (data.error) { errEl.textContent = data.error.message || data.error; errEl.style.display = 'block'; return; }
+
+      // Supabase errors come as data.msg or data.error_code (NOT data.error)
+      if (!res.ok || data.error_code || (data.code >= 400)) {
+        const raw = data.msg || data.message || data.error || 'Ошибка входа';
+        errEl.textContent = errMap[data.error_code] || errMap[raw] || raw;
+        errEl.style.display = 'block';
+        return;
+      }
+
+      // Registration: needs email confirmation (no access_token yet)
+      if (!isLogin && !data.access_token) {
+        errEl.style.background = '#0f2a18'; errEl.style.borderColor = '#1e5c32'; errEl.style.color = '#4ade80';
+        errEl.textContent = '✅ Отправили письмо на ' + email + ' — подтверди email и войди';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      // Must have token to proceed
+      if (!data.access_token) {
+        errEl.textContent = 'Не удалось войти — попробуй ещё раз'; errEl.style.display = 'block'; return;
+      }
+
       localStorage.setItem('octo_user', JSON.stringify({ email, token: data.access_token }));
       document.getElementById('authOverlay').classList.add('hidden');
       document.getElementById('quizWrap').style.display = '';
     } catch {
-      errEl.textContent = 'Ошибка подключения'; errEl.style.display = 'block';
+      errEl.textContent = 'Нет соединения — проверь интернет'; errEl.style.display = 'block';
+    } finally {
+      btn.textContent = isLogin ? '🚀 Войти' : '✨ Создать аккаунт';
+      btn.disabled = false;
     }
   }
 
