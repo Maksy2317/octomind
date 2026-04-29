@@ -1875,7 +1875,10 @@
           if (data === '[DONE]') break;
           try {
             const parsed = JSON.parse(data);
-            if (parsed.error) { fullText = '❌ ' + parsed.error; bubble.innerHTML = fullText; break; }
+            if (parsed.error) {
+              bubble.innerHTML = '❌ Не удалось получить ответ — попробуй ещё раз';
+              return;
+            }
             if (parsed.text) { fullText += parsed.text; bubble.innerHTML = fullText.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g, '<br>'); }
           } catch {}
         }
