@@ -816,7 +816,7 @@
         </div>
       </div>
 
-      <div class="nav-label">Главное</div>
+      <div class="nav-label" data-i18n="nav_main">Головне</div>
       <div class="nav-item active" onclick="showScreen('dashboard',this)">
         <span class="nav-icon">🏠</span> Dashboard
       </div>
@@ -829,7 +829,7 @@
         <span class="nav-badge new">New</span>
       </div>
 
-      <div class="nav-label">Создать</div>
+      <div class="nav-label" data-i18n="nav_create">Створити</div>
       <div class="nav-item" onclick="showScreen('video',this)">
         <span class="nav-icon">🎬</span> Video
       </div>
@@ -840,25 +840,25 @@
         <span class="nav-icon">📸</span> Photo Edit
       </div>
 
-      <div class="nav-label">Аккаунт</div>
+      <div class="nav-label" data-i18n="nav_account">Акаунт</div>
       <div class="nav-item" onclick="showScreen('profile',this)">
-        <span class="nav-icon">👤</span> Личный кабинет
+        <span class="nav-icon">👤</span> <span data-i18n="nav_profile_item">Особистий кабінет</span>
       </div>
       <div class="nav-item" onclick="showScreen('pricing',this)">
         <span class="nav-icon">💎</span> Pricing
       </div>
       <div class="nav-item" onclick="showScreen('settings',this)">
-        <span class="nav-icon">⚙️</span> Settings
+        <span class="nav-icon">⚙️</span> <span data-i18n="nav_settings_item">Налаштування</span>
       </div>
 
       <div class="sidebar-footer">
         <div class="plan-box">
-          <h4>Free Plan</h4>
-          <p>3 из 5 кредитов использовано</p>
+          <h4 data-i18n="plan_free_label">Безкоштовний план</h4>
+          <p data-i18n="plan_credits">3 з 5 кредитів використано</p>
           <div class="plan-bar"><div class="plan-bar-fill"></div></div>
         </div>
         <div class="nav-item" onclick="showScreen('pricing',null)">
-          <span class="nav-icon">⬆️</span> Upgrade to Pro
+          <span class="nav-icon">⬆️</span> <span data-i18n="nav_upgrade">Upgrade to Pro</span>
         </div>
       </div>
     </nav>
@@ -886,19 +886,19 @@
         <!-- Dashboard -->
         <div class="screen active" id="dashboard">
           <div class="stats-grid">
-            <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value">12</div><div class="stat-label">Видео создано</div><div class="stat-change">↑ 3 на этой неделе</div></div>
-            <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value">5</div><div class="stat-label">Карусели</div><div class="stat-change">↑ 2 на этой неделе</div></div>
-            <div class="stat-card"><div class="stat-icon">🔍</div><div class="stat-value">3</div><div class="stat-label">Профилей проанализировано</div><div class="stat-change">↑ 1 на этой неделе</div></div>
-            <div class="stat-card"><div class="stat-icon"><img src="assets/octo_laptop.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value">28</div><div class="stat-label">Ask Octo запросов</div><div class="stat-change">↑ 8 на этой неделе</div></div>
+            <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value">12</div><div class="stat-label" data-i18n="stat_videos">Відео створено</div><div class="stat-change" data-i18n="stat_videos_ch">↑ 3 цього тижня</div></div>
+            <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value">5</div><div class="stat-label" data-i18n="stat_carousels">Каруселі</div><div class="stat-change" data-i18n="stat_carousels_ch">↑ 2 цього тижня</div></div>
+            <div class="stat-card"><div class="stat-icon">🔍</div><div class="stat-value">3</div><div class="stat-label" data-i18n="stat_profiles">Профілів проаналізовано</div><div class="stat-change" data-i18n="stat_profiles_ch">↑ 1 цього тижня</div></div>
+            <div class="stat-card"><div class="stat-icon"><img src="assets/octo_laptop.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value">28</div><div class="stat-label" data-i18n="stat_octo">Ask Octo запитів</div><div class="stat-change" data-i18n="stat_octo_ch">↑ 8 цього тижня</div></div>
           </div>
 
           <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg,#1A1040,#12121E); border-color:#6C63FF44;">
             <div style="display:flex; align-items:center; gap:16px;">
               <img src="assets/octo_happy.png" style="width:64px;height:64px;object-fit:contain;">
               <div style="flex:1;">
-                <div style="font-size:16px; font-weight:800; margin-bottom:4px;">Привет! Я Octo — твой AI маркетолог</div>
-                <div style="font-size:13px; color:var(--text3); margin-bottom:12px;">Основываясь на твоём квизе, я уже знаю чем тебе помочь. Спроси меня что угодно по маркетингу!</div>
-                <button class="btn btn-primary btn-sm" onclick="showScreen('advisor',null)">🐙 Спросить Octo →</button>
+                <div style="font-size:16px; font-weight:800; margin-bottom:4px;" data-i18n="dash_hi">Привіт! Я Octo — твій AI маркетолог</div>
+                <div style="font-size:13px; color:var(--text3); margin-bottom:12px;" data-i18n="dash_hi_sub">На основі твого квізу я вже знаю чим тобі допомогти. Запитай мене будь-що з маркетингу!</div>
+                <button class="btn btn-primary btn-sm" onclick="showScreen('advisor',null)" data-i18n="dash_ask_btn">🐙 Запитати Octo →</button>
               </div>
             </div>
           </div>
@@ -907,36 +907,36 @@
             <div class="tool-card" onclick="showScreen('advisor',null)">
               <div class="tool-icon"><img src="assets/octo_smart.png" style="width:36px;height:36px;object-fit:contain;"></div>
               <div class="tool-name">Ask Octo</div>
-              <div class="tool-desc">Задай любой вопрос по маркетингу — стратегия, подписи, контент-план, советы для роста.</div>
-              <span class="tool-tag">Чат</span><span class="tool-tag">Стратегия</span><span class="tool-tag">Контент</span>
+              <div class="tool-desc" data-i18n="tool_octo_desc">Постав будь-яке питання з маркетингу — стратегія, підписи, контент-план, поради для зростання.</div>
+              <span class="tool-tag" data-i18n="tool_chat_tag">Чат</span><span class="tool-tag" data-i18n="tool_strategy_tag">Стратегія</span><span class="tool-tag" data-i18n="tool_content_tag">Контент</span>
             </div>
             <div class="tool-card" onclick="showScreen('analyzer',null)">
               <div class="tool-icon">🔍</div>
               <div class="tool-name">Profile Analyzer</div>
-              <div class="tool-desc">Вставь ссылку Instagram или TikTok — получи полный аудит профиля с планом улучшений.</div>
-              <span class="tool-tag">Instagram</span><span class="tool-tag">TikTok</span><span class="tool-tag">Аудит</span>
+              <div class="tool-desc" data-i18n="tool_analyzer_desc">Встав посилання Instagram або TikTok — отримай повний аудит профілю з планом покращень.</div>
+              <span class="tool-tag">Instagram</span><span class="tool-tag">TikTok</span><span class="tool-tag" data-i18n="tool_audit_tag">Аудит</span>
             </div>
             <div class="tool-card" onclick="showScreen('video',null)">
               <div class="tool-icon">🎬</div>
               <div class="tool-name">Video Creator</div>
-              <div class="tool-desc">Загрузи видео — AI выберет шаблон и обработает под Stories, Reels или TikTok.</div>
+              <div class="tool-desc" data-i18n="tool_video_desc">Завантаж відео — AI вибере шаблон і обробить під Stories, Reels або TikTok.</div>
               <span class="tool-tag">Reels</span><span class="tool-tag">TikTok</span><span class="tool-tag">Stories</span>
             </div>
             <div class="tool-card" onclick="showScreen('carousel',null)">
               <div class="tool-icon">🖼️</div>
               <div class="tool-name">Carousel Builder</div>
-              <div class="tool-desc">Загрузи фото — AI объединит в единый стиль и напишет подписи к каждому слайду.</div>
-              <span class="tool-tag">Дизайн</span><span class="tool-tag">Подписи</span><span class="tool-tag">Стиль</span>
+              <div class="tool-desc" data-i18n="tool_carousel_desc">Завантаж фото — AI об'єднає в єдиний стиль і напише підписи до кожного слайду.</div>
+              <span class="tool-tag" data-i18n="tool_design_tag">Дизайн</span><span class="tool-tag" data-i18n="tool_captions_tag">Підписи</span><span class="tool-tag" data-i18n="tool_style_tag">Стиль</span>
             </div>
           </div>
 
           <div class="card">
-            <div class="card-title">💡 Советы Octo на сегодня</div>
-            <div class="card-sub" style="margin-bottom:12px;">Актуальные тренды в соцсетях</div>
+            <div class="card-title" data-i18n="tips_title">💡 Поради Octo на сьогодні</div>
+            <div class="card-sub" style="margin-bottom:12px;" data-i18n="tips_sub">Актуальні тренди в соцмережах</div>
             <div class="fb-list">
-              <div class="fb tip"><span>🔥</span><span>Reels, опубликованные с 9 до 11 утра, получают в 2 раза больше охватов. Планируй публикации!</span></div>
-              <div class="fb tip"><span>📌</span><span>Карусели получают в 3х больше сохранений, чем одиночные фото. Создай карусель через Carousel Builder.</span></div>
-              <div class="fb tip"><span>🎯</span><span>Профили с единым визуальным стилем получают на 40% больше подписчиков. Используй наши шаблоны.</span></div>
+              <div class="fb tip"><span>🔥</span><span data-i18n="tip1">Reels, опубліковані з 9 до 11 ранку, отримують вдвічі більше охоплень. Плануй публікації!</span></div>
+              <div class="fb tip"><span>📌</span><span data-i18n="tip2">Каруселі отримують у 3 рази більше збережень, ніж одиночні фото. Створи карусель через Carousel Builder.</span></div>
+              <div class="fb tip"><span>🎯</span><span data-i18n="tip3">Профілі з єдиним візуальним стилем отримують на 40% більше підписників. Використовуй наші шаблони.</span></div>
             </div>
           </div>
         </div>
@@ -947,11 +947,11 @@
             <div class="chat-header">
               <div class="chat-octo-avatar"><img src="assets/octo_laptop.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
               <div class="chat-octo-info">
-                <h3>Octo — AI Маркетолог</h3>
-                <p>● Онлайн и готов помочь</p>
+                <h3 data-i18n="chat_title">Octo — AI Маркетолог</h3>
+                <p data-i18n="chat_online">● Онлайн і готовий допомогти</p>
               </div>
               <div class="chat-octo-status">
-                <div class="status-dot"></div> AI активен
+                <div class="status-dot"></div> <span data-i18n="chat_status">AI активний</span>
               </div>
             </div>
 
@@ -976,11 +976,11 @@
 
             <div class="chat-input-area">
               <div class="quick-prompts">
-                <div class="qp" onclick="qpSend(this)">📊 Контент-план на неделю</div>
-                <div class="qp" onclick="qpSend(this)">✍️ Напиши подпись к посту</div>
-                <div class="qp" onclick="qpSend(this)">📈 Как расти в TikTok</div>
-                <div class="qp" onclick="qpSend(this)">🔥 Тренды этой недели</div>
-                <div class="qp" onclick="qpSend(this)">🎯 Как найти свою аудиторию</div>
+                <div class="qp" onclick="qpSend(this)" data-i18n="qp1">📊 Контент-план на тиждень</div>
+                <div class="qp" onclick="qpSend(this)" data-i18n="qp2">✍️ Напиши підпис до посту</div>
+                <div class="qp" onclick="qpSend(this)" data-i18n="qp3">📈 Як рости в TikTok</div>
+                <div class="qp" onclick="qpSend(this)" data-i18n="qp4">🔥 Тренди цього тижня</div>
+                <div class="qp" onclick="qpSend(this)" data-i18n="qp5">🎯 Як знайти свою аудиторію</div>
               </div>
               <div class="img-preview-wrap" id="imgPreviewWrap">
                 <img id="imgPreviewThumb" class="img-preview-thumb" src="" alt="preview">
@@ -989,7 +989,7 @@
               <div class="chat-row">
                 <input type="file" id="imgUpload" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
                 <button class="img-upload-btn" id="imgUploadBtn" onclick="document.getElementById('imgUpload').click()" title="Прикрепить фото">📷</button>
-                <textarea class="chat-input" id="chatInput" rows="2" placeholder="Спроси Octo что угодно по маркетингу..." onkeydown="chatKey(event)"></textarea>
+                <textarea class="chat-input" id="chatInput" rows="2" placeholder="Запитай Octo будь-що з маркетингу..." data-i18n-placeholder="chat_placeholder" onkeydown="chatKey(event)"></textarea>
                 <button class="btn btn-primary" onclick="sendMsg()">→</button>
               </div>
             </div>
@@ -1321,22 +1321,22 @@
                 <div style="font-weight:800;font-size:16px;" id="profileEmail">—</div>
                 <div id="profileSubBadge" style="margin-top:4px;font-size:12px;padding:3px 10px;border-radius:20px;display:inline-block;background:var(--surface2);color:var(--text3);">Free Plan</div>
               </div>
-              <button onclick="logOut()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text3);font-size:12px;cursor:pointer;">Выйти</button>
+              <button onclick="logOut()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text3);font-size:12px;cursor:pointer;" data-i18n="logout_btn">Вийти</button>
             </div>
             <div style="background:var(--surface2);border-radius:12px;padding:14px;font-size:13px;color:var(--text3);line-height:1.6;">
-              💡 Обнови до <strong style="color:var(--accent2);">Pro</strong> чтобы снять все ограничения — безлимитный чат, видео, анализ профилей.
-              <div style="margin-top:10px;"><button onclick="showScreen('pricing',null)" class="btn btn-primary" style="width:100%;padding:12px;">⚡ Upgrade to Pro</button></div>
+              <span data-i18n="profile_upgrade_hint">💡 Онови до <strong style="color:var(--accent2);">Pro</strong>, щоб зняти всі обмеження — безлімітний чат, відео, аналіз профілів.</span>
+              <div style="margin-top:10px;"><button onclick="showScreen('pricing',null)" class="btn btn-primary" style="width:100%;padding:12px;" data-i18n="profile_upgrade_btn">⚡ Upgrade to Pro</button></div>
             </div>
           </div>
 
           <!-- Workspaces -->
           <div class="card">
-            <div class="card-title" style="margin-bottom:4px;">🏢 Компании / Воркспейсы</div>
-            <div class="card-sub" style="margin-bottom:16px;">Переключайся между проектами — у каждого своя история чата</div>
+            <div class="card-title" style="margin-bottom:4px;" data-i18n="profile_ws_title">🏢 Компанії / Воркспейси</div>
+            <div class="card-sub" style="margin-bottom:16px;" data-i18n="profile_ws_sub">Перемикайся між проектами — у кожного своя історія чату</div>
             <div id="wsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
             <div style="display:flex;gap:8px;">
-              <input id="wsNameInput" placeholder="Название компании..." style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);outline:none;">
-              <button onclick="addWorkspace()" class="btn btn-primary" style="padding:10px 16px;font-size:13px;">+ Добавить</button>
+              <input id="wsNameInput" placeholder="Назва компанії..." data-i18n-placeholder="ws_add_placeholder" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);outline:none;">
+              <button onclick="addWorkspace()" class="btn btn-primary" style="padding:10px 16px;font-size:13px;" data-i18n="ws_add_btn">+ Додати</button>
             </div>
           </div>
         </div>
@@ -1455,15 +1455,16 @@
   }
 
   // App screens
-  const titles = {
-    dashboard: ['Dashboard', 'Welcome back! Твой маркетинговый обзор.'],
-    advisor: ['Ask Octo 🐙', 'Задай вопрос своему AI маркетологу'],
-    analyzer: ['Profile Analyzer', 'Получи полный аудит Instagram или TikTok'],
-    video: ['Video Creator', 'Обработай видео с AI шаблонами'],
-    carousel: ['Carousel Builder', 'Создай карусель с единым стилем'],
-    photo: ['Photo Edit', 'Улучши фото для Instagram'],
-    pricing: ['Pricing', 'Выбери подходящий план'],
-    settings: ['Settings', 'Настрой Octo под свой бренд'],
+  const screenTitleKeys = {
+    dashboard: ['screen_dashboard', 'screen_dashboard_sub'],
+    advisor:   ['screen_advisor',   'screen_advisor_sub'],
+    analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
+    video:     ['screen_video',     'screen_video_sub'],
+    carousel:  ['screen_carousel',  'screen_carousel_sub'],
+    photo:     ['screen_photo',     'screen_photo_sub'],
+    pricing:   ['screen_pricing',   'screen_pricing_sub'],
+    profile:   ['screen_profile',   'screen_profile_sub'],
+    settings:  ['screen_settings',  'screen_settings_sub'],
   };
 
   // ── AUTH ─────────────────────────────────────────────────────────────────────
@@ -1634,6 +1635,7 @@
   // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
   const translations = {
     ru: {
+      // ── Pricing ──
       pricing_title:'Выбери свой план', pricing_sub:'Начни бесплатно. Расти с OctoMind.',
       plan_free:'Free', plan_free_desc:'Для знакомства с платформой',
       plan_pro_desc:'Для серьёзного контент-мейкера', plan_agency_desc:'Для агентств и команд',
@@ -1645,6 +1647,7 @@
       f_videos_unlimited:'Безлимитные видео', f_analysis_unlimited:'Безлимитный анализ',
       f_team5:'5 аккаунтов в команде', f_api:'API доступ', f_whitelabel:'Белая метка (White Label)',
       btn_current:'Текущий план', btn_choose_pro:'Выбрать Pro →', btn_contact:'Связаться →', btn_save:'💾 Сохранить',
+      // ── Settings ──
       s_language:'🌐 Язык интерфейса', s_brand:'Профиль бренда',
       s_brandname:'Название бренда', s_brandname_sub:'AI использует при генерации контента',
       s_niche:'Ниша', s_niche_sub:'Octo подберёт шаблоны под сферу',
@@ -1653,8 +1656,55 @@
       tone_friendly:'Дружелюбный', tone_pro:'Профессиональный', tone_sales:'Продающий', tone_fun:'Развлекательный',
       s_autotemplate:'Авто-выбор шаблона', s_autotemplate_sub:'Octo выбирает лучший шаблон сам',
       s_notifications:'Уведомления', s_notifications_sub:'Когда видео готово',
+      // ── Navigation ──
+      nav_main:'Главное', nav_create:'Создать', nav_account:'Аккаунт',
+      nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
+      plan_free_label:'Free Plan', plan_credits:'3 из 5 кредитов использовано',
+      // ── Topbar screen titles ──
+      screen_dashboard:'Dashboard', screen_dashboard_sub:'С возвращением! Твой маркетинговый обзор.',
+      screen_advisor:'Ask Octo 🐙', screen_advisor_sub:'Задай вопрос своему AI маркетологу',
+      screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Получи полный аудит Instagram или TikTok',
+      screen_video:'Video Creator', screen_video_sub:'Обработай видео с AI шаблонами',
+      screen_carousel:'Carousel Builder', screen_carousel_sub:'Создай карусель с единым стилем',
+      screen_photo:'Photo Edit', screen_photo_sub:'Улучши фото для Instagram',
+      screen_pricing:'Pricing', screen_pricing_sub:'Выбери подходящий план',
+      screen_profile:'Личный кабинет', screen_profile_sub:'Твой аккаунт и настройки',
+      screen_settings:'Settings', screen_settings_sub:'Настрой Octo под свой бренд',
+      // ── Dashboard ──
+      stat_videos:'Видео создано', stat_videos_ch:'↑ 3 на этой неделе',
+      stat_carousels:'Карусели', stat_carousels_ch:'↑ 2 на этой неделе',
+      stat_profiles:'Профилей проанализировано', stat_profiles_ch:'↑ 1 на этой неделе',
+      stat_octo:'Ask Octo запросов', stat_octo_ch:'↑ 8 на этой неделе',
+      dash_hi:'Привет! Я Octo — твой AI маркетолог',
+      dash_hi_sub:'Основываясь на твоём квизе, я уже знаю чем тебе помочь. Спроси меня что угодно по маркетингу!',
+      dash_ask_btn:'🐙 Спросить Octo →',
+      tool_octo_desc:'Задай любой вопрос по маркетингу — стратегия, подписи, контент-план, советы для роста.',
+      tool_chat_tag:'Чат', tool_strategy_tag:'Стратегия', tool_content_tag:'Контент', tool_audit_tag:'Аудит',
+      tool_analyzer_desc:'Вставь ссылку Instagram или TikTok — получи полный аудит профиля с планом улучшений.',
+      tool_video_desc:'Загрузи видео — AI выберет шаблон и обработает под Stories, Reels или TikTok.',
+      tool_carousel_desc:'Загрузи фото — AI объединит в единый стиль и напишет подписи к каждому слайду.',
+      tool_design_tag:'Дизайн', tool_captions_tag:'Подписи', tool_style_tag:'Стиль',
+      tips_title:'💡 Советы Octo на сегодня', tips_sub:'Актуальные тренды в соцсетях',
+      tip1:'Reels, опубликованные с 9 до 11 утра, получают в 2 раза больше охватов. Планируй публикации!',
+      tip2:'Карусели получают в 3х больше сохранений, чем одиночные фото. Создай карусель через Carousel Builder.',
+      tip3:'Профили с единым визуальным стилем получают на 40% больше подписчиков. Используй наши шаблоны.',
+      // ── Chat ──
+      chat_title:'Octo — AI Маркетолог', chat_online:'● Онлайн и готов помочь', chat_status:'AI активен',
+      qp1:'📊 Контент-план на неделю', qp2:'✍️ Напиши подпись к посту',
+      qp3:'📈 Как расти в TikTok', qp4:'🔥 Тренды этой недели', qp5:'🎯 Как найти свою аудиторию',
+      chat_placeholder:'Спроси Octo что угодно по маркетингу...',
+      // ── Profile ──
+      profile_upgrade_hint:'💡 Обнови до Pro чтобы снять все ограничения — безлимитный чат, видео, анализ профилей.',
+      profile_upgrade_btn:'⚡ Upgrade to Pro',
+      profile_ws_title:'🏢 Компании / Воркспейсы',
+      profile_ws_sub:'Переключайся между проектами — у каждого своя история чата',
+      ws_add_placeholder:'Название компании...', ws_add_btn:'+ Добавить', logout_btn:'Выйти',
+      ws_default:'🏠 Основной проект', ws_created:'Создан', ws_active:'● Активен',
+      ws_delete_confirm:'Удалить эту компанию? История чата будет потеряна.',
+      logout_confirm:'Выйти из аккаунта?',
     },
     uk: {
+      // ── Pricing ──
       pricing_title:'Обери свій план', pricing_sub:'Починай безкоштовно. Зростай з OctoMind.',
       plan_free:'Free', plan_free_desc:'Для знайомства з платформою',
       plan_pro_desc:'Для серйозного контент-мейкера', plan_agency_desc:'Для агентств і команд',
@@ -1666,6 +1716,7 @@
       f_videos_unlimited:'Безлімітні відео', f_analysis_unlimited:'Безлімітний аналіз',
       f_team5:'5 акаунтів у команді', f_api:'API доступ', f_whitelabel:'Біла мітка (White Label)',
       btn_current:'Поточний план', btn_choose_pro:'Обрати Pro →', btn_contact:'Зв\'язатися →', btn_save:'💾 Зберегти',
+      // ── Settings ──
       s_language:'🌐 Мова інтерфейсу', s_brand:'Профіль бренду',
       s_brandname:'Назва бренду', s_brandname_sub:'AI використовує при генерації контенту',
       s_niche:'Ніша', s_niche_sub:'Octo підбере шаблони під сферу',
@@ -1674,8 +1725,55 @@
       tone_friendly:'Дружній', tone_pro:'Професійний', tone_sales:'Продажний', tone_fun:'Розважальний',
       s_autotemplate:'Авто-вибір шаблону', s_autotemplate_sub:'Octo вибирає кращий шаблон сам',
       s_notifications:'Сповіщення', s_notifications_sub:'Коли відео готове',
+      // ── Navigation ──
+      nav_main:'Головне', nav_create:'Створити', nav_account:'Акаунт',
+      nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
+      plan_free_label:'Безкоштовний план', plan_credits:'3 з 5 кредитів використано',
+      // ── Topbar screen titles ──
+      screen_dashboard:'Dashboard', screen_dashboard_sub:'Ласкаво просимо! Твій маркетинговий огляд.',
+      screen_advisor:'Ask Octo 🐙', screen_advisor_sub:'Постав питання своєму AI маркетологу',
+      screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Отримай повний аудит Instagram або TikTok',
+      screen_video:'Video Creator', screen_video_sub:'Обробляй відео з AI шаблонами',
+      screen_carousel:'Carousel Builder', screen_carousel_sub:'Створи карусель з єдиним стилем',
+      screen_photo:'Photo Edit', screen_photo_sub:'Покращ фото для Instagram',
+      screen_pricing:'Pricing', screen_pricing_sub:'Обери підходящий план',
+      screen_profile:'Особистий кабінет', screen_profile_sub:'Твій акаунт та налаштування',
+      screen_settings:'Settings', screen_settings_sub:'Налаштуй Octo під свій бренд',
+      // ── Dashboard ──
+      stat_videos:'Відео створено', stat_videos_ch:'↑ 3 цього тижня',
+      stat_carousels:'Каруселі', stat_carousels_ch:'↑ 2 цього тижня',
+      stat_profiles:'Профілів проаналізовано', stat_profiles_ch:'↑ 1 цього тижня',
+      stat_octo:'Ask Octo запитів', stat_octo_ch:'↑ 8 цього тижня',
+      dash_hi:'Привіт! Я Octo — твій AI маркетолог',
+      dash_hi_sub:'На основі твого квізу я вже знаю чим тобі допомогти. Запитай мене будь-що з маркетингу!',
+      dash_ask_btn:'🐙 Запитати Octo →',
+      tool_octo_desc:'Постав будь-яке питання з маркетингу — стратегія, підписи, контент-план, поради для зростання.',
+      tool_chat_tag:'Чат', tool_strategy_tag:'Стратегія', tool_content_tag:'Контент', tool_audit_tag:'Аудит',
+      tool_analyzer_desc:'Встав посилання Instagram або TikTok — отримай повний аудит профілю з планом покращень.',
+      tool_video_desc:'Завантаж відео — AI вибере шаблон і обробить під Stories, Reels або TikTok.',
+      tool_carousel_desc:'Завантаж фото — AI об\'єднає в єдиний стиль і напише підписи до кожного слайду.',
+      tool_design_tag:'Дизайн', tool_captions_tag:'Підписи', tool_style_tag:'Стиль',
+      tips_title:'💡 Поради Octo на сьогодні', tips_sub:'Актуальні тренди в соцмережах',
+      tip1:'Reels, опубліковані з 9 до 11 ранку, отримують вдвічі більше охоплень. Плануй публікації!',
+      tip2:'Каруселі отримують у 3 рази більше збережень, ніж одиночні фото. Створи карусель через Carousel Builder.',
+      tip3:'Профілі з єдиним візуальним стилем отримують на 40% більше підписників. Використовуй наші шаблони.',
+      // ── Chat ──
+      chat_title:'Octo — AI Маркетолог', chat_online:'● Онлайн і готовий допомогти', chat_status:'AI активний',
+      qp1:'📊 Контент-план на тиждень', qp2:'✍️ Напиши підпис до посту',
+      qp3:'📈 Як рости в TikTok', qp4:'🔥 Тренди цього тижня', qp5:'🎯 Як знайти свою аудиторію',
+      chat_placeholder:'Запитай Octo будь-що з маркетингу...',
+      // ── Profile ──
+      profile_upgrade_hint:'💡 Онови до Pro, щоб зняти всі обмеження — безлімітний чат, відео, аналіз профілів.',
+      profile_upgrade_btn:'⚡ Upgrade to Pro',
+      profile_ws_title:'🏢 Компанії / Воркспейси',
+      profile_ws_sub:'Перемикайся між проектами — у кожного своя історія чату',
+      ws_add_placeholder:'Назва компанії...', ws_add_btn:'+ Додати', logout_btn:'Вийти',
+      ws_default:'🏠 Основний проект', ws_created:'Створено', ws_active:'● Активний',
+      ws_delete_confirm:'Видалити цю компанію? Історія чату буде втрачена.',
+      logout_confirm:'Вийти з акаунту?',
     },
     en: {
+      // ── Pricing ──
       pricing_title:'Choose your plan', pricing_sub:'Start free. Grow with OctoMind.',
       plan_free:'Free', plan_free_desc:'Get started with the platform',
       plan_pro_desc:'For serious content creators', plan_agency_desc:'For agencies and teams',
@@ -1687,6 +1785,7 @@
       f_videos_unlimited:'Unlimited videos', f_analysis_unlimited:'Unlimited analysis',
       f_team5:'5 team accounts', f_api:'API access', f_whitelabel:'White Label',
       btn_current:'Current plan', btn_choose_pro:'Choose Pro →', btn_contact:'Contact us →', btn_save:'💾 Save',
+      // ── Settings ──
       s_language:'🌐 Interface language', s_brand:'Brand profile',
       s_brandname:'Brand name', s_brandname_sub:'AI uses it when generating content',
       s_niche:'Niche', s_niche_sub:'Octo picks templates for your niche',
@@ -1695,6 +1794,52 @@
       tone_friendly:'Friendly', tone_pro:'Professional', tone_sales:'Sales', tone_fun:'Entertainment',
       s_autotemplate:'Auto template', s_autotemplate_sub:'Octo picks the best template automatically',
       s_notifications:'Notifications', s_notifications_sub:'When video is ready',
+      // ── Navigation ──
+      nav_main:'Main', nav_create:'Create', nav_account:'Account',
+      nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
+      plan_free_label:'Free Plan', plan_credits:'3 of 5 credits used',
+      // ── Topbar screen titles ──
+      screen_dashboard:'Dashboard', screen_dashboard_sub:'Welcome back! Your marketing overview.',
+      screen_advisor:'Ask Octo 🐙', screen_advisor_sub:'Ask your AI marketing advisor anything',
+      screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Get a full Instagram or TikTok audit',
+      screen_video:'Video Creator', screen_video_sub:'Process video with AI templates',
+      screen_carousel:'Carousel Builder', screen_carousel_sub:'Create a carousel with unified style',
+      screen_photo:'Photo Edit', screen_photo_sub:'Enhance photos for Instagram',
+      screen_pricing:'Pricing', screen_pricing_sub:'Choose the right plan for you',
+      screen_profile:'My Profile', screen_profile_sub:'Your account and settings',
+      screen_settings:'Settings', screen_settings_sub:'Customize Octo for your brand',
+      // ── Dashboard ──
+      stat_videos:'Videos created', stat_videos_ch:'↑ 3 this week',
+      stat_carousels:'Carousels', stat_carousels_ch:'↑ 2 this week',
+      stat_profiles:'Profiles analyzed', stat_profiles_ch:'↑ 1 this week',
+      stat_octo:'Ask Octo requests', stat_octo_ch:'↑ 8 this week',
+      dash_hi:'Hi! I\'m Octo — your AI marketer',
+      dash_hi_sub:'Based on your quiz, I already know how to help you. Ask me anything about marketing!',
+      dash_ask_btn:'🐙 Ask Octo →',
+      tool_octo_desc:'Ask any marketing question — strategy, captions, content plan, growth tips.',
+      tool_chat_tag:'Chat', tool_strategy_tag:'Strategy', tool_content_tag:'Content', tool_audit_tag:'Audit',
+      tool_analyzer_desc:'Paste your Instagram or TikTok link — get a full profile audit with improvement plan.',
+      tool_video_desc:'Upload a video — AI will pick a template and process it for Stories, Reels or TikTok.',
+      tool_carousel_desc:'Upload photos — AI will unify the style and write captions for each slide.',
+      tool_design_tag:'Design', tool_captions_tag:'Captions', tool_style_tag:'Style',
+      tips_title:'💡 Octo\'s tips for today', tips_sub:'Current social media trends',
+      tip1:'Reels posted between 9–11am get 2× more reach. Schedule your posts!',
+      tip2:'Carousels get 3× more saves than single photos. Create one with Carousel Builder.',
+      tip3:'Profiles with a consistent visual style get 40% more followers. Use our templates.',
+      // ── Chat ──
+      chat_title:'Octo — AI Marketer', chat_online:'● Online and ready to help', chat_status:'AI active',
+      qp1:'📊 Weekly content plan', qp2:'✍️ Write a post caption',
+      qp3:'📈 How to grow on TikTok', qp4:'🔥 This week\'s trends', qp5:'🎯 How to find your audience',
+      chat_placeholder:'Ask Octo anything about marketing...',
+      // ── Profile ──
+      profile_upgrade_hint:'💡 Upgrade to Pro to unlock everything — unlimited chat, video, profile analysis.',
+      profile_upgrade_btn:'⚡ Upgrade to Pro',
+      profile_ws_title:'🏢 Companies / Workspaces',
+      profile_ws_sub:'Switch between projects — each has its own chat history',
+      ws_add_placeholder:'Company name...', ws_add_btn:'+ Add', logout_btn:'Log out',
+      ws_default:'🏠 Main project', ws_created:'Created', ws_active:'● Active',
+      ws_delete_confirm:'Delete this company? Chat history will be lost.',
+      logout_confirm:'Log out of your account?',
     }
   };
 
@@ -1703,11 +1848,27 @@
   function setLang(lang) {
     currentLang = lang;
     localStorage.setItem('octo_lang', lang);
-    const t = translations[lang];
+    const t = translations[lang] || translations['uk'];
+    // Update text content
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
-      if (t[key]) el.textContent = t[key];
+      if (t[key] !== undefined) el.textContent = t[key];
     });
+    // Update placeholder attributes
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.getAttribute('data-i18n-placeholder');
+      if (t[key] !== undefined) el.placeholder = t[key];
+    });
+    // Update topbar title/subtitle for the currently active screen
+    const activeScreen = document.querySelector('.screen.active');
+    if (activeScreen) {
+      const keys = screenTitleKeys[activeScreen.id];
+      if (keys) {
+        document.getElementById('topTitle').textContent = t[keys[0]] || '';
+        document.getElementById('topSub').textContent = t[keys[1]] || '';
+      }
+    }
+    // Highlight active language button
     ['ru','uk','en'].forEach(l => {
       const btn = document.getElementById('lang-' + l);
       if (!btn) return;
@@ -1738,9 +1899,12 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     if (navEl) navEl.classList.add('active');
-    const [t, s] = titles[id] || ['', ''];
-    document.getElementById('topTitle').textContent = t;
-    document.getElementById('topSub').textContent = s;
+    const keys = screenTitleKeys[id];
+    if (keys) {
+      const t = translations[currentLang] || translations['uk'];
+      document.getElementById('topTitle').textContent = t[keys[0]] || '';
+      document.getElementById('topSub').textContent = t[keys[1]] || '';
+    }
     window.scrollTo(0, 0);
     closeSidebar();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
@@ -2258,7 +2422,8 @@
     if (!name) return;
     const ws = getWorkspaces();
     const id = 'ws_' + Date.now();
-    ws.push({ id, name, created: new Date().toLocaleDateString('ru') });
+    const locale = currentLang === 'en' ? 'en-GB' : currentLang === 'uk' ? 'uk-UA' : 'ru-RU';
+    ws.push({ id, name, created: new Date().toLocaleDateString(locale) });
     saveWorkspaces(ws);
     input.value = '';
     setActiveWs(id);
@@ -2266,7 +2431,9 @@
   }
 
   function deleteWorkspace(id) {
-    if (!confirm('Удалить эту компанию? История чата будет потеряна.')) return;
+    const t = translations[currentLang] || translations['uk'];
+    const msg = t.ws_delete_confirm || 'Видалити цю компанію? Історія чату буде втрачена.';
+    if (!confirm(msg)) return;
     const ws = getWorkspaces().filter(w => w.id !== id);
     saveWorkspaces(ws);
     localStorage.removeItem('octo_chat_' + id);
@@ -2281,15 +2448,19 @@
     const activeId = getActiveWsId();
 
     // Always show "default" workspace
-    const all = [{ id: 'default', name: '🏠 Основной проект', created: '' }, ...ws];
+    const t = translations[currentLang] || translations['uk'];
+    const defaultName = t.ws_default || '🏠 Основний проект';
+    const all = [{ id: 'default', name: defaultName, created: '' }, ...ws];
+    const createdLabel = t.ws_created || 'Створено';
+    const activeLabel = t.ws_active || '● Активний';
 
     container.innerHTML = all.map(w => `
       <div onclick="setActiveWs('${w.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;cursor:pointer;border:1.5px solid ${w.id===activeId?'var(--accent)':'var(--border)'};background:${w.id===activeId?'rgba(108,99,255,0.1)':'var(--surface2)'};transition:all 0.2s;">
         <div style="flex:1;">
           <div style="font-weight:700;font-size:14px;color:${w.id===activeId?'var(--accent2)':'var(--text)'};">${w.name}</div>
-          ${w.created ? `<div style="font-size:11px;color:var(--text4);">Создан ${w.created}</div>` : ''}
+          ${w.created ? `<div style="font-size:11px;color:var(--text4);">${createdLabel} ${w.created}</div>` : ''}
         </div>
-        ${w.id===activeId ? '<div style="font-size:11px;color:var(--accent);font-weight:700;">● Активен</div>' : ''}
+        ${w.id===activeId ? `<div style="font-size:11px;color:var(--accent);font-weight:700;">${activeLabel}</div>` : ''}
         ${w.id!=='default' ? `<button onclick="event.stopPropagation();deleteWorkspace('${w.id}')" style="background:transparent;border:none;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>` : ''}
       </div>
     `).join('');
@@ -2321,7 +2492,8 @@
   }
 
   function logOut() {
-    if (!confirm('Выйти из аккаунта?')) return;
+    const t = translations[currentLang] || translations['uk'];
+    if (!confirm(t.logout_confirm || 'Вийти з акаунту?')) return;
     localStorage.removeItem('octo_user');
     localStorage.removeItem('octo_quiz_done');
     location.reload();

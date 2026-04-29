@@ -1,4 +1,4 @@
-const CACHE = 'octomind-v3';
+const CACHE = 'octomind-v4';
 const ASSETS = ['/', '/web-demo.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
