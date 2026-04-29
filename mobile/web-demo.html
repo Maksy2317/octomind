@@ -10,6 +10,27 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="OctoMind">
   <link rel="apple-touch-icon" href="assets/icon.png">
+  <!-- Instant session restore: hide auth BEFORE paint if user is in localStorage -->
+  <script>
+    try {
+      const _u = localStorage.getItem('octo_user');
+      if (_u && JSON.parse(_u).token) {
+        document.addEventListener('DOMContentLoaded', function() {
+          var el = document.getElementById('authOverlay');
+          if (el) el.classList.add('hidden');
+          // Also show app immediately if quiz is done
+          var done = localStorage.getItem('octo_quiz_done');
+          if (done) {
+            var app = document.getElementById('appWrap');
+            if (app) app.style.display = 'block';
+          } else {
+            var quiz = document.getElementById('quizWrap');
+            if (quiz) quiz.style.display = '';
+          }
+        });
+      }
+    } catch(e) {}
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -545,8 +566,11 @@
       position: fixed; inset: 0; background: rgba(0,0,0,0.85);
       display: flex; align-items: center; justify-content: center;
       z-index: 1000; padding: 24px; backdrop-filter: blur(8px);
+      transition: opacity 0.15s ease;
     }
     .auth-overlay.hidden { display: none; }
+    /* Hide auth instantly on load if user is stored — avoids flicker */
+    .auth-overlay.preload-hidden { opacity: 0; pointer-events: none; }
     .auth-box {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 28px; padding: 36px 28px; width: 100%; max-width: 400px;
@@ -1613,14 +1637,18 @@
     if (!hash) return;
     const params = new URLSearchParams(hash.slice(1));
     const accessToken = params.get('access_token');
-    const userEmail = params.get('email') || '';
+    const refreshToken = params.get('refresh_token'); // ← save refresh token too
     if (accessToken) {
-      // Fetch user info from Supabase
       fetch(`${SUPABASE_URL}/auth/v1/user`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` }
       }).then(r => r.json()).then(user => {
         if (user.email) {
-          localStorage.setItem('octo_user', JSON.stringify({ email: user.email, token: accessToken, name: user.user_metadata?.full_name || user.email.split('@')[0] }));
+          localStorage.setItem('octo_user', JSON.stringify({
+            email: user.email,
+            token: accessToken,
+            refresh: refreshToken || '',   // ← was missing before!
+            name: user.user_metadata?.full_name || user.email.split('@')[0]
+          }));
           history.replaceState(null, '', window.location.pathname);
           goToApp();
         }
@@ -1628,26 +1656,36 @@
     }
   })();
 
-  // Check if already logged in — validate + auto-refresh token
-  (async function checkSession() {
+  // ── SESSION RESTORE ──────────────────────────────────────────────────────────
+  // Step 1: IMMEDIATE — if user exists in localStorage, show app right away.
+  //         No network round-trip. Auth screen is never shown.
+  (function restoreSessionInstant() {
     const stored = localStorage.getItem('octo_user');
-    if (!stored) return; // no user → show auth
-    if (!SUPABASE_URL) { goToApp(); return; } // dev mode
+    if (!stored) return;
+    try {
+      const user = JSON.parse(stored);
+      if (user && user.token) goToApp();
+    } catch {}
+  })();
 
-    const user = JSON.parse(stored);
-    if (!user.token) return;
+  // Step 2: BACKGROUND — silently validate / refresh the token.
+  //         If it's expired and can't be refreshed → log out gracefully.
+  (async function validateSessionBackground() {
+    const stored = localStorage.getItem('octo_user');
+    if (!stored || !SUPABASE_URL) return;
+
+    let user;
+    try { user = JSON.parse(stored); } catch { return; }
+    if (!user?.token) return;
 
     try {
-      // Try current access token
       const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${user.token}` }
       });
 
-      if (res.ok) {
-        goToApp(); return;
-      }
+      if (res.ok) return; // Token is valid — nothing to do
 
-      // Token expired — try to refresh
+      // Token expired — try refresh
       if (user.refresh) {
         const ref = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
           method: 'POST',
@@ -1656,18 +1694,19 @@
         });
         const data = await ref.json();
         if (data.access_token) {
-          // Save new tokens and proceed
           localStorage.setItem('octo_user', JSON.stringify({
             ...user, token: data.access_token, refresh: data.refresh_token
           }));
-          goToApp(); return;
+          return; // Refreshed silently — user stays in app
         }
       }
 
-      // Both failed — clear session, show auth
+      // Both failed — session truly expired, force re-login
       localStorage.removeItem('octo_user');
+      localStorage.removeItem('octo_quiz_done');
+      location.reload();
     } catch {
-      goToApp(); // network error → let them in (offline)
+      // Network error — leave user in app (offline mode is fine)
     }
   })();
 
