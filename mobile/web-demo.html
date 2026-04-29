@@ -445,7 +445,7 @@
       border: 2px dashed var(--border); border-radius: 14px; padding: 40px 20px;
       text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 14px;
     }
-    .dropzone:hover { border-color: var(--accent); background: #12123A; }
+    .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: #12123A; transform: scale(1.01); }
     .dropzone h3 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
     .dropzone p { font-size: 12px; color: var(--text3); }
 
@@ -1054,51 +1054,95 @@
         <!-- Video -->
         <div class="screen" id="video">
           <div class="vsteps">
-            <div class="vstep active" id="vn1">1. Загрузка</div>
+            <div class="vstep active" id="vn1">1. Завантаження</div>
             <div class="vstep" id="vn2">2. Формат</div>
             <div class="vstep" id="vn3">3. Шаблон</div>
             <div class="vstep" id="vn4">4. Готово</div>
           </div>
+
+          <!-- Step 1: Upload -->
           <div id="vs1">
-            <div class="dropzone" onclick="document.getElementById('vf').click()">
+            <div class="dropzone" id="vDropzone" onclick="document.getElementById('vf').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="vDrop(event)">
               <div style="font-size:44px;margin-bottom:10px;">🎥</div>
-              <h3>Загрузи видео</h3>
-              <p>MP4, MOV, AVI · до 200MB</p>
+              <h3>Завантаж відео</h3>
+              <p>MP4, MOV, AVI, WebM · до 200MB</p>
+              <p style="font-size:12px;color:var(--text4);margin-top:6px;">або перетягни файл сюди</p>
               <input type="file" id="vf" style="display:none" accept="video/*" onchange="vFileOk(event)">
             </div>
-            <div id="vfInfo" style="display:none;" class="fb good" style="margin-bottom:14px;">
-              <span>✅</span><span id="vfName" style="color:var(--text2)"></span>
+            <div id="vfInfo" style="display:none;margin-bottom:14px;" class="fb good">
+              <span>✅</span>
+              <div style="flex:1;">
+                <div id="vfName" style="color:var(--text2);font-weight:700;font-size:13px;"></div>
+                <div id="vfSize" style="color:var(--text4);font-size:11px;"></div>
+              </div>
+              <div id="vfThumbWrap" style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;"></div>
             </div>
-            <button class="btn btn-primary btn-full" id="vb1" disabled onclick="vs(2)">Далее →</button>
+            <button class="btn btn-primary btn-full" id="vb1" disabled onclick="vs(2)">Далі →</button>
           </div>
+
+          <!-- Step 2: Format -->
           <div id="vs2" style="display:none">
-            <div class="card-title" style="margin-bottom:12px;">Выбери платформу</div>
+            <div class="card-title" style="margin-bottom:12px;">Вибери платформу</div>
             <div class="format-grid">
-              <div class="fc" onclick="vFmt('stories',this)"><div class="fc-icon">📸</div><div class="fc-name">Stories</div><div class="fc-meta">15 сек · 9:16</div></div>
-              <div class="fc" onclick="vFmt('reels',this)"><div class="fc-icon">🎬</div><div class="fc-name">Reels</div><div class="fc-meta">15–90 сек · 9:16</div></div>
-              <div class="fc" onclick="vFmt('tiktok',this)"><div class="fc-icon">🎵</div><div class="fc-name">TikTok</div><div class="fc-meta">15–60 сек · 9:16</div></div>
+              <div class="fc" onclick="vFmt('stories',this)">
+                <div class="fc-icon">📸</div><div class="fc-name">Stories</div><div class="fc-meta">15 сек · 9:16</div>
+              </div>
+              <div class="fc" onclick="vFmt('reels',this)">
+                <div class="fc-icon">🎬</div><div class="fc-name">Reels</div><div class="fc-meta">15–90 сек · 9:16</div>
+              </div>
+              <div class="fc" onclick="vFmt('tiktok',this)">
+                <div class="fc-icon">🎵</div><div class="fc-name">TikTok</div><div class="fc-meta">15–60 сек · 9:16</div>
+              </div>
             </div>
             <button class="btn btn-secondary btn-sm" onclick="vs(1)" style="margin-right:8px">← Назад</button>
-            <button class="btn btn-primary btn-sm" id="vb2" disabled onclick="vAI()">🐙 Анализировать →</button>
+            <button class="btn btn-primary btn-sm" id="vb2" disabled onclick="vAI()">🐙 Аналізувати →</button>
           </div>
+
+          <!-- Step 3: Templates (from AI) -->
           <div id="vs3" style="display:none">
-            <div class="fb tip" style="margin-bottom:14px;"><span>🐙</span><span style="font-size:12px;color:var(--text2);">Octo проанализировал: <strong>высокая энергия, яркий контент, молодая аудитория</strong></span></div>
-            <div class="card-title" style="margin-bottom:4px;">Выбери шаблон <span style="color:var(--text4);font-size:11px;font-weight:400;" id="vtc"></span></div>
-            <div class="card-sub">Octo рекомендует первый вариант</div>
+            <div id="vAnalysisBadge" class="fb tip" style="margin-bottom:14px;display:none;">
+              <span>🐙</span>
+              <span id="vAnalysisText" style="font-size:12px;color:var(--text2);"></span>
+            </div>
+            <div class="card-title" style="margin-bottom:4px;">Вибери шаблон</div>
+            <div class="card-sub" style="margin-bottom:16px;">Octo рекомендує перший варіант</div>
             <div class="tgrid" id="vtg"></div>
-            <button class="btn btn-secondary btn-sm" onclick="vs(2)" style="margin-right:8px">← Назад</button>
-            <button class="btn btn-primary btn-sm" id="vb3" disabled onclick="vs(4)">Применить →</button>
+            <div style="margin-top:16px;">
+              <button class="btn btn-secondary btn-sm" onclick="vs(2)" style="margin-right:8px">← Назад</button>
+              <button class="btn btn-primary btn-sm" id="vb3" disabled onclick="vProcess()">🚀 Застосувати та обробити →</button>
+            </div>
           </div>
+
+          <!-- Step 4: Processing + Done -->
           <div id="vs4" style="display:none">
-            <div class="card" style="text-align:center;padding:36px;">
-              <div style="font-size:60px;margin-bottom:14px;">🎉</div>
-              <div class="card-title">Видео готово!</div>
-              <div class="card-sub" id="vrd">Шаблон применён</div>
-              <div style="display:flex;gap:10px;margin-top:18px;justify-content:center;">
-                <button class="btn btn-primary" id="vdb" onclick="fakeDl()">💾 Скачать</button>
-                <button class="btn btn-secondary" onclick="alert('Поделиться...')">📤 Поделиться</button>
+            <div id="vProcessing" class="card" style="text-align:center;padding:40px;">
+              <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
+              <div class="card-title" style="margin-bottom:8px;">Обробляємо відео...</div>
+              <div style="color:var(--text3);font-size:13px;margin-bottom:24px;">FFmpeg застосовує шаблон · конвертуємо в 9:16</div>
+              <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
+                <div id="vProgressBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:5%;transition:width 0.8s ease;"></div>
               </div>
-              <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="vReset()">+ Создать ещё</button>
+              <div id="vProgressLabel" style="font-size:12px;color:var(--text4);margin-top:8px;">Завантаження та обробка...</div>
+            </div>
+            <div id="vDone" style="display:none;">
+              <div class="card" style="text-align:center;padding:36px;background:linear-gradient(135deg,#1a1040,#12121E);border-color:#4CAF5066;">
+                <div style="font-size:60px;margin-bottom:14px;">🎉</div>
+                <div class="card-title" style="color:#4CAF50;">Відео готове!</div>
+                <div class="card-sub" id="vrd" style="margin-bottom:20px;">Шаблон застосовано</div>
+                <a id="vDownloadLink" href="#" download="octo_video.mp4" class="btn btn-primary" style="text-decoration:none;display:inline-block;">💾 Завантажити відео</a>
+              </div>
+              <div class="card" style="margin-top:14px;">
+                <div id="vDoneInfo" style="font-size:13px;color:var(--text3);line-height:1.8;"></div>
+              </div>
+              <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="vReset()">+ Створити ще</button>
+            </div>
+            <div id="vError" style="display:none;" class="card">
+              <div style="text-align:center;padding:20px;">
+                <div style="font-size:40px;margin-bottom:12px;">❌</div>
+                <div class="card-title" style="color:#ff6b6b;">Помилка обробки</div>
+                <div class="card-sub" id="vErrorMsg" style="margin-bottom:16px;"></div>
+                <button class="btn btn-secondary" onclick="vs(3)">← Спробувати ще раз</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2091,33 +2135,74 @@
     document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth' });
   }
 
-  // Video
-  const vT = {
-    stories: [
-      { n:'Vibrant Pop', d:'Яркие цвета', e:'🌈', c:'linear-gradient(135deg,#FF6B6B,#FFE66D)', ai:true },
-      { n:'Minimal Clean', d:'Чистый стиль', e:'⬜', c:'linear-gradient(135deg,#2C2C3E,#4A4A6A)', ai:false },
-      { n:'Glitch Art', d:'Глитч эффект', e:'⚡', c:'linear-gradient(135deg,#0F0F1A,#6C63FF)', ai:false },
-    ],
-    reels: [
-      { n:'Cinematic Flow', d:'Кинематограф', e:'🎬', c:'linear-gradient(135deg,#1A1A2E,#16213E)', ai:true },
-      { n:'Neon Dreams', d:'Неон', e:'🌃', c:'linear-gradient(135deg,#0F0F1A,#FF6EC7)', ai:false },
-      { n:'Retro Wave', d:'Синтвейв', e:'🌅', c:'linear-gradient(135deg,#2D1B69,#FF6B35)', ai:false },
-    ],
-    tiktok: [
-      { n:'Trending Beat', d:'Для вирального', e:'🔥', c:'linear-gradient(135deg,#FF0050,#00F2EA)', ai:true },
-      { n:'Energetic Flash', d:'Высокий контраст', e:'⚡', c:'linear-gradient(135deg,#FF4500,#FFD700)', ai:false },
-      { n:'Aesthetic Fade', d:'Пастель', e:'🌸', c:'linear-gradient(135deg,#F8BBD9,#C5CAE9)', ai:false },
-    ],
-  };
+  // ── VIDEO CREATOR — Real API ─────────────────────────────────────────────────
   const fmtN = { stories:'Instagram Stories', reels:'Instagram Reels', tiktok:'TikTok' };
-  const vS = { fmt: null, tmpl: null, file: null };
+
+  // Template preview gradients by template ID
+  const tplGrad = {
+    'stories-minimal': 'linear-gradient(135deg,#f8f9fa,#e9ecef)',
+    'stories-warm':    'linear-gradient(135deg,#f7c59f,#f9a825)',
+    'stories-bold':    'linear-gradient(135deg,#000,#333)',
+    'reels-gradient':  'linear-gradient(135deg,#6c63ff,#a78bfa)',
+    'reels-cinematic': 'linear-gradient(135deg,#1a1a2e,#16213e)',
+    'reels-vibrant':   'linear-gradient(135deg,#ff4757,#ff6b81)',
+    'tiktok-neon':     'linear-gradient(135deg,#0be881,#1a1a2e)',
+    'tiktok-clean':    'linear-gradient(135deg,#f0f0f0,#ddd)',
+    'tiktok-vintage':  'linear-gradient(135deg,#c9a96e,#8d6e4a)',
+  };
+  const tplIcon = {
+    'stories-minimal':'⬜','stories-warm':'🌅','stories-bold':'🖤',
+    'reels-gradient':'🌈','reels-cinematic':'🎬','reels-vibrant':'🔥',
+    'tiktok-neon':'💚','tiktok-clean':'✨','tiktok-vintage':'📼',
+  };
+
+  const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null };
+
+  // Drag-and-drop support
+  function vDrop(e) {
+    e.preventDefault();
+    document.getElementById('vDropzone').classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('video/')) {
+      document.getElementById('vf').files; // can't set directly
+      vSetFile(file);
+    }
+  }
+
+  function vSetFile(file) {
+    vS.file = file;
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    document.getElementById('vfInfo').style.display = 'flex';
+    document.getElementById('vfName').textContent = file.name;
+    document.getElementById('vfSize').textContent = mb + ' MB · ' + file.type.split('/')[1].toUpperCase();
+    document.getElementById('vb1').disabled = false;
+
+    // Extract thumbnail preview + base64 frame for AI analysis
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.currentTime = 1.0;
+    video.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = Math.round(320 * video.videoHeight / Math.max(video.videoWidth, 1));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      vS.frameBase64 = dataUrl.split(',')[1];
+      // Show thumbnail
+      const tw = document.getElementById('vfThumbWrap');
+      tw.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+      URL.revokeObjectURL(video.src);
+    }, { once: true });
+    video.addEventListener('error', () => { vS.frameBase64 = null; }, { once: true });
+    video.load();
+  }
 
   function vFileOk(e) {
-    const f = e.target.files[0]; if (!f) return;
-    vS.file = f.name;
-    document.getElementById('vfInfo').style.display = 'flex';
-    document.getElementById('vfName').textContent = f.name;
-    document.getElementById('vb1').disabled = false;
+    const f = e.target.files[0];
+    if (!f) return;
+    vSetFile(f);
   }
 
   function vs(n) {
@@ -2126,7 +2211,6 @@
       const el = document.getElementById('vn' + i);
       el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
     }
-    if (n === 4) document.getElementById('vrd').textContent = (vS.tmpl?.n || '') + ' применён для ' + (fmtN[vS.fmt] || '');
   }
 
   function vFmt(fmt, el) {
@@ -2136,40 +2220,160 @@
     document.getElementById('vb2').disabled = false;
   }
 
-  function vAI() {
+  async function vAI() {
+    if (!vS.fmt) return;
+    // Show step 3 with loading state
     vs(3);
-    const t = vT[vS.fmt];
-    document.getElementById('vtc').textContent = '(' + t.length + ' шаблона)';
-    document.getElementById('vtg').innerHTML = t.map((x, i) =>
-      `<div class="tc ${i===0?'selected':''}" onclick="vTmpl(${i},this)">
-        ${x.ai ? '<div class="ai-badge">🐙 Pick</div>' : ''}
-        <div class="tc-preview" style="background:${x.c}">${x.e}</div>
-        <div class="tc-name">${x.n}</div>
-        <div class="tc-desc">${x.d}</div>
-      </div>`
-    ).join('');
-    vS.tmpl = t[0];
-    document.getElementById('vb3').disabled = false;
+    const tgrid = document.getElementById('vtg');
+    tgrid.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text3);">
+      <div style="font-size:36px;margin-bottom:12px;">🐙</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Octo аналізує відео...</div>
+      <div style="font-size:12px;color:var(--text4);">Claude Vision читає кадр</div>
+      <div class="loading" style="margin-top:16px;justify-content:center;"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>`;
+    document.getElementById('vb3').disabled = true;
+    document.getElementById('vAnalysisBadge').style.display = 'none';
+
+    try {
+      const res = await fetch('/api/video/analyze-frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frame: vS.frameBase64 || '', format: vS.fmt })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const { analysis, templates } = data;
+
+      // Show AI analysis summary
+      const badge = document.getElementById('vAnalysisBadge');
+      const energyEmoji = analysis.energy === 'high' ? '🔥' : analysis.energy === 'medium' ? '⚡' : '🌿';
+      badge.style.display = 'flex';
+      document.getElementById('vAnalysisText').innerHTML =
+        `Octo проаналізував: <strong>${energyEmoji} ${analysis.mood || ''}</strong> · енергія: <strong>${analysis.energy || ''}</strong> · теги: ${(analysis.tags || []).slice(0,4).join(', ')}`;
+
+      // Render real templates from API
+      vS.tmplId = templates[0]?.id || null;
+      tgrid.innerHTML = templates.map((t, i) => {
+        const grad = tplGrad[t.id] || 'linear-gradient(135deg,#6C63FF,#A78BFA)';
+        const icon = tplIcon[t.id] || '🎬';
+        const isAI = i === 0;
+        return `<div class="tc ${isAI ? 'selected' : ''}" onclick="vTmpl('${t.id}',this)" data-id="${t.id}">
+          ${isAI ? '<div class="ai-badge">🐙 Octo Pick</div>' : ''}
+          <div class="tc-preview" style="background:${grad};font-size:28px;">${icon}</div>
+          <div class="tc-name">${t.name}</div>
+          <div class="tc-desc">${t.description}</div>
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;">
+            ${(t.tags || []).slice(0,3).map(tag => `<span style="font-size:9px;background:var(--surface3);padding:2px 6px;border-radius:10px;color:var(--text3);">${tag}</span>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('vb3').disabled = false;
+    } catch (err) {
+      tgrid.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">
+        <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+        <div style="font-size:13px;">Не вдалося отримати аналіз — показуємо стандартні шаблони</div>
+      </div>`;
+      // Fallback: load default templates
+      try {
+        const r2 = await fetch('/api/video/templates/' + vS.fmt);
+        const d2 = await r2.json();
+        const templates = d2.templates || [];
+        vS.tmplId = templates[0]?.id || null;
+        tgrid.innerHTML = templates.map((t, i) => {
+          const grad = tplGrad[t.id] || 'linear-gradient(135deg,#6C63FF,#A78BFA)';
+          const icon = tplIcon[t.id] || '🎬';
+          return `<div class="tc ${i===0?'selected':''}" onclick="vTmpl('${t.id}',this)" data-id="${t.id}">
+            ${i===0 ? '<div class="ai-badge">⭐ Popular</div>' : ''}
+            <div class="tc-preview" style="background:${grad};font-size:28px;">${icon}</div>
+            <div class="tc-name">${t.name}</div>
+            <div class="tc-desc">${t.description}</div>
+          </div>`;
+        }).join('');
+        document.getElementById('vb3').disabled = templates.length === 0;
+      } catch {}
+    }
   }
 
-  function vTmpl(i, el) {
+  function vTmpl(id, el) {
     document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
-    vS.tmpl = vT[vS.fmt][i];
+    vS.tmplId = id;
     document.getElementById('vb3').disabled = false;
   }
 
-  function fakeDl() {
-    const b = document.getElementById('vdb');
-    b.textContent = '✓ Скачано!';
-    b.style.background = '#2A4A2A';
-    b.disabled = true;
+  async function vProcess() {
+    if (!vS.file || !vS.fmt || !vS.tmplId) return;
+    vs(4);
+    const processing = document.getElementById('vProcessing');
+    const done = document.getElementById('vDone');
+    const errDiv = document.getElementById('vError');
+    processing.style.display = 'block';
+    done.style.display = 'none';
+    errDiv.style.display = 'none';
+
+    // Animate progress bar
+    const bar = document.getElementById('vProgressBar');
+    const lbl = document.getElementById('vProgressLabel');
+    let pct = 5;
+    const ticker = setInterval(() => {
+      pct = Math.min(pct + (pct < 30 ? 8 : pct < 70 ? 3 : 1), 90);
+      bar.style.width = pct + '%';
+      lbl.textContent = pct + '%';
+    }, 1200);
+
+    try {
+      // 1. Upload video
+      lbl.textContent = 'Завантаження відео...';
+      const formData = new FormData();
+      formData.append('video', vS.file);
+      const uploadRes = await fetch('/api/video/upload', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      if (uploadData.error) throw new Error(uploadData.error);
+      vS.videoId = uploadData.videoId;
+
+      // 2. Process with template
+      lbl.textContent = 'Застосовуємо шаблон FFmpeg...';
+      bar.style.width = '55%';
+      const processRes = await fetch('/api/video/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: vS.videoId, templateId: vS.tmplId, format: vS.fmt })
+      });
+      const processData = await processRes.json();
+      if (processData.error) throw new Error(processData.error);
+
+      clearInterval(ticker);
+      bar.style.width = '100%';
+      lbl.textContent = '100% — Готово!';
+
+      setTimeout(() => {
+        processing.style.display = 'none';
+        done.style.display = 'block';
+        document.getElementById('vDownloadLink').href = processData.downloadUrl;
+        document.getElementById('vrd').textContent = vS.tmplId.replace(/-/g,' ') + ' · ' + (fmtN[vS.fmt] || vS.fmt);
+        document.getElementById('vDoneInfo').innerHTML =
+          `📐 <strong>Формат:</strong> ${fmtN[vS.fmt] || vS.fmt} · 1080×1920 (9:16)<br>` +
+          `🎨 <strong>Шаблон:</strong> ${vS.tmplId}<br>` +
+          `🎬 <strong>Кодек:</strong> H.264 · AAC · faststart<br>` +
+          `✅ Файл готовий до публікації в Instagram / TikTok`;
+      }, 600);
+
+    } catch (err) {
+      clearInterval(ticker);
+      processing.style.display = 'none';
+      errDiv.style.display = 'block';
+      document.getElementById('vErrorMsg').textContent = err.message || 'Невідома помилка';
+    }
   }
 
   function vReset() {
-    vS.fmt = null; vS.tmpl = null; vS.file = null;
+    vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
     document.getElementById('vfInfo').style.display = 'none';
+    document.getElementById('vfThumbWrap').innerHTML = '';
     document.getElementById('vb1').disabled = true;
+    document.getElementById('vf').value = '';
     vs(1);
   }
 

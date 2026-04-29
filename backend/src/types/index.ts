@@ -62,4 +62,5 @@ export interface ProcessingJob {
 
 export interface AIProvider {
   analyzeVideo(videoPath: string, format: VideoFormat): Promise<VideoAnalysis>;
+  analyzeFrame(frameBase64: string, format: VideoFormat): Promise<VideoAnalysis>;
 }

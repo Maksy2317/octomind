@@ -62,4 +62,24 @@ Reply with ONLY valid JSON, no markdown.`;
     const content = response.choices[0]?.message?.content || '{}';
     return JSON.parse(content) as VideoAnalysis;
   }
+
+  async analyzeFrame(frameBase64: string, format: VideoFormat): Promise<VideoAnalysis> {
+    const prompt = `You are an expert social media video marketing analyst.
+Analyze this video frame for a ${format.toUpperCase()} format post.
+Return ONLY valid JSON with: tags (string[]), mood (string), dominantColors (string[]), hasText (boolean), hasFaces (boolean), hasPeople (boolean), energy ("low"|"medium"|"high"), suggestedStyle (string), duration (number).`;
+
+    const response = await this.client.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${frameBase64}`, detail: 'low' } },
+          { type: 'text', text: prompt },
+        ],
+      }],
+      max_tokens: 400,
+    });
+    const content = response.choices[0]?.message?.content || '{}';
+    return JSON.parse(content) as VideoAnalysis;
+  }
 }

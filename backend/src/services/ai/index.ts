@@ -18,6 +18,9 @@ function getProvider(): AIProvider {
 }
 
 export async function analyzeVideo(videoPath: string, format: VideoFormat): Promise<VideoAnalysis> {
-  const provider = getProvider();
-  return provider.analyzeVideo(videoPath, format);
+  return getProvider().analyzeVideo(videoPath, format);
+}
+
+export async function analyzeFrame(frameBase64: string, format: VideoFormat): Promise<VideoAnalysis> {
+  return getProvider().analyzeFrame(frameBase64, format);
 }
