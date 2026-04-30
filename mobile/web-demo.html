@@ -2550,15 +2550,14 @@
     if (!grid) return;
     grid.innerHTML = '';
     for (let i = 0; i < 8; i++) {
-      const slot = document.createElement('div');
+      // Use <label> so clicking anywhere on the slot natively opens the file picker
+      const slot = document.createElement('label');
+      slot.htmlFor = 'carFile' + i;
       slot.className = 'pslot' + (carPhotos[i] ? ' filled' : '');
-      slot.dataset.idx = i;
       if (carPhotos[i]) {
         slot.innerHTML = `<img src="${carPhotos[i]}" alt=""><div class="pslot-del" onclick="carDelPhoto(${i},event)">✕</div><div class="pslot-num">${i+1}</div>`;
-        slot.onclick = () => document.getElementById('carFile' + i).click();
       } else {
         slot.innerHTML = `<div class="pslot-add" style="display:flex;flex-direction:column;align-items:center;gap:2px;"><span style="font-size:20px;color:var(--text4)">+</span><span style="font-size:9px;color:var(--text4)">${i+1}</span></div>`;
-        slot.onclick = () => document.getElementById('carFile' + i).click();
       }
       grid.appendChild(slot);
     }
@@ -2616,6 +2615,7 @@
 
   function carDelPhoto(idx, e) {
     e.stopPropagation();
+    e.preventDefault(); // prevent label from opening file picker on delete click
     carPhotos[idx] = null;
     // Compact: move non-null photos to front
     const filled = carPhotos.filter(Boolean);
