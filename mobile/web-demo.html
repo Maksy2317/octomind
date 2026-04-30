@@ -498,11 +498,65 @@
     .pgrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
     .pslot {
       aspect-ratio: 1; background: var(--surface2); border: 2px dashed var(--border);
-      border-radius: 8px; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 22px; transition: all 0.2s;
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 22px; transition: all 0.2s; position: relative; overflow: hidden;
     }
-    .pslot:hover { border-color: var(--accent); }
+    .pslot:hover { border-color: var(--accent); background: var(--surface3); }
     .pslot.filled { border-style: solid; border-color: var(--accent); }
+    .pslot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .pslot .pslot-del {
+      position: absolute; top: 3px; right: 3px; width: 18px; height: 18px;
+      background: rgba(0,0,0,0.7); border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 10px; color: #fff; z-index: 2; opacity: 0; transition: opacity 0.2s;
+    }
+    .pslot.filled:hover .pslot-del { opacity: 1; }
+    .pslot .pslot-num {
+      position: absolute; bottom: 3px; left: 4px; font-size: 9px; font-weight: 700;
+      color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.8); z-index: 2;
+    }
+    .pslot-add { font-size: 20px; color: var(--text4); flex-direction: column; gap: 2px; }
+    .pslot-add span { font-size: 9px; color: var(--text4); }
+
+    /* Template cards */
+    .tmpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .tmpl-card {
+      border: 2px solid var(--border); border-radius: 12px; cursor: pointer;
+      overflow: hidden; transition: all 0.2s; position: relative;
+    }
+    .tmpl-card:hover { border-color: var(--accent2); transform: scale(1.02); }
+    .tmpl-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,99,255,0.3); }
+    .tmpl-preview {
+      height: 80px; display: grid; gap: 2px; padding: 6px;
+    }
+    .tmpl-preview.grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .tmpl-preview.grid-hero { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .tmpl-preview.grid-strip { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr; }
+    .tmpl-preview.grid-featured { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
+    .tmpl-cell {
+      border-radius: 4px; background: var(--surface3);
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .tmpl-cell img { width: 100%; height: 100%; object-fit: cover; }
+    .tmpl-cell.span2 { grid-column: span 2; }
+    .tmpl-cell.rowspan2 { grid-row: span 2; }
+    .tmpl-meta { padding: 6px 8px 8px; }
+    .tmpl-name { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+    .tmpl-desc { font-size: 10px; color: var(--text3); }
+    .tmpl-badge {
+      position: absolute; top: 6px; right: 6px; background: var(--accent);
+      color: white; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+    }
+
+    /* Overlay styles on result slides */
+    .slide-out {
+      border-radius: 10px; overflow: hidden; position: relative; flex-shrink: 0;
+      width: 90px; aspect-ratio: 4/5;
+    }
+    .slide-out img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .slide-out .slide-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 6px 7px; font-size: 9px; font-weight: 600; color: white; line-height: 1.3;
+    }
     .styles-row { display: flex; gap: 8px; margin-bottom: 14px; }
     .sopt {
       flex: 1; height: 60px; border-radius: 10px; cursor: pointer;
@@ -1173,49 +1227,40 @@
 
         <!-- Carousel -->
         <div class="screen" id="carousel">
+          <!-- Hidden file inputs (one per slot) -->
+          <input type="file" id="carFile0" accept="image/*" style="display:none" onchange="carSlotFile(0,this)">
+          <input type="file" id="carFile1" accept="image/*" style="display:none" onchange="carSlotFile(1,this)">
+          <input type="file" id="carFile2" accept="image/*" style="display:none" onchange="carSlotFile(2,this)">
+          <input type="file" id="carFile3" accept="image/*" style="display:none" onchange="carSlotFile(3,this)">
+          <input type="file" id="carFile4" accept="image/*" style="display:none" onchange="carSlotFile(4,this)">
+          <input type="file" id="carFile5" accept="image/*" style="display:none" onchange="carSlotFile(5,this)">
+          <input type="file" id="carFile6" accept="image/*" style="display:none" onchange="carSlotFile(6,this)">
+          <input type="file" id="carFile7" accept="image/*" style="display:none" onchange="carSlotFile(7,this)">
+
           <div class="card">
             <div class="card-title">🖼️ Carousel Builder</div>
-            <div class="card-sub">Загрузи 2–10 фото — Octo создаёт единый стиль и подписи</div>
-            <div class="pgrid">
-              <div class="pslot filled">🌆</div>
-              <div class="pslot filled">🏙️</div>
-              <div class="pslot filled">🌇</div>
-              <div class="pslot" onclick="alert('Выбери фото')">+</div>
-              <div class="pslot" onclick="alert('Выбери фото')">+</div>
-              <div class="pslot" onclick="alert('Выбери фото')">+</div>
-              <div class="pslot" onclick="alert('Выбери фото')">+</div>
-              <div class="pslot" onclick="alert('Выбери фото')">+</div>
-            </div>
-            <div class="card-title" style="margin-bottom:10px;">Стиль оформления</div>
-            <div class="styles-row">
-              <div class="sopt selected" style="background:linear-gradient(135deg,#1A1A2E,#6C63FF)" onclick="sStyle(this)">🌙</div>
-              <div class="sopt" style="background:linear-gradient(135deg,#FF6B6B,#FFE66D)" onclick="sStyle(this)">☀️</div>
-              <div class="sopt" style="background:linear-gradient(135deg,#0F0F0F,#333)" onclick="sStyle(this)">🖤</div>
-              <div class="sopt" style="background:linear-gradient(135deg,#F8BBD9,#E1BEE7)" onclick="sStyle(this)">🌸</div>
-            </div>
-            <button class="btn btn-primary btn-full" onclick="buildCarousel()">🐙 Создать карусель</button>
+            <div class="card-sub" data-i18n="car_sub">Загрузи 2–10 фото — Octo создаёт единый стиль и подписи</div>
+            <div class="pgrid" id="carSlots"></div>
+
+            <div class="card-title" style="margin:14px 0 10px;" data-i18n="car_tmpl_title">Шаблон оформления</div>
+            <div class="tmpl-grid" id="carTmplGrid"></div>
+
+            <button class="btn btn-primary btn-full" onclick="buildCarousel()" id="carBuildBtn" disabled style="opacity:0.5">🐙 <span data-i18n="car_build_btn">Создать карусель</span></button>
           </div>
+
           <div id="carRes" style="display:none">
             <div class="card">
-              <div class="card-title">✅ Карусель готова!</div>
-              <div class="card-sub">Octo добавил единый стиль и подписи к каждому слайду</div>
-              <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-                <div style="background:linear-gradient(135deg,#1A1A2E,#6C63FF);border-radius:8px;padding:10px;font-size:10px;width:72px;text-align:center;"><div style="font-size:22px;margin-bottom:3px;">🌆</div><div style="color:#A78BFA">Slide 1</div></div>
-                <div style="background:linear-gradient(135deg,#1A1A2E,#6C63FF);border-radius:8px;padding:10px;font-size:10px;width:72px;text-align:center;"><div style="font-size:22px;margin-bottom:3px;">🏙️</div><div style="color:#A78BFA">Slide 2</div></div>
-                <div style="background:linear-gradient(135deg,#1A1A2E,#6C63FF);border-radius:8px;padding:10px;font-size:10px;width:72px;text-align:center;"><div style="font-size:22px;margin-bottom:3px;">🌇</div><div style="color:#A78BFA">Slide 3</div></div>
-              </div>
+              <div class="card-title">✅ <span data-i18n="car_done_title">Карусель готова!</span></div>
+              <div class="card-sub" data-i18n="car_done_sub">Octo добавил единый стиль и подписи к каждому слайду</div>
+              <div id="carSlidesPrev" style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;"></div>
               <div style="display:flex;gap:8px;margin-top:14px;">
-                <button class="btn btn-primary btn-sm">💾 Скачать все</button>
-                <button class="btn btn-secondary btn-sm">📤 Поделиться</button>
+                <button class="btn btn-primary btn-sm" onclick="carDownloadAll()">💾 <span data-i18n="car_download">Скачать все</span></button>
+                <button class="btn btn-secondary btn-sm" onclick="buildCarousel()">🔄 <span data-i18n="car_redo">Пересоздать</span></button>
               </div>
             </div>
             <div class="card">
-              <div class="card-title">🐙 Подписи от Octo</div>
-              <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;">
-                <div style="background:var(--surface2);border-radius:8px;padding:10px;"><strong>Слайд 1:</strong> Каждый закат — новое начало 🌆 Сохрани этот момент.</div>
-                <div style="background:var(--surface2);border-radius:8px;padding:10px;"><strong>Слайд 2:</strong> Город не спит — и ты не должен 🏙️ #hustle #city</div>
-                <div style="background:var(--surface2);border-radius:8px;padding:10px;"><strong>Слайд 3:</strong> Золотой час — время для новых идей 🌇 Что создашь сегодня?</div>
-              </div>
+              <div class="card-title">🐙 <span data-i18n="car_captions_title">Подписи от Octo</span></div>
+              <div id="carCaptions" style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
             </div>
           </div>
         </div>
@@ -1753,6 +1798,10 @@
       screen_pricing:'Pricing', screen_pricing_sub:'Выбери подходящий план',
       screen_profile:'Личный кабинет', screen_profile_sub:'Твой аккаунт и настройки',
       screen_settings:'Settings', screen_settings_sub:'Настрой Octo под свой бренд',
+      car_sub:'Загрузи 2–10 фото — Octo создаёт единый стиль и подписи',
+      car_tmpl_title:'Шаблон оформления', car_build_btn:'Создать карусель',
+      car_done_title:'Карусель готова!', car_done_sub:'Octo добавил единый стиль и подписи к каждому слайду',
+      car_download:'Скачать все', car_redo:'Пересоздать', car_captions_title:'Подписи от Octo',
       // ── Dashboard ──
       stat_videos:'Видео создано', stat_videos_ch:'↑ 3 на этой неделе',
       stat_carousels:'Карусели', stat_carousels_ch:'↑ 2 на этой неделе',
@@ -1822,6 +1871,10 @@
       screen_pricing:'Pricing', screen_pricing_sub:'Обери підходящий план',
       screen_profile:'Особистий кабінет', screen_profile_sub:'Твій акаунт та налаштування',
       screen_settings:'Settings', screen_settings_sub:'Налаштуй Octo під свій бренд',
+      car_sub:'Завантаж 2–10 фото — Octo створить єдиний стиль і підписи',
+      car_tmpl_title:'Шаблон оформлення', car_build_btn:'Створити карусель',
+      car_done_title:'Карусель готова!', car_done_sub:'Octo додав єдиний стиль і підписи до кожного слайду',
+      car_download:'Завантажити все', car_redo:'Перестворити', car_captions_title:'Підписи від Octo',
       // ── Dashboard ──
       stat_videos:'Відео створено', stat_videos_ch:'↑ 3 цього тижня',
       stat_carousels:'Каруселі', stat_carousels_ch:'↑ 2 цього тижня',
@@ -1891,6 +1944,10 @@
       screen_pricing:'Pricing', screen_pricing_sub:'Choose the right plan for you',
       screen_profile:'My Profile', screen_profile_sub:'Your account and settings',
       screen_settings:'Settings', screen_settings_sub:'Customize Octo for your brand',
+      car_sub:'Upload 2–10 photos — Octo creates a unified style and captions',
+      car_tmpl_title:'Layout template', car_build_btn:'Create carousel',
+      car_done_title:'Carousel ready!', car_done_sub:'Octo applied a unified style and captions to each slide',
+      car_download:'Download all', car_redo:'Regenerate', car_captions_title:'Captions by Octo',
       // ── Dashboard ──
       stat_videos:'Videos created', stat_videos_ch:'↑ 3 this week',
       stat_carousels:'Carousels', stat_carousels_ch:'↑ 2 this week',
@@ -1990,6 +2047,7 @@
     }
     window.scrollTo(0, 0);
     closeSidebar();
+    if (id === 'carousel') carInit();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
     const w = document.getElementById('octoWidget');
     if (w) w.style.display = id === 'advisor' ? 'none' : 'block';
@@ -2416,9 +2474,237 @@
     vs(1);
   }
 
+  // =============================================
+  // 🖼️ CAROUSEL BUILDER — real photo upload + templates
+  // =============================================
+  const CAR_TEMPLATES = [
+    {
+      id: 'dark-luxury',
+      name: 'Dark Luxury',
+      desc: 'Тёмный фон, золотые акценты',
+      badge: '🔥',
+      layout: 'grid-2x2',
+      overlay: 'linear-gradient(to top, rgba(0,0,0,0.75) 50%, transparent)',
+      textColor: '#FFD700',
+      borderColor: '#B8860B',
+      fontWeight: '700',
+    },
+    {
+      id: 'minimal-white',
+      name: 'Minimal Clean',
+      desc: 'Белые рамки, чистый стиль',
+      badge: null,
+      layout: 'grid-strip',
+      overlay: 'linear-gradient(to top, rgba(255,255,255,0.15) 40%, transparent)',
+      textColor: '#ffffff',
+      borderColor: '#ffffff',
+      fontWeight: '600',
+    },
+    {
+      id: 'gradient-pop',
+      name: 'Gradient Pop',
+      desc: 'Яркие градиенты, bold текст',
+      badge: '✨',
+      layout: 'grid-featured',
+      overlay: 'linear-gradient(135deg, rgba(108,99,255,0.6) 0%, rgba(167,139,250,0.4) 100%)',
+      textColor: '#ffffff',
+      borderColor: '#6C63FF',
+      fontWeight: '800',
+    },
+    {
+      id: 'film-vintage',
+      name: 'Film Vintage',
+      desc: 'Плёночный эффект, ретро',
+      badge: null,
+      layout: 'grid-hero',
+      overlay: 'linear-gradient(to top, rgba(139,90,43,0.7) 50%, rgba(0,0,0,0.2) 100%)',
+      textColor: '#F5DEB3',
+      borderColor: '#8B6914',
+      fontWeight: '600',
+    },
+  ];
+
+  let carPhotos = new Array(8).fill(null); // base64 strings or null
+  let carTmplId = 'dark-luxury';
+
+  function carInit() {
+    // Restore from localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem('octo_carousel') || '{}');
+      if (saved.photos) carPhotos = saved.photos;
+      if (saved.tmplId) carTmplId = saved.tmplId;
+    } catch {}
+    carRenderSlots();
+    carRenderTemplates();
+    carUpdateBuildBtn();
+  }
+
+  function carSave() {
+    try {
+      localStorage.setItem('octo_carousel', JSON.stringify({ photos: carPhotos, tmplId: carTmplId }));
+    } catch {}
+  }
+
+  function carRenderSlots() {
+    const grid = document.getElementById('carSlots');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 0; i < 8; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'pslot' + (carPhotos[i] ? ' filled' : '');
+      slot.dataset.idx = i;
+      if (carPhotos[i]) {
+        slot.innerHTML = `<img src="${carPhotos[i]}" alt=""><div class="pslot-del" onclick="carDelPhoto(${i},event)">✕</div><div class="pslot-num">${i+1}</div>`;
+        slot.onclick = () => document.getElementById('carFile' + i).click();
+      } else {
+        slot.innerHTML = `<div class="pslot-add" style="display:flex;flex-direction:column;align-items:center;gap:2px;"><span style="font-size:20px;color:var(--text4)">+</span><span style="font-size:9px;color:var(--text4)">${i+1}</span></div>`;
+        slot.onclick = () => document.getElementById('carFile' + i).click();
+      }
+      grid.appendChild(slot);
+    }
+  }
+
+  function carRenderTemplates() {
+    const grid = document.getElementById('carTmplGrid');
+    if (!grid) return;
+    grid.innerHTML = CAR_TEMPLATES.map(t => {
+      const filledPhotos = carPhotos.filter(Boolean);
+      const cells = carPreviewCells(t, filledPhotos);
+      return `
+        <div class="tmpl-card ${t.id === carTmplId ? 'selected' : ''}" onclick="carSelectTmpl('${t.id}')">
+          ${t.badge ? `<div class="tmpl-badge">${t.badge}</div>` : ''}
+          <div class="tmpl-preview ${t.layout}" style="background:var(--surface2);">${cells}</div>
+          <div class="tmpl-meta">
+            <div class="tmpl-name">${t.name}</div>
+            <div class="tmpl-desc">${t.desc}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function carPreviewCells(t, photos) {
+    const count = t.layout === 'grid-2x2' ? 4 : t.layout === 'grid-strip' ? 3 : t.layout === 'grid-featured' ? 3 : 1;
+    const cells = [];
+    for (let i = 0; i < count; i++) {
+      const imgSrc = photos[i];
+      const extraClass = (t.layout === 'grid-featured' && i === 0) ? ' rowspan2' : '';
+      cells.push(`<div class="tmpl-cell${extraClass}" style="border:1px solid ${t.borderColor}33;">${imgSrc ? `<img src="${imgSrc}">` : ''}</div>`);
+    }
+    return cells.join('');
+  }
+
+  function carSelectTmpl(id) {
+    carTmplId = id;
+    carSave();
+    carRenderTemplates();
+  }
+
+  function carSlotFile(idx, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      carPhotos[idx] = e.target.result;
+      input.value = '';
+      carSave();
+      carRenderSlots();
+      carRenderTemplates();
+      carUpdateBuildBtn();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function carDelPhoto(idx, e) {
+    e.stopPropagation();
+    carPhotos[idx] = null;
+    // Compact: move non-null photos to front
+    const filled = carPhotos.filter(Boolean);
+    carPhotos = [...filled, ...new Array(8 - filled.length).fill(null)];
+    carSave();
+    carRenderSlots();
+    carRenderTemplates();
+    carUpdateBuildBtn();
+    document.getElementById('carRes').style.display = 'none';
+  }
+
+  function carUpdateBuildBtn() {
+    const btn = document.getElementById('carBuildBtn');
+    if (!btn) return;
+    const count = carPhotos.filter(Boolean).length;
+    const ok = count >= 2;
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? '1' : '0.5';
+  }
+
+  const CAR_CAPTIONS = [
+    ['Каждый момент — это история. Поделись своей ✨', 'Детали, которые делают разницу 💫', 'Вдохновение повсюду — только посмотри вокруг 🌟', 'Твой стиль, твои правила 🔥', 'Красота в деталях 💎', 'Создано с душой — почувствуй разницу ✨'],
+    ['This moment is everything ✨', 'Details make the difference 💫', 'Find inspiration everywhere 🌟', 'Your style, your rules 🔥', 'Beauty is in the details 💎', 'Made with passion — feel the difference ✨'],
+  ];
+
   function buildCarousel() {
-    document.getElementById('carRes').style.display = 'block';
-    document.getElementById('carRes').scrollIntoView({ behavior: 'smooth' });
+    const photos = carPhotos.filter(Boolean);
+    if (photos.length < 2) return;
+    const tmpl = CAR_TEMPLATES.find(t => t.id === carTmplId) || CAR_TEMPLATES[0];
+    const lang = currentLang || 'ru';
+    const caps = lang === 'en' ? CAR_CAPTIONS[1] : CAR_CAPTIONS[0];
+
+    // Render result slides
+    const prev = document.getElementById('carSlidesPrev');
+    prev.innerHTML = photos.map((src, i) => `
+      <div class="slide-out" style="border: 2px solid ${tmpl.borderColor};">
+        <img src="${src}" alt="">
+        <div class="slide-overlay" style="background:${tmpl.overlay};">
+          <span style="color:${tmpl.textColor};font-weight:${tmpl.fontWeight};font-size:8px;">${i+1}/${photos.length}</span>
+        </div>
+      </div>`).join('');
+
+    // Render captions
+    const capDiv = document.getElementById('carCaptions');
+    capDiv.innerHTML = photos.map((_, i) => `
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;border-left:3px solid ${tmpl.borderColor};">
+        <strong style="color:${tmpl.textColor};">Слайд ${i+1}:</strong> ${caps[i % caps.length]}
+      </div>`).join('');
+
+    const res = document.getElementById('carRes');
+    res.style.display = 'block';
+    res.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function carDownloadAll() {
+    const photos = carPhotos.filter(Boolean);
+    const tmpl = CAR_TEMPLATES.find(t => t.id === carTmplId) || CAR_TEMPLATES[0];
+    photos.forEach((src, i) => {
+      // Draw photo + overlay on canvas then download
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080; canvas.height = 1350;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        // Cover crop
+        const scale = Math.max(1080 / img.width, 1350 / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (1080 - w) / 2, (1350 - h) / 2, w, h);
+        // Overlay
+        const grad = ctx.createLinearGradient(0, 1350 * 0.5, 0, 1350);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.7)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1080, 1350);
+        // Border
+        ctx.strokeStyle = tmpl.borderColor;
+        ctx.lineWidth = 8;
+        ctx.strokeRect(4, 4, 1072, 1342);
+        // Number
+        ctx.fillStyle = tmpl.textColor;
+        ctx.font = `bold 48px -apple-system, sans-serif`;
+        ctx.fillText(`${i+1}/${photos.length}`, 40, 1300);
+        const a = document.createElement('a');
+        a.download = `slide_${i+1}_${tmpl.id}.jpg`;
+        a.href = canvas.toDataURL('image/jpeg', 0.92);
+        a.click();
+      };
+      img.src = src;
+    });
   }
 
   function sStyle(el) {
