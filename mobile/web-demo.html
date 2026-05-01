@@ -10,26 +10,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="OctoMind">
   <link rel="apple-touch-icon" href="assets/icon.png">
-  <!-- Instant session + theme restore BEFORE paint -->
+  <!-- Theme restore BEFORE paint -->
   <script>
     try {
-      // Theme
-      if (localStorage.getItem('octo_theme') === 'light') document.body.classList.add('light-mode');
-    } catch(e) {}
-    try {
-      const _u = localStorage.getItem('octo_user');
-      if (_u && JSON.parse(_u).token) {
+      if (localStorage.getItem('octo_theme') === 'light') {
         document.addEventListener('DOMContentLoaded', function() {
-          var el = document.getElementById('authOverlay');
-          if (el) el.classList.add('hidden');
-          var done = localStorage.getItem('octo_quiz_done');
-          if (done) {
-            var app = document.getElementById('appWrap');
-            if (app) app.style.display = 'block';
-          } else {
-            var quiz = document.getElementById('quizWrap');
-            if (quiz) quiz.style.display = '';
-          }
+          document.body.classList.add('light-mode');
         });
       }
     } catch(e) {}
@@ -817,7 +803,7 @@
 <body>
 
 <!-- ============ AUTH ============ -->
-<div class="auth-overlay" id="authOverlay">
+<div class="auth-overlay" id="authOverlay" style="display:none">
   <div class="auth-box">
     <div class="auth-logo">
       <img src="assets/octo_happy.png" alt="Octo">
@@ -1673,7 +1659,7 @@
   }
 
   function goToApp() {
-    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('authOverlay').style.display = 'none';
     document.getElementById('quizWrap').style.display = 'none';
     if (localStorage.getItem('octo_quiz_done')) {
       document.getElementById('appWrap').style.display = 'block';
@@ -1681,6 +1667,12 @@
     } else {
       document.getElementById('quizWrap').style.display = '';
     }
+  }
+
+  function showAuth() {
+    document.getElementById('authOverlay').style.display = '';
+    document.getElementById('quizWrap').style.display = 'none';
+    document.getElementById('appWrap').style.display = 'none';
   }
 
   // === PRICING CALCULATOR ===
@@ -1847,15 +1839,24 @@
   })();
 
   // ── SESSION RESTORE ──────────────────────────────────────────────────────────
-  // Step 1: IMMEDIATE — if user exists in localStorage, show app right away.
-  //         No network round-trip. Auth screen is never shown.
-  (function restoreSessionInstant() {
-    const stored = localStorage.getItem('octo_user');
-    if (!stored) return;
+  // Auth overlay starts HIDDEN. We decide here what to show:
+  //   • user found in localStorage  → goToApp() (never flashes auth screen)
+  //   • no user                     → showAuth() (only then the auth overlay appears)
+  (function initView() {
+    // Restore theme first
     try {
-      const user = JSON.parse(stored);
-      if (user && user.token) goToApp();
+      if (localStorage.getItem('octo_theme') === 'light') document.body.classList.add('light-mode');
     } catch {}
+
+    const stored = localStorage.getItem('octo_user');
+    if (stored) {
+      try {
+        const user = JSON.parse(stored);
+        if (user && user.token) { goToApp(); return; }
+      } catch {}
+    }
+    // No valid session found — show login screen
+    showAuth();
   })();
 
   // Step 2: BACKGROUND — silently refresh the token if needed.
@@ -3392,7 +3393,7 @@
     if (!confirm(t.logout_confirm || 'Вийти з акаунту?')) return;
     localStorage.removeItem('octo_user');
     localStorage.removeItem('octo_quiz_done');
-    location.reload();
+    showAuth();
   }
 
   // Apply saved language on load
