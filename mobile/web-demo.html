@@ -1858,8 +1858,8 @@
     } catch {}
   })();
 
-  // Step 2: BACKGROUND — silently validate / refresh the token.
-  //         If it's expired and can't be refreshed → log out gracefully.
+  // Step 2: BACKGROUND — silently refresh the token if needed.
+  //         NEVER force-logout or reload — user stays in app regardless.
   (async function validateSessionBackground() {
     const stored = localStorage.getItem('octo_user');
     if (!stored || !SUPABASE_URL) return;
@@ -1868,15 +1868,23 @@
     try { user = JSON.parse(stored); } catch { return; }
     if (!user?.token) return;
 
-    try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${user.token}` }
-      });
+    // Decode JWT expiry without a library
+    function jwtExpiry(token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp ? payload.exp * 1000 : null;
+      } catch { return null; }
+    }
 
-      if (res.ok) return; // Token is valid — nothing to do
+    const exp = jwtExpiry(user.token);
+    const now = Date.now();
 
-      // Token expired — try refresh
-      if (user.refresh) {
+    // Token still valid for > 5 minutes — nothing to do
+    if (exp && exp - now > 5 * 60 * 1000) return;
+
+    // Token expired or about to — try silent refresh
+    if (user.refresh) {
+      try {
         const ref = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
           method: 'POST',
           headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
@@ -1887,17 +1895,14 @@
           localStorage.setItem('octo_user', JSON.stringify({
             ...user, token: data.access_token, refresh: data.refresh_token
           }));
-          return; // Refreshed silently — user stays in app
+          return; // Token refreshed silently
         }
-      }
-
-      // Both failed — session truly expired, force re-login
-      localStorage.removeItem('octo_user');
-      localStorage.removeItem('octo_quiz_done');
-      location.reload();
-    } catch {
-      // Network error — leave user in app (offline mode is fine)
+      } catch { /* network error — keep user logged in */ }
     }
+
+    // Refresh failed — keep user in app anyway.
+    // API calls will fail with 401 but user won't be kicked out unexpectedly.
+    // Explicit logout is via the Sign Out button only.
   })();
 
   // ── SERVICE WORKER ────────────────────────────────────────────────────────────
