@@ -2,11 +2,12 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { analyzeVideo, analyzeFrame } from '../services/ai';
 import { applyTemplate } from '../services/video/processor';
 import { getTemplateById, getTemplatesForFormat } from '../services/templates';
-import { VideoFormat } from '../types';
+import { VideoFormat, TemplateConfig } from '../types';
 
 export const videoRouter = Router();
 
@@ -74,29 +75,58 @@ videoRouter.post('/analyze', async (req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 });
 
-// POST /api/video/process  ← applies FFmpeg template + returns download URL
+// POST /api/video/process  ← applies FFmpeg template + optional custom overlay
 videoRouter.post('/process', async (req: Request, res: Response, next: NextFunction) => {
+  let overlayPath: string | null = null;
   try {
-    const { videoId, templateId, format } = req.body as { videoId: string; templateId: string; format: VideoFormat };
+    const { videoId, templateId, format, customOverlay } =
+      req.body as { videoId: string; templateId: string; format: VideoFormat; customOverlay?: string };
+
     if (!videoId || !templateId || !format) {
       res.status(400).json({ error: 'videoId, templateId, and format are required' }); return;
     }
 
-    const template = getTemplateById(templateId);
-    if (!template) { res.status(404).json({ error: 'Template not found' }); return; }
-
     const inputPath = findVideoFile(videoId);
     if (!inputPath) { res.status(404).json({ error: 'Video file not found' }); return; }
+
+    // Resolve template — for 'custom', use a neutral base template
+    let template: TemplateConfig | undefined;
+    if (templateId === 'custom') {
+      template = {
+        id: 'custom',
+        name: 'Custom Template',
+        format: format,
+        tags: [],
+        description: 'User-provided overlay template',
+        thumbnail: '',
+        ffmpegFilters: { colorAdjust: { brightness: 0, contrast: 1, saturation: 1 } },
+      };
+    } else {
+      const found = getTemplateById(templateId);
+      if (!found) { res.status(404).json({ error: 'Template not found' }); return; }
+      template = found;
+    }
+
+    // Save custom overlay image if provided
+    if (customOverlay) {
+      overlayPath = path.join(os.tmpdir(), `overlay_${uuidv4()}.png`);
+      const buffer = Buffer.from(customOverlay, 'base64');
+      fs.writeFileSync(overlayPath, buffer);
+    }
 
     const outputDir = process.env.OUTPUT_DIR || './uploads/output';
     fs.mkdirSync(outputDir, { recursive: true });
     const outputFilename = `${videoId}_${templateId}.mp4`;
     const outputPath = path.join(outputDir, outputFilename);
 
-    await applyTemplate(inputPath, outputPath, template, format);
+    await applyTemplate(inputPath, outputPath, template, format, overlayPath ?? undefined);
 
     res.json({ downloadUrl: `/output/${outputFilename}` });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  } finally {
+    if (overlayPath) { try { fs.unlinkSync(overlayPath); } catch {} }
+  }
 });
 
 // GET /api/video/templates/:format

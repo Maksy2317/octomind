@@ -7,7 +7,7 @@ try {
   const ffmpegStatic = require('ffmpeg-static');
   if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
 } catch {
-  // ffmpeg-static not installed — rely on system FFmpeg (Railway has it via nixpacks)
+  // ffmpeg-static not installed — rely on system FFmpeg
 }
 
 const FORMAT_DIMENSIONS: Record<VideoFormat, { width: number; height: number }> = {
@@ -21,29 +21,49 @@ export function applyTemplate(
   outputPath: string,
   template: TemplateConfig,
   format: VideoFormat,
+  overlayPath?: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const { width, height } = FORMAT_DIMENSIONS[format];
-    const { ffmpegFilters, colorAdjust } = buildFilters(template, width, height);
+    const { ffmpegFilters } = buildFilters(template, width, height);
 
-    let command = ffmpeg(inputPath)
-      .videoFilters(ffmpegFilters)
-      .outputOptions([
-        '-c:v libx264',
-        '-crf 23',
-        '-preset fast',
-        '-c:a aac',
-        '-b:a 128k',
-        '-movflags +faststart',
-      ])
-      .output(outputPath);
+    let command = ffmpeg(inputPath);
 
-    if (template.textOverlay) {
-      const { text, fontsize, fontcolor, x, y, box, boxcolor } = template.textOverlay;
-      const boxOption = box ? `:box=1:boxcolor=${boxcolor || 'black@0.5'}:boxborderw=5` : '';
-      command = command.videoFilters(
-        `drawtext=text='${text}':fontsize=${fontsize}:fontcolor=${fontcolor}:x=${x}:y=${y}${boxOption}`,
-      );
+    if (overlayPath) {
+      // Custom overlay: composite user's image on top of processed video
+      // Step 1: build the base video filter chain (scale+crop+color)
+      const baseFilters = ffmpegFilters.map((f, i) =>
+        i === 0 ? `[0:v]${f}` : f
+      ).join(',') + '[base]';
+
+      command = command
+        .input(overlayPath)
+        .complexFilter(
+          `${baseFilters};[1:v]scale=${width}:${height}[ovr];[base][ovr]overlay=0:0[out]`,
+          'out',
+        )
+        .outputOptions([
+          '-c:v libx264', '-crf 23', '-preset fast',
+          '-c:a aac', '-b:a 128k', '-movflags +faststart',
+        ])
+        .output(outputPath);
+    } else {
+      // Standard template: simple video filter chain
+      command = command
+        .videoFilters(ffmpegFilters)
+        .outputOptions([
+          '-c:v libx264', '-crf 23', '-preset fast',
+          '-c:a aac', '-b:a 128k', '-movflags +faststart',
+        ])
+        .output(outputPath);
+
+      if (template.textOverlay) {
+        const { text, fontsize, fontcolor, x, y, box, boxcolor } = template.textOverlay;
+        const boxOption = box ? `:box=1:boxcolor=${boxcolor || 'black@0.5'}:boxborderw=5` : '';
+        command = command.videoFilters(
+          `drawtext=text='${text}':fontsize=${fontsize}:fontcolor=${fontcolor}:x=${x}:y=${y}${boxOption}`,
+        );
+      }
     }
 
     command
@@ -87,12 +107,10 @@ function buildFilters(template: TemplateConfig, width: number, height: number): 
     filters.push('vignette=PI/4');
   }
 
-  // 4. Border / padding overlay
+  // 4. Border / padding
   if (template.borderConfig) {
     const { color, width: bw } = template.borderConfig;
-    filters.push(
-      `pad=${width}:${height}:${bw}:${bw}:${color}`,
-    );
+    filters.push(`pad=${width}:${height}:${bw}:${bw}:${color}`);
   }
 
   return { ffmpegFilters: filters, colorAdjust: '' };

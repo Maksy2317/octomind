@@ -10,15 +10,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="OctoMind">
   <link rel="apple-touch-icon" href="assets/icon.png">
-  <!-- Instant session restore: hide auth BEFORE paint if user is in localStorage -->
+  <!-- Instant session + theme restore BEFORE paint -->
   <script>
+    try {
+      // Theme
+      if (localStorage.getItem('octo_theme') === 'light') document.body.classList.add('light-mode');
+    } catch(e) {}
     try {
       const _u = localStorage.getItem('octo_user');
       if (_u && JSON.parse(_u).token) {
         document.addEventListener('DOMContentLoaded', function() {
           var el = document.getElementById('authOverlay');
           if (el) el.classList.add('hidden');
-          // Also show app immediately if quiz is done
           var done = localStorage.getItem('octo_quiz_done');
           if (done) {
             var app = document.getElementById('appWrap');
@@ -47,6 +50,54 @@
       --text3: #8B8BA7;
       --text4: #5A5A7A;
     }
+
+    /* ── LIGHT MODE ── */
+    body.light-mode {
+      --bg: #F0F0FA;
+      --surface: #FFFFFF;
+      --surface2: #F5F5FF;
+      --surface3: #EBEBFF;
+      --border: #D0D0EE;
+      --accent: #5C53EF;
+      --accent2: #7B6FFF;
+      --green: #2E7D32;
+      --text: #0A0A1A;
+      --text2: #1A1A3A;
+      --text3: #4A4A6A;
+      --text4: #8080A0;
+    }
+    body.light-mode .sidebar { background: var(--surface); border-right: 1px solid var(--border); }
+    body.light-mode .topbar { background: var(--surface); border-bottom: 1px solid var(--border); }
+    body.light-mode .nav-item.active { background: #EBEBFF; color: var(--accent); }
+    body.light-mode .msg-bubble { background: var(--surface3); color: var(--text); }
+    body.light-mode .msg.user .msg-bubble { background: var(--accent); color: #fff; }
+    body.light-mode .auth-overlay { background: var(--bg); }
+    body.light-mode .quiz-option { background: var(--surface); border-color: var(--border); color: var(--text); }
+    body.light-mode .quiz-option:hover { border-color: var(--accent); background: var(--surface2); }
+    body.light-mode .quiz-option.selected { background: var(--surface3); border-color: var(--accent); }
+    body.light-mode .card { background: var(--surface); border-color: var(--border); }
+    body.light-mode .dropzone { background: var(--surface2); border-color: var(--border); }
+    body.light-mode .dropzone:hover { border-color: var(--accent); background: var(--surface3); }
+    body.light-mode .btn-secondary { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    body.light-mode .fc { background: var(--surface2); border-color: var(--border); }
+    body.light-mode .tc { background: var(--surface2); border-color: var(--border); }
+    body.light-mode .tc.selected, body.light-mode .fc.selected { background: var(--surface3); }
+    body.light-mode .pslot { background: var(--surface2); }
+    body.light-mode .tmpl-card { background: var(--surface2); }
+    body.light-mode .photo-tmpl { background: var(--surface2); }
+    body.light-mode .srow { background: var(--surface); border-color: var(--border); }
+    body.light-mode .pcard { background: var(--surface); }
+    body.light-mode .fb { background: var(--surface2); border-color: var(--border); }
+    body.light-mode .stat-card { background: var(--surface); border-color: var(--border); }
+    body.light-mode .tool-card { background: var(--surface); border-color: var(--border); }
+    body.light-mode .chat-input-wrap { background: var(--surface); border-top-color: var(--border); }
+    body.light-mode #chatInput { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    body.light-mode .url-input { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    body.light-mode select, body.light-mode input[type=text] { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    body.light-mode .profile-avatar { background: var(--surface3); }
+    body.light-mode .vsteps { background: var(--surface2); }
+    body.light-mode .tag { background: var(--surface3); color: var(--text3); }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
@@ -1228,6 +1279,7 @@
 
           <!-- Step 3: Templates (from AI) -->
           <div id="vs3" style="display:none">
+            <input type="file" id="vCustomTmplFile" accept="image/*,video/mp4" style="display:none" onchange="vCustomTmplLoad(this)">
             <div id="vAnalysisBadge" class="fb tip" style="margin-bottom:14px;display:none;">
               <span>🐙</span>
               <span id="vAnalysisText" style="font-size:12px;color:var(--text2);"></span>
@@ -1235,6 +1287,14 @@
             <div class="card-title" style="margin-bottom:4px;">Вибери шаблон</div>
             <div class="card-sub" style="margin-bottom:16px;">Octo рекомендує перший варіант</div>
             <div class="tgrid" id="vtg"></div>
+            <!-- Custom template upload button -->
+            <label for="vCustomTmplFile" id="vCustomTmplCard" class="tc" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:100px;cursor:pointer;border-style:dashed;margin-top:2px;grid-column:1/-1;">
+              <div id="vCustomTmplInner" style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+                <span style="font-size:28px;">➕</span>
+                <span style="font-size:11px;font-weight:700;">Свій шаблон</span>
+                <span style="font-size:10px;color:var(--text4);">PNG, JPG — накладеться як рамка</span>
+              </div>
+            </label>
             <div style="margin-top:16px;">
               <button class="btn btn-secondary btn-sm" onclick="vs(2)" style="margin-right:8px">← Назад</button>
               <button class="btn btn-primary btn-sm" id="vb3" disabled onclick="vProcess()">🚀 Застосувати та обробити →</button>
@@ -1537,6 +1597,18 @@
               <button id="lang-uk" onclick="setLang('uk')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#1A1A3A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇺🇦 Українська</button>
               <button id="lang-en" onclick="setLang('en')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇬🇧 English</button>
               <button id="lang-ru" onclick="setLang('ru')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">RU</button>
+            </div>
+          </div>
+
+          <!-- THEME TOGGLE -->
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">🎨 <span data-i18n="s_theme_section">Тема</span></div>
+            <div class="srow">
+              <div class="sinfo">
+                <h4 data-i18n="s_theme">Светлый режим</h4>
+                <p data-i18n="s_theme_sub">Переключить на светлую тему</p>
+              </div>
+              <div class="toggle" id="themeToggle" onclick="toggleTheme()"></div>
             </div>
           </div>
 
@@ -2324,7 +2396,7 @@
     'tiktok-moody':    { bg:'linear-gradient(180deg,#0a0a0f 0%,#1a0a2e 50%,#2d1b69 100%)', accent:'#c084fc', bars:'rgba(192,132,252,0.6)' },
   };
 
-  const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null };
+  const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null, customOverlay: null };
 
   // Drag-and-drop support
   function vDrop(e) {
@@ -2442,6 +2514,52 @@
     }
   }
 
+  // ── THEME TOGGLE ──────────────────────────────────────────────────────────
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-mode');
+    localStorage.setItem('octo_theme', isLight ? 'light' : 'dark');
+    const tog = document.getElementById('themeToggle');
+    if (tog) tog.classList.toggle('on', isLight);
+  }
+
+  // Apply saved theme state to the toggle button once DOM is ready
+  (function() {
+    const savedTheme = localStorage.getItem('octo_theme');
+    if (savedTheme === 'light') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const tog = document.getElementById('themeToggle');
+        if (tog) tog.classList.add('on');
+      });
+    }
+  })();
+
+  // ── CUSTOM TEMPLATE ───────────────────────────────────────────────────────
+  function vCustomTmplLoad(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = '';
+    const reader = new FileReader();
+    reader.onload = e => {
+      const dataUrl = e.target.result;
+      const base64 = dataUrl.split(',')[1];
+      vS.customOverlay = base64;
+      vS.tmplId = 'custom';
+      // Update the custom card to show preview
+      const inner = document.getElementById('vCustomTmplInner');
+      if (inner) {
+        inner.innerHTML = `
+          <img src="${dataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:4px;">
+          <span style="font-size:10px;font-weight:700;color:var(--accent);">✅ Шаблон завантажено</span>
+          <span style="font-size:9px;color:var(--text4);">${file.name}</span>`;
+      }
+      // Mark card selected, deselect others
+      document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
+      document.getElementById('vCustomTmplCard').classList.add('selected');
+      document.getElementById('vb3').disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
   function vTmplCard(t, isAI, showTags) {
     const v = tplVisual[t.id] || { bg:'linear-gradient(180deg,#1a1a2e,#6C63FF)', accent:'#fff', bars:'rgba(255,255,255,0.7)' };
     const matchPct = isAI ? null : Math.floor(65 + Math.random() * 30);
@@ -2507,7 +2625,7 @@
       const processRes = await fetch('/api/video/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId: vS.videoId, templateId: vS.tmplId, format: vS.fmt })
+        body: JSON.stringify({ videoId: vS.videoId, templateId: vS.tmplId, format: vS.fmt, customOverlay: vS.customOverlay || undefined })
       });
       const processData = await processRes.json();
       if (processData.error) throw new Error(processData.error);
@@ -2537,7 +2655,7 @@
   }
 
   function vReset() {
-    vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
+    vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null; vS.customOverlay = null;
     document.getElementById('vfInfo').style.display = 'none';
     document.getElementById('vfThumbWrap').innerHTML = '';
     document.getElementById('vb1').disabled = true;
