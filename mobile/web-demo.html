@@ -480,18 +480,68 @@
     .fc-name { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
     .fc-meta { font-size: 10px; color: var(--text3); }
 
-    .tgrid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+    /* Video template grid — 2 cols, 9:16 previews */
+    .tgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .tc {
       background: var(--surface2); border: 2px solid var(--border);
-      border-radius: 12px; padding: 10px; cursor: pointer; transition: all 0.2s; position: relative;
+      border-radius: 14px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
     }
-    .tc:hover, .tc.selected { border-color: var(--accent); background: #1A1A3A; }
-    .tc-preview { height: 70px; border-radius: 8px; margin-bottom: 7px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .tc:hover { border-color: var(--accent2); transform: scale(1.02); }
+    .tc.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,99,255,0.3); }
+    .tc-preview {
+      aspect-ratio: 9/16; width: 100%; position: relative; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .tc-preview-bg { position: absolute; inset: 0; }
+    .tc-preview-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.6) 35%, transparent 70%);
+    }
+    .tc-preview-mockui {
+      position: relative; z-index: 1; padding: 7px 6px; display: flex; flex-direction: column; gap: 3px;
+    }
+    .tc-mock-bar {
+      height: 4px; border-radius: 3px; background: rgba(255,255,255,0.7);
+    }
+    .tc-mock-bar.short { width: 55%; }
+    .tc-mock-avatar {
+      width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid white;
+      background: rgba(255,255,255,0.3); margin-bottom: 2px;
+    }
+    .tc-meta-row { padding: 7px 9px 9px; }
     .tc-name { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
-    .tc-desc { font-size: 10px; color: var(--text3); }
+    .tc-desc { font-size: 9px; color: var(--text3); line-height: 1.3; }
     .ai-badge {
-      position: absolute; top: 5px; right: 5px; background: var(--accent);
-      color: white; font-size: 8px; font-weight: 700; padding: 2px 5px; border-radius: 5px;
+      position: absolute; top: 6px; left: 6px; background: var(--accent);
+      color: white; font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 6px; z-index: 2;
+    }
+    .tc-match-badge {
+      position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6);
+      color: #fff; font-size: 8px; font-weight: 600; padding: 2px 5px; border-radius: 6px; z-index: 2;
+    }
+
+    /* Photo Editor */
+    .photo-tmpl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .photo-tmpl {
+      border: 2px solid var(--border); border-radius: 10px; cursor: pointer;
+      overflow: hidden; transition: all 0.2s; position: relative;
+    }
+    .photo-tmpl:hover { border-color: var(--accent2); transform: scale(1.02); }
+    .photo-tmpl.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108,99,255,0.3); }
+    .photo-tmpl-prev {
+      aspect-ratio: 1; width: 100%; position: relative; overflow: hidden;
+    }
+    .photo-tmpl-prev canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-tmpl-label { font-size: 9px; font-weight: 700; text-align: center; padding: 4px 2px; }
+    .photo-before-after {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0;
+    }
+    .photo-ba-wrap { position: relative; border-radius: 10px; overflow: hidden; }
+    .photo-ba-wrap canvas { width: 100%; display: block; }
+    .photo-ba-label {
+      position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.65); color: white; font-size: 9px; font-weight: 700;
+      padding: 2px 8px; border-radius: 10px;
     }
 
     /* Carousel */
@@ -1267,21 +1317,44 @@
 
         <!-- Photo -->
         <div class="screen" id="photo">
-          <div class="card">
-            <div class="card-title">📸 Photo Edit</div>
-            <div class="card-sub">Загрузи фото — Octo улучшит его под Instagram стандарты</div>
-            <div class="dropzone" style="margin-bottom:14px;" onclick="alert('Выбери фото')">
-              <div style="font-size:40px;margin-bottom:8px;">📸</div>
-              <h3>Загрузи фото</h3>
-              <p>JPG, PNG · до 50MB</p>
+          <input type="file" id="photoFile" accept="image/*" style="display:none" onchange="photoLoad(this)">
+
+          <!-- Upload step -->
+          <div id="photoStep1">
+            <div class="card">
+              <div class="card-title">📸 TikTok Photo Edit</div>
+              <div class="card-sub">Загрузи фото — выбери TikTok-шаблон и скачай результат</div>
+              <label for="photoFile" class="dropzone" style="margin-bottom:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;">
+                <div style="font-size:44px;margin-bottom:8px;">📸</div>
+                <h3>Нажми или перетащи фото</h3>
+                <p style="color:var(--text3);font-size:12px;margin-top:4px;">JPG, PNG, WEBP · до 50MB</p>
+              </label>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🌈</span><span style="font-size:11px;font-weight:700;">Яркий стиль</span></div>
-              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🖤</span><span style="font-size:11px;font-weight:700;">Тёмный</span></div>
-              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🌸</span><span style="font-size:11px;font-weight:700;">Пастель</span></div>
-              <div class="fb tip" style="cursor:pointer;flex-direction:column;text-align:center;"><span style="font-size:22px;margin-bottom:3px;">🎞️</span><span style="font-size:11px;font-weight:700;">Плёночный</span></div>
+          </div>
+
+          <!-- Editor step -->
+          <div id="photoStep2" style="display:none">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:10px;">🎨 Выбери TikTok-шаблон</div>
+              <div class="photo-tmpl-grid" id="photoTmplGrid"></div>
+
+              <!-- Before / After preview -->
+              <div class="photo-before-after">
+                <div class="photo-ba-wrap">
+                  <canvas id="photoBefore" width="400" height="400"></canvas>
+                  <div class="photo-ba-label">Оригинал</div>
+                </div>
+                <div class="photo-ba-wrap">
+                  <canvas id="photoAfter" width="400" height="400"></canvas>
+                  <div class="photo-ba-label" id="photoAfterLabel">Шаблон</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:4px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="photoDownload()">💾 Скачать</button>
+                <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoReset()">↩ Новое фото</button>
+              </div>
             </div>
-            <button class="btn btn-primary btn-full">🐙 Улучшить фото</button>
           </div>
         </div>
 
@@ -2235,22 +2308,20 @@
   // ── VIDEO CREATOR — Real API ─────────────────────────────────────────────────
   const fmtN = { stories:'Instagram Stories', reels:'Instagram Reels', tiktok:'TikTok' };
 
-  // Template preview gradients by template ID
-  const tplGrad = {
-    'stories-minimal': 'linear-gradient(135deg,#f8f9fa,#e9ecef)',
-    'stories-warm':    'linear-gradient(135deg,#f7c59f,#f9a825)',
-    'stories-bold':    'linear-gradient(135deg,#000,#333)',
-    'reels-gradient':  'linear-gradient(135deg,#6c63ff,#a78bfa)',
-    'reels-cinematic': 'linear-gradient(135deg,#1a1a2e,#16213e)',
-    'reels-vibrant':   'linear-gradient(135deg,#ff4757,#ff6b81)',
-    'tiktok-neon':     'linear-gradient(135deg,#0be881,#1a1a2e)',
-    'tiktok-clean':    'linear-gradient(135deg,#f0f0f0,#ddd)',
-    'tiktok-vintage':  'linear-gradient(135deg,#c9a96e,#8d6e4a)',
-  };
-  const tplIcon = {
-    'stories-minimal':'⬜','stories-warm':'🌅','stories-bold':'🖤',
-    'reels-gradient':'🌈','reels-cinematic':'🎬','reels-vibrant':'🔥',
-    'tiktok-neon':'💚','tiktok-clean':'✨','tiktok-vintage':'📼',
+  // Template visual config — gradient + accent color + mock bar color
+  const tplVisual = {
+    'stories-minimal': { bg:'linear-gradient(180deg,#e9ecef 0%,#f8f9fa 100%)', accent:'#333', bars:'rgba(50,50,50,0.5)' },
+    'stories-warm':    { bg:'linear-gradient(180deg,#f9a825 0%,#f7c59f 60%,#e8926a 100%)', accent:'#fff', bars:'rgba(255,255,255,0.75)' },
+    'stories-bold':    { bg:'linear-gradient(180deg,#000 0%,#222 100%)', accent:'#fff', bars:'rgba(255,255,255,0.7)' },
+    'reels-gradient':  { bg:'linear-gradient(160deg,#6c63ff 0%,#a78bfa 50%,#f472b6 100%)', accent:'#fff', bars:'rgba(255,255,255,0.8)' },
+    'reels-cinematic': { bg:'linear-gradient(180deg,#0d1117 0%,#1a1a2e 60%,#16213e 100%)', accent:'#c9d1d9', bars:'rgba(200,210,220,0.6)' },
+    'reels-vibrant':   { bg:'linear-gradient(160deg,#ff4757 0%,#ff6b35 50%,#ffd32a 100%)', accent:'#fff', bars:'rgba(255,255,255,0.8)' },
+    'tiktok-neon':     { bg:'linear-gradient(180deg,#0d0d0d 0%,#0f2027 50%,#0be881 100%)', accent:'#0be881', bars:'rgba(11,232,129,0.7)' },
+    'tiktok-clean':    { bg:'linear-gradient(180deg,#ffffff 0%,#f0f4f8 100%)', accent:'#1a1a2e', bars:'rgba(30,30,60,0.45)' },
+    'tiktok-vintage':  { bg:'linear-gradient(180deg,#3d2b1f 0%,#8d6e4a 40%,#c9a96e 100%)', accent:'#fdf3e3', bars:'rgba(253,243,227,0.65)' },
+    'tiktok-capcut':   { bg:'linear-gradient(180deg,#141414 0%,#2a2a2a 60%,#1a1a2e 100%)', accent:'#a0cfff', bars:'rgba(160,207,255,0.6)' },
+    'tiktok-trending': { bg:'linear-gradient(160deg,#ff0080 0%,#ff4500 40%,#ffcc00 100%)', accent:'#fff', bars:'rgba(255,255,255,0.85)' },
+    'tiktok-moody':    { bg:'linear-gradient(180deg,#0a0a0f 0%,#1a0a2e 50%,#2d1b69 100%)', accent:'#c084fc', bars:'rgba(192,132,252,0.6)' },
   };
 
   const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null };
@@ -2351,20 +2422,7 @@
 
       // Render real templates from API
       vS.tmplId = templates[0]?.id || null;
-      tgrid.innerHTML = templates.map((t, i) => {
-        const grad = tplGrad[t.id] || 'linear-gradient(135deg,#6C63FF,#A78BFA)';
-        const icon = tplIcon[t.id] || '🎬';
-        const isAI = i === 0;
-        return `<div class="tc ${isAI ? 'selected' : ''}" onclick="vTmpl('${t.id}',this)" data-id="${t.id}">
-          ${isAI ? '<div class="ai-badge">🐙 Octo Pick</div>' : ''}
-          <div class="tc-preview" style="background:${grad};font-size:28px;">${icon}</div>
-          <div class="tc-name">${t.name}</div>
-          <div class="tc-desc">${t.description}</div>
-          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;">
-            ${(t.tags || []).slice(0,3).map(tag => `<span style="font-size:9px;background:var(--surface3);padding:2px 6px;border-radius:10px;color:var(--text3);">${tag}</span>`).join('')}
-          </div>
-        </div>`;
-      }).join('');
+      tgrid.innerHTML = templates.map((t, i) => vTmplCard(t, i === 0, true)).join('');
 
       document.getElementById('vb3').disabled = false;
     } catch (err) {
@@ -2378,19 +2436,32 @@
         const d2 = await r2.json();
         const templates = d2.templates || [];
         vS.tmplId = templates[0]?.id || null;
-        tgrid.innerHTML = templates.map((t, i) => {
-          const grad = tplGrad[t.id] || 'linear-gradient(135deg,#6C63FF,#A78BFA)';
-          const icon = tplIcon[t.id] || '🎬';
-          return `<div class="tc ${i===0?'selected':''}" onclick="vTmpl('${t.id}',this)" data-id="${t.id}">
-            ${i===0 ? '<div class="ai-badge">⭐ Popular</div>' : ''}
-            <div class="tc-preview" style="background:${grad};font-size:28px;">${icon}</div>
-            <div class="tc-name">${t.name}</div>
-            <div class="tc-desc">${t.description}</div>
-          </div>`;
-        }).join('');
+        tgrid.innerHTML = templates.map((t, i) => vTmplCard(t, i === 0, false)).join('');
         document.getElementById('vb3').disabled = templates.length === 0;
       } catch {}
     }
+  }
+
+  function vTmplCard(t, isAI, showTags) {
+    const v = tplVisual[t.id] || { bg:'linear-gradient(180deg,#1a1a2e,#6C63FF)', accent:'#fff', bars:'rgba(255,255,255,0.7)' };
+    const matchPct = isAI ? null : Math.floor(65 + Math.random() * 30);
+    return `<div class="tc ${isAI ? 'selected' : ''}" onclick="vTmpl('${t.id}',this)" data-id="${t.id}">
+      ${isAI ? '<div class="ai-badge">🐙 Octo Pick</div>' : ''}
+      ${!isAI && matchPct ? `<div class="tc-match-badge">${matchPct}%</div>` : ''}
+      <div class="tc-preview">
+        <div class="tc-preview-bg" style="background:${v.bg};"></div>
+        <div class="tc-preview-overlay"></div>
+        <div class="tc-preview-mockui">
+          <div class="tc-mock-avatar"></div>
+          <div class="tc-mock-bar" style="background:${v.bars};width:75%;"></div>
+          <div class="tc-mock-bar short" style="background:${v.bars};"></div>
+        </div>
+      </div>
+      <div class="tc-meta-row">
+        <div class="tc-name">${t.name}</div>
+        <div class="tc-desc">${t.description}</div>
+      </div>
+    </div>`;
   }
 
   function vTmpl(id, el) {
@@ -2710,6 +2781,179 @@
   function sStyle(el) {
     document.querySelectorAll('.sopt').forEach(s => s.classList.remove('selected'));
     el.classList.add('selected');
+  }
+
+  // =============================================
+  // 📸 PHOTO EDITOR — TikTok templates via Canvas
+  // =============================================
+  const PHOTO_TEMPLATES = [
+    {
+      id: 'tiktok-glow',
+      name: '✨ TikTok Glow',
+      filter: 'brightness(1.12) contrast(1.15) saturate(1.55)',
+      overlay: { r:255, g:200, b:120, a:0.08 },
+      vignette: false,
+    },
+    {
+      id: 'capcut-fade',
+      name: '🎬 CapCut Fade',
+      filter: 'brightness(1.06) contrast(0.92) saturate(0.78)',
+      overlay: { r:220, g:210, b:200, a:0.12 },
+      vignette: true,
+    },
+    {
+      id: 'neon-night',
+      name: '💜 Neon Night',
+      filter: 'brightness(0.88) contrast(1.35) saturate(1.9)',
+      overlay: { r:100, g:0, b:200, a:0.15 },
+      vignette: true,
+    },
+    {
+      id: 'soft-aesthetic',
+      name: '🌸 Aesthetic',
+      filter: 'brightness(1.18) contrast(0.88) saturate(0.82)',
+      overlay: { r:255, g:180, b:200, a:0.1 },
+      vignette: false,
+    },
+    {
+      id: 'vintage-film',
+      name: '📼 Vintage',
+      filter: 'brightness(0.98) contrast(0.9) saturate(0.65) sepia(0.25)',
+      overlay: { r:180, g:120, b:60, a:0.12 },
+      vignette: true,
+    },
+    {
+      id: 'bold-contrast',
+      name: '⚡ Bold',
+      filter: 'brightness(0.94) contrast(1.45) saturate(1.3)',
+      overlay: { r:0, g:0, b:0, a:0.05 },
+      vignette: false,
+    },
+  ];
+
+  let photoImg = null;
+  let photoTmplId = 'tiktok-glow';
+
+  function photoLoad(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = '';
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        photoImg = img;
+        document.getElementById('photoStep1').style.display = 'none';
+        document.getElementById('photoStep2').style.display = 'block';
+        photoRenderAll();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function photoRenderAll() {
+    if (!photoImg) return;
+    // Draw original
+    photoDrawTo(document.getElementById('photoBefore'), photoImg, null, false);
+    // Draw with selected template
+    const tmpl = PHOTO_TEMPLATES.find(t => t.id === photoTmplId) || PHOTO_TEMPLATES[0];
+    photoDrawTo(document.getElementById('photoAfter'), photoImg, tmpl, true);
+    document.getElementById('photoAfterLabel').textContent = tmpl.name;
+    // Render template selector thumbnails
+    photoRenderGrid();
+  }
+
+  function photoRenderGrid() {
+    const grid = document.getElementById('photoTmplGrid');
+    if (!grid) return;
+    grid.innerHTML = PHOTO_TEMPLATES.map(t => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 120; canvas.height = 120;
+      photoDrawTo(canvas, photoImg, t, false);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      return `<div class="photo-tmpl ${t.id === photoTmplId ? 'selected' : ''}" onclick="photoSelectTmpl('${t.id}')">
+        <div class="photo-tmpl-prev"><img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;"></div>
+        <div class="photo-tmpl-label">${t.name}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function photoDrawTo(canvas, img, tmpl, large) {
+    const size = large ? 400 : 120;
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // Cover-crop image to square
+    const s = Math.min(img.width, img.height);
+    const sx = (img.width - s) / 2;
+    const sy = (img.height - s) / 2;
+    if (tmpl) ctx.filter = tmpl.filter;
+    ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+    ctx.filter = 'none';
+    if (tmpl?.overlay) {
+      const { r, g, b, a } = tmpl.overlay;
+      ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+      ctx.fillRect(0, 0, size, size);
+    }
+    if (tmpl?.vignette) {
+      const grad = ctx.createRadialGradient(size/2, size/2, size*0.35, size/2, size/2, size*0.75);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+    }
+  }
+
+  function photoSelectTmpl(id) {
+    photoTmplId = id;
+    const tmpl = PHOTO_TEMPLATES.find(t => t.id === id) || PHOTO_TEMPLATES[0];
+    photoDrawTo(document.getElementById('photoAfter'), photoImg, tmpl, true);
+    document.getElementById('photoAfterLabel').textContent = tmpl.name;
+    document.querySelectorAll('.photo-tmpl').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.photo-tmpl').forEach(el => {
+      if (el.getAttribute('onclick')?.includes(id)) el.classList.add('selected');
+    });
+  }
+
+  function photoDownload() {
+    if (!photoImg) return;
+    const canvas = document.createElement('canvas');
+    const tmpl = PHOTO_TEMPLATES.find(t => t.id === photoTmplId) || PHOTO_TEMPLATES[0];
+    // Full resolution export (max 1080px)
+    const maxSize = Math.min(Math.min(photoImg.width, photoImg.height), 1080);
+    canvas.width = maxSize; canvas.height = maxSize;
+    photoDrawTo(canvas, photoImg, tmpl, false);
+    // Override with full res
+    canvas.width = maxSize; canvas.height = maxSize;
+    const ctx = canvas.getContext('2d');
+    const s = Math.min(photoImg.width, photoImg.height);
+    const sx = (photoImg.width - s) / 2;
+    const sy = (photoImg.height - s) / 2;
+    ctx.filter = tmpl.filter;
+    ctx.drawImage(photoImg, sx, sy, s, s, 0, 0, maxSize, maxSize);
+    ctx.filter = 'none';
+    if (tmpl.overlay) {
+      const { r, g, b, a } = tmpl.overlay;
+      ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+      ctx.fillRect(0, 0, maxSize, maxSize);
+    }
+    if (tmpl.vignette) {
+      const grad = ctx.createRadialGradient(maxSize/2, maxSize/2, maxSize*0.35, maxSize/2, maxSize/2, maxSize*0.75);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, maxSize, maxSize);
+    }
+    const a = document.createElement('a');
+    a.download = `octo_${tmpl.id}.jpg`;
+    a.href = canvas.toDataURL('image/jpeg', 0.93);
+    a.click();
+  }
+
+  function photoReset() {
+    photoImg = null;
+    document.getElementById('photoStep1').style.display = 'block';
+    document.getElementById('photoStep2').style.display = 'none';
   }
 
   // =============================================

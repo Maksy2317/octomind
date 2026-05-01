@@ -112,6 +112,42 @@ const TEMPLATES: TemplateConfig[] = [
       vignette: true,
     },
   },
+  {
+    id: 'tiktok-capcut',
+    name: 'CapCut Cinematic',
+    format: 'tiktok',
+    tags: ['cinematic', 'professional', 'storytelling', 'travel', 'premium'],
+    description: 'Dark cinematic grade loved by CapCut creators. Deep shadows, cool tones.',
+    thumbnail: 'https://placehold.co/200x356/141414/a0cfff?text=CapCut',
+    ffmpegFilters: {
+      colorAdjust: { brightness: -0.06, contrast: 1.2, saturation: 0.88 },
+      vignette: true,
+    },
+  },
+  {
+    id: 'tiktok-trending',
+    name: 'Trending Hot',
+    format: 'tiktok',
+    tags: ['trending', 'viral', 'energetic', 'music', 'dance', 'fun'],
+    description: 'Max energy — high saturation & contrast. Designed to stop the scroll.',
+    thumbnail: 'https://placehold.co/200x356/ff0080/ffcc00?text=Trending',
+    ffmpegFilters: {
+      colorAdjust: { brightness: 0.05, contrast: 1.35, saturation: 2.0 },
+      vignette: false,
+    },
+  },
+  {
+    id: 'tiktok-moody',
+    name: 'Moody Dark',
+    format: 'tiktok',
+    tags: ['aesthetic', 'moody', 'dark', 'artistic', 'fashion', 'beauty'],
+    description: 'Deep purple-dark aesthetic — popular in fashion and beauty niches.',
+    thumbnail: 'https://placehold.co/200x356/0a0a0f/c084fc?text=Moody',
+    ffmpegFilters: {
+      colorAdjust: { brightness: -0.1, contrast: 1.15, saturation: 0.95 },
+      vignette: true,
+    },
+  },
 ];
 
 export function getTemplatesForFormat(format: VideoFormat, tags: string[]): TemplateConfig[] {
