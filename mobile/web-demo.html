@@ -2140,7 +2140,15 @@
     }
   }
 
-  function skipAuth() { goToApp(); }
+  function skipAuth() {
+    // Store a guest session so refresh doesn't kick back to auth screen
+    try {
+      if (!localStorage.getItem('octo_user')) {
+        localStorage.setItem('octo_user', JSON.stringify({ email: 'guest', token: 'guest', guest: true }));
+      }
+    } catch {}
+    goToApp();
+  }
 
   function signInWithGoogle() {
     const redirectTo = encodeURIComponent(window.location.origin + window.location.pathname);
@@ -2542,6 +2550,8 @@
     window.scrollTo(0, 0);
     closeSidebar();
     if (id === 'carousel') carInit();
+    if (id === 'calendar') calInit();
+    if (id === 'caption')  capInitScreen();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
     const w = document.getElementById('octoWidget');
     if (w) w.style.display = id === 'advisor' ? 'none' : 'block';
@@ -3743,6 +3753,15 @@
   setLang(currentLang);
 
   // ── CAPTION AI ────────────────────────────────────────────────────────────────
+  // Called every time the Caption screen opens — syncs language chip to app lang
+  function capInitScreen() {
+    const langMap = { uk: 'uk', ru: 'ru', en: 'en' };
+    const target  = langMap[currentLang] || 'uk';
+    document.querySelectorAll('#capLang .cap-chip').forEach(c => {
+      c.classList.toggle('selected', c.dataset.val === target);
+    });
+  }
+
   function capChip(groupId, el) {
     document.querySelectorAll('#' + groupId + ' .cap-chip').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
@@ -3761,7 +3780,7 @@
     pro: 'профессиональный / деловой', edu: 'образовательный / полезный',
     motivate: 'мотивационный / вдохновляющий', sales: 'продающий / убедительный'
   };
-  const CAP_LANG_NAMES = { ru: 'русском', uk: 'украинском', en: 'английском' };
+  const CAP_LANG_NAMES = { ru: 'русском языке', uk: 'украинском языке', en: 'English' };
 
   async function captionGenerate() {
     const desc = document.getElementById('capDesc').value.trim();
@@ -4034,7 +4053,21 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   }
 
   // ── CONTENT CALENDAR ─────────────────────────────────────────────────────────
-  const CAL_MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const CAL_MONTHS = {
+    ru: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+    uk: ['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'],
+    en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  };
+  const CAL_DAYS = {
+    ru: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
+    uk: ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'],
+    en: ['Mo','Tu','We','Th','Fr','Sa','Su'],
+  };
+  const CAL_DAY_NAMES = {
+    ru: ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'],
+    uk: ['Неділя','Понеділок','Вівторок','Середа','Четвер','П\'ятниця','Субота'],
+    en: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+  };
   const CAL_TYPE_COLORS = { reels:'#6C63FF', stories:'#ec4899', carousel:'#3b82f6', tiktok:'#10b981', caption:'#f59e0b', post:'#8B8BA7' };
   const CAL_TYPE_ICONS  = { reels:'🎬', stories:'📖', carousel:'🖼️', tiktok:'🎵', caption:'✍️', post:'📝' };
 
@@ -4057,7 +4090,19 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   }
 
   function calRender() {
-    document.getElementById('calMonthTitle').textContent = CAL_MONTHS_RU[calMonth] + ' ' + calYear;
+    const lang = currentLang || 'uk';
+    const months = CAL_MONTHS[lang] || CAL_MONTHS.uk;
+    const days   = CAL_DAYS[lang]   || CAL_DAYS.uk;
+
+    document.getElementById('calMonthTitle').textContent = months[calMonth] + ' ' + calYear;
+
+    // Update weekday headers dynamically
+    const header = document.querySelector('.cal-week-header');
+    if (header) {
+      header.innerHTML = days.map((d, i) =>
+        `<div${i >= 5 ? ' style="color:var(--accent2)"' : ''}>${d}</div>`
+      ).join('');
+    }
 
     const grid  = document.getElementById('calGrid');
     grid.innerHTML = '';
@@ -4104,10 +4149,12 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     calSelectedDate = key;
     calRender();
 
-    const date   = new Date(calYear, calMonth, d);
-    const dayNames = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+    const date    = new Date(calYear, calMonth, d);
+    const lang    = currentLang || 'uk';
+    const dayNames = CAL_DAY_NAMES[lang] || CAL_DAY_NAMES.uk;
+    const months   = CAL_MONTHS[lang]    || CAL_MONTHS.uk;
     document.getElementById('calEditorTitle').textContent =
-      '📅 ' + dayNames[date.getDay()] + ', ' + d + ' ' + CAL_MONTHS_RU[calMonth];
+      '📅 ' + dayNames[date.getDay()] + ', ' + d + ' ' + months[calMonth];
 
     calRenderDayPosts(key);
     document.getElementById('calEditor').style.display = 'block';
@@ -4162,13 +4209,6 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   function calKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
   function calLoad()       { try { return JSON.parse(localStorage.getItem('octo_calendar') || '{}'); } catch { return {}; } }
   function calSave(data)   { try { localStorage.setItem('octo_calendar', JSON.stringify(data)); } catch {} }
-
-  // Init calendar on showScreen
-  const _origShowScreen = showScreen;
-  showScreen = function(id, navEl) {
-    _origShowScreen(id, navEl);
-    if (id === 'calendar') calInit();
-  };
 
   // Init workspaces chat history on load
   (function initWsChat() {
