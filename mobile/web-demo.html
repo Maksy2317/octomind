@@ -855,6 +855,90 @@
     body.light-mode .cap-textarea, body.light-mode .cap-input { background: var(--surface2); border-color: var(--border); color: var(--text); }
     body.light-mode .cap-card { background: var(--surface); border-color: var(--border); }
     body.light-mode .cap-copy-btn { background: var(--surface2); border-color: var(--border); }
+
+    /* ── COMPETITOR ── */
+    .comp-badge {
+      padding: 6px 18px; border-radius: 20px; font-size: 13px; font-weight: 800;
+      background: var(--accent); color: #fff; white-space: nowrap;
+    }
+    .comp-badge-enemy { background: #ff4757; }
+    .comp-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px;
+    }
+    .comp-cell {
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px;
+      padding: 12px; text-align: center;
+    }
+    .comp-cell-label { font-size: 11px; color: var(--text4); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 6px; }
+    .comp-cell-me   { font-size: 17px; font-weight: 800; color: var(--accent); }
+    .comp-cell-them { font-size: 17px; font-weight: 800; color: #ff4757; }
+    .comp-cell-metric { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .comp-winner-icon { font-size: 32px; margin-bottom: 6px; }
+
+    /* ── CALENDAR ── */
+    .cal-week-header {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      text-align: center; font-size: 12px; font-weight: 700; color: var(--text4);
+      text-transform: uppercase; letter-spacing: 0.7px;
+      margin-bottom: 6px; padding: 0 2px;
+    }
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+    }
+    .cal-day {
+      min-height: 72px; background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 6px; cursor: pointer; transition: all 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .cal-day:hover { border-color: var(--accent); background: var(--surface2); }
+    .cal-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+    .cal-day.selected { border-color: var(--accent2); background: rgba(108,99,255,0.1); }
+    .cal-day-num {
+      font-size: 12px; font-weight: 800; color: var(--text3); margin-bottom: 4px;
+    }
+    .cal-day.today .cal-day-num { color: var(--accent); }
+    .cal-day.weekend .cal-day-num { color: var(--accent2); }
+    .cal-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      margin: 1px; flex-shrink: 0;
+    }
+    .cal-dots { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }
+    .cal-post-chip {
+      font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+      margin: 1px 0; display: block; color: #fff; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; background: var(--lc, #6C63FF);
+    }
+    .cal-legend {
+      font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 10px;
+      background: color-mix(in srgb, var(--lc) 15%, transparent);
+      color: var(--lc); border: 1px solid color-mix(in srgb, var(--lc) 30%, transparent);
+    }
+    .cal-type-chip {
+      padding: 7px 14px; border-radius: 16px; font-size: 12px; font-weight: 700;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--text2); cursor: pointer; transition: all 0.15s;
+    }
+    .cal-type-chip.selected { color: #fff; border-color: var(--accent); background: var(--accent); }
+    .cal-post-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      background: var(--surface2); border-radius: 10px; margin-bottom: 6px;
+    }
+    .cal-post-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cal-post-del {
+      margin-left: auto; background: none; border: none; color: var(--text4);
+      cursor: pointer; font-size: 14px; padding: 0 4px;
+    }
+    .cal-post-del:hover { color: #ff4757; }
+    @media (max-width: 600px) {
+      .cal-day { min-height: 52px; padding: 4px; border-radius: 8px; }
+      .cal-day-num { font-size: 11px; }
+      .comp-grid { grid-template-columns: 1fr 1fr; }
+    }
+    body.light-mode .cal-day { background: var(--surface); border-color: var(--border); }
+    body.light-mode .comp-cell { background: var(--surface); border-color: var(--border); }
+    body.light-mode .cal-type-chip { background: var(--surface2); border-color: var(--border); }
+    body.light-mode .cal-post-item { background: var(--surface2); }
   </style>
 </head>
 <body>
@@ -1063,6 +1147,10 @@
       </div>
       <div class="nav-item" onclick="showScreen('caption',this)">
         <span class="nav-icon">✍️</span> Caption AI
+        <span class="nav-badge new">New</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('calendar',this)">
+        <span class="nav-icon">📅</span> Content Calendar
         <span class="nav-badge new">New</span>
       </div>
 
@@ -1279,6 +1367,54 @@
                 <div class="fb tip"><span>📌</span><span><strong>Неделя 2:</strong> Сними и опубликуй 3 Reels. Используй шаблоны из Video Creator.</span></div>
                 <div class="fb tip"><span>📌</span><span><strong>Неделя 3–4:</strong> Розыгрыш + коллаборация с 2 аккаунтами из своей ниши.</span></div>
               </div>
+            </div>
+
+            <!-- ── COMPETITOR ANALYSIS ── -->
+            <div class="card" style="border:2px dashed var(--accent);background:linear-gradient(135deg,rgba(108,99,255,0.06) 0%,rgba(167,139,250,0.04) 100%);">
+              <div class="card-title">⚔️ Сравни с конкурентом</div>
+              <div class="card-sub" style="margin-bottom:16px;">Вставь ссылку конкурента — Octo покажет сравнение профилей</div>
+              <div class="url-row">
+                <input class="url-input" id="compUrl" placeholder="https://tiktok.com/@competitor или instagram.com/…" />
+                <button class="btn btn-primary" id="compBtn" onclick="analyzeCompetitor()">Сравнить →</button>
+              </div>
+            </div>
+
+            <!-- Competitor loading -->
+            <div id="compLoading" style="display:none;text-align:center;padding:30px 0;">
+              <div class="loading" style="justify-content:center;margin-bottom:12px;"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+              <p style="color:var(--text3);font-size:14px;">Octo анализирует конкурента…</p>
+            </div>
+
+            <!-- Competitor result -->
+            <div id="compResult" style="display:none">
+
+              <!-- VS header -->
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <div class="comp-badge" id="compMyBadge">Я</div>
+                <div style="flex:1;height:2px;background:var(--border);position:relative;">
+                  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--surface);padding:0 10px;font-size:18px;font-weight:900;color:var(--accent);">VS</div>
+                </div>
+                <div class="comp-badge comp-badge-enemy" id="compThemBadge">Конкурент</div>
+              </div>
+
+              <!-- Metrics comparison grid -->
+              <div class="comp-grid" id="compGrid"></div>
+
+              <!-- Winner banner -->
+              <div id="compWinner" class="card" style="text-align:center;margin-bottom:14px;"></div>
+
+              <!-- AI insights -->
+              <div class="card">
+                <div class="card-title">🐙 Что говорит Octo</div>
+                <div id="compInsights" class="fb-list" style="margin-top:10px;"></div>
+              </div>
+
+              <!-- Action plan -->
+              <div class="card">
+                <div class="card-title">🚀 Как обогнать конкурента</div>
+                <div id="compPlan" class="fb-list" style="margin-top:10px;"></div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1750,8 +1886,64 @@
             <p style="color:var(--text3);font-size:14px;">Octo пишет подписи…</p>
           </div>
 
+        <!-- ============ CONTENT CALENDAR ============ -->
+        <div class="screen" id="calendar">
+          <div style="max-width:780px;margin:0 auto;padding-bottom:40px;">
+
+            <!-- Month nav -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+              <button class="btn btn-secondary" onclick="calNav(-1)" style="padding:8px 18px;border-radius:12px;">‹</button>
+              <div style="font-size:18px;font-weight:800;color:var(--text);" id="calMonthTitle"></div>
+              <button class="btn btn-secondary" onclick="calNav(1)" style="padding:8px 18px;border-radius:12px;">›</button>
+            </div>
+
+            <!-- Legend -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
+              <span class="cal-legend" style="--lc:#6C63FF">🎬 Reels</span>
+              <span class="cal-legend" style="--lc:#ec4899">📖 Stories</span>
+              <span class="cal-legend" style="--lc:#3b82f6">🖼️ Carousel</span>
+              <span class="cal-legend" style="--lc:#10b981">🎵 TikTok</span>
+              <span class="cal-legend" style="--lc:#f59e0b">✍️ Caption</span>
+              <span class="cal-legend" style="--lc:#8B8BA7">📝 Пост</span>
+            </div>
+
+            <!-- Day headers -->
+            <div class="cal-week-header">
+              <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div>
+              <div style="color:var(--accent2)">Сб</div><div style="color:var(--accent2)">Вс</div>
+            </div>
+
+            <!-- Grid -->
+            <div class="cal-grid" id="calGrid"></div>
+
+            <!-- Day editor panel -->
+            <div id="calEditor" style="display:none;margin-top:20px;" class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-size:15px;font-weight:800;" id="calEditorTitle">📅 Понедельник, 1 мая</div>
+                <button onclick="document.getElementById('calEditor').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;">✕</button>
+              </div>
+
+              <!-- Existing posts for this day -->
+              <div id="calDayPosts" style="margin-bottom:16px;"></div>
+
+              <!-- Add post form -->
+              <div style="font-size:12px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">+ Добавить публикацию</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;" id="calTypeChips">
+                <div class="cal-type-chip selected" data-type="reels" data-color="#6C63FF" onclick="calTypeChip(this)">🎬 Reels</div>
+                <div class="cal-type-chip" data-type="stories" data-color="#ec4899" onclick="calTypeChip(this)">📖 Stories</div>
+                <div class="cal-type-chip" data-type="carousel" data-color="#3b82f6" onclick="calTypeChip(this)">🖼️ Carousel</div>
+                <div class="cal-type-chip" data-type="tiktok" data-color="#10b981" onclick="calTypeChip(this)">🎵 TikTok</div>
+                <div class="cal-type-chip" data-type="caption" data-color="#f59e0b" onclick="calTypeChip(this)">✍️ Caption</div>
+                <div class="cal-type-chip" data-type="post" data-color="#8B8BA7" onclick="calTypeChip(this)">📝 Пост</div>
+              </div>
+              <input type="text" class="cap-input" id="calPostNote" placeholder="Тема / описание (необязательно)" style="margin-bottom:12px;">
+              <div style="display:flex;gap:10px;">
+                <button class="btn btn-primary" onclick="calAddPost()" style="flex:1;">Добавить</button>
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
 
       </div>
     </div>
@@ -1856,6 +2048,7 @@
     profile:   ['screen_profile',   'screen_profile_sub'],
     settings:  ['screen_settings',  'screen_settings_sub'],
     caption:   ['screen_caption',   'screen_caption_sub'],
+    calendar:  ['screen_calendar',  'screen_calendar_sub'],
   };
 
   // ── AUTH ─────────────────────────────────────────────────────────────────────
@@ -2091,6 +2284,7 @@
       screen_profile:'Личный кабинет', screen_profile_sub:'Твой аккаунт и настройки',
       screen_settings:'Settings', screen_settings_sub:'Настрой Octo под свой бренд',
       screen_caption:'Caption AI', screen_caption_sub:'AI пишет подписи и хэштеги для твоих постов',
+      screen_calendar:'Content Calendar', screen_calendar_sub:'Планируй публикации на месяц вперёд',
       car_sub:'Загрузи 2–10 фото — Octo создаёт единый стиль и подписи',
       car_tmpl_title:'Шаблон оформления', car_build_btn:'Создать карусель',
       car_done_title:'Карусель готова!', car_done_sub:'Octo добавил единый стиль и подписи к каждому слайду',
@@ -2166,6 +2360,7 @@
       screen_profile:'Особистий кабінет', screen_profile_sub:'Твій акаунт та налаштування',
       screen_settings:'Settings', screen_settings_sub:'Налаштуй Octo під свій бренд',
       screen_caption:'Caption AI', screen_caption_sub:'AI пише підписи та хештеги для твоїх постів',
+      screen_calendar:'Content Calendar', screen_calendar_sub:'Плануй публікації на місяць вперед',
       car_sub:'Завантаж 2–10 фото — Octo створить єдиний стиль і підписи',
       car_tmpl_title:'Шаблон оформлення', car_build_btn:'Створити карусель',
       car_done_title:'Карусель готова!', car_done_sub:'Octo додав єдиний стиль і підписи до кожного слайду',
@@ -2241,6 +2436,7 @@
       screen_profile:'My Profile', screen_profile_sub:'Your account and settings',
       screen_settings:'Settings', screen_settings_sub:'Customize Octo for your brand',
       screen_caption:'Caption AI', screen_caption_sub:'AI writes captions & hashtags for your posts',
+      screen_calendar:'Content Calendar', screen_calendar_sub:'Plan your posts for the whole month',
       car_sub:'Upload 2–10 photos — Octo creates a unified style and captions',
       car_tmpl_title:'Layout template', car_build_btn:'Create carousel',
       car_done_title:'Carousel ready!', car_done_sub:'Octo applied a unified style and captions to each slide',
@@ -3709,6 +3905,269 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     btn.textContent = '✅ Скопировано!';
     setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = origHtml; }, 2000);
   }
+
+  // ── COMPETITOR ANALYSIS ──────────────────────────────────────────────────────
+  async function analyzeCompetitor() {
+    const url = document.getElementById('compUrl').value.trim();
+    if (!url) { document.getElementById('compUrl').focus(); return; }
+
+    const myName  = (document.getElementById('profileUrl').value.split('/').filter(Boolean).pop() || 'Мой профиль');
+    const theirName = url.split('/').filter(Boolean).pop() || 'Конкурент';
+
+    document.getElementById('compResult').style.display  = 'none';
+    document.getElementById('compLoading').style.display = 'block';
+    document.getElementById('compBtn').disabled          = true;
+
+    const prompt = `Ты — SMM-аналитик. Сделай сравнительный анализ двух профилей в социальных сетях.
+
+Мой профиль: @${myName}
+Конкурент: @${theirName}
+
+Придумай реалистичные, правдоподобные данные для ОБОИХ профилей и сделай детальное сравнение.
+
+Ответь СТРОГО в формате JSON (только JSON, никакого другого текста):
+{
+  "metrics": [
+    {"label": "Подписчики", "me": "12.4K", "them": "28.1K", "winner": "them"},
+    {"label": "Engagement Rate", "me": "4.2%", "them": "2.8%", "winner": "me"},
+    {"label": "Постов в неделю", "me": "4", "them": "7", "winner": "them"},
+    {"label": "Avg Likes", "me": "310", "them": "520", "winner": "them"},
+    {"label": "Avg Comments", "me": "28", "them": "15", "winner": "me"},
+    {"label": "Reels / TikTok", "me": "60%", "them": "85%", "winner": "them"}
+  ],
+  "myScore": 62,
+  "themScore": 74,
+  "winner": "them",
+  "winnerComment": "Конкурент впереди по охватам, но у тебя лучше вовлечённость аудитории",
+  "insights": [
+    "У конкурента больше видеоконтента — он получает в 3x больше органического охвата",
+    "Твой engagement rate выше — аудитория более лояльная и активная",
+    "Конкурент постит чаще, что даёт алгоритму больше поводов его продвигать"
+  ],
+  "plan": [
+    "Увеличь частоту постинга с 4 до 6–7 раз в неделю",
+    "Добавь больше Reels/TikTok — сейчас у тебя только 60% видеоконтента против 85% у конкурента",
+    "Используй свой сильный engagement (4.2%) в Stories — задавай вопросы, создавай опросы"
+  ]
+}`;
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+      });
+
+      let raw = '';
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const d = line.slice(6);
+          if (d === '[DONE]') break;
+          try { raw += JSON.parse(d).delta || ''; } catch {}
+        }
+      }
+
+      // Extract JSON from response
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON');
+      const data = JSON.parse(jsonMatch[0]);
+      compRender(myName, theirName, data);
+    } catch (e) {
+      document.getElementById('compLoading').style.display = 'none';
+      document.getElementById('compBtn').disabled = false;
+      alert('Ошибка анализа. Попробуй ещё раз.');
+    }
+  }
+
+  function compRender(myName, theirName, d) {
+    document.getElementById('compLoading').style.display = 'none';
+    document.getElementById('compBtn').disabled = false;
+
+    // Update badge names
+    document.getElementById('compMyBadge').textContent   = '@' + myName;
+    document.getElementById('compThemBadge').textContent = '@' + theirName;
+
+    // Metrics grid
+    const grid = document.getElementById('compGrid');
+    grid.innerHTML = '';
+    (d.metrics || []).forEach(m => {
+      const myWin = m.winner === 'me';
+      grid.innerHTML += `
+        <div class="comp-cell">
+          <div class="comp-cell-label">${m.label}</div>
+          <div class="comp-cell-me" style="${myWin ? 'color:var(--green)' : ''}">${m.me} ${myWin ? '👑' : ''}</div>
+          <div class="comp-cell-metric">vs</div>
+          <div class="comp-cell-them" style="${!myWin ? 'color:#ff4757' : 'color:var(--text3)'}">${m.them} ${!myWin ? '👑' : ''}</div>
+        </div>`;
+    });
+
+    // Winner banner
+    const iWon = d.winner === 'me';
+    document.getElementById('compWinner').innerHTML = `
+      <div class="comp-winner-icon">${iWon ? '🏆' : '📈'}</div>
+      <div style="font-size:15px;font-weight:800;margin-bottom:6px;">${iWon ? 'Ты впереди! 🎉' : 'Есть куда расти 💪'}</div>
+      <div style="font-size:13px;color:var(--text3);">${d.winnerComment || ''}</div>
+      <div style="display:flex;gap:20px;justify-content:center;margin-top:14px;">
+        <div><div style="font-size:22px;font-weight:900;color:var(--accent);">${d.myScore || '–'}</div><div style="font-size:11px;color:var(--text4);">Мой скор</div></div>
+        <div style="font-size:22px;font-weight:900;color:var(--text4);">:</div>
+        <div><div style="font-size:22px;font-weight:900;color:#ff4757;">${d.themScore || '–'}</div><div style="font-size:11px;color:var(--text4);">Конкурент</div></div>
+      </div>`;
+
+    // Insights
+    const ins = document.getElementById('compInsights');
+    ins.innerHTML = (d.insights || []).map(t =>
+      `<div class="fb tip"><span>🐙</span><span>${t}</span></div>`).join('');
+
+    // Plan
+    const plan = document.getElementById('compPlan');
+    plan.innerHTML = (d.plan || []).map((t, i) =>
+      `<div class="fb tip"><span>📌</span><span><strong>Шаг ${i + 1}:</strong> ${t}</span></div>`).join('');
+
+    document.getElementById('compResult').style.display = 'block';
+    document.getElementById('compResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── CONTENT CALENDAR ─────────────────────────────────────────────────────────
+  const CAL_MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const CAL_TYPE_COLORS = { reels:'#6C63FF', stories:'#ec4899', carousel:'#3b82f6', tiktok:'#10b981', caption:'#f59e0b', post:'#8B8BA7' };
+  const CAL_TYPE_ICONS  = { reels:'🎬', stories:'📖', carousel:'🖼️', tiktok:'🎵', caption:'✍️', post:'📝' };
+
+  let calYear, calMonth, calSelectedDate = null;
+
+  function calInit() {
+    const now = new Date();
+    if (!calYear)  calYear  = now.getFullYear();
+    if (!calMonth) calMonth = now.getMonth();
+    calRender();
+  }
+
+  function calNav(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0;  calYear++; }
+    if (calMonth < 0)  { calMonth = 11; calYear--; }
+    calSelectedDate = null;
+    document.getElementById('calEditor').style.display = 'none';
+    calRender();
+  }
+
+  function calRender() {
+    document.getElementById('calMonthTitle').textContent = CAL_MONTHS_RU[calMonth] + ' ' + calYear;
+
+    const grid  = document.getElementById('calGrid');
+    grid.innerHTML = '';
+
+    const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+    const offset   = (firstDay === 0) ? 6 : firstDay - 1;    // Mon-based
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const today    = new Date();
+    const data     = calLoad();
+
+    // Empty cells before first day
+    for (let i = 0; i < offset; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cal-day empty';
+      grid.appendChild(cell);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key     = calKey(calYear, calMonth, d);
+      const posts   = data[key] || [];
+      const isToday = (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d);
+      const isWeekend = (() => { const dow = new Date(calYear, calMonth, d).getDay(); return dow === 0 || dow === 6; })();
+      const isSel   = calSelectedDate === key;
+
+      const cell = document.createElement('div');
+      cell.className = 'cal-day' + (isToday ? ' today' : '') + (isWeekend ? ' weekend' : '') + (isSel ? ' selected' : '');
+      cell.onclick   = () => calDayClick(d, key);
+
+      let inner = `<div class="cal-day-num">${d}</div>`;
+      if (posts.length) {
+        inner += '<div class="cal-dots">';
+        posts.slice(0, 3).forEach(p => {
+          inner += `<span class="cal-dot" style="background:${CAL_TYPE_COLORS[p.type] || '#888'}"></span>`;
+        });
+        if (posts.length > 3) inner += `<span style="font-size:9px;color:var(--text4)">+${posts.length-3}</span>`;
+        inner += '</div>';
+      }
+      cell.innerHTML = inner;
+      grid.appendChild(cell);
+    }
+  }
+
+  function calDayClick(d, key) {
+    calSelectedDate = key;
+    calRender();
+
+    const date   = new Date(calYear, calMonth, d);
+    const dayNames = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+    document.getElementById('calEditorTitle').textContent =
+      '📅 ' + dayNames[date.getDay()] + ', ' + d + ' ' + CAL_MONTHS_RU[calMonth];
+
+    calRenderDayPosts(key);
+    document.getElementById('calEditor').style.display = 'block';
+    document.getElementById('calEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function calRenderDayPosts(key) {
+    const data  = calLoad();
+    const posts = data[key] || [];
+    const el    = document.getElementById('calDayPosts');
+    if (!posts.length) { el.innerHTML = '<p style="font-size:13px;color:var(--text4);margin-bottom:8px;">Нет запланированных публикаций</p>'; return; }
+    el.innerHTML = posts.map((p, i) => `
+      <div class="cal-post-item">
+        <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
+        <span style="font-size:13px;font-weight:700;color:var(--text2);">${CAL_TYPE_ICONS[p.type]||''} ${p.type.charAt(0).toUpperCase()+p.type.slice(1)}</span>
+        ${p.note ? `<span style="font-size:12px;color:var(--text3);margin-left:4px;">— ${p.note}</span>` : ''}
+        <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
+      </div>`).join('');
+  }
+
+  function calTypeChip(el) {
+    document.querySelectorAll('#calTypeChips .cal-type-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    // Update button color
+    document.querySelector('#calTypeChips .cal-type-chip.selected').style.background = el.dataset.color;
+    document.querySelector('#calTypeChips .cal-type-chip.selected').style.borderColor = el.dataset.color;
+  }
+
+  function calAddPost() {
+    if (!calSelectedDate) return;
+    const type = document.querySelector('#calTypeChips .cal-type-chip.selected')?.dataset.type || 'post';
+    const note = document.getElementById('calPostNote').value.trim();
+
+    const data = calLoad();
+    if (!data[calSelectedDate]) data[calSelectedDate] = [];
+    data[calSelectedDate].push({ type, note });
+    calSave(data);
+
+    document.getElementById('calPostNote').value = '';
+    calRenderDayPosts(calSelectedDate);
+    calRender();
+  }
+
+  function calDeletePost(key, idx) {
+    const data = calLoad();
+    if (data[key]) { data[key].splice(idx, 1); if (!data[key].length) delete data[key]; }
+    calSave(data);
+    calRenderDayPosts(key);
+    calRender();
+  }
+
+  function calKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+  function calLoad()       { try { return JSON.parse(localStorage.getItem('octo_calendar') || '{}'); } catch { return {}; } }
+  function calSave(data)   { try { localStorage.setItem('octo_calendar', JSON.stringify(data)); } catch {} }
+
+  // Init calendar on showScreen
+  const _origShowScreen = showScreen;
+  showScreen = function(id, navEl) {
+    _origShowScreen(id, navEl);
+    if (id === 'calendar') calInit();
+  };
 
   // Init workspaces chat history on load
   (function initWsChat() {
