@@ -3795,18 +3795,18 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 - После каждого варианта — 5–8 релевантных хэштегов
 - Хэштеги начинаются с # и разделены пробелами
 
-Ответ строго в формате (без лишнего текста):
-ВАРИАНТ 1
+Ответ строго в следующем формате (используй ТОЛЬКО эти маркеры, никаких других заголовков):
+===1===
 [текст подписи]
-ХЭШТЕГИ: #тег1 #тег2 #тег3
+###TAGS### #тег1 #тег2 #тег3
 
-ВАРИАНТ 2
+===2===
 [текст подписи]
-ХЭШТЕГИ: #тег1 #тег2 #тег3
+###TAGS### #тег1 #тег2 #тег3
 
-ВАРИАНТ 3
+===3===
 [текст подписи]
-ХЭШТЕГИ: #тег1 #тег2 #тег3`;
+###TAGS### #тег1 #тег2 #тег3`;
 
     try {
       const res = await fetch('/api/chat', {
@@ -3825,7 +3825,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
           if (!line.startsWith('data: ')) continue;
           const d = line.slice(6);
           if (d === '[DONE]') break;
-          try { fullText += JSON.parse(d).delta || ''; } catch {}
+          try { fullText += JSON.parse(d).text || ''; } catch {}
         }
       }
 
@@ -3844,18 +3844,19 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     document.getElementById('capLoading').style.display = 'none';
     document.getElementById('capGenBtn').disabled = false;
 
-    // Parse 3 variants: split by "ВАРИАНТ N"
-    const blocks = raw.split(/ВАРИАНТ\s+\d+/i).filter(b => b.trim());
+    // Split by ===1=== ===2=== ===3=== markers (language-agnostic)
+    const blocks = raw.split(/===\d+===/).filter(b => b.trim());
     const emojiLabels = ['✨ Вариант 1', '🔥 Вариант 2', '💡 Вариант 3'];
 
     const container = document.getElementById('capCards');
     container.innerHTML = '';
-    capStore.length = 0; // clear previous
+    capStore.length = 0;
 
-    const items = blocks.length ? blocks.slice(0, 3) : [raw];
+    const items = blocks.length >= 2 ? blocks.slice(0, 3) : [raw];
 
     items.forEach((block, i) => {
-      const parts   = block.split(/ХЭШТЕГИ:/i);
+      // Split by ###TAGS### marker
+      const parts   = block.split('###TAGS###');
       const caption = parts[0].trim();
       const tags    = parts[1] ? parts[1].trim() : '';
       const full    = caption + (tags ? '\n\n' + tags : '');
@@ -3968,7 +3969,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
           if (!line.startsWith('data: ')) continue;
           const d = line.slice(6);
           if (d === '[DONE]') break;
-          try { raw += JSON.parse(d).delta || ''; } catch {}
+          try { raw += JSON.parse(d).text || ''; } catch {}
         }
       }
 
