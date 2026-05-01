@@ -798,6 +798,63 @@
       .topbar { padding: 12px 16px; }
       .content { padding: 16px; }
     }
+
+    /* ── CAPTION AI ── */
+    .cap-label {
+      font-size: 13px; font-weight: 700; color: var(--text3);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
+    }
+    .cap-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cap-chip {
+      padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--text2); cursor: pointer; transition: all 0.18s; user-select: none;
+    }
+    .cap-chip:hover { border-color: var(--accent); color: var(--text); }
+    .cap-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .cap-textarea {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 14px; color: var(--text); font-size: 14px; padding: 14px 16px;
+      resize: vertical; min-height: 110px; font-family: inherit; line-height: 1.6;
+      transition: border-color 0.2s; outline: none;
+    }
+    .cap-textarea:focus { border-color: var(--accent); }
+    .cap-input {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 12px; color: var(--text); font-size: 14px; padding: 12px 16px;
+      outline: none; font-family: inherit; transition: border-color 0.2s;
+    }
+    .cap-input:focus { border-color: var(--accent); }
+    .cap-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 18px; padding: 20px; margin-bottom: 16px; position: relative;
+      transition: border-color 0.2s;
+    }
+    .cap-card:hover { border-color: var(--accent); }
+    .cap-card-label {
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--accent2); margin-bottom: 12px;
+    }
+    .cap-card-text {
+      font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap;
+      margin-bottom: 14px;
+    }
+    .cap-card-tags {
+      font-size: 13px; color: var(--accent); line-height: 1.8; margin-bottom: 14px;
+      word-break: break-word;
+    }
+    .cap-copy-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--surface2); color: var(--text2); font-size: 12px;
+      font-weight: 700; cursor: pointer; transition: all 0.15s;
+    }
+    .cap-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .cap-copy-btn.copied { background: var(--green); border-color: var(--green); color: #fff; }
+    body.light-mode .cap-chip { background: var(--surface2); border-color: var(--border); }
+    body.light-mode .cap-textarea, body.light-mode .cap-input { background: var(--surface2); border-color: var(--border); color: var(--text); }
+    body.light-mode .cap-card { background: var(--surface); border-color: var(--border); }
+    body.light-mode .cap-copy-btn { background: var(--surface2); border-color: var(--border); }
   </style>
 </head>
 <body>
@@ -1004,6 +1061,10 @@
       <div class="nav-item" onclick="showScreen('photo',this)">
         <span class="nav-icon">📸</span> Photo Edit
       </div>
+      <div class="nav-item" onclick="showScreen('caption',this)">
+        <span class="nav-icon">✍️</span> Caption AI
+        <span class="nav-badge new">New</span>
+      </div>
 
       <div class="nav-label" data-i18n="nav_account">Акаунт</div>
       <div class="nav-item" onclick="showScreen('profile',this)">
@@ -1092,6 +1153,12 @@
               <div class="tool-name">Carousel Builder</div>
               <div class="tool-desc" data-i18n="tool_carousel_desc">Завантаж фото — AI об'єднає в єдиний стиль і напише підписи до кожного слайду.</div>
               <span class="tool-tag" data-i18n="tool_design_tag">Дизайн</span><span class="tool-tag" data-i18n="tool_captions_tag">Підписи</span><span class="tool-tag" data-i18n="tool_style_tag">Стиль</span>
+            </div>
+            <div class="tool-card" onclick="showScreen('caption',null)">
+              <div class="tool-icon">✍️</div>
+              <div class="tool-name">Caption AI</div>
+              <div class="tool-desc" data-i18n="tool_caption_desc">Опиши контент — AI напише 3 варіанти підписів з хештегами для TikTok, Reels і Stories.</div>
+              <span class="tool-tag">TikTok</span><span class="tool-tag">Reels</span><span class="tool-tag" data-i18n="tool_captions_tag">Підписи</span>
             </div>
           </div>
 
@@ -1613,6 +1680,79 @@
           <button class="btn btn-primary" onclick="alert('Настройки сохранены! 🐙')" data-i18n="btn_save">💾 Сохранить</button>
         </div>
 
+      <!-- ============ CAPTION AI ============ -->
+      <div class="screen" id="caption">
+        <div style="max-width:680px;margin:0 auto;padding-bottom:40px;">
+
+          <!-- Platform -->
+          <div style="margin-bottom:24px;">
+            <div class="cap-label">📱 Платформа</div>
+            <div class="cap-chips" id="capPlatform">
+              <div class="cap-chip selected" data-val="tiktok" onclick="capChip('capPlatform',this)">🎵 TikTok</div>
+              <div class="cap-chip" data-val="reels" onclick="capChip('capPlatform',this)">🎬 Instagram Reels</div>
+              <div class="cap-chip" data-val="stories" onclick="capChip('capPlatform',this)">📖 Stories</div>
+              <div class="cap-chip" data-val="youtube" onclick="capChip('capPlatform',this)">▶️ YouTube Shorts</div>
+            </div>
+          </div>
+
+          <!-- Tone -->
+          <div style="margin-bottom:24px;">
+            <div class="cap-label">🎭 Тон</div>
+            <div class="cap-chips" id="capTone">
+              <div class="cap-chip selected" data-val="trending" onclick="capChip('capTone',this)">🔥 Трендовый</div>
+              <div class="cap-chip" data-val="funny" onclick="capChip('capTone',this)">😂 Смешной</div>
+              <div class="cap-chip" data-val="pro" onclick="capChip('capTone',this)">💼 Профессиональный</div>
+              <div class="cap-chip" data-val="edu" onclick="capChip('capTone',this)">📚 Образовательный</div>
+              <div class="cap-chip" data-val="motivate" onclick="capChip('capTone',this)">💪 Мотивация</div>
+              <div class="cap-chip" data-val="sales" onclick="capChip('capTone',this)">🛒 Продающий</div>
+            </div>
+          </div>
+
+          <!-- Language -->
+          <div style="margin-bottom:24px;">
+            <div class="cap-label">🌐 Язык подписи</div>
+            <div class="cap-chips" id="capLang">
+              <div class="cap-chip selected" data-val="ru" onclick="capChip('capLang',this)">🇷🇺 Русский</div>
+              <div class="cap-chip" data-val="uk" onclick="capChip('capLang',this)">🇺🇦 Українська</div>
+              <div class="cap-chip" data-val="en" onclick="capChip('capLang',this)">🇬🇧 English</div>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div style="margin-bottom:24px;">
+            <div class="cap-label">📝 Опиши свой контент</div>
+            <textarea id="capDesc" class="cap-textarea" placeholder="Например: видео о том, как я похудел на 10 кг за 3 месяца, без диет, только тренировки по 20 минут утром…" rows="4"></textarea>
+          </div>
+
+          <!-- Keywords -->
+          <div style="margin-bottom:28px;">
+            <div class="cap-label">🏷️ Ключевые слова / ниша <span style="color:var(--text4);font-weight:400;">(необязательно)</span></div>
+            <input type="text" id="capKeywords" class="cap-input" placeholder="фитнес, похудение, мотивация, ЗОЖ…">
+          </div>
+
+          <!-- Generate Button -->
+          <button class="btn btn-primary" id="capGenBtn" onclick="captionGenerate()" style="width:100%;padding:16px;font-size:16px;border-radius:16px;margin-bottom:32px;">
+            ✨ Сгенерировать подписи
+          </button>
+
+          <!-- Results -->
+          <div id="capResults" style="display:none;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;font-weight:700;">💬 Готовые варианты</div>
+            <div id="capCards"></div>
+            <button class="btn btn-secondary" onclick="captionGenerate()" style="width:100%;margin-top:8px;">🔄 Сгенерировать ещё раз</button>
+          </div>
+
+          <!-- Loading -->
+          <div id="capLoading" style="display:none;text-align:center;padding:40px 0;">
+            <div class="loading" style="justify-content:center;margin-bottom:16px;">
+              <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+            <p style="color:var(--text3);font-size:14px;">Octo пишет подписи…</p>
+          </div>
+
+        </div>
+      </div>
+
       </div>
     </div>
   </div>
@@ -1715,6 +1855,7 @@
     pricing:   ['screen_pricing',   'screen_pricing_sub'],
     profile:   ['screen_profile',   'screen_profile_sub'],
     settings:  ['screen_settings',  'screen_settings_sub'],
+    caption:   ['screen_caption',   'screen_caption_sub'],
   };
 
   // ── AUTH ─────────────────────────────────────────────────────────────────────
@@ -1949,6 +2090,7 @@
       screen_pricing:'Pricing', screen_pricing_sub:'Выбери подходящий план',
       screen_profile:'Личный кабинет', screen_profile_sub:'Твой аккаунт и настройки',
       screen_settings:'Settings', screen_settings_sub:'Настрой Octo под свой бренд',
+      screen_caption:'Caption AI', screen_caption_sub:'AI пишет подписи и хэштеги для твоих постов',
       car_sub:'Загрузи 2–10 фото — Octo создаёт единый стиль и подписи',
       car_tmpl_title:'Шаблон оформления', car_build_btn:'Создать карусель',
       car_done_title:'Карусель готова!', car_done_sub:'Octo добавил единый стиль и подписи к каждому слайду',
@@ -1966,6 +2108,7 @@
       tool_analyzer_desc:'Вставь ссылку Instagram или TikTok — получи полный аудит профиля с планом улучшений.',
       tool_video_desc:'Загрузи видео — AI выберет шаблон и обработает под Stories, Reels или TikTok.',
       tool_carousel_desc:'Загрузи фото — AI объединит в единый стиль и напишет подписи к каждому слайду.',
+      tool_caption_desc:'Опиши контент — AI напишет 3 варианта подписей с хэштегами для TikTok, Reels и Stories.',
       tool_design_tag:'Дизайн', tool_captions_tag:'Подписи', tool_style_tag:'Стиль',
       tips_title:'💡 Советы Octo на сегодня', tips_sub:'Актуальные тренды в соцсетях',
       tip1:'Reels, опубликованные с 9 до 11 утра, получают в 2 раза больше охватов. Планируй публикации!',
@@ -2022,6 +2165,7 @@
       screen_pricing:'Pricing', screen_pricing_sub:'Обери підходящий план',
       screen_profile:'Особистий кабінет', screen_profile_sub:'Твій акаунт та налаштування',
       screen_settings:'Settings', screen_settings_sub:'Налаштуй Octo під свій бренд',
+      screen_caption:'Caption AI', screen_caption_sub:'AI пише підписи та хештеги для твоїх постів',
       car_sub:'Завантаж 2–10 фото — Octo створить єдиний стиль і підписи',
       car_tmpl_title:'Шаблон оформлення', car_build_btn:'Створити карусель',
       car_done_title:'Карусель готова!', car_done_sub:'Octo додав єдиний стиль і підписи до кожного слайду',
@@ -2039,6 +2183,7 @@
       tool_analyzer_desc:'Встав посилання Instagram або TikTok — отримай повний аудит профілю з планом покращень.',
       tool_video_desc:'Завантаж відео — AI вибере шаблон і обробить під Stories, Reels або TikTok.',
       tool_carousel_desc:'Завантаж фото — AI об\'єднає в єдиний стиль і напише підписи до кожного слайду.',
+      tool_caption_desc:'Опиши контент — AI напише 3 варіанти підписів з хештегами для TikTok, Reels і Stories.',
       tool_design_tag:'Дизайн', tool_captions_tag:'Підписи', tool_style_tag:'Стиль',
       tips_title:'💡 Поради Octo на сьогодні', tips_sub:'Актуальні тренди в соцмережах',
       tip1:'Reels, опубліковані з 9 до 11 ранку, отримують вдвічі більше охоплень. Плануй публікації!',
@@ -2095,6 +2240,7 @@
       screen_pricing:'Pricing', screen_pricing_sub:'Choose the right plan for you',
       screen_profile:'My Profile', screen_profile_sub:'Your account and settings',
       screen_settings:'Settings', screen_settings_sub:'Customize Octo for your brand',
+      screen_caption:'Caption AI', screen_caption_sub:'AI writes captions & hashtags for your posts',
       car_sub:'Upload 2–10 photos — Octo creates a unified style and captions',
       car_tmpl_title:'Layout template', car_build_btn:'Create carousel',
       car_done_title:'Carousel ready!', car_done_sub:'Octo applied a unified style and captions to each slide',
@@ -2112,6 +2258,7 @@
       tool_analyzer_desc:'Paste your Instagram or TikTok link — get a full profile audit with improvement plan.',
       tool_video_desc:'Upload a video — AI will pick a template and process it for Stories, Reels or TikTok.',
       tool_carousel_desc:'Upload photos — AI will unify the style and write captions for each slide.',
+      tool_caption_desc:'Describe your content — AI writes 3 caption variants with hashtags for TikTok, Reels & Stories.',
       tool_design_tag:'Design', tool_captions_tag:'Captions', tool_style_tag:'Style',
       tips_title:'💡 Octo\'s tips for today', tips_sub:'Current social media trends',
       tip1:'Reels posted between 9–11am get 2× more reach. Schedule your posts!',
@@ -3398,6 +3545,170 @@
 
   // Apply saved language on load
   setLang(currentLang);
+
+  // ── CAPTION AI ────────────────────────────────────────────────────────────────
+  function capChip(groupId, el) {
+    document.querySelectorAll('#' + groupId + ' .cap-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function capGetVal(groupId) {
+    const sel = document.querySelector('#' + groupId + ' .cap-chip.selected');
+    return sel ? sel.dataset.val : '';
+  }
+
+  const CAP_PLATFORM_LABELS = {
+    tiktok: 'TikTok', reels: 'Instagram Reels', stories: 'Instagram Stories', youtube: 'YouTube Shorts'
+  };
+  const CAP_TONE_LABELS = {
+    trending: 'трендовый / виральный', funny: 'юмористический / смешной',
+    pro: 'профессиональный / деловой', edu: 'образовательный / полезный',
+    motivate: 'мотивационный / вдохновляющий', sales: 'продающий / убедительный'
+  };
+  const CAP_LANG_NAMES = { ru: 'русском', uk: 'украинском', en: 'английском' };
+
+  async function captionGenerate() {
+    const desc = document.getElementById('capDesc').value.trim();
+    if (!desc) {
+      document.getElementById('capDesc').focus();
+      document.getElementById('capDesc').style.borderColor = '#ff4757';
+      setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 1500);
+      return;
+    }
+
+    const platform  = capGetVal('capPlatform');
+    const tone      = capGetVal('capTone');
+    const lang      = capGetVal('capLang');
+    const keywords  = document.getElementById('capKeywords').value.trim();
+
+    // Show loading
+    document.getElementById('capResults').style.display  = 'none';
+    document.getElementById('capLoading').style.display  = 'block';
+    document.getElementById('capGenBtn').disabled        = true;
+
+    const prompt = `Ты — опытный SMM-специалист и копирайтер. Напиши 3 варианта подписи для ${CAP_PLATFORM_LABELS[platform] || platform}.
+
+Описание контента: ${desc}
+${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
+Тон: ${CAP_TONE_LABELS[tone] || tone}
+Язык: ${CAP_LANG_NAMES[lang] || lang}
+
+Требования:
+- Каждый вариант: цепляющий крючок (первые 1-2 строки), основной текст, призыв к действию (CTA)
+- Длина: оптимальная для ${CAP_PLATFORM_LABELS[platform] || platform} (не слишком длинная)
+- После каждого варианта — 5–8 релевантных хэштегов
+- Хэштеги начинаются с # и разделены пробелами
+
+Ответ строго в формате (без лишнего текста):
+ВАРИАНТ 1
+[текст подписи]
+ХЭШТЕГИ: #тег1 #тег2 #тег3
+
+ВАРИАНТ 2
+[текст подписи]
+ХЭШТЕГИ: #тег1 #тег2 #тег3
+
+ВАРИАНТ 3
+[текст подписи]
+ХЭШТЕГИ: #тег1 #тег2 #тег3`;
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+      });
+
+      let fullText = '';
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const d = line.slice(6);
+          if (d === '[DONE]') break;
+          try { fullText += JSON.parse(d).delta || ''; } catch {}
+        }
+      }
+
+      capRenderResults(fullText, platform, lang);
+    } catch (e) {
+      document.getElementById('capLoading').style.display = 'none';
+      document.getElementById('capGenBtn').disabled = false;
+      alert('Ошибка соединения. Попробуй ещё раз.');
+    }
+  }
+
+  // Store generated captions here so copy buttons can access them safely
+  const capStore = [];
+
+  function capRenderResults(raw, platform, lang) {
+    document.getElementById('capLoading').style.display = 'none';
+    document.getElementById('capGenBtn').disabled = false;
+
+    // Parse 3 variants: split by "ВАРИАНТ N"
+    const blocks = raw.split(/ВАРИАНТ\s+\d+/i).filter(b => b.trim());
+    const emojiLabels = ['✨ Вариант 1', '🔥 Вариант 2', '💡 Вариант 3'];
+
+    const container = document.getElementById('capCards');
+    container.innerHTML = '';
+    capStore.length = 0; // clear previous
+
+    const items = blocks.length ? blocks.slice(0, 3) : [raw];
+
+    items.forEach((block, i) => {
+      const parts   = block.split(/ХЭШТЕГИ:/i);
+      const caption = parts[0].trim();
+      const tags    = parts[1] ? parts[1].trim() : '';
+      const full    = caption + (tags ? '\n\n' + tags : '');
+
+      // Save in store — referenced by index from onclick
+      const idx = capStore.length;
+      capStore.push({ full, tags });
+
+      const card = document.createElement('div');
+      card.className = 'cap-card';
+
+      const label = blocks.length ? (emojiLabels[i] || ('Вариант ' + (i + 1))) : '✨ Результат';
+      const tagsHtml = tags
+        ? `<div class="cap-card-tags">${tags.replace(/</g, '&lt;')}</div>` : '';
+      const tagsBtn = tags
+        ? `<button class="cap-copy-btn" onclick="capCopyIdx(this,${idx},'tags')">🏷️ Только хэштеги</button>` : '';
+
+      card.innerHTML = `
+        <div class="cap-card-label">${label}</div>
+        <div class="cap-card-text">${caption.replace(/</g, '&lt;')}</div>
+        ${tagsHtml}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="cap-copy-btn" onclick="capCopyIdx(this,${idx},'full')">📋 Копировать всё</button>
+          ${tagsBtn}
+        </div>`;
+      container.appendChild(card);
+    });
+
+    document.getElementById('capResults').style.display = 'block';
+    document.getElementById('capResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function capCopyIdx(btn, idx, type) {
+    const item = capStore[idx];
+    if (!item) return;
+    const text = type === 'tags' ? item.tags : item.full;
+    const origHtml = btn.innerHTML;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    btn.classList.add('copied');
+    btn.textContent = '✅ Скопировано!';
+    setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = origHtml; }, 2000);
+  }
 
   // Init workspaces chat history on load
   (function initWsChat() {
