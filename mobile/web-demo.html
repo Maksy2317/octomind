@@ -1995,7 +1995,11 @@
     document.getElementById('quizWrap').style.display = 'none';
     if (localStorage.getItem('octo_quiz_done')) {
       document.getElementById('appWrap').style.display = 'block';
-      renderProfile();
+      // Defer renderProfile() so it runs after ALL variable initializations
+      // (currentLang and translations are declared later in the script —
+      //  calling renderProfile() synchronously here hits a TDZ ReferenceError,
+      //  which is silently caught by initView's try/catch → showAuth() is called)
+      setTimeout(function() { try { renderProfile(); } catch(e) {} }, 0);
     } else {
       document.getElementById('quizWrap').style.display = '';
     }
