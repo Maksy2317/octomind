@@ -2160,48 +2160,70 @@
   }
 
   // Handle Google OAuth callback (token in URL hash)
+  // IMPORTANT: store token IMMEDIATELY so initView() (which runs right after)
+  // always finds a valid session — even if the background user-detail fetch fails.
   (function handleOAuthCallback() {
     const hash = window.location.hash;
     if (!hash) return;
     const params = new URLSearchParams(hash.slice(1));
     const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token'); // ← save refresh token too
-    if (accessToken) {
-      fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` }
-      }).then(r => r.json()).then(user => {
-        if (user.email) {
-          localStorage.setItem('octo_user', JSON.stringify({
-            email: user.email,
-            token: accessToken,
-            refresh: refreshToken || '',   // ← was missing before!
-            name: user.user_metadata?.full_name || user.email.split('@')[0]
-          }));
-          history.replaceState(null, '', window.location.pathname);
-          goToApp();
-        }
-      }).catch(() => {});
-    }
+    const refreshToken = params.get('refresh_token') || '';
+    if (!accessToken) return;
+
+    // 1. Save token right away — this is what keeps the user logged in on reload
+    localStorage.setItem('octo_user', JSON.stringify({
+      email: '',           // will be filled by background fetch below
+      token: accessToken,
+      refresh: refreshToken,
+    }));
+    // 2. Clean up URL hash immediately
+    history.replaceState(null, '', window.location.pathname);
+
+    // 3. Fetch email/name in background — updates stored user but session is already safe
+    fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` }
+    }).then(r => r.json()).then(user => {
+      if (user.email) {
+        localStorage.setItem('octo_user', JSON.stringify({
+          email: user.email,
+          token: accessToken,
+          refresh: refreshToken,
+          name: user.user_metadata?.full_name || user.email.split('@')[0],
+        }));
+      }
+    }).catch(() => { /* network error — session already saved, user stays logged in */ });
   })();
 
   // ── SESSION RESTORE ──────────────────────────────────────────────────────────
-  // Auth overlay starts HIDDEN. We decide here what to show:
-  //   • user found in localStorage  → goToApp() (never flashes auth screen)
-  //   • no user                     → showAuth() (only then the auth overlay appears)
+  // Auth overlay starts HIDDEN. Logic:
+  //   1. token in localStorage → goToApp() immediately, no flicker
+  //   2. access_token in URL hash → handleOAuthCallback() already saved it above → goToApp()
+  //   3. nothing → showAuth()
   (function initView() {
-    // Restore theme first
     try {
       if (localStorage.getItem('octo_theme') === 'light') document.body.classList.add('light-mode');
     } catch {}
 
-    const stored = localStorage.getItem('octo_user');
-    if (stored) {
-      try {
+    // Check localStorage (covers all login methods after first login)
+    try {
+      const stored = localStorage.getItem('octo_user');
+      if (stored) {
         const user = JSON.parse(stored);
         if (user && user.token) { goToApp(); return; }
-      } catch {}
-    }
-    // No valid session found — show login screen
+      }
+    } catch {}
+
+    // Check URL hash directly — safety net if handleOAuthCallback ran but didn't save yet
+    // (shouldn't happen with the new code above, but belt-and-suspenders)
+    try {
+      const hash = window.location.hash;
+      if (hash) {
+        const params = new URLSearchParams(hash.slice(1));
+        if (params.get('access_token')) { goToApp(); return; }
+      }
+    } catch {}
+
+    // Nothing found — show login
     showAuth();
   })();
 
