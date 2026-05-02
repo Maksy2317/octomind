@@ -2141,11 +2141,10 @@
   }
 
   function skipAuth() {
-    // Store a guest session so refresh doesn't kick back to auth screen
+    // Store guest session and mark quiz done → go directly to app, no quiz
     try {
-      if (!localStorage.getItem('octo_user')) {
-        localStorage.setItem('octo_user', JSON.stringify({ email: 'guest', token: 'guest', guest: true }));
-      }
+      localStorage.setItem('octo_user', JSON.stringify({ email: 'guest', token: 'guest', guest: true }));
+      localStorage.setItem('octo_quiz_done', '1');
     } catch {}
     goToApp();
   }
@@ -2179,17 +2178,22 @@
     // 2. Clean up URL hash immediately
     history.replaceState(null, '', window.location.pathname);
 
-    // 3. Fetch email/name in background — updates stored user but session is already safe
+    // 3. Go to app immediately — token is already in localStorage
+    goToApp();
+
+    // 4. Fetch email/name in background to update profile info
     fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` }
     }).then(r => r.json()).then(user => {
-      if (user.email) {
+      if (user && user.email) {
         localStorage.setItem('octo_user', JSON.stringify({
           email: user.email,
           token: accessToken,
           refresh: refreshToken,
           name: user.user_metadata?.full_name || user.email.split('@')[0],
         }));
+        // Update profile display if already in app
+        if (typeof renderProfile === 'function') renderProfile();
       }
     }).catch(() => { /* network error — session already saved, user stays logged in */ });
   })();
