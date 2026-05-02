@@ -2151,7 +2151,11 @@
   }
 
   function signInWithGoogle() {
-    const redirectTo = encodeURIComponent(window.location.origin + window.location.pathname);
+    // Build redirect URL: use current origin, fallback to window.location.href base
+    const origin = (window.location.origin && window.location.origin !== 'null')
+      ? window.location.origin
+      : window.location.href.split('#')[0];
+    const redirectTo = encodeURIComponent(origin + window.location.pathname);
     window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${redirectTo}`;
   }
 
