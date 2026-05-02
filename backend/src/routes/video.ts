@@ -16,8 +16,13 @@ import { VideoFormat, TemplateConfig } from '../types';
 
 export const videoRouter = Router();
 
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(__dirname, '../../../uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
 const storage = multer.diskStorage({
-  destination: process.env.UPLOAD_DIR || './uploads',
+  destination: UPLOAD_DIR,
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `${uuidv4()}${ext}`);
@@ -35,10 +40,9 @@ const upload = multer({
 
 /** Find uploaded file by videoId regardless of extension */
 function findVideoFile(videoId: string): string | null {
-  const uploadDir = process.env.UPLOAD_DIR || './uploads';
   const exts = ['.mp4', '.mov', '.avi', '.webm'];
   for (const ext of exts) {
-    const p = path.join(uploadDir, `${videoId}${ext}`);
+    const p = path.join(UPLOAD_DIR, `${videoId}${ext}`);
     if (fs.existsSync(p)) return p;
   }
   return null;
@@ -116,7 +120,9 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
     const inputPath = findVideoFile(videoId);
     if (!inputPath) { res.status(404).json({ error: 'Video file not found' }); return; }
 
-    const outputDir = process.env.OUTPUT_DIR || './uploads/output';
+    const outputDir = process.env.OUTPUT_DIR
+      ? path.resolve(process.env.OUTPUT_DIR)
+      : path.resolve(__dirname, '../../../uploads/output');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputFilename = `${videoId}_${templateId}.mp4`;
     const outputPath = path.join(outputDir, outputFilename);
