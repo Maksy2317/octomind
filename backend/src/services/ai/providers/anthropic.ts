@@ -1,6 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import fs from 'fs';
-import { AIProvider, VideoAnalysis, VideoFormat } from '../../../types';
+import { AIProvider, VideoAnalysis, VideoFormat, TextSlot } from '../../../types';
 import { extractFrames } from '../../video/frameExtractor';
 
 const ANALYSIS_PROMPT = (format: string) => `You are an expert social media video marketing analyst.
@@ -58,4 +58,63 @@ export class AnthropicProvider implements AIProvider {
     framePaths.forEach(f => { try { fs.unlinkSync(f); } catch {} });
     return this.analyzeFrame(base64, format);
   }
+}
+
+/**
+ * Generate text suggestions for structured template slots based on a video frame.
+ * Returns a map of slotId -> suggested text.
+ */
+export async function generateTextSuggestions(
+  frameBase64: string,
+  templateId: string,
+  slots: TextSlot[],
+): Promise<Record<string, string>> {
+  const client = new Anthropic();
+
+  const slotsDescription = slots
+    .map(s => `- ${s.id}: ${s.label} (${s.description})`)
+    .join('\n');
+
+  const prompt = `You are an expert TikTok/Reels content strategist.
+Based on this video frame, generate compelling text for each slot of the "${templateId}" template.
+Return ONLY a JSON object where keys are slot IDs and values are the suggested text.
+Keep text SHORT (max 60 chars per slot), engaging, and in the language that fits the content.
+Use Ukrainian by default.
+
+Slots:
+${slotsDescription}`;
+
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 600,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: frameBase64 },
+          },
+          { type: 'text', text: prompt },
+        ],
+      },
+    ],
+  });
+
+  const content = response.content[0];
+  if (content.type !== 'text') throw new Error('Unexpected response type from Anthropic');
+
+  const cleaned = content.text.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(cleaned) as Record<string, string>;
+
+  // Enforce maxChars per slot
+  const result: Record<string, string> = {};
+  for (const slot of slots) {
+    const suggested = parsed[slot.id];
+    if (suggested) {
+      result[slot.id] = suggested.slice(0, slot.maxChars);
+    }
+  }
+
+  return result;
 }

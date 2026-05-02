@@ -1,5 +1,30 @@
 export type VideoFormat = 'stories' | 'reels' | 'tiktok';
 
+export interface TextSlot {
+  id: string;
+  label: string;
+  description: string;
+  startSec: number;       // seconds from start
+  endSec: number;         // seconds (use 9999 for "until end")
+  position: 'top' | 'center' | 'bottom';
+  style: 'hook' | 'point' | 'label' | 'cta';
+  defaultText: string;
+  maxChars: number;
+}
+
+export interface StructuredTemplate {
+  id: string;
+  name: string;
+  description: string;
+  emoji: string;
+  category: 'education' | 'transformation' | 'promotion' | 'storytelling';
+  platforms: string[];
+  slots: TextSlot[];
+  colorAdjust: { brightness: number; contrast: number; saturation: number };
+  tags: string[];
+  structured?: boolean;
+}
+
 export interface VideoAnalysis {
   tags: string[];
   mood: string;
@@ -22,6 +47,7 @@ export interface TemplateConfig {
   ffmpegFilters: FFmpegFilterConfig;
   textOverlay?: TextOverlayConfig;
   borderConfig?: BorderConfig;
+  structured?: boolean;
 }
 
 export interface FFmpegFilterConfig {

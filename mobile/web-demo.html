@@ -1526,6 +1526,14 @@
                 <span style="font-size:10px;color:var(--text4);">PNG, JPG — накладеться як рамка</span>
               </div>
             </label>
+            <!-- Text slot inputs panel (shown when structured template selected) -->
+            <div id="vTextPanel" style="display:none; margin-top:16px; background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px;">
+              <div style="font-size:13px; font-weight:700; margin-bottom:12px; color:var(--text);">✏️ Заповни текст для відео</div>
+              <div id="vSlotInputs"></div>
+              <div id="vAiFillWrap" style="display:none; margin-top:8px; margin-bottom:4px;">
+                <button class="btn btn-secondary btn-sm" onclick="vAiFillSlots()" id="vAiFillBtn">🐙 Заповнити через AI</button>
+              </div>
+            </div>
             <div style="margin-top:16px;">
               <button class="btn btn-secondary btn-sm" onclick="vs(2)" style="margin-right:8px">← Назад</button>
               <button class="btn btn-primary btn-sm" id="vb3" disabled onclick="vProcess()">🚀 Застосувати та обробити →</button>
@@ -2903,7 +2911,7 @@
     },
   };
 
-  const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null, customOverlay: null };
+  const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null, customOverlay: null, textInputs: {}, isStructured: false, currentTemplate: null };
 
   // Drag-and-drop support
   function vDrop(e) {
@@ -2967,10 +2975,32 @@
     document.getElementById('vb2').disabled = false;
   }
 
+  // ── Structured templates cache ────────────────────────────────────────────
+  let vStructuredTemplates = null;
+
+  async function vLoadStructuredTemplates() {
+    if (vStructuredTemplates) return vStructuredTemplates;
+    try {
+      const r = await fetch('/api/video/structured-templates');
+      const d = await r.json();
+      vStructuredTemplates = d.templates || [];
+    } catch {
+      vStructuredTemplates = [];
+    }
+    return vStructuredTemplates;
+  }
+
   async function vAI() {
     if (!vS.fmt) return;
     // Show step 3 with loading state
     vs(3);
+    // Hide text panel while loading
+    document.getElementById('vTextPanel').style.display = 'none';
+    document.getElementById('vSlotInputs').innerHTML = '';
+    vS.isStructured = false;
+    vS.currentTemplate = null;
+    vS.textInputs = {};
+
     const tgrid = document.getElementById('vtg');
     tgrid.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text3);">
       <div style="font-size:36px;margin-bottom:12px;">🐙</div>
@@ -2981,16 +3011,19 @@
     document.getElementById('vb3').disabled = true;
     document.getElementById('vAnalysisBadge').style.display = 'none';
 
+    // Always load structured templates first
+    const structuredTemplates = await vLoadStructuredTemplates();
+
     try {
       const res = await fetch('/api/video/analyze-frame', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame: vS.frameBase64 || '', format: vS.fmt })
+        body: JSON.stringify({ frame: vS.frameBase64 || '', format: vS.fmt, templateId: structuredTemplates[0]?.id || '' })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      const { analysis, templates } = data;
+      const { analysis, textSuggestions } = data;
 
       // Show AI analysis summary
       const badge = document.getElementById('vAnalysisBadge');
@@ -2999,26 +3032,122 @@
       document.getElementById('vAnalysisText').innerHTML =
         `Octo проаналізував: <strong>${energyEmoji} ${analysis.mood || ''}</strong> · енергія: <strong>${analysis.energy || ''}</strong> · теги: ${(analysis.tags || []).slice(0,4).join(', ')}`;
 
-      // Render real templates from API
-      vS.tmplId = templates[0]?.id || null;
-      tgrid.innerHTML = templates.map((t, i) => vTmplCard(t, i === 0, true)).join('');
-
-      document.getElementById('vb3').disabled = false;
+      // Render structured templates
+      if (structuredTemplates.length > 0) {
+        vS.tmplId = structuredTemplates[0].id;
+        vS.isStructured = true;
+        vS.currentTemplate = structuredTemplates[0];
+        tgrid.innerHTML = structuredTemplates.map((t, i) => vStructuredTmplCard(t, i === 0)).join('');
+        // Show text inputs for first template, pre-filled with AI suggestions if available
+        vShowTextInputs(structuredTemplates[0], textSuggestions || {});
+        document.getElementById('vb3').disabled = false;
+      } else {
+        tgrid.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">Шаблони недоступні</div>`;
+      }
     } catch (err) {
-      tgrid.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">
-        <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
-        <div style="font-size:13px;">Не вдалося отримати аналіз — показуємо стандартні шаблони</div>
-      </div>`;
-      // Fallback: load default templates
-      try {
-        const r2 = await fetch('/api/video/templates/' + vS.fmt);
-        const d2 = await r2.json();
-        const templates = d2.templates || [];
-        vS.tmplId = templates[0]?.id || null;
-        tgrid.innerHTML = templates.map((t, i) => vTmplCard(t, i === 0, false)).join('');
-        document.getElementById('vb3').disabled = templates.length === 0;
-      } catch {}
+      // Fallback: show structured templates without AI analysis badge
+      if (structuredTemplates.length > 0) {
+        vS.tmplId = structuredTemplates[0].id;
+        vS.isStructured = true;
+        vS.currentTemplate = structuredTemplates[0];
+        tgrid.innerHTML = structuredTemplates.map((t, i) => vStructuredTmplCard(t, i === 0)).join('');
+        vShowTextInputs(structuredTemplates[0], {});
+        document.getElementById('vb3').disabled = false;
+      } else {
+        tgrid.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">
+          <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+          <div style="font-size:13px;">Не вдалося завантажити шаблони</div>
+        </div>`;
+      }
     }
+  }
+
+  // ── Render a structured template card ────────────────────────────────────
+  function vStructuredTmplCard(t, isSelected) {
+    const slotsHtml = t.slots.map(s =>
+      `<div style="font-size:10px; color:var(--text2);">✓ ${s.label}</div>`
+    ).join('');
+    const platformsBadge = t.platforms.join(' · ').toUpperCase();
+    return `<div class="tc ${isSelected ? 'selected' : ''}" onclick="vSelectStructured('${t.id}',this)" data-id="${t.id}" style="cursor:pointer;">
+      <div style="padding:16px 14px 12px; display:flex; flex-direction:column; gap:6px;">
+        <div style="font-size:28px;">${t.emoji}</div>
+        <div style="font-size:13px; font-weight:800; color:var(--text);">${t.name}</div>
+        <div style="font-size:10px; color:var(--text3);">${t.description}</div>
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:3px;">${slotsHtml}</div>
+      </div>
+      <div style="padding:8px 14px 12px; border-top:1px solid var(--border);">
+        <span style="font-size:9px; font-weight:700; background:rgba(108,99,255,0.15); color:var(--accent2); padding:2px 8px; border-radius:5px;">${platformsBadge}</span>
+      </div>
+    </div>`;
+  }
+
+  // ── Select a structured template ─────────────────────────────────────────
+  function vSelectStructured(id, el) {
+    document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    vS.tmplId = id;
+    vS.isStructured = true;
+    // Find the template object
+    const tmpl = (vStructuredTemplates || []).find(t => t.id === id);
+    vS.currentTemplate = tmpl || null;
+    vS.textInputs = {};
+    document.getElementById('vb3').disabled = false;
+    if (tmpl) {
+      vShowTextInputs(tmpl, {});
+    }
+  }
+
+  // ── Show text input fields for a structured template ──────────────────────
+  function vShowTextInputs(template, suggestions) {
+    const panel = document.getElementById('vTextPanel');
+    const container = document.getElementById('vSlotInputs');
+    panel.style.display = 'block';
+
+    const aiFillWrap = document.getElementById('vAiFillWrap');
+    if (aiFillWrap) aiFillWrap.style.display = (vS.frameBase64 ? 'block' : 'none');
+
+    container.innerHTML = template.slots.map(slot => {
+      const suggested = suggestions[slot.id] || '';
+      return `<div style="margin-bottom:12px;">
+        <label style="font-size:11px; font-weight:700; color:var(--text2); display:block; margin-bottom:4px;">
+          📝 ${slot.label}
+          <span style="font-weight:400; color:var(--text3);"> — ${slot.description}</span>
+        </label>
+        <input type="text" id="slot_${slot.id}" maxlength="${slot.maxChars}"
+          placeholder="${slot.defaultText}"
+          value="${suggested.replace(/"/g, '&quot;')}"
+          style="width:100%; background:var(--surface3); border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; color:var(--text); font-size:13px; outline:none; box-sizing:border-box;"
+          oninput="vOnSlotInput()">
+      </div>`;
+    }).join('');
+  }
+
+  function vOnSlotInput() {
+    // collect current values but don't disable button
+  }
+
+  // ── AI fill slots ─────────────────────────────────────────────────────────
+  async function vAiFillSlots() {
+    if (!vS.currentTemplate || !vS.frameBase64) return;
+    const btn = document.getElementById('vAiFillBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '🐙 Генерую...'; }
+    try {
+      const res = await fetch('/api/video/analyze-frame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frame: vS.frameBase64, format: vS.fmt, templateId: vS.currentTemplate.id })
+      });
+      const data = await res.json();
+      if (data.textSuggestions) {
+        vS.currentTemplate.slots.forEach(slot => {
+          const el = document.getElementById('slot_' + slot.id);
+          if (el && data.textSuggestions[slot.id]) {
+            el.value = data.textSuggestions[slot.id];
+          }
+        });
+      }
+    } catch {}
+    if (btn) { btn.disabled = false; btn.textContent = '🐙 Заповнити через AI'; }
   }
 
   // ── THEME TOGGLE ──────────────────────────────────────────────────────────
@@ -3063,6 +3192,10 @@
       document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
       document.getElementById('vCustomTmplCard').classList.add('selected');
       document.getElementById('vb3').disabled = false;
+      // Hide structured text panel
+      vS.isStructured = false;
+      vS.currentTemplate = null;
+      document.getElementById('vTextPanel').style.display = 'none';
     };
     reader.readAsDataURL(file);
   }
@@ -3130,6 +3263,10 @@
     document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     vS.tmplId = id;
+    // Legacy color-filter template selected: hide text panel
+    vS.isStructured = false;
+    vS.currentTemplate = null;
+    document.getElementById('vTextPanel').style.display = 'none';
     document.getElementById('vb3').disabled = false;
   }
 
@@ -3166,10 +3303,36 @@
       // 2. Process with template
       lbl.textContent = 'Застосовуємо шаблон FFmpeg...';
       bar.style.width = '55%';
+
+      let processBody;
+      if (vS.isStructured && vS.currentTemplate) {
+        // Collect text inputs for all slots
+        const textInputs = {};
+        vS.currentTemplate.slots.forEach(slot => {
+          const el = document.getElementById('slot_' + slot.id);
+          textInputs[slot.id] = (el && el.value.trim()) || slot.defaultText;
+        });
+        vS.textInputs = textInputs;
+        processBody = JSON.stringify({
+          videoId: vS.videoId,
+          templateId: vS.tmplId,
+          format: vS.fmt,
+          textInputs,
+          structured: true
+        });
+      } else {
+        processBody = JSON.stringify({
+          videoId: vS.videoId,
+          templateId: vS.tmplId,
+          format: vS.fmt,
+          customOverlay: vS.customOverlay || undefined
+        });
+      }
+
       const processRes = await fetch('/api/video/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId: vS.videoId, templateId: vS.tmplId, format: vS.fmt, customOverlay: vS.customOverlay || undefined })
+        body: processBody
       });
       const processData = await processRes.json();
       if (processData.error) throw new Error(processData.error);
@@ -3178,14 +3341,17 @@
       bar.style.width = '100%';
       lbl.textContent = '100% — Готово!';
 
+      const tmplDisplayName = (vS.currentTemplate ? vS.currentTemplate.name : vS.tmplId.replace(/-/g,' '));
+      const tmplEmoji = vS.currentTemplate ? vS.currentTemplate.emoji + ' ' : '🎨 ';
+
       setTimeout(() => {
         processing.style.display = 'none';
         done.style.display = 'block';
         document.getElementById('vDownloadLink').href = processData.downloadUrl;
-        document.getElementById('vrd').textContent = vS.tmplId.replace(/-/g,' ') + ' · ' + (fmtN[vS.fmt] || vS.fmt);
+        document.getElementById('vrd').textContent = tmplDisplayName + ' · ' + (fmtN[vS.fmt] || vS.fmt);
         document.getElementById('vDoneInfo').innerHTML =
           `📐 <strong>Формат:</strong> ${fmtN[vS.fmt] || vS.fmt} · 1080×1920 (9:16)<br>` +
-          `🎨 <strong>Шаблон:</strong> ${vS.tmplId}<br>` +
+          `${tmplEmoji}<strong>Шаблон:</strong> ${tmplDisplayName}<br>` +
           `🎬 <strong>Кодек:</strong> H.264 · AAC · faststart<br>` +
           `✅ Файл готовий до публікації в Instagram / TikTok`;
       }, 600);
@@ -3199,11 +3365,14 @@
   }
 
   function vReset() {
-    vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null; vS.customOverlay = null;
+    vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
+    vS.customOverlay = null; vS.textInputs = {}; vS.isStructured = false; vS.currentTemplate = null;
     document.getElementById('vfInfo').style.display = 'none';
     document.getElementById('vfThumbWrap').innerHTML = '';
     document.getElementById('vb1').disabled = true;
     document.getElementById('vf').value = '';
+    document.getElementById('vTextPanel').style.display = 'none';
+    document.getElementById('vSlotInputs').innerHTML = '';
     vs(1);
   }
 

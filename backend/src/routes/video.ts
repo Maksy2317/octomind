@@ -4,9 +4,14 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
-import { analyzeVideo, analyzeFrame } from '../services/ai';
-import { applyTemplate } from '../services/video/processor';
-import { getTemplateById, getTemplatesForFormat } from '../services/templates';
+import { analyzeVideo, analyzeFrame, generateTextSuggestions } from '../services/ai';
+import { applyTemplate, applyStructuredTemplate } from '../services/video/processor';
+import {
+  getTemplateById,
+  getTemplatesForFormat,
+  getAllStructuredTemplates,
+  getStructuredTemplateById,
+} from '../services/templates';
 import { VideoFormat, TemplateConfig } from '../types';
 
 export const videoRouter = Router();
@@ -48,15 +53,30 @@ videoRouter.post('/upload', upload.single('video'), async (req: Request, res: Re
   } catch (err) { next(err); }
 });
 
-// POST /api/video/analyze-frame  ← new: client sends a base64 frame, no FFmpeg needed for analysis
+// POST /api/video/analyze-frame  ← client sends a base64 frame, no FFmpeg needed for analysis
 videoRouter.post('/analyze-frame', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { frame, format } = req.body as { frame: string; format: VideoFormat };
+    const { frame, format, templateId } = req.body as { frame: string; format: VideoFormat; templateId?: string };
     if (!frame || !format) { res.status(400).json({ error: 'frame and format are required' }); return; }
 
     const analysis = await analyzeFrame(frame, format);
     const templates = getTemplatesForFormat(format, analysis.tags);
-    res.json({ analysis, templates });
+
+    let textSuggestions: Record<string, string> | undefined;
+
+    // If a structured templateId is provided, generate AI text suggestions
+    if (templateId) {
+      const structuredTemplate = getStructuredTemplateById(templateId);
+      if (structuredTemplate) {
+        try {
+          textSuggestions = await generateTextSuggestions(frame, templateId, structuredTemplate.slots);
+        } catch (aiErr) {
+          console.warn('[analyze-frame] Could not generate text suggestions:', (aiErr as Error).message);
+        }
+      }
+    }
+
+    res.json({ analysis, templates, ...(textSuggestions ? { textSuggestions } : {}) });
   } catch (err) { next(err); }
 });
 
@@ -79,8 +99,15 @@ videoRouter.post('/analyze', async (req: Request, res: Response, next: NextFunct
 videoRouter.post('/process', async (req: Request, res: Response, next: NextFunction) => {
   let overlayPath: string | null = null;
   try {
-    const { videoId, templateId, format, customOverlay } =
-      req.body as { videoId: string; templateId: string; format: VideoFormat; customOverlay?: string };
+    const { videoId, templateId, format, customOverlay, textInputs, structured } =
+      req.body as {
+        videoId: string;
+        templateId: string;
+        format: VideoFormat;
+        customOverlay?: string;
+        textInputs?: Record<string, string>;
+        structured?: boolean;
+      };
 
     if (!videoId || !templateId || !format) {
       res.status(400).json({ error: 'videoId, templateId, and format are required' }); return;
@@ -88,6 +115,24 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
 
     const inputPath = findVideoFile(videoId);
     if (!inputPath) { res.status(404).json({ error: 'Video file not found' }); return; }
+
+    const outputDir = process.env.OUTPUT_DIR || './uploads/output';
+    fs.mkdirSync(outputDir, { recursive: true });
+    const outputFilename = `${videoId}_${templateId}.mp4`;
+    const outputPath = path.join(outputDir, outputFilename);
+
+    // ── Structured template path ─────────────────────────────────────────────
+    if (structured && textInputs) {
+      const structuredTemplate = getStructuredTemplateById(templateId);
+      if (!structuredTemplate) {
+        res.status(404).json({ error: 'Structured template not found' }); return;
+      }
+      await applyStructuredTemplate(inputPath, outputPath, structuredTemplate, textInputs, format);
+      res.json({ downloadUrl: `/output/${outputFilename}` });
+      return;
+    }
+
+    // ── Legacy template path ─────────────────────────────────────────────────
 
     // Resolve template — for 'custom', use a neutral base template
     let template: TemplateConfig | undefined;
@@ -114,11 +159,6 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
       fs.writeFileSync(overlayPath, buffer);
     }
 
-    const outputDir = process.env.OUTPUT_DIR || './uploads/output';
-    fs.mkdirSync(outputDir, { recursive: true });
-    const outputFilename = `${videoId}_${templateId}.mp4`;
-    const outputPath = path.join(outputDir, outputFilename);
-
     await applyTemplate(inputPath, outputPath, template, format, overlayPath ?? undefined);
 
     res.json({ downloadUrl: `/output/${outputFilename}` });
@@ -127,6 +167,11 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
   } finally {
     if (overlayPath) { try { fs.unlinkSync(overlayPath); } catch {} }
   }
+});
+
+// GET /api/video/structured-templates
+videoRouter.get('/structured-templates', (_req: Request, res: Response) => {
+  res.json({ templates: getAllStructuredTemplates() });
 });
 
 // GET /api/video/templates/:format
