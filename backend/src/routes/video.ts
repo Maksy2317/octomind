@@ -18,7 +18,7 @@ export const videoRouter = Router();
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   ? path.resolve(process.env.UPLOAD_DIR)
-  : path.resolve(__dirname, '../../../uploads');
+  : path.resolve(process.cwd(), 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -122,7 +122,7 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
 
     const outputDir = process.env.OUTPUT_DIR
       ? path.resolve(process.env.OUTPUT_DIR)
-      : path.resolve(__dirname, '../../../uploads/output');
+      : path.resolve(process.cwd(), 'uploads/output');
     fs.mkdirSync(outputDir, { recursive: true });
     const outputFilename = `${videoId}_${templateId}.mp4`;
     const outputPath = path.join(outputDir, outputFilename);

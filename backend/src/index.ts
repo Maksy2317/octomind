@@ -12,7 +12,9 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 // Ensure output directory exists
-const outputDir = process.env.OUTPUT_DIR || './uploads/output';
+const outputDir = process.env.OUTPUT_DIR
+  ? path.resolve(process.env.OUTPUT_DIR)
+  : path.resolve(process.cwd(), 'uploads/output');
 fs.mkdirSync(outputDir, { recursive: true });
 
 app.use(cors({

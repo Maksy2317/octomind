@@ -10,7 +10,7 @@ export const subtitlesRouter = Router();
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   ? path.resolve(process.env.UPLOAD_DIR)
-  : path.resolve(__dirname, '../../../uploads');
+  : path.resolve(process.cwd(), 'uploads');
 
 function findVideoFile(videoId: string): string | null {
   const exts = ['.mp4', '.mov', '.avi', '.webm'];
@@ -118,7 +118,7 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
 
     const outputDir = process.env.OUTPUT_DIR
       ? path.resolve(process.env.OUTPUT_DIR)
-      : path.resolve(__dirname, '../../../uploads/output');
+      : path.resolve(process.cwd(), 'uploads/output');
     fs.mkdirSync(outputDir, { recursive: true });
 
     // Build SRT file
