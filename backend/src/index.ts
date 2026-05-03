@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
+import { subtitlesRouter } from './routes/subtitles';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/output', express.static(path.resolve(outputDir)));
 
 app.use('/api/video', videoRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/subtitles', subtitlesRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -499,6 +499,27 @@
     .vstep.active { background: var(--accent); color: white; }
     .vstep.done { color: var(--green); }
 
+    /* Subtitle segment row */
+    .ss-seg {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 10px; display: flex; gap: 8px; align-items: flex-start;
+    }
+    .ss-seg-time {
+      font-size: 10px; color: var(--text4); white-space: nowrap;
+      min-width: 80px; padding-top: 2px; font-variant-numeric: tabular-nums;
+    }
+    .ss-seg-text {
+      flex: 1; font-size: 13px; color: var(--text); background: transparent;
+      border: none; outline: none; resize: none; min-height: 36px; font-family: inherit;
+      line-height: 1.4;
+    }
+    .ss-seg-text:focus { background: var(--surface); border-radius: 6px; padding: 4px; }
+    @keyframes ssBarAnim {
+      0%   { width: 10%; margin-left: 0; }
+      50%  { width: 60%; margin-left: 20%; }
+      100% { width: 10%; margin-left: 80%; }
+    }
+
     .dropzone {
       border: 2px dashed var(--border); border-radius: 14px; padding: 40px 20px;
       text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 14px;
@@ -1463,6 +1484,14 @@
 
         <!-- Video -->
         <div class="screen" id="video">
+          <!-- Mode switcher -->
+          <div class="vsteps" style="margin-bottom:14px;">
+            <div class="vstep active" id="vModeCreator" onclick="vSwitchMode('creator')">🎬 Відео</div>
+            <div class="vstep" id="vModeSubs" onclick="vSwitchMode('subs')">📝 Субтитри</div>
+          </div>
+
+          <!-- ═══ VIDEO CREATOR mode ═══ -->
+          <div id="vModeCreatorWrap">
           <div class="vsteps">
             <div class="vstep active" id="vn1">1. Завантаження</div>
             <div class="vstep" id="vn2">2. Формат</div>
@@ -1572,6 +1601,171 @@
               </div>
             </div>
           </div>
+          </div><!-- /vModeCreatorWrap -->
+
+          <!-- ═══ SUBTITLES mode ═══ -->
+          <div id="vModeSubsWrap" style="display:none;">
+
+            <!-- Sub-steps indicator -->
+            <div class="vsteps" style="margin-bottom:16px;">
+              <div class="vstep active" id="ssn1">1. Відео</div>
+              <div class="vstep" id="ssn2">2. Налаштування</div>
+              <div class="vstep" id="ssn3">3. Субтитри</div>
+              <div class="vstep" id="ssn4">4. Готово</div>
+            </div>
+
+            <!-- Sub-step 1: upload video -->
+            <div id="ss1">
+              <div class="dropzone" id="ssDropzone" onclick="document.getElementById('ssFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="ssDrop(event)">
+                <div style="font-size:44px;margin-bottom:10px;">🎙️</div>
+                <h3>Завантаж відео</h3>
+                <p>MP4, MOV, AVI, WebM · до 200MB</p>
+                <p style="font-size:12px;color:var(--text4);margin-top:6px;">AI розпізнає мову та додасть субтитри</p>
+                <input type="file" id="ssFile" style="display:none" accept="video/*" onchange="ssFileOk(event)">
+              </div>
+              <div id="ssFileInfo" style="display:none;margin-bottom:14px;" class="fb good">
+                <span>✅</span>
+                <div style="flex:1;">
+                  <div id="ssFileName" style="color:var(--text2);font-weight:700;font-size:13px;"></div>
+                  <div id="ssFileSize" style="color:var(--text4);font-size:11px;"></div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-full" id="ssb1" disabled onclick="ssStep(2)">Далі →</button>
+            </div>
+
+            <!-- Sub-step 2: settings -->
+            <div id="ss2" style="display:none;">
+              <div class="card-title" style="margin-bottom:12px;">Налаштування субтитрів</div>
+
+              <!-- Language -->
+              <div style="margin-bottom:14px;">
+                <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px;">🌐 Мова відео</div>
+                <div class="format-grid" style="grid-template-columns:repeat(3,1fr);">
+                  <div class="fc" onclick="ssLang('auto',this)">
+                    <div class="fc-icon">🤖</div><div class="fc-name">Авто</div><div class="fc-meta">AI визначить</div>
+                  </div>
+                  <div class="fc" onclick="ssLang('uk',this)">
+                    <div class="fc-icon">🇺🇦</div><div class="fc-name">Українська</div><div class="fc-meta">uk</div>
+                  </div>
+                  <div class="fc" onclick="ssLang('ru',this)">
+                    <div class="fc-icon">🇷🇺</div><div class="fc-name">Русский</div><div class="fc-meta">ru</div>
+                  </div>
+                  <div class="fc" onclick="ssLang('en',this)">
+                    <div class="fc-icon">🇬🇧</div><div class="fc-name">English</div><div class="fc-meta">en</div>
+                  </div>
+                  <div class="fc" onclick="ssLang('de',this)">
+                    <div class="fc-icon">🇩🇪</div><div class="fc-name">Deutsch</div><div class="fc-meta">de</div>
+                  </div>
+                  <div class="fc" onclick="ssLang('fr',this)">
+                    <div class="fc-icon">🇫🇷</div><div class="fc-name">Français</div><div class="fc-meta">fr</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Style -->
+              <div style="margin-bottom:14px;">
+                <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:8px;">🎨 Стиль тексту</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <!-- Font size -->
+                  <div style="background:var(--surface2);border-radius:10px;padding:10px;">
+                    <div style="font-size:11px;color:var(--text4);margin-bottom:4px;">Розмір</div>
+                    <div style="display:flex;gap:4px;">
+                      <button class="btn btn-secondary btn-sm ss-sz selected" data-sz="18" onclick="ssSz(18,this)" style="flex:1;font-size:11px;padding:5px;">S</button>
+                      <button class="btn btn-secondary btn-sm ss-sz" data-sz="22" onclick="ssSz(22,this)" style="flex:1;font-size:11px;padding:5px;">M</button>
+                      <button class="btn btn-secondary btn-sm ss-sz" data-sz="28" onclick="ssSz(28,this)" style="flex:1;font-size:11px;padding:5px;">L</button>
+                    </div>
+                  </div>
+                  <!-- Color -->
+                  <div style="background:var(--surface2);border-radius:10px;padding:10px;">
+                    <div style="font-size:11px;color:var(--text4);margin-bottom:4px;">Колір</div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                      <div class="ss-clr selected" data-clr="white" onclick="ssClr('white',this)" style="width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer;"></div>
+                      <div class="ss-clr" data-clr="yellow" onclick="ssClr('yellow',this)" style="width:24px;height:24px;border-radius:50%;background:#FFE600;border:2px solid transparent;cursor:pointer;"></div>
+                      <div class="ss-clr" data-clr="black" onclick="ssClr('black',this)" style="width:24px;height:24px;border-radius:50%;background:#111;border:2px solid transparent;cursor:pointer;"></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Position -->
+                <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px;">
+                  <div style="font-size:11px;color:var(--text4);margin-bottom:6px;">Позиція</div>
+                  <div style="display:flex;gap:6px;">
+                    <button class="btn btn-secondary btn-sm ss-pos" data-pos="top" onclick="ssPos('top',this)" style="flex:1;font-size:11px;padding:5px;">⬆ Зверху</button>
+                    <button class="btn btn-secondary btn-sm ss-pos selected" data-pos="bottom" onclick="ssPos('bottom',this)" style="flex:1;font-size:11px;padding:5px;">⬇ Знизу</button>
+                    <button class="btn btn-secondary btn-sm ss-pos" data-pos="center" onclick="ssPos('center',this)" style="flex:1;font-size:11px;padding:5px;">· Центр</button>
+                  </div>
+                </div>
+                <!-- Background toggle -->
+                <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:12px;color:var(--text2);">🟫 Фон за текстом</span>
+                  <label style="position:relative;display:inline-block;width:36px;height:20px;">
+                    <input type="checkbox" id="ssBgToggle" checked style="opacity:0;width:0;height:0;" onchange="ssState.style.background=this.checked">
+                    <span style="position:absolute;inset:0;background:#4CAF50;border-radius:20px;cursor:pointer;transition:.3s;" onclick="this.previousElementSibling.click()"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary btn-sm" onclick="ssStep(1)">← Назад</button>
+                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
+              </div>
+            </div>
+
+            <!-- Sub-step 3: review & edit subtitles -->
+            <div id="ss3" style="display:none;">
+              <!-- Generating spinner -->
+              <div id="ssGenerating" class="card" style="text-align:center;padding:40px;">
+                <div style="font-size:48px;margin-bottom:16px;">🎙️</div>
+                <div class="card-title" style="margin-bottom:8px;">Розпізнаємо мову...</div>
+                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;">OpenAI Whisper аналізує аудіо</div>
+                <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
+                  <div id="ssGenBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:10%;animation:ssBarAnim 2s infinite ease-in-out;"></div>
+                </div>
+              </div>
+              <!-- Segments list -->
+              <div id="ssSegments" style="display:none;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                  <div class="card-title">Субтитри</div>
+                  <div id="ssDetLang" style="font-size:11px;color:var(--text4);"></div>
+                </div>
+                <div id="ssSegList" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
+                <div style="font-size:11px;color:var(--text4);margin-bottom:14px;">✏️ Натисни на текст щоб відредагувати</div>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-secondary btn-sm" onclick="ssStep(2)">← Назад</button>
+                  <button class="btn btn-primary btn-sm" style="flex:1;" onclick="ssBurn()">🔥 Вбити субтитри у відео →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-step 4: done -->
+            <div id="ss4" style="display:none;">
+              <div id="ssBurning" class="card" style="text-align:center;padding:40px;">
+                <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
+                <div class="card-title" style="margin-bottom:8px;">Вбиваємо субтитри...</div>
+                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;">FFmpeg рендерить відео з підписами</div>
+                <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
+                  <div style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:60%;animation:ssBarAnim 1.5s infinite ease-in-out;"></div>
+                </div>
+              </div>
+              <div id="ssDone" style="display:none;">
+                <div class="card" style="text-align:center;padding:36px;background:linear-gradient(135deg,#1a1040,#12121E);border-color:#4CAF5066;">
+                  <div style="font-size:60px;margin-bottom:14px;">🎉</div>
+                  <div class="card-title" style="color:#4CAF50;">Субтитри готові!</div>
+                  <div class="card-sub" style="margin-bottom:20px;">Субтитри вбито у відео</div>
+                  <a id="ssDownloadLink" href="#" download="octo_subtitles.mp4" class="btn btn-primary" style="text-decoration:none;display:inline-block;">💾 Завантажити відео</a>
+                </div>
+                <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="ssReset()">+ Нові субтитри</button>
+              </div>
+              <div id="ssBurnError" style="display:none;" class="card">
+                <div style="text-align:center;padding:20px;">
+                  <div style="font-size:40px;margin-bottom:12px;">❌</div>
+                  <div class="card-title" style="color:#ff6b6b;">Помилка</div>
+                  <div class="card-sub" id="ssBurnErrorMsg" style="margin-bottom:16px;"></div>
+                  <button class="btn btn-secondary" onclick="ssStep(3)">← Спробувати ще раз</button>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /vModeSubsWrap -->
         </div>
 
         <!-- Carousel -->
@@ -3374,6 +3568,199 @@
     document.getElementById('vTextPanel').style.display = 'none';
     document.getElementById('vSlotInputs').innerHTML = '';
     vs(1);
+  }
+
+  // =============================================
+  // 📝 AUTO-SUBTITLES
+  // =============================================
+
+  // Mode switcher
+  function vSwitchMode(mode) {
+    const isCreator = mode === 'creator';
+    document.getElementById('vModeCreatorWrap').style.display = isCreator ? '' : 'none';
+    document.getElementById('vModeSubsWrap').style.display  = isCreator ? 'none' : '';
+    document.getElementById('vModeCreator').className = 'vstep' + (isCreator ? ' active' : '');
+    document.getElementById('vModeSubs').className   = 'vstep' + (!isCreator ? ' active' : '');
+  }
+
+  const ssState = {
+    file: null, videoId: null, language: 'auto',
+    segments: [],
+    style: { fontSize: 18, fontColor: 'white', position: 'bottom', background: true },
+  };
+
+  function ssStep(n) {
+    [1,2,3,4].forEach(i => {
+      document.getElementById('ss' + i).style.display = i === n ? '' : 'none';
+      const el = document.getElementById('ssn' + i);
+      el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
+    });
+  }
+
+  function ssDrop(e) {
+    e.preventDefault();
+    document.getElementById('ssDropzone').classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) ssLoadFile(f);
+  }
+
+  function ssFileOk(e) { const f = e.target.files[0]; if (f) ssLoadFile(f); }
+
+  function ssLoadFile(f) {
+    ssState.file = f;
+    document.getElementById('ssFileName').textContent = f.name;
+    document.getElementById('ssFileSize').textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB';
+    document.getElementById('ssFileInfo').style.display = 'flex';
+    document.getElementById('ssb1').disabled = false;
+  }
+
+  function ssLang(lang, el) {
+    ssState.language = lang;
+    document.querySelectorAll('#ss2 .fc').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function ssSz(sz, el) {
+    ssState.style.fontSize = sz;
+    document.querySelectorAll('.ss-sz').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function ssClr(clr, el) {
+    ssState.style.fontColor = clr;
+    document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '2px solid transparent');
+    el.style.border = '2px solid var(--accent)';
+  }
+
+  function ssPos(pos, el) {
+    ssState.style.position = pos;
+    document.querySelectorAll('.ss-pos').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  async function ssGenerate() {
+    ssStep(3);
+    document.getElementById('ssGenerating').style.display = '';
+    document.getElementById('ssSegments').style.display = 'none';
+    ssState.style.background = document.getElementById('ssBgToggle').checked;
+
+    try {
+      // 1. Upload video
+      const fd = new FormData();
+      fd.append('video', ssState.file);
+      const upRes = await fetch('/api/video/upload', { method: 'POST', body: fd });
+      if (!upRes.ok) throw new Error('Помилка завантаження відео');
+      const upData = await upRes.json();
+      ssState.videoId = upData.videoId;
+
+      // 2. Generate subtitles
+      const genRes = await fetch('/api/subtitles/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: ssState.videoId, language: ssState.language }),
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Помилка генерації субтитрів');
+      }
+      const genData = await genRes.json();
+      ssState.segments = genData.segments;
+
+      // Show segments
+      ssRenderSegments(genData.detectedLanguage);
+    } catch(e) {
+      document.getElementById('ssGenerating').style.display = 'none';
+      document.getElementById('ssSegments').style.display = '';
+      document.getElementById('ssSegList').innerHTML =
+        `<div class="fb bad"><span>❌</span><span>${e.message}</span></div>`;
+      document.getElementById('ssDetLang').textContent = '';
+    }
+  }
+
+  function ssRenderSegments(detectedLang) {
+    document.getElementById('ssGenerating').style.display = 'none';
+    document.getElementById('ssSegments').style.display = '';
+
+    if (detectedLang) {
+      const names = { uk: '🇺🇦 Українська', ru: '🇷🇺 Русский', en: '🇬🇧 English', de: '🇩🇪 Deutsch', fr: '🇫🇷 Français' };
+      document.getElementById('ssDetLang').textContent = 'Мова: ' + (names[detectedLang] || detectedLang);
+    }
+
+    const list = document.getElementById('ssSegList');
+    list.innerHTML = '';
+
+    if (!ssState.segments.length) {
+      list.innerHTML = '<div class="fb tip"><span>ℹ️</span><span>Субтитри не знайдено — можливо відео без мовлення</span></div>';
+      return;
+    }
+
+    ssState.segments.forEach((seg, i) => {
+      const fmt = s => {
+        const m = Math.floor(s / 60).toString().padStart(2,'0');
+        const ss = (s % 60).toFixed(1).padStart(4,'0');
+        return `${m}:${ss}`;
+      };
+      const row = document.createElement('div');
+      row.className = 'ss-seg';
+      row.innerHTML = `
+        <div class="ss-seg-time">${fmt(seg.start)}<br>${fmt(seg.end)}</div>
+        <textarea class="ss-seg-text" id="ss_seg_${i}" rows="2">${seg.text}</textarea>
+        <div onclick="ssDeleteSeg(${i})" style="color:var(--text4);cursor:pointer;padding:2px 4px;font-size:16px;line-height:1;" title="Видалити">✕</div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function ssDeleteSeg(i) {
+    ssState.segments.splice(i, 1);
+    ssRenderSegments(null);
+  }
+
+  function ssCollectEdits() {
+    return ssState.segments.map((seg, i) => ({
+      start: seg.start,
+      end: seg.end,
+      text: (document.getElementById('ss_seg_' + i)?.value ?? seg.text).trim(),
+    })).filter(s => s.text);
+  }
+
+  async function ssBurn() {
+    const segments = ssCollectEdits();
+    if (!segments.length) return;
+
+    ssStep(4);
+    document.getElementById('ssBurning').style.display = '';
+    document.getElementById('ssDone').style.display = 'none';
+    document.getElementById('ssBurnError').style.display = 'none';
+
+    try {
+      const res = await fetch('/api/subtitles/burn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: ssState.videoId, segments, style: ssState.style }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Помилка рендеру');
+      }
+      const data = await res.json();
+
+      document.getElementById('ssBurning').style.display = 'none';
+      document.getElementById('ssDone').style.display = '';
+      document.getElementById('ssDownloadLink').href = data.downloadUrl;
+    } catch(e) {
+      document.getElementById('ssBurning').style.display = 'none';
+      document.getElementById('ssBurnError').style.display = '';
+      document.getElementById('ssBurnErrorMsg').textContent = e.message;
+    }
+  }
+
+  function ssReset() {
+    ssState.file = null; ssState.videoId = null; ssState.segments = [];
+    document.getElementById('ssFileInfo').style.display = 'none';
+    document.getElementById('ssFile').value = '';
+    document.getElementById('ssb1').disabled = true;
+    ssStep(1);
   }
 
   // =============================================
