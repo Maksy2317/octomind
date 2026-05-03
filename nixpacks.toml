@@ -1,11 +1,2 @@
 [phases.setup]
 nixPkgs = ["ffmpeg-full", "nodejs_20"]
-
-[phases.install]
-cmds = ["npm install", "cd backend && npm ci"]
-
-[phases.build]
-cmds = ["cd backend && npm run build"]
-
-[start]
-cmd = "cd backend && node dist/index.js"
