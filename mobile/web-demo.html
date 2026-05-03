@@ -1501,6 +1501,38 @@
 
           <!-- Step 1: Upload -->
           <div id="vs1">
+            <!-- Feature intro -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:22px;">🎨</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text);">5 шаблонів</div>
+                  <div style="font-size:10px;color:var(--text4);">Hook, B/A, Tips…</div>
+                </div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:22px;">📝</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text);">Автосубтитри</div>
+                  <div style="font-size:10px;color:var(--text4);">AI розпізнає мову</div>
+                </div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:22px;">📐</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text);">9:16 формат</div>
+                  <div style="font-size:10px;color:var(--text4);">Stories · Reels · TikTok</div>
+                </div>
+              </div>
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:22px;">🐙</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text);">AI-підписи</div>
+                  <div style="font-size:10px;color:var(--text4);">Octo заповнить текст</div>
+                </div>
+              </div>
+            </div>
+
             <div class="dropzone" id="vDropzone" onclick="document.getElementById('vf').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="vDrop(event)">
               <div style="font-size:44px;margin-bottom:10px;">🎥</div>
               <h3>Завантаж відео</h3>
@@ -1616,6 +1648,25 @@
 
             <!-- Sub-step 1: upload video -->
             <div id="ss1">
+              <!-- How it works — 3 steps -->
+              <div style="display:flex;gap:6px;margin-bottom:16px;">
+                <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;margin-bottom:4px;">🎙️</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text);">Whisper AI</div>
+                  <div style="font-size:10px;color:var(--text4);">Розпізнає мову</div>
+                </div>
+                <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;margin-bottom:4px;">✏️</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text);">Редагуй</div>
+                  <div style="font-size:10px;color:var(--text4);">Виправ помилки</div>
+                </div>
+                <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;">
+                  <div style="font-size:20px;margin-bottom:4px;">🔥</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--text);">Вбити у відео</div>
+                  <div style="font-size:10px;color:var(--text4);">Назавжди в кадр</div>
+                </div>
+              </div>
+
               <div class="dropzone" id="ssDropzone" onclick="document.getElementById('ssFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="ssDrop(event)">
                 <div style="font-size:44px;margin-bottom:10px;">🎙️</div>
                 <h3>Завантаж відео</h3>
