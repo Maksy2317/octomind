@@ -25,7 +25,8 @@ function findVideoFile(videoId: string): string | null {
 function extractAudio(videoPath: string, audioPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
-      .outputOptions(['-vn', '-ar 16000', '-ac 1', '-f mp3'])
+      // WAV/PCM is built into every FFmpeg build — no external codec needed
+      .outputOptions(['-vn', '-ar 16000', '-ac 1', '-f wav'])
       .output(audioPath)
       .on('end', () => resolve())
       .on('error', (err) => reject(new Error(`Audio extraction failed: ${err.message}`)))
@@ -63,8 +64,8 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
       res.status(500).json({ error: 'OPENAI_API_KEY not configured' }); return;
     }
 
-    // 1. Extract audio
-    audioPath = path.join(os.tmpdir(), `octo_audio_${uuidv4()}.mp3`);
+    // 1. Extract audio (WAV — no codec dependency)
+    audioPath = path.join(os.tmpdir(), `octo_audio_${uuidv4()}.wav`);
     await extractAudio(videoPath, audioPath);
 
     // 2. Transcribe with Whisper
