@@ -105,6 +105,61 @@ function buildAss(
   return header + '\n' + events + '\n';
 }
 
+/** Word-by-word mode: one Dialogue event per spoken word (TikTok style) */
+function buildAssWordByWord(
+  words: Array<{ word: string; start: number; end: number }>,
+  style?: {
+    fontSize?: number;
+    fontColor?: string;
+    position?: 'top' | 'bottom' | 'center';
+    background?: boolean;
+  },
+): string {
+  const fontSize   = style?.fontSize   ?? 72;
+  const position   = style?.position   ?? 'bottom';
+  const fontColor  = style?.fontColor  ?? 'white';
+  const withBg     = style?.background !== false;
+
+  const colorMap: Record<string, string> = {
+    white:  '&H00FFFFFF',
+    yellow: '&H0000FFFF',
+    black:  '&H00000000',
+  };
+  const primaryColor = colorMap[fontColor] ?? '&H00FFFFFF';
+  const backColor    = withBg ? '&HB4000000' : '&H00000000';
+  const borderStyle  = withBg ? 4 : 1;
+  const outline      = withBg ? 0 : 2;
+  const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
+  const marginV      = position === 'center' ? 0 : 120;
+
+  const header = [
+    '[Script Info]',
+    'ScriptType: v4.00+',
+    'WrapStyle: 0',
+    'ScaledBorderAndShadow: yes',
+    'PlayResX: 1080',
+    'PlayResY: 1920',
+    '',
+    '[V4+ Styles]',
+    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,&H00000000,${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},0,${alignment},10,10,${marginV},1`,
+    '',
+    '[Events]',
+    'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+  ].join('\n');
+
+  const events = words
+    .filter(w => w.word.trim())
+    .map(w => {
+      const text = w.word.trim()
+        .replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+      return `Dialogue: 0,${toAssTime(w.start)},${toAssTime(w.end)},Default,,0,0,0,,${text}`;
+    })
+    .join('\n');
+
+  return header + '\n' + events + '\n';
+}
+
 // ── POST /api/subtitles/generate ────────────────────────────────────────────
 subtitlesRouter.post('/generate', async (req: Request, res: Response, next: NextFunction) => {
   let audioPath: string | null = null;
@@ -128,7 +183,7 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
       file: fs.createReadStream(audioPath),
       model: 'whisper-1',
       response_format: 'verbose_json',
-      timestamp_granularities: ['segment'],
+      timestamp_granularities: ['segment', 'word'],
       ...(language && language !== 'auto' ? { language } : {}),
     });
 
@@ -139,7 +194,14 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
       text: String(seg.text).trim(),
     }));
 
-    res.json({ segments, detectedLanguage: (transcription as any).language || null });
+    const words = ((transcription as any).words || []).map((w: any, idx: number) => ({
+      id: idx,
+      word: String(w.word).trim(),
+      start: Number(w.start),
+      end: Number(w.end),
+    }));
+
+    res.json({ segments, words, detectedLanguage: (transcription as any).language || null });
   } catch (err) {
     next(err);
   } finally {
@@ -153,9 +215,11 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
 subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunction) => {
   let assPath: string | null = null;
   try {
-    const { videoId, segments, style } = req.body as {
+    const { videoId, segments, words, wordByWord, style } = req.body as {
       videoId: string;
       segments: Array<{ start: number; end: number; text: string }>;
+      words?: Array<{ word: string; start: number; end: number }>;
+      wordByWord?: boolean;
       style?: {
         fontSize?: number;
         fontColor?: string;
@@ -182,9 +246,12 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
 
     // Build and write ASS file
     assPath = path.join(os.tmpdir(), `octo_subs_${uuidv4()}.ass`);
-    const assContent = buildAss(segments, style);
+    const useWordByWord = wordByWord && words && words.length > 0;
+    const assContent = useWordByWord
+      ? buildAssWordByWord(words!, style)
+      : buildAss(segments, style);
     fs.writeFileSync(assPath, assContent, 'utf8');
-    console.log(`[subtitles/burn] ASS file written: ${assPath} (${segments.length} segments)`);
+    console.log(`[subtitles/burn] ASS file written: ${assPath} mode=${useWordByWord ? 'word-by-word' : 'segments'} (${useWordByWord ? words!.length + ' words' : segments.length + ' segments'})`);
 
     // Escape path for FFmpeg filter syntax (colon is option separator)
     // UUID-based paths never contain single quotes or spaces

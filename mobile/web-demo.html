@@ -1728,13 +1728,22 @@
                     </div>
                   </div>
 
+                  <!-- Style mode -->
+                  <div>
+                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">✨ Стиль</div>
+                    <div style="display:flex;gap:5px;">
+                      <button class="ss-opt-btn active" id="ssModeSegs" onclick="ssMode('segments',this)" style="flex:1;">📝 Речення</button>
+                      <button class="ss-opt-btn" id="ssModeWords" onclick="ssMode('words',this)" style="flex:1;">⚡ Слово в слово</button>
+                    </div>
+                  </div>
+
                   <!-- Size -->
                   <div>
                     <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📏 Розмір</div>
                     <div style="display:flex;gap:5px;">
-                      <button class="ss-opt-btn active" id="ssSzS" onclick="ssSz(40,this)">S</button>
-                      <button class="ss-opt-btn" id="ssSzM" onclick="ssSz(56,this)">M</button>
-                      <button class="ss-opt-btn" id="ssSzL" onclick="ssSz(72,this)">L</button>
+                      <button class="ss-opt-btn active" id="ssSzS" onclick="ssSz(72,this)">S</button>
+                      <button class="ss-opt-btn" id="ssSzM" onclick="ssSz(96,this)">M</button>
+                      <button class="ss-opt-btn" id="ssSzL" onclick="ssSz(120,this)">L</button>
                     </div>
                   </div>
 
@@ -3685,8 +3694,8 @@
 
   const ssState = {
     file: null, videoId: null, language: 'auto',
-    segments: [], frameBase64: null,
-    style: { fontSize: 18, fontColor: 'white', position: 'bottom', background: true },
+    segments: [], words: [], wordByWord: false, frameBase64: null,
+    style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true },
   };
 
   function ssStep(n) {
@@ -3750,6 +3759,12 @@
       const el = document.getElementById(id);
       if (el) el.classList.toggle('active', id === activeId);
     });
+  }
+
+  function ssMode(mode, el) {
+    ssState.wordByWord = (mode === 'words');
+    ['ssModeSegs','ssModeWords'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
+    el.classList.add('active');
   }
 
   function ssLang(lang, el) {
@@ -3852,6 +3867,7 @@
       }
       const genData = await genRes.json();
       ssState.segments = genData.segments;
+      ssState.words = genData.words || [];
 
       // Show segments
       ssRenderSegments(genData.detectedLanguage);
@@ -3924,7 +3940,13 @@
       const res = await fetch('/api/subtitles/burn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId: ssState.videoId, segments, style: ssState.style }),
+        body: JSON.stringify({
+          videoId: ssState.videoId,
+          segments,
+          words: ssState.words,
+          wordByWord: ssState.wordByWord,
+          style: ssState.style,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
