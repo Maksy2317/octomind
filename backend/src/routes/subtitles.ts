@@ -70,7 +70,7 @@ function buildAss(
   const borderStyle  = withBg ? 4 : 1;   // 4 = opaque box, 1 = outline
   const outline      = withBg ? 0 : 2;
   const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 120; // px at PlayResY=1920
+  const marginV      = position === 'center' ? 0 : 200; // ~10% from edge at PlayResY=1920
 
   // PlayRes matches vertical 9:16 social video (stories/reels/tiktok 1080×1920).
   // Font sizes are in real pixels at this resolution (no unexpected libass scaling).
@@ -130,7 +130,7 @@ function buildAssWordByWord(
   const borderStyle  = withBg ? 4 : 1;
   const outline      = withBg ? 0 : 2;
   const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 120;
+  const marginV      = position === 'center' ? 0 : 200; // ~10% from edge at PlayResY=1920
 
   const header = [
     '[Script Info]',

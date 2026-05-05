@@ -3765,6 +3765,12 @@
     ssState.wordByWord = (mode === 'words');
     ['ssModeSegs','ssModeWords'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
     el.classList.add('active');
+    // Auto-set best position for each mode
+    if (mode === 'words') {
+      ssPos('center', document.getElementById('ssPosCenter'));
+    } else {
+      ssPos('bottom', document.getElementById('ssPosBottom'));
+    }
   }
 
   function ssLang(lang, el) {
@@ -3812,25 +3818,29 @@
     const bg = document.getElementById('ssBgToggle');
     const hasBg = bg ? bg.checked : background;
 
-    // Scale font for preview (preview is ~140px wide, video is 1080px → ~0.13 scale)
-    const scaledFont = Math.max(7, Math.round(fontSize * 0.48));
+    // Scale font proportionally: preview 140px wide / video 1080px wide ≈ 0.13
+    const scaledFont = Math.max(9, Math.round(fontSize * 0.13));
     const colorMap = { white: '#fff', yellow: '#FFE600', black: '#111' };
     const color = colorMap[fontColor] || '#fff';
+
+    // Preview text: single word for word-by-word, phrase for segments
+    text.textContent = ssState.wordByWord ? 'Слово' : 'Текст субтитрів';
 
     text.style.fontSize  = scaledFont + 'px';
     text.style.color     = color;
     text.style.background = hasBg ? 'rgba(0,0,0,0.65)' : 'transparent';
-    text.style.padding   = hasBg ? '2px 5px' : '0';
-    text.style.borderRadius = '3px';
+    text.style.padding   = hasBg ? '3px 7px' : '0';
+    text.style.borderRadius = '4px';
+    text.style.fontWeight = '700';
 
-    // Position
+    // Position — use % so it scales with the preview box
     text.style.top = text.style.bottom = text.style.transform = '';
     if (position === 'top') {
-      text.style.top = '10px'; text.style.bottom = 'auto';
+      text.style.top = '8%'; text.style.bottom = 'auto';
     } else if (position === 'center') {
       text.style.top = '50%'; text.style.transform = 'translateY(-50%)';
     } else {
-      text.style.bottom = '10px'; text.style.top = 'auto';
+      text.style.bottom = '9%'; text.style.top = 'auto';
     }
 
     // Sync bg toggle thumb (manual toggle visual)
