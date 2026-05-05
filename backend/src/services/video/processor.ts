@@ -2,32 +2,16 @@ import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
 import { TemplateConfig, VideoFormat, StructuredTemplate } from '../../types';
 
-// Prefer system FFmpeg (has full codec support incl. libfreetype for drawtext).
-// Fall back to ffmpeg-static only if system ffmpeg is missing or lacks drawtext.
+// Always use system FFmpeg — Dockerfile installs Debian apt ffmpeg which includes
+// libfreetype (drawtext), libass (subtitles), libx264, libfdk-aac, etc.
+// Never fall back to ffmpeg-static (it lacks drawtext and libass).
 import { execSync } from 'child_process';
 
-function systemFfmpegHasDrawtext(): boolean {
-  try {
-    execSync('ffmpeg -filters 2>&1 | grep drawtext', { stdio: 'pipe' });
-    return true;
-  } catch { return false; }
-}
-
-if (systemFfmpegHasDrawtext()) {
-  // system ffmpeg supports drawtext — use it (Railway installs ffmpeg-full via nixpacks)
-  console.log('[ffmpeg] Using system FFmpeg (drawtext support ✓)');
-} else {
-  // fall back to ffmpeg-static (no drawtext, but works for basic processing)
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const ffmpegStatic = require('ffmpeg-static');
-    if (ffmpegStatic) {
-      ffmpeg.setFfmpegPath(ffmpegStatic);
-      console.log('[ffmpeg] Using ffmpeg-static (drawtext NOT available)');
-    }
-  } catch {
-    console.log('[ffmpeg] Using whatever ffmpeg is in PATH');
-  }
+try {
+  const ffmpegVersion = execSync('ffmpeg -version 2>&1 | head -1', { stdio: 'pipe' }).toString().trim();
+  console.log(`[ffmpeg] ${ffmpegVersion}`);
+} catch {
+  console.warn('[ffmpeg] Could not detect system FFmpeg version — using PATH default');
 }
 
 const FORMAT_DIMENSIONS: Record<VideoFormat, { width: number; height: number }> = {
