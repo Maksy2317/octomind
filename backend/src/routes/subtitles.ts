@@ -21,7 +21,7 @@ function findVideoFile(videoId: string): string | null {
   return null;
 }
 
-/** Extract audio track as mono 16kHz MP3 for Whisper */
+/** Extract audio track as mono 16kHz WAV for Whisper */
 function extractAudio(videoPath: string, audioPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
@@ -34,20 +34,61 @@ function extractAudio(videoPath: string, audioPath: string): Promise<void> {
   });
 }
 
-/** Format seconds → SRT timestamp  00:00:00,000 */
-function toSrtTime(s: number): string {
-  const h = Math.floor(s / 3600).toString().padStart(2, '0');
-  const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0');
-  const sec = Math.floor(s % 60).toString().padStart(2, '0');
-  const ms = Math.round((s % 1) * 1000).toString().padStart(3, '0');
-  return `${h}:${m}:${sec},${ms}`;
+// ── Font detection ──────────────────────────────────────────────────────────
+
+const FONT_PATHS = [
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+  '/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf',
+  '/System/Library/Fonts/Helvetica.ttc',
+  '/System/Library/Fonts/Arial.ttf',
+  '/Library/Fonts/Arial Bold.ttf',
+];
+
+function findFont(): string | null {
+  for (const p of FONT_PATHS) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
-/** Build SRT string from segments */
-function buildSrt(segments: Array<{ start: number; end: number; text: string }>): string {
-  return segments
-    .map((seg, i) => `${i + 1}\n${toSrtTime(seg.start)} --> ${toSrtTime(seg.end)}\n${seg.text.trim()}\n`)
-    .join('\n');
+// ── Text helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Wrap text into at most 3 lines, each no longer than maxCharsPerLine.
+ * Lines are joined with the FFmpeg drawtext newline escape: \n
+ */
+function wrapText(text: string, maxCharsPerLine: number): string {
+  if (text.length <= maxCharsPerLine) return text;
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, 3).join('\n');
+}
+
+/**
+ * Escape a string for use inside FFmpeg drawtext filter.
+ * Characters that need escaping: ' : \ newline
+ */
+function escapeFfmpegText(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "’")   // replace apostrophe with right single quotation mark
+    .replace(/:/g, '\\:')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
 }
 
 // ── POST /api/subtitles/generate ────────────────────────────────────────────
@@ -95,8 +136,9 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
 });
 
 // ── POST /api/subtitles/burn ─────────────────────────────────────────────────
+// Uses drawtext filter (requires only libfreetype — available in Debian apt ffmpeg)
+// instead of subtitles filter (requires libass — often missing).
 subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunction) => {
-  let srtPath: string | null = null;
   try {
     const { videoId, segments, style } = req.body as {
       videoId: string;
@@ -122,47 +164,54 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
       : path.resolve(process.cwd(), 'uploads/output');
     fs.mkdirSync(outputDir, { recursive: true });
 
-    // Build SRT file
-    srtPath = path.join(os.tmpdir(), `octo_subs_${uuidv4()}.srt`);
-    fs.writeFileSync(srtPath, buildSrt(segments), 'utf8');
-
     const outputFilename = `${videoId}_subtitles.mp4`;
     const outputPath = path.join(outputDir, outputFilename);
 
-    // ASS style parameters
+    // Style params
     const fontSize   = style?.fontSize ?? 22;
     const position   = style?.position ?? 'bottom';
-    const colorMap: Record<string, string> = {
-      white:  '&H00FFFFFF',
-      yellow: '&H0000FFFF',
-      black:  '&H00000000',
-    };
-    const primaryColor = colorMap[style?.fontColor ?? 'white'] ?? '&H00FFFFFF';
-    const alignment  = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-    const marginV    = position === 'center' ? 0 : 80;
-    const borderStyle = (style?.background !== false) ? 4 : 1; // 4 = opaque box, 1 = outline
-    const outline    = (style?.outline !== false) ? 2 : 0;
+    const fontColor  = style?.fontColor ?? 'white';
+    const withBg     = style?.background !== false;  // default true
 
-    const forceStyle = [
-      'FontName=Arial',
-      `FontSize=${fontSize}`,
-      `PrimaryColour=${primaryColor}`,
-      'OutlineColour=&H00000000',
-      'BackColour=&HB4000000',
-      `BorderStyle=${borderStyle}`,
-      `Outline=${outline}`,
-      'Shadow=0',
-      `Alignment=${alignment}`,
-      `MarginV=${marginV}`,
-      'Bold=1',
-    ].join(',');
+    // Y-axis expression based on position
+    let yExpr: string;
+    if (position === 'top') {
+      yExpr = '80';
+    } else if (position === 'center') {
+      yExpr = '(h-text_h)/2';
+    } else {
+      // bottom — account for multi-line height, keep above bottom edge
+      yExpr = 'h-text_h-80';
+    }
 
-    // Escape srtPath for FFmpeg filter string (no single quotes in path thanks to UUID)
-    const escapedSrt = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const boxcolor  = withBg ? 'black@0.65' : 'black@0';
+    const boxborderw = withBg ? 14 : 0;
+    const fontPath  = findFont();
+    const fontfilePrefix = fontPath ? `fontfile=${fontPath}:` : '';
+
+    // Build one drawtext filter per segment
+    const drawtextFilters: string[] = segments.map((seg) => {
+      const wrapped = wrapText(seg.text, 36);
+      const escaped = escapeFfmpegText(wrapped);
+      const enableExpr = `enable='between(t,${seg.start},${seg.end})'`;
+
+      return (
+        `drawtext=${fontfilePrefix}` +
+        `text='${escaped}':` +
+        `fontsize=${fontSize}:` +
+        `fontcolor=${fontColor}:` +
+        `x=(w-text_w)/2:y=${yExpr}:` +
+        `box=1:boxcolor=${boxcolor}:boxborderw=${boxborderw}:` +
+        `line_spacing=6:` +
+        `${enableExpr}`
+      );
+    });
+
+    console.log(`[subtitles/burn] Rendering ${drawtextFilters.length} subtitle segments with drawtext`);
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(videoPath)
-        .videoFilter(`subtitles='${escapedSrt}':force_style='${forceStyle}'`)
+        .videoFilters(drawtextFilters)
         .outputOptions([
           '-c:v libx264', '-crf 23', '-preset fast',
           '-c:a aac', '-b:a 128k', '-movflags +faststart',
@@ -176,7 +225,5 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
     res.json({ downloadUrl: `/output/${outputFilename}` });
   } catch (err) {
     next(err);
-  } finally {
-    if (srtPath) { try { fs.unlinkSync(srtPath); } catch {} }
   }
 });
