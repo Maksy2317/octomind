@@ -3716,20 +3716,32 @@
     document.getElementById('ssb1').disabled = false;
 
     // Capture first frame for live preview
-    const video = document.createElement('video');
-    video.src = URL.createObjectURL(f);
-    video.muted = true;
-    video.currentTime = 0.5;
-    video.addEventListener('seeked', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 270; canvas.height = 480;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      ssState.frameBase64 = canvas.toDataURL('image/jpeg', 0.7);
-      URL.revokeObjectURL(video.src);
-    }, { once: true });
-    video.addEventListener('error', () => { URL.revokeObjectURL(video.src); }, { once: true });
-    video.load();
+    // Correct sequence: set src → wait loadedmetadata → seek → wait seeked → draw
+    try {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+
+      video.addEventListener('loadedmetadata', () => {
+        video.currentTime = Math.min(0.5, (video.duration || 1) * 0.1);
+      }, { once: true });
+
+      video.addEventListener('seeked', () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 270; canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ssState.frameBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          ssUpdatePreview(); // refresh preview immediately once frame is ready
+        } catch (e) { console.warn('[ssLoadFile] frame draw error:', e); }
+        finally { URL.revokeObjectURL(video.src); }
+      }, { once: true });
+
+      video.addEventListener('error', () => { URL.revokeObjectURL(video.src); }, { once: true });
+      video.src = URL.createObjectURL(f); // triggers loading
+    } catch (e) { console.warn('[ssLoadFile] setup error:', e); }
   }
 
   // ── Active button helpers ────────────────────────────────────────────────
