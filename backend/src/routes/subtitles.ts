@@ -25,7 +25,6 @@ function findVideoFile(videoId: string): string | null {
 function extractAudio(videoPath: string, audioPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
-      // WAV/PCM is built into every FFmpeg build — no external codec needed
       .outputOptions(['-vn', '-ar 16000', '-ac 1', '-f wav'])
       .output(audioPath)
       .on('end', () => resolve())
@@ -34,61 +33,72 @@ function extractAudio(videoPath: string, audioPath: string): Promise<void> {
   });
 }
 
-// ── Font detection ──────────────────────────────────────────────────────────
+// ── ASS subtitle builder ─────────────────────────────────────────────────────
 
-const FONT_PATHS = [
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-  '/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf',
-  '/System/Library/Fonts/Helvetica.ttc',
-  '/System/Library/Fonts/Arial.ttf',
-  '/Library/Fonts/Arial Bold.ttf',
-];
-
-function findFont(): string | null {
-  for (const p of FONT_PATHS) {
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
+/** Format seconds → ASS timestamp  H:MM:SS.CC */
+function toAssTime(s: number): string {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  const cs = Math.min(99, Math.round((s % 1) * 100));
+  return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
 }
 
-// ── Text helpers ─────────────────────────────────────────────────────────────
+/** Build an ASS subtitle file from segments + style */
+function buildAss(
+  segments: Array<{ start: number; end: number; text: string }>,
+  style?: {
+    fontSize?: number;
+    fontColor?: string;
+    position?: 'top' | 'bottom' | 'center';
+    background?: boolean;
+  },
+): string {
+  const fontSize   = style?.fontSize   ?? 22;
+  const position   = style?.position   ?? 'bottom';
+  const fontColor  = style?.fontColor  ?? 'white';
+  const withBg     = style?.background !== false;
 
-/**
- * Wrap text into at most 3 lines, each no longer than maxCharsPerLine.
- * Lines are joined with the FFmpeg drawtext newline escape: \n
- */
-function wrapText(text: string, maxCharsPerLine: number): string {
-  if (text.length <= maxCharsPerLine) return text;
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxCharsPerLine) {
-      current = candidate;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.slice(0, 3).join('\n');
-}
+  // ASS colours: &HAABBGGRR  (alpha-blue-green-red)
+  const colorMap: Record<string, string> = {
+    white:  '&H00FFFFFF',
+    yellow: '&H0000FFFF',
+    black:  '&H00000000',
+  };
+  const primaryColor = colorMap[fontColor] ?? '&H00FFFFFF';
+  const backColor    = withBg ? '&HB4000000' : '&H00000000';
+  const borderStyle  = withBg ? 4 : 1;   // 4 = opaque box, 1 = outline
+  const outline      = withBg ? 0 : 2;
+  const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
+  const marginV      = position === 'center' ? 0 : 40;
 
-/**
- * Escape a string for use inside FFmpeg drawtext filter.
- * Characters that need escaping: ' : \ newline
- */
-function escapeFfmpegText(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "’")   // replace apostrophe with right single quotation mark
-    .replace(/:/g, '\\:')
-    .replace(/\[/g, '\\[')
-    .replace(/\]/g, '\\]')
-    .replace(/,/g, '\\,')
-    .replace(/;/g, '\\;');
+  const header = [
+    '[Script Info]',
+    'ScriptType: v4.00+',
+    'WrapStyle: 0',
+    'ScaledBorderAndShadow: yes',
+    '',
+    '[V4+ Styles]',
+    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,&H00000000,${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},0,${alignment},10,10,${marginV},1`,
+    '',
+    '[Events]',
+    'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+  ].join('\n');
+
+  const events = segments
+    .filter(seg => seg.text.trim())
+    .map(seg => {
+      const text = seg.text
+        .trim()
+        .replace(/\r?\n/g, '\\N')   // ASS hard line-break
+        .replace(/\{/g, '\\{')      // escape ASS override tags
+        .replace(/\}/g, '\\}');
+      return `Dialogue: 0,${toAssTime(seg.start)},${toAssTime(seg.end)},Default,,0,0,0,,${text}`;
+    })
+    .join('\n');
+
+  return header + '\n' + events + '\n';
 }
 
 // ── POST /api/subtitles/generate ────────────────────────────────────────────
@@ -105,11 +115,9 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
       res.status(500).json({ error: 'OPENAI_API_KEY not configured' }); return;
     }
 
-    // 1. Extract audio (WAV — no codec dependency)
     audioPath = path.join(os.tmpdir(), `octo_audio_${uuidv4()}.wav`);
     await extractAudio(videoPath, audioPath);
 
-    // 2. Transcribe with Whisper
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const transcription = await (openai.audio.transcriptions.create as any)({
@@ -136,16 +144,17 @@ subtitlesRouter.post('/generate', async (req: Request, res: Response, next: Next
 });
 
 // ── POST /api/subtitles/burn ─────────────────────────────────────────────────
-// Uses drawtext filter (requires only libfreetype — available in Debian apt ffmpeg)
-// instead of subtitles filter (requires libass — often missing).
+// Uses ASS subtitle format + `subtitles` filter (requires libass, built into
+// mwader/static-ffmpeg). This avoids drawtext (libfreetype dependency issues).
 subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunction) => {
+  let assPath: string | null = null;
   try {
     const { videoId, segments, style } = req.body as {
       videoId: string;
       segments: Array<{ start: number; end: number; text: string }>;
       style?: {
         fontSize?: number;
-        fontColor?: string;       // 'white' | 'yellow' | 'black'
+        fontColor?: string;
         position?: 'top' | 'bottom' | 'center';
         background?: boolean;
         outline?: boolean;
@@ -167,72 +176,43 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
     const outputFilename = `${videoId}_subtitles.mp4`;
     const outputPath = path.join(outputDir, outputFilename);
 
-    // Style params
-    const fontSize   = style?.fontSize ?? 22;
-    const position   = style?.position ?? 'bottom';
-    const fontColor  = style?.fontColor ?? 'white';
-    const withBg     = style?.background !== false;  // default true
+    // Build and write ASS file
+    assPath = path.join(os.tmpdir(), `octo_subs_${uuidv4()}.ass`);
+    const assContent = buildAss(segments, style);
+    fs.writeFileSync(assPath, assContent, 'utf8');
+    console.log(`[subtitles/burn] ASS file written: ${assPath} (${segments.length} segments)`);
 
-    // Y-axis expression based on position
-    let yExpr: string;
-    if (position === 'top') {
-      yExpr = '80';
-    } else if (position === 'center') {
-      yExpr = '(h-text_h)/2';
-    } else {
-      // bottom — account for multi-line height, keep above bottom edge
-      yExpr = 'h-text_h-80';
-    }
-
-    const boxcolor  = withBg ? 'black@0.65' : 'black@0';
-    const boxborderw = withBg ? 14 : 0;
-    const fontPath  = findFont();
-
-    if (!fontPath) {
-      res.status(500).json({
-        error: 'Font not found on server. Please ensure fonts-dejavu-core is installed.',
-      });
-      return;
-    }
-
-    console.log(`[subtitles/burn] Using font: ${fontPath}`);
-    const fontfilePrefix = `fontfile=${fontPath}:`;
-
-    // Build one drawtext filter per segment
-    const drawtextFilters: string[] = segments.map((seg) => {
-      const wrapped = wrapText(seg.text, 36);
-      const escaped = escapeFfmpegText(wrapped);
-      const enableExpr = `enable='between(t,${seg.start},${seg.end})'`;
-
-      return (
-        `drawtext=${fontfilePrefix}` +
-        `text='${escaped}':` +
-        `fontsize=${fontSize}:` +
-        `fontcolor=${fontColor}:` +
-        `x=(w-text_w)/2:y=${yExpr}:` +
-        `box=1:boxcolor=${boxcolor}:boxborderw=${boxborderw}:` +
-        `line_spacing=6:` +
-        `${enableExpr}`
-      );
-    });
-
-    console.log(`[subtitles/burn] Rendering ${drawtextFilters.length} subtitle segments with drawtext`);
+    // Escape path for FFmpeg filter syntax (colon is option separator)
+    // UUID-based paths never contain single quotes or spaces
+    const escapedAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
 
     await new Promise<void>((resolve, reject) => {
-      ffmpeg(videoPath)
-        .videoFilters(drawtextFilters)
+      const cmd = ffmpeg(videoPath)
+        .videoFilter(`subtitles='${escapedAss}'`)
         .outputOptions([
           '-c:v libx264', '-crf 23', '-preset fast',
           '-c:a aac', '-b:a 128k', '-movflags +faststart',
         ])
-        .output(outputPath)
-        .on('end', () => resolve())
-        .on('error', (err) => reject(new Error(`Subtitle burn failed: ${err.message}`)))
-        .run();
+        .output(outputPath);
+
+      cmd.on('start', (command: string) => {
+        console.log('[subtitles/burn] FFmpeg command:', command);
+      });
+      cmd.on('end', () => {
+        console.log('[subtitles/burn] Done →', outputPath);
+        resolve();
+      });
+      cmd.on('error', (err: Error) => {
+        console.error('[subtitles/burn] FFmpeg error:', err.message);
+        reject(new Error(`Subtitle burn failed: ${err.message}`));
+      });
+      cmd.run();
     });
 
     res.json({ downloadUrl: `/output/${outputFilename}` });
   } catch (err) {
     next(err);
+  } finally {
+    if (assPath) { try { fs.unlinkSync(assPath); } catch {} }
   }
 });
