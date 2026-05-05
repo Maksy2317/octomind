@@ -1785,7 +1785,7 @@
 
               <div style="display:flex;gap:8px;">
                 <button class="btn btn-secondary" onclick="ssStep(1)" style="padding:10px 16px;">← Назад</button>
-                <button class="btn btn-primary" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
+                <button class="btn btn-primary" id="ssGenerateBtn" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
               </div>
             </div>
 
@@ -1832,13 +1832,15 @@
                 </div>
               </div>
               <div id="ssDone" style="display:none;">
-                <div class="card" style="text-align:center;padding:36px;background:linear-gradient(135deg,#1a1040,#12121E);border-color:#4CAF5066;">
-                  <div style="font-size:60px;margin-bottom:14px;">🎉</div>
-                  <div class="card-title" style="color:#4CAF50;">Субтитри готові!</div>
-                  <div class="card-sub" style="margin-bottom:20px;">Субтитри вбито у відео</div>
-                  <a id="ssDownloadLink" href="#" download="octo_subtitles.mp4" class="btn btn-primary" style="text-decoration:none;display:inline-block;">💾 Завантажити відео</a>
+                <!-- Video preview -->
+                <div style="border-radius:14px;overflow:hidden;background:#000;margin-bottom:12px;line-height:0;position:relative;">
+                  <video id="ssDoneVideo" controls playsinline style="width:100%;max-height:340px;display:block;"></video>
                 </div>
-                <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="ssReset()">+ Нові субтитри</button>
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                  <a id="ssDownloadLink" href="#" download="octo_subtitles.mp4" class="btn btn-primary" style="flex:1;text-decoration:none;text-align:center;">💾 Завантажити</a>
+                  <button class="btn btn-secondary" style="flex:1;" onclick="ssRestyle()">🎨 Змінити стиль</button>
+                </div>
+                <button class="btn btn-secondary btn-full" onclick="ssReset()">+ Нові субтитри</button>
               </div>
               <div id="ssBurnError" style="display:none;" class="card">
                 <div style="text-align:center;padding:20px;">
@@ -3776,12 +3778,8 @@
     ssState.wordByWord = (mode === 'words');
     ['ssModeSegs','ssModeWords'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
     el.classList.add('active');
-    // Auto-set best position for each mode
-    if (mode === 'words') {
-      ssPos('center', document.getElementById('ssPosCenter'));
-    } else {
-      ssPos('bottom', document.getElementById('ssPosBottom'));
-    }
+    // Don't override position — user chose it intentionally
+    ssUpdatePreview();
   }
 
   function ssLang(lang, el) {
@@ -3877,10 +3875,23 @@
   }
 
   async function ssGenerate() {
+    ssState.style.background = document.getElementById('ssBgToggle').checked;
+
+    // ── Re-style shortcut ──────────────────────────────────────────────────
+    // If we already have segments from a previous transcription (user came back
+    // from the done screen to change style), skip upload + transcription and go
+    // straight to the segment review step.
+    if (ssState.videoId && ssState.segments.length) {
+      ssRenderSegments(null);   // re-render with the current mode hints
+      ssStep(3);
+      document.getElementById('ssGenerating').style.display = 'none';
+      document.getElementById('ssSegments').style.display = '';
+      return;
+    }
+
     ssStep(3);
     document.getElementById('ssGenerating').style.display = '';
     document.getElementById('ssSegments').style.display = 'none';
-    ssState.style.background = document.getElementById('ssBgToggle').checked;
 
     try {
       // Phase 1: upload video
@@ -3920,6 +3931,14 @@
     }
   }
 
+  // Return to settings to change style, keeping the transcription result
+  function ssRestyle() {
+    const btn = document.getElementById('ssGenerateBtn');
+    if (btn) btn.textContent = '🔥 Перезаписати з новими налаштуваннями →';
+    ssStep(2);
+    ssUpdatePreview();
+  }
+
   function ssRenderSegments(detectedLang) {
     document.getElementById('ssGenerating').style.display = 'none';
     document.getElementById('ssSegments').style.display = '';
@@ -3950,6 +3969,7 @@
       return;
     }
 
+    const isWbw = ssState.wordByWord;
     ssState.segments.forEach((seg, i) => {
       const fmt = s => {
         const m = Math.floor(s / 60).toString().padStart(2,'0');
@@ -3958,9 +3978,12 @@
       };
       const row = document.createElement('div');
       row.className = 'ss-seg';
+      // In word-by-word mode text editing has no effect, make fields read-only
+      const roAttr  = isWbw ? ' readonly' : '';
+      const roStyle = isWbw ? 'color:var(--text3);cursor:default;' : '';
       row.innerHTML = `
         <div class="ss-seg-time">${fmt(seg.start)}<br>${fmt(seg.end)}</div>
-        <textarea class="ss-seg-text" id="ss_seg_${i}" rows="2">${seg.text}</textarea>
+        <textarea class="ss-seg-text" id="ss_seg_${i}" rows="2"${roAttr} style="${roStyle}">${seg.text}</textarea>
         <div onclick="ssDeleteSeg(${i})" style="color:var(--text4);cursor:pointer;padding:2px 4px;font-size:16px;line-height:1;" title="Видалити">✕</div>
       `;
       list.appendChild(row);
@@ -4025,6 +4048,12 @@
       document.getElementById('ssBurning').style.display = 'none';
       document.getElementById('ssDone').style.display = '';
       document.getElementById('ssDownloadLink').href = data.downloadUrl;
+      // Show in-browser video preview so user can check result before downloading
+      const doneVideo = document.getElementById('ssDoneVideo');
+      if (doneVideo) {
+        doneVideo.src = data.downloadUrl;
+        doneVideo.load();
+      }
     } catch(e) {
       document.getElementById('ssBurning').style.display = 'none';
       document.getElementById('ssBurnError').style.display = '';
@@ -4069,6 +4098,14 @@
     const segPanel = document.getElementById('ssSegments');
     if (genPanel) { genPanel.style.display = ''; ssSetGenPhase('upload'); }
     if (segPanel) segPanel.style.display = 'none';
+
+    // Reset generate button label (might have been changed by ssRestyle)
+    const genBtn = document.getElementById('ssGenerateBtn');
+    if (genBtn) genBtn.textContent = '🐙 Генерувати субтитри →';
+
+    // Stop and clear the done-screen video to free memory
+    const doneVideo = document.getElementById('ssDoneVideo');
+    if (doneVideo) { doneVideo.pause(); doneVideo.src = ''; }
 
     ssStep(1);
   }
