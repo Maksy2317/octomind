@@ -187,7 +187,16 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
     const boxcolor  = withBg ? 'black@0.65' : 'black@0';
     const boxborderw = withBg ? 14 : 0;
     const fontPath  = findFont();
-    const fontfilePrefix = fontPath ? `fontfile=${fontPath}:` : '';
+
+    if (!fontPath) {
+      res.status(500).json({
+        error: 'Font not found on server. Please ensure fonts-dejavu-core is installed.',
+      });
+      return;
+    }
+
+    console.log(`[subtitles/burn] Using font: ${fontPath}`);
+    const fontfilePrefix = `fontfile=${fontPath}:`;
 
     // Build one drawtext filter per segment
     const drawtextFilters: string[] = segments.map((seg) => {
