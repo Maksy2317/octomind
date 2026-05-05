@@ -161,13 +161,36 @@ function buildAssAccumulating(
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ].join('\n');
 
+  // ── Greedy word→segment assignment ─────────────────────────────────────────
+  // Process words in chronological order; each word is assigned to exactly one
+  // segment. We advance the segment pointer only when a word is clearly past
+  // the current segment's end (with a generous 0.4 s slack for Whisper drift).
+  // This prevents both duplicate matches and dropped words near boundaries.
+  const sortedWords = [...words]
+    .filter(w => w.word.trim())
+    .sort((a, b) => a.start - b.start);
+
+  const segWordMap = new Map<number, Array<{ word: string; start: number; end: number }>>();
+
+  let si = 0;
+  for (const w of sortedWords) {
+    // Advance segment pointer if word is clearly after the current segment
+    while (si < segments.length - 1 && w.start > segments[si].end + 0.4) {
+      si++;
+    }
+    // Assign to the current segment (accept with generous leading slack too)
+    if (w.start >= segments[si].start - 0.4) {
+      if (!segWordMap.has(si)) segWordMap.set(si, []);
+      segWordMap.get(si)!.push(w);
+    }
+    // (words that arrive before any segment — extremely rare — are silently dropped)
+  }
+
   const events: string[] = [];
 
-  for (const seg of segments) {
-    // Find words that belong to this segment (with small tolerance)
-    const segWords = words.filter(w =>
-      w.start >= seg.start - 0.15 && w.start < seg.end + 0.15 && w.word.trim(),
-    );
+  for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+    const seg = segments[segIdx];
+    const segWords = segWordMap.get(segIdx) ?? [];
 
     if (segWords.length === 0) {
       // No word-level data → show full segment at once as fallback
