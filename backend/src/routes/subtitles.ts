@@ -70,13 +70,17 @@ function buildAss(
   const borderStyle  = withBg ? 4 : 1;   // 4 = opaque box, 1 = outline
   const outline      = withBg ? 0 : 2;
   const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 40;
+  const marginV      = position === 'center' ? 0 : 120; // px at PlayResY=1920
 
+  // PlayRes matches vertical 9:16 social video (stories/reels/tiktok 1080×1920).
+  // Font sizes are in real pixels at this resolution (no unexpected libass scaling).
   const header = [
     '[Script Info]',
     'ScriptType: v4.00+',
     'WrapStyle: 0',
     'ScaledBorderAndShadow: yes',
+    'PlayResX: 1080',
+    'PlayResY: 1920',
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
