@@ -1791,11 +1791,11 @@
 
             <!-- Sub-step 3: review & edit subtitles -->
             <div id="ss3" style="display:none;">
-              <!-- Generating spinner -->
+              <!-- Generating spinner (two-phase: upload → transcribe) -->
               <div id="ssGenerating" class="card" style="text-align:center;padding:40px;">
-                <div style="font-size:48px;margin-bottom:16px;">🎙️</div>
-                <div class="card-title" style="margin-bottom:8px;">Розпізнаємо мову...</div>
-                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;">OpenAI Whisper аналізує аудіо</div>
+                <div style="font-size:48px;margin-bottom:16px;" id="ssGenIcon">📤</div>
+                <div class="card-title" style="margin-bottom:8px;" id="ssGenTitle">Завантажуємо відео...</div>
+                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;" id="ssGenSub">Підготовка аудіо для аналізу</div>
                 <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
                   <div id="ssGenBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:10%;animation:ssBarAnim 2s infinite ease-in-out;"></div>
                 </div>
@@ -1804,10 +1804,16 @@
               <div id="ssSegments" style="display:none;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                   <div class="card-title">Субтитри</div>
-                  <div id="ssDetLang" style="font-size:11px;color:var(--text4);"></div>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <span id="ssModeTag" style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--accent);color:#fff;"></span>
+                    <span id="ssDetLang" style="font-size:11px;color:var(--text4);"></span>
+                  </div>
                 </div>
                 <div id="ssSegList" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
-                <div style="font-size:11px;color:var(--text4);margin-bottom:14px;">✏️ Натисни на текст щоб відредагувати</div>
+                <!-- Edit hint (segments mode only) -->
+                <div id="ssEditHint" style="font-size:11px;color:var(--text4);margin-bottom:14px;">✏️ Натисни на текст щоб відредагувати</div>
+                <!-- Word-by-word note -->
+                <div id="ssWordNote" style="display:none;font-size:11px;color:var(--text2);margin-bottom:14px;background:var(--surface2);border-radius:8px;padding:8px 10px;line-height:1.5;">⚡ Режим <b>Слово в слово</b>: редагування тексту не змінює анімацію — слова показуються за таймингами Whisper. Тут можна видалити сегменти.</div>
                 <div style="display:flex;gap:8px;">
                   <button class="btn btn-secondary btn-sm" onclick="ssStep(2)">← Назад</button>
                   <button class="btn btn-primary btn-sm" style="flex:1;" onclick="ssBurn()">🔥 Вбити субтитри у відео →</button>
@@ -1837,9 +1843,12 @@
               <div id="ssBurnError" style="display:none;" class="card">
                 <div style="text-align:center;padding:20px;">
                   <div style="font-size:40px;margin-bottom:12px;">❌</div>
-                  <div class="card-title" style="color:#ff6b6b;">Помилка</div>
-                  <div class="card-sub" id="ssBurnErrorMsg" style="margin-bottom:16px;"></div>
-                  <button class="btn btn-secondary" onclick="ssStep(3)">← Спробувати ще раз</button>
+                  <div class="card-title" style="color:#ff6b6b;">Помилка рендеру</div>
+                  <div class="card-sub" id="ssBurnErrorMsg" style="margin-bottom:16px;word-break:break-word;"></div>
+                  <div style="display:flex;gap:8px;justify-content:center;">
+                    <button class="btn btn-secondary btn-sm" onclick="ssShowSegments()">✏️ Редагувати</button>
+                    <button class="btn btn-primary btn-sm" onclick="ssBurn()">🔥 Спробувати ще раз</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3719,8 +3728,10 @@
   function ssLoadFile(f) {
     ssState.file = f;
     ssState.frameBase64 = null;
+    const mb = f.size / 1024 / 1024;
     document.getElementById('ssFileName').textContent = f.name;
-    document.getElementById('ssFileSize').textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB';
+    document.getElementById('ssFileSize').textContent =
+      mb.toFixed(1) + ' MB' + (mb > 200 ? ' ⚠️ Файл дуже великий — завантаження може бути повільним' : '');
     document.getElementById('ssFileInfo').style.display = 'flex';
     document.getElementById('ssb1').disabled = false;
 
@@ -3850,6 +3861,21 @@
     if (thumb) thumb.style.left = hasBg ? '21px' : '3px';
   }
 
+  function ssSetGenPhase(phase) {
+    const icon  = document.getElementById('ssGenIcon');
+    const title = document.getElementById('ssGenTitle');
+    const sub   = document.getElementById('ssGenSub');
+    if (phase === 'upload') {
+      if (icon)  icon.textContent  = '📤';
+      if (title) title.textContent = 'Завантажуємо відео...';
+      if (sub)   sub.textContent   = 'Підготовка аудіо для аналізу';
+    } else {
+      if (icon)  icon.textContent  = '🎙️';
+      if (title) title.textContent = 'Розпізнаємо мову...';
+      if (sub)   sub.textContent   = 'OpenAI Whisper аналізує аудіо';
+    }
+  }
+
   async function ssGenerate() {
     ssStep(3);
     document.getElementById('ssGenerating').style.display = '';
@@ -3857,7 +3883,8 @@
     ssState.style.background = document.getElementById('ssBgToggle').checked;
 
     try {
-      // 1. Upload video
+      // Phase 1: upload video
+      ssSetGenPhase('upload');
       const fd = new FormData();
       fd.append('video', ssState.file);
       const upRes = await fetch('/api/video/upload', { method: 'POST', body: fd });
@@ -3865,7 +3892,8 @@
       const upData = await upRes.json();
       ssState.videoId = upData.videoId;
 
-      // 2. Generate subtitles
+      // Phase 2: transcribe
+      ssSetGenPhase('transcribe');
       const genRes = await fetch('/api/subtitles/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3884,6 +3912,8 @@
     } catch(e) {
       document.getElementById('ssGenerating').style.display = 'none';
       document.getElementById('ssSegments').style.display = '';
+      const modeTag = document.getElementById('ssModeTag');
+      if (modeTag) modeTag.textContent = '';
       document.getElementById('ssSegList').innerHTML =
         `<div class="fb bad"><span>❌</span><span>${e.message}</span></div>`;
       document.getElementById('ssDetLang').textContent = '';
@@ -3893,6 +3923,19 @@
   function ssRenderSegments(detectedLang) {
     document.getElementById('ssGenerating').style.display = 'none';
     document.getElementById('ssSegments').style.display = '';
+
+    // Mode tag
+    const modeTag = document.getElementById('ssModeTag');
+    if (modeTag) {
+      modeTag.textContent = ssState.wordByWord ? '⚡ Слово в слово' : '📝 Речення';
+      modeTag.style.background = ssState.wordByWord ? '#7C3AED' : 'var(--accent)';
+    }
+
+    // Show/hide mode-specific hints
+    const editHint = document.getElementById('ssEditHint');
+    const wordNote = document.getElementById('ssWordNote');
+    if (editHint) editHint.style.display = ssState.wordByWord ? 'none' : '';
+    if (wordNote) wordNote.style.display = ssState.wordByWord ? '' : 'none';
 
     if (detectedLang) {
       const names = { uk: '🇺🇦 Українська', ru: '🇷🇺 Русский', en: '🇬🇧 English', de: '🇩🇪 Deutsch', fr: '🇫🇷 Français' };
@@ -3925,8 +3968,23 @@
   }
 
   function ssDeleteSeg(i) {
-    ssState.segments.splice(i, 1);
+    const removed = ssState.segments.splice(i, 1)[0];
+    // Also remove words that belong to the deleted segment so they don't
+    // end up assigned to the wrong segment in word-by-word mode.
+    if (removed && ssState.words.length) {
+      ssState.words = ssState.words.filter(
+        w => !(w.start >= removed.start - 0.5 && w.start < removed.end + 0.5),
+      );
+    }
     ssRenderSegments(null);
+  }
+
+  // Show segments panel without re-triggering the generate spinner
+  // (used by the "Edit" button after a burn error)
+  function ssShowSegments() {
+    ssStep(3);
+    document.getElementById('ssGenerating').style.display = 'none';
+    document.getElementById('ssSegments').style.display = '';
   }
 
   function ssCollectEdits() {
@@ -3975,10 +4033,43 @@
   }
 
   function ssReset() {
-    ssState.file = null; ssState.videoId = null; ssState.segments = [];
+    // Reset all state
+    ssState.file = null;
+    ssState.videoId = null;
+    ssState.segments = [];
+    ssState.words = [];
+    ssState.wordByWord = false;
+    ssState.frameBase64 = null;
+
+    // Reset file info
     document.getElementById('ssFileInfo').style.display = 'none';
     document.getElementById('ssFile').value = '';
     document.getElementById('ssb1').disabled = true;
+
+    // Reset preview
+    const frame = document.getElementById('ssPreviewFrame');
+    if (frame) frame.style.backgroundImage = '';
+    const ph = document.getElementById('ssPreviewPlaceholder');
+    if (ph) ph.style.display = '';
+
+    // Reset mode buttons to defaults
+    const modeSegs  = document.getElementById('ssModeSegs');
+    const modeWords = document.getElementById('ssModeWords');
+    if (modeSegs)  modeSegs.classList.add('active');
+    if (modeWords) modeWords.classList.remove('active');
+    const posBottom = document.getElementById('ssPosBottom');
+    const posCenter = document.getElementById('ssPosCenter');
+    const posTop    = document.getElementById('ssPosTop');
+    [posTop, posCenter].forEach(b => b && b.classList.remove('active'));
+    if (posBottom) posBottom.classList.add('active');
+    ssState.style.position = 'bottom';
+
+    // Reset step-3 panels so next generate starts fresh
+    const genPanel = document.getElementById('ssGenerating');
+    const segPanel = document.getElementById('ssSegments');
+    if (genPanel) { genPanel.style.display = ''; ssSetGenPhase('upload'); }
+    if (segPanel) segPanel.style.display = 'none';
+
     ssStep(1);
   }
 
