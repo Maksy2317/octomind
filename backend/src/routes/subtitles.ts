@@ -105,8 +105,21 @@ function buildAss(
   return header + '\n' + events + '\n';
 }
 
-/** Word-by-word mode: one Dialogue event per spoken word (TikTok style) */
-function buildAssWordByWord(
+/**
+ * Accumulating word-by-word mode (TikTok karaoke style):
+ * Words build up one-by-one within each sentence → whole line disappears → next sentence starts fresh.
+ *
+ * Example for segment "While everyone thought he was":
+ *   0.0–0.3  → "While"
+ *   0.3–0.6  → "While everyone"
+ *   0.6–0.9  → "While everyone thought"
+ *   0.9–1.1  → "While everyone thought he"
+ *   1.1–end  → "While everyone thought he was"
+ *   [gap] — line disappears
+ *   Next segment starts fresh
+ */
+function buildAssAccumulating(
+  segments: Array<{ start: number; end: number; text: string }>,
   words: Array<{ word: string; start: number; end: number }>,
   style?: {
     fontSize?: number;
@@ -116,7 +129,7 @@ function buildAssWordByWord(
   },
 ): string {
   const fontSize   = style?.fontSize   ?? 72;
-  const position   = style?.position   ?? 'bottom';
+  const position   = style?.position   ?? 'center';
   const fontColor  = style?.fontColor  ?? 'white';
   const withBg     = style?.background !== false;
 
@@ -130,34 +143,63 @@ function buildAssWordByWord(
   const borderStyle  = withBg ? 4 : 1;
   const outline      = withBg ? 0 : 2;
   const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 200; // ~10% from edge at PlayResY=1920
+  const marginV      = position === 'center' ? 0 : 200;
 
   const header = [
     '[Script Info]',
     'ScriptType: v4.00+',
-    'WrapStyle: 0',
+    'WrapStyle: 1',   // smart wrap — keeps lines balanced
     'ScaledBorderAndShadow: yes',
     'PlayResX: 1080',
     'PlayResY: 1920',
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,&H00000000,${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},0,${alignment},10,10,${marginV},1`,
+    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,&H00000000,${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},0,${alignment},20,20,${marginV},1`,
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ].join('\n');
 
-  const events = words
-    .filter(w => w.word.trim())
-    .map(w => {
-      const text = w.word.trim()
-        .replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-      return `Dialogue: 0,${toAssTime(w.start)},${toAssTime(w.end)},Default,,0,0,0,,${text}`;
-    })
-    .join('\n');
+  const events: string[] = [];
 
-  return header + '\n' + events + '\n';
+  for (const seg of segments) {
+    // Find words that belong to this segment (with small tolerance)
+    const segWords = words.filter(w =>
+      w.start >= seg.start - 0.15 && w.start < seg.end + 0.15 && w.word.trim(),
+    );
+
+    if (segWords.length === 0) {
+      // No word-level data → show full segment at once as fallback
+      const text = seg.text.trim().replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+      if (text) events.push(
+        `Dialogue: 0,${toAssTime(seg.start)},${toAssTime(seg.end)},Default,,0,0,0,,${text}`,
+      );
+      continue;
+    }
+
+    // Build one event per position i: shows words[0..i] accumulated
+    for (let i = 0; i < segWords.length; i++) {
+      const tStart = segWords[i].start;
+      // Duration of this frame: until next word starts (or segment ends for last word)
+      const tEnd   = i + 1 < segWords.length ? segWords[i + 1].start : seg.end;
+
+      const text = segWords
+        .slice(0, i + 1)
+        .map(w => w.word.trim())
+        .join(' ')
+        .replace(/\{/g, '\\{')
+        .replace(/\}/g, '\\}');
+
+      if (text && tEnd > tStart) {
+        events.push(
+          `Dialogue: 0,${toAssTime(tStart)},${toAssTime(tEnd)},Default,,0,0,0,,${text}`,
+        );
+      }
+    }
+  }
+
+  return header + '\n' + events.join('\n') + '\n';
 }
 
 // ── POST /api/subtitles/generate ────────────────────────────────────────────
@@ -248,10 +290,10 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
     assPath = path.join(os.tmpdir(), `octo_subs_${uuidv4()}.ass`);
     const useWordByWord = wordByWord && words && words.length > 0;
     const assContent = useWordByWord
-      ? buildAssWordByWord(words!, style)
+      ? buildAssAccumulating(segments, words!, style)
       : buildAss(segments, style);
     fs.writeFileSync(assPath, assContent, 'utf8');
-    console.log(`[subtitles/burn] ASS file written: ${assPath} mode=${useWordByWord ? 'word-by-word' : 'segments'} (${useWordByWord ? words!.length + ' words' : segments.length + ' segments'})`);
+    console.log(`[subtitles/burn] ASS file written: ${assPath} mode=${useWordByWord ? 'accumulating-word-by-word' : 'segments'} (${useWordByWord ? words!.length + ' words / ' + segments.length + ' segments' : segments.length + ' segments'})`);
 
     // Escape path for FFmpeg filter syntax (colon is option separator)
     // UUID-based paths never contain single quotes or spaces
