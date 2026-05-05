@@ -983,6 +983,31 @@
       color: var(--text2); cursor: pointer; transition: all 0.15s;
     }
     .cal-type-chip.selected { color: #fff; border-color: var(--accent); background: var(--accent); }
+
+    /* Subtitle settings buttons */
+    .ss-opt-btn {
+      flex: 1; padding: 9px 6px; border-radius: 10px; border: 2px solid var(--border);
+      background: var(--surface); color: var(--text3); font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .ss-opt-btn:hover { border-color: var(--accent2); color: var(--text); }
+    .ss-opt-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+    /* Subtitle live preview */
+    .ss-preview-wrap {
+      position: relative; width: 140px; flex-shrink: 0;
+      border-radius: 12px; overflow: hidden; background: #111;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .ss-preview-ratio { padding-top: 177.77%; position: relative; }
+    .ss-preview-frame {
+      position: absolute; inset: 0; background-size: cover;
+      background-position: center; background-color: #1a1a2e;
+    }
+    .ss-preview-text {
+      position: absolute; left: 6px; right: 6px; text-align: center;
+      padding: 3px 6px; border-radius: 4px; font-weight: 700;
+      line-height: 1.3; transition: all 0.2s;
+    }
     .cal-post-item {
       display: flex; align-items: center; gap: 8px; padding: 8px 10px;
       background: var(--surface2); border-radius: 10px; margin-bottom: 6px;
@@ -1667,78 +1692,91 @@
 
             <!-- Sub-step 2: settings -->
             <div id="ss2" style="display:none;">
-              <div class="card-title" style="margin-bottom:12px;">Налаштування субтитрів</div>
 
-              <!-- Language -->
-              <div style="margin-bottom:14px;">
-                <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px;">🌐 Мова відео</div>
-                <div class="format-grid" style="grid-template-columns:repeat(3,1fr);">
-                  <div class="fc" onclick="ssLang('auto',this)">
-                    <div class="fc-icon">🤖</div><div class="fc-name">Авто</div><div class="fc-meta">AI визначить</div>
+              <!-- Live preview + settings side by side -->
+              <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
+
+                <!-- Live preview (phone frame) -->
+                <div class="ss-preview-wrap">
+                  <div class="ss-preview-ratio">
+                    <div class="ss-preview-frame" id="ssPreviewFrame">
+                      <!-- Placeholder when no frame -->
+                      <div id="ssPreviewPlaceholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
+                        <span style="font-size:28px;">🎬</span>
+                        <span style="font-size:9px;color:rgba(255,255,255,0.4);text-align:center;">перший<br>кадр</span>
+                      </div>
+                    </div>
+                    <!-- Subtitle text overlay -->
+                    <div class="ss-preview-text" id="ssPreviewText">Текст субтитрів</div>
                   </div>
-                  <div class="fc" onclick="ssLang('uk',this)">
-                    <div class="fc-icon">🇺🇦</div><div class="fc-name">Українська</div><div class="fc-meta">uk</div>
-                  </div>
-                  <div class="fc" onclick="ssLang('ru',this)">
-                    <div class="fc-icon">🇷🇺</div><div class="fc-name">Русский</div><div class="fc-meta">ru</div>
-                  </div>
-                  <div class="fc" onclick="ssLang('en',this)">
-                    <div class="fc-icon">🇬🇧</div><div class="fc-name">English</div><div class="fc-meta">en</div>
-                  </div>
-                  <div class="fc" onclick="ssLang('de',this)">
-                    <div class="fc-icon">🇩🇪</div><div class="fc-name">Deutsch</div><div class="fc-meta">de</div>
-                  </div>
-                  <div class="fc" onclick="ssLang('fr',this)">
-                    <div class="fc-icon">🇫🇷</div><div class="fc-name">Français</div><div class="fc-meta">fr</div>
-                  </div>
+                  <div style="text-align:center;font-size:9px;color:var(--text4);padding:4px 0;">Live preview</div>
                 </div>
-              </div>
 
-              <!-- Style -->
-              <div style="margin-bottom:14px;">
-                <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:8px;">🎨 Стиль тексту</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  <!-- Font size -->
-                  <div style="background:var(--surface2);border-radius:10px;padding:10px;">
-                    <div style="font-size:11px;color:var(--text4);margin-bottom:4px;">Розмір</div>
-                    <div style="display:flex;gap:4px;">
-                      <button class="btn btn-secondary btn-sm ss-sz selected" data-sz="18" onclick="ssSz(18,this)" style="flex:1;font-size:11px;padding:5px;">S</button>
-                      <button class="btn btn-secondary btn-sm ss-sz" data-sz="22" onclick="ssSz(22,this)" style="flex:1;font-size:11px;padding:5px;">M</button>
-                      <button class="btn btn-secondary btn-sm ss-sz" data-sz="28" onclick="ssSz(28,this)" style="flex:1;font-size:11px;padding:5px;">L</button>
+                <!-- Settings panel -->
+                <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+
+                  <!-- Language -->
+                  <div>
+                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🌐 Мова</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+                      <button class="ss-opt-btn active" id="ssLangAuto" onclick="ssLang('auto',this)">🤖 Авто</button>
+                      <button class="ss-opt-btn" id="ssLangUk" onclick="ssLang('uk',this)">🇺🇦 UA</button>
+                      <button class="ss-opt-btn" id="ssLangRu" onclick="ssLang('ru',this)">🇷🇺 RU</button>
+                      <button class="ss-opt-btn" id="ssLangEn" onclick="ssLang('en',this)">🇬🇧 EN</button>
+                      <button class="ss-opt-btn" id="ssLangDe" onclick="ssLang('de',this)">🇩🇪 DE</button>
+                      <button class="ss-opt-btn" id="ssLangFr" onclick="ssLang('fr',this)">🇫🇷 FR</button>
                     </div>
                   </div>
+
+                  <!-- Size -->
+                  <div>
+                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📏 Розмір</div>
+                    <div style="display:flex;gap:5px;">
+                      <button class="ss-opt-btn active" id="ssSzS" onclick="ssSz(18,this)">S</button>
+                      <button class="ss-opt-btn" id="ssSzM" onclick="ssSz(22,this)">M</button>
+                      <button class="ss-opt-btn" id="ssSzL" onclick="ssSz(28,this)">L</button>
+                    </div>
+                  </div>
+
                   <!-- Color -->
-                  <div style="background:var(--surface2);border-radius:10px;padding:10px;">
-                    <div style="font-size:11px;color:var(--text4);margin-bottom:4px;">Колір</div>
-                    <div style="display:flex;gap:6px;align-items:center;">
-                      <div class="ss-clr selected" data-clr="white" onclick="ssClr('white',this)" style="width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer;"></div>
-                      <div class="ss-clr" data-clr="yellow" onclick="ssClr('yellow',this)" style="width:24px;height:24px;border-radius:50%;background:#FFE600;border:2px solid transparent;cursor:pointer;"></div>
-                      <div class="ss-clr" data-clr="black" onclick="ssClr('black',this)" style="width:24px;height:24px;border-radius:50%;background:#111;border:2px solid transparent;cursor:pointer;"></div>
+                  <div>
+                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Колір</div>
+                    <div style="display:flex;gap:8px;">
+                      <div class="ss-clr" id="ssClrWhite" onclick="ssClr('white',this)"
+                        style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer;flex-shrink:0;"></div>
+                      <div class="ss-clr" id="ssClrYellow" onclick="ssClr('yellow',this)"
+                        style="width:32px;height:32px;border-radius:50%;background:#FFE600;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
+                      <div class="ss-clr" id="ssClrBlack" onclick="ssClr('black',this)"
+                        style="width:32px;height:32px;border-radius:50%;background:#111;border:3px solid transparent;cursor:pointer;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2);"></div>
                     </div>
                   </div>
-                </div>
-                <!-- Position -->
-                <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px;">
-                  <div style="font-size:11px;color:var(--text4);margin-bottom:6px;">Позиція</div>
-                  <div style="display:flex;gap:6px;">
-                    <button class="btn btn-secondary btn-sm ss-pos" data-pos="top" onclick="ssPos('top',this)" style="flex:1;font-size:11px;padding:5px;">⬆ Зверху</button>
-                    <button class="btn btn-secondary btn-sm ss-pos selected" data-pos="bottom" onclick="ssPos('bottom',this)" style="flex:1;font-size:11px;padding:5px;">⬇ Знизу</button>
-                    <button class="btn btn-secondary btn-sm ss-pos" data-pos="center" onclick="ssPos('center',this)" style="flex:1;font-size:11px;padding:5px;">· Центр</button>
+
+                  <!-- Position -->
+                  <div>
+                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📍 Позиція</div>
+                    <div style="display:flex;gap:5px;">
+                      <button class="ss-opt-btn" id="ssPosTop" onclick="ssPos('top',this)">⬆ Верх</button>
+                      <button class="ss-opt-btn active" id="ssPosBottom" onclick="ssPos('bottom',this)">⬇ Низ</button>
+                      <button class="ss-opt-btn" id="ssPosCenter" onclick="ssPos('center',this)">· Центр</button>
+                    </div>
                   </div>
-                </div>
-                <!-- Background toggle -->
-                <div style="background:var(--surface2);border-radius:10px;padding:10px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
-                  <span style="font-size:12px;color:var(--text2);">🟫 Фон за текстом</span>
-                  <label style="position:relative;display:inline-block;width:36px;height:20px;">
-                    <input type="checkbox" id="ssBgToggle" checked style="opacity:0;width:0;height:0;" onchange="ssState.style.background=this.checked">
-                    <span style="position:absolute;inset:0;background:#4CAF50;border-radius:20px;cursor:pointer;transition:.3s;" onclick="this.previousElementSibling.click()"></span>
-                  </label>
+
+                  <!-- Background toggle -->
+                  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
+                    <span style="font-size:12px;color:var(--text2);font-weight:600;">🟫 Фон за текстом</span>
+                    <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
+                      <input type="checkbox" id="ssBgToggle" checked style="opacity:0;width:0;height:0;" onchange="ssState.style.background=this.checked;ssUpdatePreview();">
+                      <span id="ssBgTrack" style="position:absolute;inset:0;background:#4CAF50;border-radius:20px;transition:.3s;"></span>
+                      <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssBgThumb"></span>
+                    </label>
+                  </div>
+
                 </div>
               </div>
 
               <div style="display:flex;gap:8px;">
-                <button class="btn btn-secondary btn-sm" onclick="ssStep(1)">← Назад</button>
-                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
+                <button class="btn btn-secondary" onclick="ssStep(1)" style="padding:10px 16px;">← Назад</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
               </div>
             </div>
 
@@ -3647,7 +3685,7 @@
 
   const ssState = {
     file: null, videoId: null, language: 'auto',
-    segments: [],
+    segments: [], frameBase64: null,
     style: { fontSize: 18, fontColor: 'white', position: 'bottom', background: true },
   };
 
@@ -3657,6 +3695,7 @@
       const el = document.getElementById('ssn' + i);
       el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
     });
+    if (n === 2) ssUpdatePreview();
   }
 
   function ssDrop(e) {
@@ -3670,34 +3709,108 @@
 
   function ssLoadFile(f) {
     ssState.file = f;
+    ssState.frameBase64 = null;
     document.getElementById('ssFileName').textContent = f.name;
     document.getElementById('ssFileSize').textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB';
     document.getElementById('ssFileInfo').style.display = 'flex';
     document.getElementById('ssb1').disabled = false;
+
+    // Capture first frame for live preview
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(f);
+    video.muted = true;
+    video.currentTime = 0.5;
+    video.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 270; canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ssState.frameBase64 = canvas.toDataURL('image/jpeg', 0.7);
+      URL.revokeObjectURL(video.src);
+    }, { once: true });
+    video.addEventListener('error', () => { URL.revokeObjectURL(video.src); }, { once: true });
+    video.load();
+  }
+
+  // ── Active button helpers ────────────────────────────────────────────────
+  function ssSetActive(groupIds, activeId) {
+    groupIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('active', id === activeId);
+    });
   }
 
   function ssLang(lang, el) {
     ssState.language = lang;
-    document.querySelectorAll('#ss2 .fc').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
+    const ids = ['ssLangAuto','ssLangUk','ssLangRu','ssLangEn','ssLangDe','ssLangFr'];
+    ids.forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
+    el.classList.add('active');
   }
 
   function ssSz(sz, el) {
     ssState.style.fontSize = sz;
-    document.querySelectorAll('.ss-sz').forEach(b => b.classList.remove('selected'));
-    el.classList.add('selected');
+    ['ssSzS','ssSzM','ssSzL'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
+    el.classList.add('active');
+    ssUpdatePreview();
   }
 
   function ssClr(clr, el) {
     ssState.style.fontColor = clr;
-    document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '2px solid transparent');
-    el.style.border = '2px solid var(--accent)';
+    document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '3px solid transparent');
+    el.style.border = '3px solid var(--accent)';
+    ssUpdatePreview();
   }
 
   function ssPos(pos, el) {
     ssState.style.position = pos;
-    document.querySelectorAll('.ss-pos').forEach(b => b.classList.remove('selected'));
-    el.classList.add('selected');
+    ['ssPosTop','ssPosBottom','ssPosCenter'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
+    el.classList.add('active');
+    ssUpdatePreview();
+  }
+
+  // ── Live preview updater ─────────────────────────────────────────────────
+  function ssUpdatePreview() {
+    const frame  = document.getElementById('ssPreviewFrame');
+    const text   = document.getElementById('ssPreviewText');
+    const ph     = document.getElementById('ssPreviewPlaceholder');
+    if (!frame || !text) return;
+
+    // Frame background
+    if (ssState.frameBase64) {
+      frame.style.backgroundImage = `url(${ssState.frameBase64})`;
+      if (ph) ph.style.display = 'none';
+    }
+
+    const { fontSize, fontColor, position, background } = ssState.style;
+    const bg = document.getElementById('ssBgToggle');
+    const hasBg = bg ? bg.checked : background;
+
+    // Scale font for preview (preview is ~140px wide, video is 1080px → ~0.13 scale)
+    const scaledFont = Math.max(7, Math.round(fontSize * 0.48));
+    const colorMap = { white: '#fff', yellow: '#FFE600', black: '#111' };
+    const color = colorMap[fontColor] || '#fff';
+
+    text.style.fontSize  = scaledFont + 'px';
+    text.style.color     = color;
+    text.style.background = hasBg ? 'rgba(0,0,0,0.65)' : 'transparent';
+    text.style.padding   = hasBg ? '2px 5px' : '0';
+    text.style.borderRadius = '3px';
+
+    // Position
+    text.style.top = text.style.bottom = text.style.transform = '';
+    if (position === 'top') {
+      text.style.top = '10px'; text.style.bottom = 'auto';
+    } else if (position === 'center') {
+      text.style.top = '50%'; text.style.transform = 'translateY(-50%)';
+    } else {
+      text.style.bottom = '10px'; text.style.top = 'auto';
+    }
+
+    // Sync bg toggle thumb (manual toggle visual)
+    const track = document.getElementById('ssBgTrack');
+    const thumb = document.getElementById('ssBgThumb');
+    if (track) track.style.background = hasBg ? '#4CAF50' : '#555';
+    if (thumb) thumb.style.left = hasBg ? '21px' : '3px';
   }
 
   async function ssGenerate() {
