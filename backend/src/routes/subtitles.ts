@@ -199,6 +199,14 @@ function buildAssAccumulating(
   }
 
   // ── Greedy word→segment assignment ─────────────────────────────────────────
+  // Rules:
+  //  1. Sort words by start time (Whisper can return them slightly out of order).
+  //  2. Advance the segment pointer si once a word is clearly past the current segment
+  //     (more than 0.4 s after its end).
+  //  3. ALWAYS assign the word — no lower-bound check that drops gap words.
+  //     Previously a word landing in a pause >0.8 s between two segments would
+  //     advance si past the old segment but fail the lower-bound guard for the new
+  //     one, silently disappearing from the output.
   const sortedWords = [...words]
     .filter(w => w.word.trim())
     .sort((a, b) => a.start - b.start);
@@ -208,10 +216,9 @@ function buildAssAccumulating(
   let si = 0;
   for (const w of sortedWords) {
     while (si < segments.length - 1 && w.start > segments[si].end + 0.4) si++;
-    if (w.start >= segments[si].start - 0.4) {
-      if (!segWordMap.has(si)) segWordMap.set(si, []);
-      segWordMap.get(si)!.push(w);
-    }
+    // Always assign — never skip a word because of gap timing
+    if (!segWordMap.has(si)) segWordMap.set(si, []);
+    segWordMap.get(si)!.push(w);
   }
 
   // Max words shown at once before text clears and restarts — keeps subtitles
@@ -243,10 +250,12 @@ function buildAssAccumulating(
       for (let i = 0; i < groupWords.length; i++) {
         const tStart = groupWords[i].start;
         // End time: next word in the group, or first word of next group, or segment end
-        const tEnd = i + 1 < groupWords.length
+        let tEnd = i + 1 < groupWords.length
           ? groupWords[i + 1].start
           : (groupEnd < segWords.length ? segWords[groupEnd].start : seg.end);
-        if (tEnd <= tStart) continue;
+        // Guard: Whisper sometimes produces equal/duplicate timestamps.
+        // Enforce a minimum display window so the word is never silently skipped.
+        if (tEnd <= tStart) tEnd = tStart + 0.15;
 
         // Processed words for this frame (only within current group)
         const processed = groupWords.slice(0, i + 1).map(w => prepareText(w.word, uc));
