@@ -992,6 +992,32 @@
     }
     .ss-opt-btn:hover { border-color: var(--accent2); color: var(--text); }
     .ss-opt-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+    /* Template cards */
+    .ss-tmpl-card {
+      flex-shrink: 0; width: 90px; border-radius: 12px; overflow: hidden; cursor: pointer;
+      border: 2px solid var(--border); background: var(--surface2);
+      transition: border-color .15s, transform .15s;
+    }
+    .ss-tmpl-card:hover { border-color: var(--accent2); transform: translateY(-2px); }
+    .ss-tmpl-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent)44; }
+    .ss-tmpl-preview {
+      height: 60px; display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 11px; letter-spacing: .3px; padding: 4px 6px;
+      text-align: center; line-height: 1.2;
+    }
+    .ss-tmpl-label {
+      font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
+      padding: 4px 4px 6px; border-top: 1px solid var(--border);
+    }
+    /* Tab switcher in step 2 */
+    .ss-tab-bar {
+      display: flex; background: var(--surface2); border-radius: 10px; padding: 3px; margin-bottom: 14px;
+    }
+    .ss-tab {
+      flex: 1; padding: 7px; border-radius: 7px; text-align: center; font-size: 12px;
+      font-weight: 700; color: var(--text3); cursor: pointer; transition: all .15s;
+    }
+    .ss-tab.active { background: var(--accent); color: #fff; }
     /* Subtitle live preview */
     .ss-preview-wrap {
       position: relative; width: 140px; flex-shrink: 0;
@@ -1693,6 +1719,21 @@
             <!-- Sub-step 2: settings -->
             <div id="ss2" style="display:none;">
 
+              <!-- Tab bar: Templates / Custom -->
+              <div class="ss-tab-bar">
+                <div class="ss-tab active" id="ssTabTmpl" onclick="ssShowTab('tmpl')">🎨 Шаблони</div>
+                <div class="ss-tab" id="ssTabCustom" onclick="ssShowTab('custom')">⚙️ Свої</div>
+              </div>
+
+              <!-- Templates panel -->
+              <div id="ss2Tmpl">
+                <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;" id="ssTmplRow"></div>
+                <!-- Template description -->
+                <div id="ssTmplDesc" style="font-size:11px;color:var(--text3);margin-bottom:12px;min-height:16px;text-align:center;"></div>
+              </div>
+
+              <!-- Custom settings panel (hidden by default) -->
+              <div id="ss2Custom" style="display:none;">
               <!-- Live preview + settings side by side -->
               <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
 
@@ -1794,8 +1835,9 @@
 
                 </div>
               </div>
+              </div><!-- /ss2Custom -->
 
-              <div style="display:flex;gap:8px;">
+              <div style="display:flex;gap:8px;margin-top:4px;">
                 <button class="btn btn-secondary" onclick="ssStep(1)" style="padding:10px 16px;">← Назад</button>
                 <button class="btn btn-primary" id="ssGenerateBtn" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
               </div>
@@ -3721,13 +3763,192 @@
     style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
   };
 
+  // ── Subtitle style templates ──────────────────────────────────────────────
+  const SS_TEMPLATES = [
+    {
+      id: 'bold-top',
+      emoji: '🔥',
+      name: 'Bold Top',
+      desc: 'Як у @danovskyii — великий жирний текст зверху',
+      wordByWord: false,
+      style: { fontSize: 120, fontColor: 'white', position: 'top', background: false, uppercase: true },
+      // mini preview visual
+      previewBg: '#1a1a2e',
+      previewColor: '#fff',
+      previewShadow: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,-2px 0 0 #000,2px 0 0 #000,0 -2px 0 #000,0 2px 0 #000',
+      previewAlign: 'top',
+      previewUpper: true,
+    },
+    {
+      id: 'red-impact',
+      emoji: '🎯',
+      name: 'Red Impact',
+      desc: 'Червоний жирний зверху — для акцентів і гуків',
+      wordByWord: false,
+      style: { fontSize: 120, fontColor: 'red', position: 'top', background: false, uppercase: true },
+      previewBg: '#1a1a2e',
+      previewColor: '#FF2D2D',
+      previewShadow: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,-2px 0 0 #000,2px 0 0 #000,0 -2px 0 #000,0 2px 0 #000',
+      previewAlign: 'top',
+      previewUpper: true,
+    },
+    {
+      id: 'karaoke',
+      emoji: '⚡',
+      name: 'Karaoke',
+      desc: 'Слово в слово по центру — вірусний TikTok стиль',
+      wordByWord: true,
+      style: { fontSize: 96, fontColor: 'white', position: 'center', background: true, uppercase: false },
+      previewBg: '#222',
+      previewColor: '#fff',
+      previewShadow: 'none',
+      previewAlign: 'center',
+      previewUpper: false,
+    },
+    {
+      id: 'classic',
+      emoji: '📱',
+      name: 'Classic',
+      desc: 'Класичні субтитри знизу з фоном',
+      wordByWord: false,
+      style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
+      previewBg: '#222',
+      previewColor: '#fff',
+      previewShadow: 'none',
+      previewAlign: 'bottom',
+      previewUpper: false,
+    },
+    {
+      id: 'yellow-bold',
+      emoji: '⭐',
+      name: 'Yellow Bold',
+      desc: 'Жовтий без фону — яскраво і помітно',
+      wordByWord: false,
+      style: { fontSize: 96, fontColor: 'yellow', position: 'bottom', background: false, uppercase: true },
+      previewBg: '#1a1a2e',
+      previewColor: '#FFE600',
+      previewShadow: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,-2px 0 0 #000,2px 0 0 #000',
+      previewAlign: 'bottom',
+      previewUpper: true,
+    },
+  ];
+
+  let ssActiveTmplId = null;
+
+  function ssInitTemplates() {
+    const row = document.getElementById('ssTmplRow');
+    if (!row) return;
+    row.innerHTML = '';
+    SS_TEMPLATES.forEach((tmpl, idx) => {
+      const card = document.createElement('div');
+      card.className = 'ss-tmpl-card' + (ssActiveTmplId === tmpl.id ? ' active' : '');
+      card.id = 'ssTmplCard_' + tmpl.id;
+
+      const alignStyle = tmpl.previewAlign === 'top'
+        ? 'align-items:flex-start;padding-top:6px;'
+        : tmpl.previewAlign === 'bottom'
+        ? 'align-items:flex-end;padding-bottom:6px;'
+        : 'align-items:center;';
+
+      const bgColor = tmpl.previewAlign === 'center' || !tmpl.style.background
+        ? tmpl.previewBg : tmpl.previewBg;
+      const textBg = tmpl.style.background ? 'rgba(0,0,0,0.65)' : 'transparent';
+      const textPad = tmpl.style.background ? '2px 5px' : '0';
+
+      card.innerHTML = `
+        <div class="ss-tmpl-preview" style="background:${tmpl.previewBg};${alignStyle}">
+          <span style="color:${tmpl.previewColor};text-shadow:${tmpl.previewShadow};background:${textBg};padding:${textPad};border-radius:3px;${tmpl.previewUpper ? 'text-transform:uppercase;' : ''}font-size:10px;">
+            ${tmpl.emoji} ${tmpl.previewUpper ? 'ТЕКСТ' : 'Текст'}
+          </span>
+        </div>
+        <div class="ss-tmpl-label">${tmpl.name}</div>
+      `;
+      card.onclick = () => ssApplyTemplate(tmpl);
+      row.appendChild(card);
+    });
+  }
+
+  function ssApplyTemplate(tmpl) {
+    ssActiveTmplId = tmpl.id;
+    // Apply all style settings
+    Object.assign(ssState.style, tmpl.style);
+    ssState.wordByWord = tmpl.wordByWord;
+    // Sync all UI controls
+    ssSyncUI();
+    // Update template card selection
+    document.querySelectorAll('.ss-tmpl-card').forEach(c => c.classList.remove('active'));
+    const activeCard = document.getElementById('ssTmplCard_' + tmpl.id);
+    if (activeCard) activeCard.classList.add('active');
+    // Show description
+    const desc = document.getElementById('ssTmplDesc');
+    if (desc) desc.textContent = tmpl.desc;
+  }
+
+  // Sync all UI buttons/toggles from ssState
+  function ssSyncUI() {
+    const { fontSize, fontColor, position, background, uppercase } = ssState.style;
+
+    // Size buttons
+    const szMap = { 72: 'ssSzS', 96: 'ssSzM', 120: 'ssSzL' };
+    ['ssSzS','ssSzM','ssSzL'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.classList.remove('active');
+    });
+    const szBtn = document.getElementById(szMap[fontSize]);
+    if (szBtn) szBtn.classList.add('active');
+
+    // Color swatches
+    document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '3px solid transparent');
+    const blackSwatch = document.getElementById('ssClrBlack');
+    if (blackSwatch) blackSwatch.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.2)';
+    const clrMap = { white:'ssClrWhite', yellow:'ssClrYellow', red:'ssClrRed', black:'ssClrBlack' };
+    const activeSwatch = document.getElementById(clrMap[fontColor]);
+    if (activeSwatch) activeSwatch.style.border = '3px solid var(--accent)';
+
+    // Mode buttons
+    ['ssModeSegs','ssModeWords'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.classList.remove('active');
+    });
+    const modeBtn = document.getElementById(ssState.wordByWord ? 'ssModeWords' : 'ssModeSegs');
+    if (modeBtn) modeBtn.classList.add('active');
+
+    // Position buttons
+    const posMap = { top:'ssPosTop', bottom:'ssPosBottom', center:'ssPosCenter' };
+    ['ssPosTop','ssPosBottom','ssPosCenter'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.classList.remove('active');
+    });
+    const posBtn = document.getElementById(posMap[position]);
+    if (posBtn) posBtn.classList.add('active');
+
+    // Background toggle
+    const bgToggle = document.getElementById('ssBgToggle');
+    if (bgToggle) bgToggle.checked = background;
+
+    // Uppercase toggle
+    const upperToggle = document.getElementById('ssUpperToggle');
+    if (upperToggle) upperToggle.checked = !!uppercase;
+
+    ssUpdatePreview();
+  }
+
+  function ssShowTab(tab) {
+    const isTmpl = tab === 'tmpl';
+    document.getElementById('ss2Tmpl').style.display   = isTmpl ? '' : 'none';
+    document.getElementById('ss2Custom').style.display = isTmpl ? 'none' : '';
+    document.getElementById('ssTabTmpl').className   = 'ss-tab' + (isTmpl ? ' active' : '');
+    document.getElementById('ssTabCustom').className = 'ss-tab' + (!isTmpl ? ' active' : '');
+    if (isTmpl) ssInitTemplates();
+  }
+
   function ssStep(n) {
     [1,2,3,4].forEach(i => {
       document.getElementById('ss' + i).style.display = i === n ? '' : 'none';
       const el = document.getElementById('ssn' + i);
       el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
     });
-    if (n === 2) ssUpdatePreview();
+    if (n === 2) {
+      ssInitTemplates();   // render/refresh template cards
+      ssUpdatePreview();
+    }
   }
 
   function ssDrop(e) {
@@ -4130,6 +4351,11 @@
     const upperToggle = document.getElementById('ssUpperToggle');
     if (upperToggle) upperToggle.checked = false;
     ssState.style.uppercase = false;
+
+    // Reset active template
+    ssActiveTmplId = null;
+    // Reset tab back to Templates
+    ssShowTab('tmpl');
 
     // Reset generate button label (might have been changed by ssRestyle)
     const genBtn = document.getElementById('ssGenerateBtn');
