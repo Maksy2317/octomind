@@ -1659,16 +1659,26 @@
               <div id="vProgressLabel" style="font-size:12px;color:var(--text4);margin-top:8px;">Завантаження та обробка...</div>
             </div>
             <div id="vDone" style="display:none;">
-              <div class="card" style="text-align:center;padding:36px;background:linear-gradient(135deg,#1a1040,#12121E);border-color:#4CAF5066;">
-                <div style="font-size:60px;margin-bottom:14px;">🎉</div>
-                <div class="card-title" style="color:#4CAF50;">Відео готове!</div>
-                <div class="card-sub" id="vrd" style="margin-bottom:20px;">Шаблон застосовано</div>
-                <a id="vDownloadLink" href="#" download="octo_video.mp4" class="btn btn-primary" style="text-decoration:none;display:inline-block;">💾 Завантажити відео</a>
+              <!-- Inline video preview (portrait 9:16) -->
+              <div id="vDoneVideoWrap" style="border-radius:14px;overflow:hidden;background:#000;margin-bottom:12px;line-height:0;display:none;">
+                <video id="vPreviewVideo" controls playsinline style="width:100%;max-height:400px;display:block;object-fit:contain;"></video>
               </div>
-              <div class="card" style="margin-top:14px;">
-                <div id="vDoneInfo" style="font-size:13px;color:var(--text3);line-height:1.8;"></div>
+              <!-- Title pill -->
+              <div class="card" style="text-align:center;padding:16px 20px;background:linear-gradient(135deg,#1a1040,#12121E);border-color:#4CAF5066;margin-bottom:10px;">
+                <div style="font-size:36px;margin-bottom:6px;">🎉</div>
+                <div class="card-title" style="color:#4CAF50;margin-bottom:2px;">Відео готове!</div>
+                <div class="card-sub" id="vrd">Шаблон застосовано</div>
               </div>
-              <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="vReset()">+ Створити ще</button>
+              <!-- Action buttons — mirrors subtitle section layout -->
+              <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <a id="vDownloadLink" href="#" download="octo_video.mp4" class="btn btn-primary" style="flex:1;text-decoration:none;text-align:center;">💾 Завантажити</a>
+                <button class="btn btn-secondary" style="flex:1;" onclick="vRework()">✏️ Змінити текст</button>
+              </div>
+              <!-- Tech info (compact) -->
+              <div class="card" style="margin-bottom:8px;padding:10px 14px;">
+                <div id="vDoneInfo" style="font-size:12px;color:var(--text3);line-height:1.9;"></div>
+              </div>
+              <button class="btn btn-secondary btn-full" onclick="vReset()">+ Створити ще</button>
             </div>
             <div id="vError" style="display:none;" class="card">
               <div style="text-align:center;padding:20px;">
@@ -3809,13 +3819,23 @@
       setTimeout(() => {
         processing.style.display = 'none';
         done.style.display = 'block';
-        document.getElementById('vDownloadLink').href = processData.downloadUrl;
+        // Cache-bust so the player always shows the freshly-rendered video
+        const freshUrl = processData.downloadUrl + '?v=' + Date.now();
+        document.getElementById('vDownloadLink').href = freshUrl;
         document.getElementById('vrd').textContent = tmplDisplayName + ' · ' + (fmtN[vS.fmt] || vS.fmt);
         document.getElementById('vDoneInfo').innerHTML =
           `📐 <strong>Формат:</strong> ${fmtN[vS.fmt] || vS.fmt} · 1080×1920 (9:16)<br>` +
           `${tmplEmoji}<strong>Шаблон:</strong> ${tmplDisplayName}<br>` +
           `🎬 <strong>Кодек:</strong> H.264 · AAC · faststart<br>` +
           `✅ Файл готовий до публікації в Instagram / TikTok`;
+        // Populate inline video preview
+        const previewVideo = document.getElementById('vPreviewVideo');
+        const previewWrap  = document.getElementById('vDoneVideoWrap');
+        if (previewVideo && previewWrap) {
+          previewVideo.src = freshUrl;
+          previewVideo.load();
+          previewWrap.style.display = '';
+        }
       }, 600);
 
     } catch (err) {
@@ -3835,7 +3855,23 @@
     document.getElementById('vf').value = '';
     document.getElementById('vTextPanel').style.display = 'none';
     document.getElementById('vSlotInputs').innerHTML = '';
+    // Clear inline preview
+    const pv = document.getElementById('vPreviewVideo');
+    const pw = document.getElementById('vDoneVideoWrap');
+    if (pv) pv.src = '';
+    if (pw) pw.style.display = 'none';
     vs(1);
+  }
+
+  /** Go back to step 3 (text inputs) without losing the uploaded video — lets user tweak text and re-render */
+  function vRework() {
+    const pv = document.getElementById('vPreviewVideo');
+    const pw = document.getElementById('vDoneVideoWrap');
+    if (pv) pv.src = '';
+    if (pw) pw.style.display = 'none';
+    document.getElementById('vDone').style.display = 'none';
+    document.getElementById('vProcessing').style.display = 'none';
+    vs(3);
   }
 
   // =============================================
