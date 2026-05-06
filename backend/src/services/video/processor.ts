@@ -1,4 +1,7 @@
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import ffmpeg from 'fluent-ffmpeg';
 import { TemplateConfig, VideoFormat, StructuredTemplate } from '../../types';
 
@@ -145,6 +148,76 @@ export function applyTemplate(
   });
 }
 
+// ── ASS helpers for structured template text overlays ────────────────────────
+
+/** Format seconds → ASS timestamp H:MM:SS.CC */
+function toAssTimeProc(s: number): string {
+  const h  = Math.floor(s / 3600);
+  const m  = Math.floor((s % 3600) / 60);
+  const sc = Math.floor(s % 60);
+  const cs = Math.min(99, Math.round((s % 1) * 100));
+  return `${h}:${String(m).padStart(2,'0')}:${String(sc).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+}
+
+/**
+ * Build an ASS file from structured-template slot definitions.
+ * Uses the `subtitles` filter (always available in mwader/static-ffmpeg)
+ * instead of `drawtext` (which requires libfreetype and can be missing).
+ *
+ * ASS colour format: &HAABBGGRR  (alpha-blue-green-red)
+ *   white  = &H00FFFFFF
+ *   yellow = &H0000FFFF   (BGR: 00 FF FF)
+ *   black  = &H00000000
+ * Box backgrounds use BackColour with alpha:
+ *   60% opaque black = &H99000000
+ *   70% opaque black = &H80000000
+ */
+function buildAssForSlots(
+  slots: StructuredTemplate['slots'],
+  textInputs: Record<string, string>,
+): string {
+  const lines: string[] = [
+    '[Script Info]',
+    'ScriptType: v4.00+',
+    'WrapStyle: 1',
+    'ScaledBorderAndShadow: yes',
+    'PlayResX: 1080',
+    'PlayResY: 1920',
+    '',
+    '[V4+ Styles]',
+    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+    // hook  — large, top,    white, opaque box
+    'Style: Hook,Arial,52,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,0,0,8,40,40,120,1',
+    // point — medium, center, white, semi-opaque box
+    'Style: Point,Arial,42,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,4,0,0,5,40,40,0,1',
+    // label — large, center, white, opaque box
+    'Style: Label,Arial,64,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,0,0,5,40,40,0,1',
+    // cta   — small, bottom, yellow, semi-opaque box
+    'Style: CTA,Arial,38,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,4,0,0,2,40,40,120,1',
+    '',
+    '[Events]',
+    'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+  ];
+
+  const styleMap: Record<string, string> = { hook: 'Hook', point: 'Point', label: 'Label', cta: 'CTA' };
+
+  for (const slot of slots) {
+    const raw = (textInputs[slot.id] || (slot as any).defaultText || '').trim();
+    if (!raw) continue;
+    // Sanitise text: strip ASS override tags, replace newlines with \N
+    const text = raw
+      .replace(/\{[^}]*\}/g, '')
+      .replace(/\r?\n/g, '\\N')
+      .replace(/'/g, '’');  // curly apostrophe is safe in ASS
+    const assStyle  = styleMap[slot.style] || 'Point';
+    const startTime = toAssTimeProc(slot.startSec);
+    const endTime   = toAssTimeProc(Math.min(slot.endSec, 300));
+    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${text}`);
+  }
+
+  return lines.join('\n') + '\n';
+}
+
 // ── New: applyStructuredTemplate ─────────────────────────────────────────────
 
 export function applyStructuredTemplate(
@@ -154,99 +227,29 @@ export function applyStructuredTemplate(
   textInputs: Record<string, string>,
   format: VideoFormat,
 ): Promise<void> {
+  let assPath: string | null = null;
+
   return new Promise((resolve, reject) => {
     const { width, height } = FORMAT_DIMENSIONS[format];
-    const fontPath = findFont();
 
-    // 1. Base filters: scale + crop + color adjustment
+    // 1. Base filters: scale → crop → colour adjustment
     const baseFilters: string[] = [
       `scale=${width}:${height}:force_original_aspect_ratio=increase`,
       `crop=${width}:${height}`,
     ];
-
     const { brightness, contrast, saturation } = template.colorAdjust;
     baseFilters.push(`eq=brightness=${brightness}:contrast=${contrast}:saturation=${saturation}`);
 
-    // 2. Build one drawtext filter per slot
-    const drawtextFilters: string[] = [];
+    // 2. Build ASS overlay file from template slots.
+    //    Using the `subtitles` filter (libass) instead of `drawtext` (libfreetype)
+    //    because mwader/static-ffmpeg guarantees libass but drawtext can be absent.
+    assPath = path.join(os.tmpdir(), `octo_tmpl_${uuidv4()}.ass`);
+    fs.writeFileSync(assPath, buildAssForSlots(template.slots, textInputs), 'utf8');
+    console.log(`[applyStructuredTemplate] ASS overlay → ${assPath}`);
 
-    for (const slot of template.slots) {
-      const rawText = (textInputs[slot.id] || slot.defaultText).trim();
-      const wrapped = wrapText(rawText, 28);
-      const escaped = escapeFfmpegText(wrapped);
-
-      // Position expressions
-      let xExpr: string;
-      let yExpr: string;
-      switch (slot.position) {
-        case 'top':
-          xExpr = '(w-text_w)/2';
-          yExpr = '120';
-          break;
-        case 'bottom':
-          xExpr = '(w-text_w)/2';
-          yExpr = 'h-180';
-          break;
-        case 'center':
-        default:
-          xExpr = '(w-text_w)/2';
-          yExpr = '(h-text_h)/2';
-          break;
-      }
-
-      // Style-based appearance
-      let fontsize: number;
-      let fontcolor: string;
-      let boxcolor: string;
-      let boxborderw: number;
-
-      switch (slot.style) {
-        case 'hook':
-          fontsize = 52;
-          fontcolor = 'white';
-          boxcolor = 'black@0.6';
-          boxborderw = 16;
-          break;
-        case 'label':
-          fontsize = 64;
-          fontcolor = 'white';
-          boxcolor = 'black@0.7';
-          boxborderw = 20;
-          break;
-        case 'cta':
-          fontsize = 38;
-          fontcolor = 'yellow';
-          boxcolor = 'black@0.5';
-          boxborderw = 12;
-          break;
-        case 'point':
-        default:
-          fontsize = 42;
-          fontcolor = 'white';
-          boxcolor = 'black@0.5';
-          boxborderw = 12;
-          break;
-      }
-
-      const endSec = Math.min(slot.endSec, 300);
-      const enableExpr = `enable='between(t,${slot.startSec},${endSec})'`;
-
-      const fontfilePrefix = fontPath ? `fontfile=${fontPath}:` : '';
-
-      const filter =
-        `drawtext=${fontfilePrefix}` +
-        `text='${escaped}':` +
-        `fontsize=${fontsize}:` +
-        `fontcolor=${fontcolor}:` +
-        `x=${xExpr}:y=${yExpr}:` +
-        `box=1:boxcolor=${boxcolor}:boxborderw=${boxborderw}:` +
-        `line_spacing=8:` +
-        `${enableExpr}`;
-
-      drawtextFilters.push(filter);
-    }
-
-    const allFilters = [...baseFilters, ...drawtextFilters];
+    // Escape the ASS path for FFmpeg filter syntax (colon is an option separator)
+    const escapedAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const allFilters = [...baseFilters, `subtitles='${escapedAss}'`];
 
     const command = ffmpeg(inputPath)
       .videoFilters(allFilters)
@@ -257,15 +260,20 @@ export function applyStructuredTemplate(
       .output(outputPath);
 
     command
-      .on('progress', (progress) => {
+      .on('start', (cmd: string) => {
+        console.log('[applyStructuredTemplate] FFmpeg cmd:', cmd);
+      })
+      .on('progress', (progress: { percent?: number }) => {
         process.stdout.write(`\rProcessing (structured): ${Math.round(progress.percent || 0)}%`);
       })
       .on('end', () => {
         process.stdout.write('\n');
+        if (assPath) { try { fs.unlinkSync(assPath); } catch {} }
         resolve();
       })
-      .on('error', (err) => {
+      .on('error', (err: Error) => {
         console.error('[applyStructuredTemplate] FFmpeg error:', err.message);
+        if (assPath) { try { fs.unlinkSync(assPath); } catch {} }
         reject(new Error(`FFmpeg error: ${err.message}`));
       })
       .run();
