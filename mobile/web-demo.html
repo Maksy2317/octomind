@@ -1007,6 +1007,7 @@
       height: 74px; display: flex; align-items: center; justify-content: center;
       font-weight: 900; font-size: 11px; letter-spacing: .3px; padding: 4px 6px;
       text-align: center; line-height: 1.3; position: relative;
+      background-size: cover; background-position: center;
     }
     .ss-tmpl-label {
       font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
@@ -4061,12 +4062,27 @@
     ssUpdatePreview();
   }
 
+  // ── Update template card backgrounds with video first frame ────────────
+  function ssUpdateTmplCards() {
+    const previews = document.querySelectorAll('.ss-tmpl-preview');
+    previews.forEach(p => {
+      if (ssState.frameBase64) {
+        p.style.backgroundImage = `url(${ssState.frameBase64})`;
+      } else {
+        p.style.backgroundImage = '';
+      }
+    });
+  }
+
   // ── Live preview updater ─────────────────────────────────────────────────
   function ssUpdatePreview() {
     const frame  = document.getElementById('ssPreviewFrame');
     const text   = document.getElementById('ssPreviewText');
     const ph     = document.getElementById('ssPreviewPlaceholder');
     if (!frame || !text) return;
+
+    // Update template card backgrounds with video frame
+    ssUpdateTmplCards();
 
     // Frame background
     if (ssState.frameBase64) {
@@ -4355,6 +4371,9 @@
     if (frame) frame.style.backgroundImage = '';
     const ph = document.getElementById('ssPreviewPlaceholder');
     if (ph) ph.style.display = '';
+
+    // Clear template card backgrounds
+    ssUpdateTmplCards();
 
     // Reset style to first template defaults
     ssState.selectedTemplate = 0;
