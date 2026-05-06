@@ -1007,8 +1007,14 @@
       height: 74px; display: flex; align-items: center; justify-content: center;
       font-weight: 900; font-size: 11px; letter-spacing: .3px; padding: 4px 6px;
       text-align: center; line-height: 1.3; position: relative;
-      background-size: cover; background-position: center;
+      background-size: cover; background-position: center; background-color: #111;
     }
+    /* Dark scrim over video frame so text stays readable */
+    .ss-tmpl-preview::before {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(0,0,0,0.38); pointer-events: none; z-index: 0;
+    }
+    .ss-tmpl-preview > * { position: relative; z-index: 1; }
     .ss-tmpl-label {
       font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
       padding: 4px 4px 7px; border-top: 1px solid var(--border); line-height: 1.3;
@@ -1730,7 +1736,7 @@
 
                   <!-- 1. Karaoke Red -->
                   <div class="ss-tmpl-card active" id="ssTmpl0" onclick="ssSelectTemplate(0)">
-                    <div class="ss-tmpl-preview" style="background:#111;align-items:flex-start;padding-top:12px;">
+                    <div class="ss-tmpl-preview" style="background-color:#111;align-items:flex-start;padding-top:12px;">
                       <span style="font-weight:900;font-size:9px;text-transform:uppercase;
                         text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;">
                         <span style="color:#fff;">HE </span><span style="color:#FF2D2D;">WAS</span>
@@ -1741,7 +1747,7 @@
 
                   <!-- 2. Flash Yellow -->
                   <div class="ss-tmpl-card" id="ssTmpl1" onclick="ssSelectTemplate(1)">
-                    <div class="ss-tmpl-preview" style="background:#0d0d0d;">
+                    <div class="ss-tmpl-preview" style="background-color:#0d0d0d;">
                       <span style="font-weight:900;font-size:18px;color:#FFE600;text-transform:uppercase;
                         text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;
                         letter-spacing:1px;">GO!</span>
@@ -1751,7 +1757,7 @@
 
                   <!-- 3. Hormozi Gold -->
                   <div class="ss-tmpl-card" id="ssTmpl2" onclick="ssSelectTemplate(2)">
-                    <div class="ss-tmpl-preview" style="background:#111;">
+                    <div class="ss-tmpl-preview" style="background-color:#111;">
                       <span style="font-weight:900;font-size:9px;text-transform:uppercase;
                         text-shadow:-1px -1px 0 #000,1px 1px 0 #000;line-height:1.6;text-align:center;">
                         <span style="color:#fff;">JUST </span><span style="color:#FFE600;">DO</span><br>
@@ -1763,7 +1769,7 @@
 
                   <!-- 4. Netflix Clean -->
                   <div class="ss-tmpl-card" id="ssTmpl3" onclick="ssSelectTemplate(3)">
-                    <div class="ss-tmpl-preview" style="background:#0a0a0a;align-items:flex-end;padding-bottom:10px;">
+                    <div class="ss-tmpl-preview" style="background-color:#0a0a0a;align-items:flex-end;padding-bottom:10px;">
                       <span style="font-weight:600;font-size:8px;color:#fff;
                         text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);">this happened</span>
                     </div>
@@ -1772,7 +1778,7 @@
 
                   <!-- 5. Podcast Box -->
                   <div class="ss-tmpl-card" id="ssTmpl4" onclick="ssSelectTemplate(4)">
-                    <div class="ss-tmpl-preview" style="background:#0a0a0a;align-items:flex-end;padding-bottom:10px;">
+                    <div class="ss-tmpl-preview" style="background-color:#0a0a0a;align-items:flex-end;padding-bottom:10px;">
                       <span style="font-weight:700;font-size:8px;color:#fff;
                         background:rgba(0,0,0,0.78);padding:2px 6px;border-radius:4px;
                         letter-spacing:.2px;">this happened</span>
