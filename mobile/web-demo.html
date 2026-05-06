@@ -994,7 +994,7 @@
     .ss-opt-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
     /* Template cards */
     .ss-tmpl-card {
-      flex-shrink: 0; width: 72px; border-radius: 10px; overflow: hidden; cursor: pointer;
+      width: 100%; border-radius: 10px; overflow: hidden; cursor: pointer;
       border: 2px solid var(--border); background: var(--surface2);
       transition: border-color .15s, transform .15s, box-shadow .15s;
     }
@@ -1003,25 +1003,26 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(108,99,255,.25), 0 4px 16px rgba(108,99,255,.2);
     }
-    /* Portrait 9:16 preview — same ratio as the actual vertical video */
+    /* Portrait 9:16 — matches actual vertical video ratio */
     .ss-tmpl-preview {
       width: 100%; aspect-ratio: 9/16; position: relative; overflow: hidden;
       background-size: cover; background-position: center; background-color: #111;
     }
-    /* Dark scrim over video frame so text stays readable */
+    /* Dark scrim so text is readable over video frame */
     .ss-tmpl-preview::before {
       content: ''; position: absolute; inset: 0;
       background: rgba(0,0,0,0.35); pointer-events: none; z-index: 0;
     }
     .ss-tmpl-label {
-      font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
-      padding: 4px 4px 7px; border-top: 1px solid var(--border); line-height: 1.3;
+      font-size: 9px; font-weight: 700; color: var(--text3); text-align: center;
+      padding: 4px 4px 6px; border-top: 1px solid var(--border); line-height: 1.3;
     }
+    /* Grid: fills full width, all cards equal, no scroll */
     .ss-templates-row {
-      display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px;
-      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px; padding: 2px 0 8px;
     }
-    .ss-templates-row::-webkit-scrollbar { display: none; }
     .ss-tmpl-desc {
       font-size: 11px; color: var(--text4); text-align: center; margin-top: 4px;
       min-height: 16px; transition: opacity .2s;
@@ -1787,6 +1788,28 @@
                         letter-spacing:.2px;">this happened</span>
                     </div>
                     <div class="ss-tmpl-label">🎙 Podcast Box</div>
+                  </div>
+
+                  <!-- 6. Reels Bold — yellow bg, black text, bottom -->
+                  <div class="ss-tmpl-card" id="ssTmpl5" onclick="ssSelectTemplate(5)">
+                    <div class="ss-tmpl-preview" style="background-color:#0a0a0a;">
+                      <span style="position:absolute;bottom:6%;left:3%;right:3%;z-index:1;
+                        font-weight:900;font-size:9px;text-transform:uppercase;text-align:center;
+                        color:#000;background:#FFE600;padding:3px 5px;border-radius:3px;
+                        letter-spacing:.5px;">JUST DO IT</span>
+                    </div>
+                    <div class="ss-tmpl-label">🟡 Reels Bold</div>
+                  </div>
+
+                  <!-- 7. Neon Glow — cyan glow, center -->
+                  <div class="ss-tmpl-card" id="ssTmpl6" onclick="ssSelectTemplate(6)">
+                    <div class="ss-tmpl-preview" style="background-color:#050510;">
+                      <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;
+                        font-weight:900;font-size:10px;color:#00FFEA;text-transform:uppercase;text-align:center;
+                        text-shadow:0 0 8px #00FFEA,0 0 20px rgba(0,255,234,0.6);
+                        letter-spacing:1px;">AMAZING</span>
+                    </div>
+                    <div class="ss-tmpl-label">💎 Neon Glow</div>
                   </div>
 
                 </div>
@@ -3868,6 +3891,20 @@
       desc: 'Подкаст / інтерв\'ю · темний фон за текстом · знизу',
       wordByWord: false,
       style: { fontSize: 65, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
+    },
+    {
+      id: 'reels-bold',
+      name: '🟡 Reels Bold',
+      desc: 'Instagram Reels · <span style="color:#FFE600;font-weight:700;">жовтий</span>&nbsp;фон · чорний текст · знизу',
+      wordByWord: true,
+      style: { fontSize: 72, fontColor: 'yellow', position: 'bottom', background: true, uppercase: true, mode: 'accumulating' },
+    },
+    {
+      id: 'neon-glow',
+      name: '💎 Neon Glow',
+      desc: 'Neon · <span style="color:#00FFEA;font-weight:700;">cyan</span>&nbsp;свічення · слово по центру',
+      wordByWord: true,
+      style: { fontSize: 90, fontColor: 'white', position: 'center', background: false, uppercase: true, highlightColor: 'yellow', mode: 'flash' },
     },
   ];
 
