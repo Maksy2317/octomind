@@ -3899,16 +3899,16 @@
     {
       id: 'reels-bold',
       name: '🟡 Reels Bold',
-      desc: 'Instagram Reels · <span style="color:#FFE600;font-weight:700;">жовтий</span>&nbsp;фон · чорний текст · знизу',
+      desc: 'Instagram Reels · чорний на&nbsp;<span style="background:#FFE600;color:#000;padding:1px 5px;border-radius:2px;font-weight:700;">жовтому</span>&nbsp;· знизу',
       wordByWord: true,
-      style: { fontSize: 72, fontColor: 'yellow', position: 'bottom', background: true, uppercase: true, mode: 'accumulating' },
+      style: { fontSize: 72, fontColor: 'black', position: 'bottom', background: true, bgColor: 'yellow', uppercase: true, mode: 'accumulating' },
     },
     {
       id: 'neon-glow',
       name: '💎 Neon Glow',
-      desc: 'Neon · <span style="color:#00FFEA;font-weight:700;">cyan</span>&nbsp;свічення · слово по центру',
+      desc: 'Neon · <span style="color:#00FFEA;font-weight:700;text-shadow:0 0 8px #00FFEA;">cyan</span>&nbsp;свічення · слово по центру',
       wordByWord: true,
-      style: { fontSize: 90, fontColor: 'white', position: 'center', background: false, uppercase: true, highlightColor: 'yellow', mode: 'flash' },
+      style: { fontSize: 90, fontColor: 'white', position: 'center', background: false, uppercase: true, mode: 'flash', outlineColor: 'cyan', shadowPx: 0 },
     },
   ];
 
@@ -4146,12 +4146,12 @@
 
     // Scale font proportionally: preview 140px wide / video 1080px wide ≈ 0.13
     const scaledFont = Math.max(9, Math.round(fontSize * 0.13));
-    const colorMap = { white: '#fff', yellow: '#FFE600', red: '#FF2D2D', black: '#111' };
+    const colorMap = { white: '#fff', yellow: '#FFE600', red: '#FF2D2D', black: '#111', cyan: '#00FFEA' };
     const color = colorMap[fontColor] || '#fff';
 
     // Preview text: show karaoke effect simulation if word-by-word + highlight
     const hlColor = ssState.style.highlightColor;
-    const hlColorHex = { red: '#FF2D2D', yellow: '#FFE600', white: '#fff' }[hlColor] || null;
+    const hlColorHex = { red: '#FF2D2D', yellow: '#FFE600', white: '#fff', cyan: '#00FFEA' }[hlColor] || null;
     if (ssState.wordByWord && hlColorHex) {
       const prev = uppercase ? 'ВІН' : 'він';
       const curr = uppercase ? 'БУВ' : 'був';
@@ -4167,17 +4167,24 @@
     if (upperTrack) upperTrack.style.background = uppercase ? '#4CAF50' : '#555';
     if (upperThumb) upperThumb.style.left = uppercase ? '21px' : '3px';
 
+    // Background: coloured box override (e.g. yellow for Reels) or dark semi-transparent
+    const bgColorCssMap = { yellow: '#FFE600', cyan: '#00FFEA' };
+    const bgColorCss = ssState.style.bgColor
+      ? (bgColorCssMap[ssState.style.bgColor] || 'rgba(0,0,0,0.65)')
+      : (hasBg ? 'rgba(0,0,0,0.65)' : 'transparent');
+
     text.style.fontSize      = scaledFont + 'px';
     text.style.color         = color;
-    text.style.background    = hasBg ? 'rgba(0,0,0,0.65)' : 'transparent';
-    text.style.padding       = hasBg ? '3px 7px' : '0';
+    text.style.background    = bgColorCss;
+    text.style.padding       = (hasBg || ssState.style.bgColor) ? '3px 7px' : '0';
     text.style.borderRadius  = '4px';
     text.style.fontWeight    = '900';
     text.style.textTransform = uppercase ? 'uppercase' : 'none';
-    // Outline via text-shadow when no background box (simulates ASS outline)
-    text.style.textShadow    = hasBg ? 'none'
-      : `-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000,
-         -2px 0 0 #000, 2px 0 0 #000, 0 -2px 0 #000, 0 2px 0 #000`;
+    // Outline/stroke simulation — use outlineColor if set (neon = cyan stroke), else black
+    const outlineHex = { cyan: '#00FFEA', red: '#FF2D2D', yellow: '#FFE600', white: '#fff' }[ssState.style.outlineColor] || '#000';
+    text.style.textShadow    = (hasBg || ssState.style.bgColor) ? 'none'
+      : `-1px -1px 0 ${outlineHex}, 1px -1px 0 ${outlineHex}, -1px 1px 0 ${outlineHex}, 1px 1px 0 ${outlineHex},
+         -2px 0 0 ${outlineHex}, 2px 0 0 ${outlineHex}, 0 -2px 0 ${outlineHex}, 0 2px 0 ${outlineHex}`;
 
     // Position — use % so it scales with the preview box
     text.style.top = text.style.bottom = text.style.transform = '';

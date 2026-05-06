@@ -59,14 +59,22 @@ type SubStyle = {
    * flash: only the current word is shown; previous words disappear instantly (MrBeast / Flash style)
    */
   mode?: 'accumulating' | 'flash';
+  /** Override colour for text outline/stroke — defaults to black.
+   *  'cyan' creates a neon-halo effect; 'red', 'yellow' etc. also work. */
+  outlineColor?: string;
+  /** Drop-shadow depth in pixels. Defaults: 0 for box-bg styles, 2 for outline styles. */
+  shadowPx?: number;
+  /** Coloured background box, e.g. 'yellow' for the Instagram Reels look (black text on yellow box). */
+  bgColor?: string;
 };
 
 // ASS colours: &HAABBGGRR  (alpha-blue-green-red)
 const COLOR_MAP: Record<string, string> = {
   white:  '&H00FFFFFF',
-  yellow: '&H0000FFFF',
-  red:    '&H000000FF',   // pure red in BGR = 0x0000FF
+  yellow: '&H0000FFFF',   // R=255 G=255 B=0
+  red:    '&H000000FF',   // R=255 G=0   B=0
   black:  '&H00000000',
+  cyan:   '&H00FFFF00',   // R=0   G=255 B=255  — neon halo / glow colour
 };
 
 function prepareText(raw: string, uppercase: boolean): string {
@@ -88,14 +96,29 @@ function buildAssHeader(
   const withBg      = style.background !== false;
 
   const primaryColor = COLOR_MAP[fontColor] ?? '&H00FFFFFF';
-  const backColor    = withBg ? '&HB4000000' : '&H00000000';
+
+  // Outline/stroke colour — 'cyan' creates a neon-halo look, default = black
+  const outlineColor = COLOR_MAP[style.outlineColor ?? ''] ?? '&H00000000';
+
+  // Box background — coloured override (e.g. yellow for Reels) or default dark semi-transparent
+  const backColor    = style.bgColor && COLOR_MAP[style.bgColor]
+    ? COLOR_MAP[style.bgColor]
+    : (withBg ? '&HB4000000' : '&H00000000');
+
   const borderStyle  = withBg ? 4 : 1;
-  // No-background: use thick outline (6px) to match the "white text + thick black stroke" TikTok look
-  const outline      = withBg ? 0 : 6;
-  const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  // top: 60px from edge keeps text tight to the top (was 200 — too low)
-  // bottom: 120px from edge keeps it off the very bottom
-  const marginV      = position === 'center' ? 0 : position === 'top' ? 60 : 120;
+
+  // Outline thickness:
+  //  • box styles: 0 (no stroke, box handles legibility)
+  //  • neon / coloured-outline styles: 8px thick halo for glow look
+  //  • standard TikTok outline: 6px
+  const outline = withBg ? 0 : (style.outlineColor ? 8 : 6);
+
+  // Drop shadow depth — adds cinematic pop to outline-only styles
+  const shadow  = style.shadowPx ?? (withBg ? 0 : 2);
+
+  const alignment = position === 'top' ? 8 : position === 'center' ? 5 : 2;
+  // top: 60px keeps text tight to the top; bottom: 120px keeps it off the very bottom
+  const marginV   = position === 'center' ? 0 : position === 'top' ? 60 : 120;
 
   return [
     '[Script Info]',
@@ -107,7 +130,7 @@ function buildAssHeader(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,&H00000000,${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},0,${alignment},10,10,${marginV},1`,
+    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,${outlineColor},${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},10,10,${marginV},1`,
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -168,8 +191,10 @@ function buildAssAccumulating(
     const alignment = position === 'top' ? 8 : position === 'center' ? 5 : 2;
     const marginV   = position === 'center' ? 0 : position === 'top' ? 60 : 120;
     // Highlight style: identical layout to Default but primary colour = highlight colour
+    // Carry shadow depth so the highlight word has the same dimensional look as the base text
+    const hlShadow = style?.shadowPx ?? 2;
     const hlStyleLine =
-      `Style: Highlight,Arial,${fontSize},${highlightBgr},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,0,${alignment},10,10,${marginV},1`;
+      `Style: Highlight,Arial,${fontSize},${highlightBgr},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,${hlShadow},${alignment},10,10,${marginV},1`;
     header = header.replace(/^(Style: Default,.+)$/m, `$1\n${hlStyleLine}`);
   }
 
