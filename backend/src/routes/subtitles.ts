@@ -145,21 +145,30 @@ function buildAssAccumulating(
   words: Array<{ word: string; start: number; end: number }>,
   style?: SubStyle,
 ): string {
-  const uc     = style?.uppercase ?? false;
-  const header = buildAssHeader(style ?? { position: 'center' }, 1);
+  const uc          = style?.uppercase ?? false;
+  const highlightBgr = style?.highlightColor
+    ? (COLOR_MAP[style.highlightColor] ?? null) : null;
 
-  // Karaoke colour for the current (last) word — e.g. red on white text
-  // ASS inline colour format: {\1c&HAABBGGRR&}  (note trailing &)
-  const hlBgr   = style?.highlightColor ? (COLOR_MAP[style.highlightColor] ?? null) : null;
-  const hlTag   = hlBgr ? `{\\1c${hlBgr}&}` : null;   // e.g. {\1c&H000000FF&}
-  // Tag to reset back to primary colour after the highlighted word
-  const resetTag = hlBgr ? `{\\1c&H00FFFFFF&}` : null;
+  // ── Build ASS header ───────────────────────────────────────────────────────
+  // When karaoke highlight is requested we add a second ASS style "Highlight"
+  // with the highlight colour. Two parallel Dialogue layers are then used:
+  //   Layer 0 (Default/white)     — all accumulated words
+  //   Layer 1 (Highlight/red)     — current word opaque, previous words {\alpha&HFF&} transparent
+  // This dual-layer technique is far more reliable than inline \c colour tags
+  // across different libass versions bundled with static-ffmpeg.
+  let header = buildAssHeader(style ?? { position: 'center' }, 1);
+  if (highlightBgr) {
+    const fontSize  = style?.fontSize ?? 72;
+    const position  = style?.position ?? 'center';
+    const alignment = position === 'top' ? 8 : position === 'center' ? 5 : 2;
+    const marginV   = position === 'center' ? 0 : position === 'top' ? 60 : 120;
+    // Highlight style: identical layout to Default but primary colour = highlight colour
+    const hlStyleLine =
+      `Style: Highlight,Arial,${fontSize},${highlightBgr},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,0,${alignment},10,10,${marginV},1`;
+    header = header.replace(/^(Style: Default,.+)$/m, `$1\n${hlStyleLine}`);
+  }
 
   // ── Greedy word→segment assignment ─────────────────────────────────────────
-  // Process words in chronological order; each word is assigned to exactly one
-  // segment. We advance the segment pointer only when a word is clearly past
-  // the current segment's end (with a generous 0.4 s slack for Whisper drift).
-  // This prevents both duplicate matches and dropped words near boundaries.
   const sortedWords = [...words]
     .filter(w => w.word.trim())
     .sort((a, b) => a.start - b.start);
@@ -168,26 +177,21 @@ function buildAssAccumulating(
 
   let si = 0;
   for (const w of sortedWords) {
-    // Advance segment pointer if word is clearly after the current segment
-    while (si < segments.length - 1 && w.start > segments[si].end + 0.4) {
-      si++;
-    }
-    // Assign to the current segment (accept with generous leading slack too)
+    while (si < segments.length - 1 && w.start > segments[si].end + 0.4) si++;
     if (w.start >= segments[si].start - 0.4) {
       if (!segWordMap.has(si)) segWordMap.set(si, []);
       segWordMap.get(si)!.push(w);
     }
-    // (words that arrive before any segment — extremely rare — are silently dropped)
   }
 
   const events: string[] = [];
 
   for (let segIdx = 0; segIdx < segments.length; segIdx++) {
-    const seg = segments[segIdx];
+    const seg      = segments[segIdx];
     const segWords = segWordMap.get(segIdx) ?? [];
 
     if (segWords.length === 0) {
-      // No word-level data → show full segment at once as fallback
+      // No word-level data — show full segment at once (fallback)
       const text = prepareText(seg.text, uc);
       if (text) events.push(
         `Dialogue: 0,${toAssTime(seg.start)},${toAssTime(seg.end)},Default,,0,0,0,,${text}`,
@@ -195,31 +199,32 @@ function buildAssAccumulating(
       continue;
     }
 
-    // Build one event per position i: shows words[0..i] accumulated
     for (let i = 0; i < segWords.length; i++) {
       const tStart = segWords[i].start;
-      // Duration of this frame: until next word starts (or segment ends for last word)
       const tEnd   = i + 1 < segWords.length ? segWords[i + 1].start : seg.end;
+      if (tEnd <= tStart) continue;
 
-      let text: string;
+      // Prepare processed words
+      const processed = segWords.slice(0, i + 1).map(w => prepareText(w.word, uc));
 
-      if (hlTag) {
-        // ── Karaoke highlight: previous words in primary colour, current word highlighted ──
-        // Process each word individually so prepareText escaping/uppercase happens
-        // BEFORE we insert ASS override tags (which must not be escaped).
-        const prevWords = segWords.slice(0, i).map(w => prepareText(w.word, uc)).join(' ');
-        const currWord  = prepareText(segWords[i].word, uc);
-        text = prevWords
-          ? `${prevWords} ${hlTag}${currWord}${resetTag}`
-          : `${hlTag}${currWord}${resetTag}`;
-      } else {
-        const rawText = segWords.slice(0, i + 1).map(w => w.word.trim()).join(' ');
-        text = prepareText(rawText, uc);
-      }
+      // ── Layer 0: all accumulated words in Default (white) style ──────────
+      const allText = processed.join(' ');
+      if (allText) events.push(
+        `Dialogue: 0,${toAssTime(tStart)},${toAssTime(tEnd)},Default,,0,0,0,,${allText}`,
+      );
 
-      if (text && tEnd > tStart) {
+      // ── Layer 1: current word in Highlight (red) style ───────────────────
+      // Previous words are made fully transparent (fill + outline) so they
+      // occupy space (keeping the current word in the right position) but
+      // are invisible. Only the current word is opaque and rendered in red.
+      if (highlightBgr && allText) {
+        const prevText = processed.slice(0, i).join(' ');
+        const currText = processed[i];
+        const hlText   = prevText
+          ? `{\\alpha&HFF&}${prevText} {\\alpha&H00&}${currText}`
+          : currText;
         events.push(
-          `Dialogue: 0,${toAssTime(tStart)},${toAssTime(tEnd)},Default,,0,0,0,,${text}`,
+          `Dialogue: 1,${toAssTime(tStart)},${toAssTime(tEnd)},Highlight,,0,0,0,,${hlText}`,
         );
       }
     }
