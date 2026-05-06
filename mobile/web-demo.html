@@ -1009,15 +1009,6 @@
       font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
       padding: 4px 4px 6px; border-top: 1px solid var(--border);
     }
-    /* Tab switcher in step 2 */
-    .ss-tab-bar {
-      display: flex; background: var(--surface2); border-radius: 10px; padding: 3px; margin-bottom: 14px;
-    }
-    .ss-tab {
-      flex: 1; padding: 7px; border-radius: 7px; text-align: center; font-size: 12px;
-      font-weight: 700; color: var(--text3); cursor: pointer; transition: all .15s;
-    }
-    .ss-tab.active { background: var(--accent); color: #fff; }
     /* Subtitle live preview */
     .ss-preview-wrap {
       position: relative; width: 140px; flex-shrink: 0;
@@ -1719,122 +1710,138 @@
             <!-- Sub-step 2: settings -->
             <div id="ss2" style="display:none;">
 
-              <!-- Tab bar: Templates / Custom -->
-              <div class="ss-tab-bar">
-                <div class="ss-tab active" id="ssTabTmpl" onclick="ssShowTab('tmpl')">🎨 Шаблони</div>
-                <div class="ss-tab" id="ssTabCustom" onclick="ssShowTab('custom')">⚙️ Свої</div>
+              <!-- Fixed template: Bold Top (@danovskyii style) -->
+              <div style="margin-bottom:16px;">
+                <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">🎨 Стиль субтитрів</div>
+                <div style="border-radius:14px;overflow:hidden;border:2px solid var(--accent);background:var(--surface2);box-shadow:0 0 0 3px rgba(99,102,241,.18);">
+                  <!-- Mini preview strip -->
+                  <div style="height:88px;background:#111;display:flex;align-items:flex-start;justify-content:center;padding:14px 20px 0;">
+                    <span style="color:#fff;font-weight:900;font-size:18px;text-transform:uppercase;text-align:center;line-height:1.2;letter-spacing:1px;
+                      text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,
+                        -3px 0 0 #000,3px 0 0 #000,0 -3px 0 #000,0 3px 0 #000;">
+                      BOLD TOP
+                    </span>
+                  </div>
+                  <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-weight:700;font-size:13px;color:var(--text2);">🔥 Bold Top</div>
+                      <div style="font-size:11px;color:var(--text4);margin-top:2px;">Як у @danovskyii · великі літери · зверху · товстий контур</div>
+                    </div>
+                    <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                      <span style="color:#fff;font-size:14px;line-height:1;">✓</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <!-- Templates panel -->
-              <div id="ss2Tmpl">
-                <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;" id="ssTmplRow"></div>
-                <!-- Template description -->
-                <div id="ssTmplDesc" style="font-size:11px;color:var(--text3);margin-bottom:12px;min-height:16px;text-align:center;"></div>
+              <!-- Language selector (always visible) -->
+              <div style="margin-bottom:14px;">
+                <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🌐 Мова відео</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
+                  <button class="ss-opt-btn active" id="ssLangAuto" onclick="ssLang('auto',this)">🤖 Авто</button>
+                  <button class="ss-opt-btn" id="ssLangUk" onclick="ssLang('uk',this)">🇺🇦 UA</button>
+                  <button class="ss-opt-btn" id="ssLangRu" onclick="ssLang('ru',this)">🇷🇺 RU</button>
+                  <button class="ss-opt-btn" id="ssLangEn" onclick="ssLang('en',this)">🇬🇧 EN</button>
+                  <button class="ss-opt-btn" id="ssLangDe" onclick="ssLang('de',this)">🇩🇪 DE</button>
+                  <button class="ss-opt-btn" id="ssLangFr" onclick="ssLang('fr',this)">🇫🇷 FR</button>
+                </div>
               </div>
+
+              <!-- Toggle to reveal advanced/custom settings -->
+              <button class="ss-opt-btn" id="ssCustomToggleBtn" onclick="ssToggleCustom()"
+                style="width:100%;margin-bottom:14px;color:var(--text4);font-size:12px;">⚙️ Змінити стиль вручну ▾</button>
 
               <!-- Custom settings panel (hidden by default) -->
-              <div id="ss2Custom" style="display:none;">
-              <!-- Live preview + settings side by side -->
-              <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">
+              <div id="ss2Custom" style="display:none;margin-bottom:8px;">
 
-                <!-- Live preview (phone frame) -->
-                <div class="ss-preview-wrap">
-                  <div class="ss-preview-ratio">
-                    <div class="ss-preview-frame" id="ssPreviewFrame">
-                      <!-- Placeholder when no frame -->
-                      <div id="ssPreviewPlaceholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
-                        <span style="font-size:28px;">🎬</span>
-                        <span style="font-size:9px;color:rgba(255,255,255,0.4);text-align:center;">перший<br>кадр</span>
+                <!-- Live preview + settings side by side -->
+                <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:4px;">
+
+                  <!-- Live preview (phone frame) -->
+                  <div class="ss-preview-wrap">
+                    <div class="ss-preview-ratio">
+                      <div class="ss-preview-frame" id="ssPreviewFrame">
+                        <!-- Placeholder when no frame -->
+                        <div id="ssPreviewPlaceholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
+                          <span style="font-size:28px;">🎬</span>
+                          <span style="font-size:9px;color:rgba(255,255,255,0.4);text-align:center;">перший<br>кадр</span>
+                        </div>
+                      </div>
+                      <!-- Subtitle text overlay -->
+                      <div class="ss-preview-text" id="ssPreviewText">Текст субтитрів</div>
+                    </div>
+                    <div style="text-align:center;font-size:9px;color:var(--text4);padding:4px 0;">Live preview</div>
+                  </div>
+
+                  <!-- Settings panel -->
+                  <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
+
+                    <!-- Style mode -->
+                    <div>
+                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">✨ Стиль</div>
+                      <div style="display:flex;gap:5px;">
+                        <button class="ss-opt-btn active" id="ssModeSegs" onclick="ssMode('segments',this)" style="flex:1;">📝 Речення</button>
+                        <button class="ss-opt-btn" id="ssModeWords" onclick="ssMode('words',this)" style="flex:1;">⚡ Слово в слово</button>
                       </div>
                     </div>
-                    <!-- Subtitle text overlay -->
-                    <div class="ss-preview-text" id="ssPreviewText">Текст субтитрів</div>
+
+                    <!-- Size -->
+                    <div>
+                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📏 Розмір</div>
+                      <div style="display:flex;gap:5px;">
+                        <button class="ss-opt-btn" id="ssSzS" onclick="ssSz(72,this)">S</button>
+                        <button class="ss-opt-btn" id="ssSzM" onclick="ssSz(96,this)">M</button>
+                        <button class="ss-opt-btn" id="ssSzL" onclick="ssSz(120,this)">L</button>
+                      </div>
+                    </div>
+
+                    <!-- Color -->
+                    <div>
+                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Колір</div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <div class="ss-clr" id="ssClrWhite" onclick="ssClr('white',this)"
+                          style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer;flex-shrink:0;"></div>
+                        <div class="ss-clr" id="ssClrYellow" onclick="ssClr('yellow',this)"
+                          style="width:32px;height:32px;border-radius:50%;background:#FFE600;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
+                        <div class="ss-clr" id="ssClrRed" onclick="ssClr('red',this)"
+                          style="width:32px;height:32px;border-radius:50%;background:#FF2D2D;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
+                        <div class="ss-clr" id="ssClrBlack" onclick="ssClr('black',this)"
+                          style="width:32px;height:32px;border-radius:50%;background:#111;border:3px solid transparent;cursor:pointer;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2);"></div>
+                      </div>
+                    </div>
+
+                    <!-- Uppercase toggle -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
+                      <span style="font-size:12px;color:var(--text2);font-weight:600;">🔠 Великі літери</span>
+                      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
+                        <input type="checkbox" id="ssUpperToggle" style="opacity:0;width:0;height:0;" onchange="ssState._styleCustomised=true;ssState.style.uppercase=this.checked;ssUpdatePreview();">
+                        <span id="ssUpperTrack" style="position:absolute;inset:0;background:#555;border-radius:20px;transition:.3s;"></span>
+                        <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssUpperThumb"></span>
+                      </label>
+                    </div>
+
+                    <!-- Position -->
+                    <div>
+                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📍 Позиція</div>
+                      <div style="display:flex;gap:5px;">
+                        <button class="ss-opt-btn" id="ssPosTop" onclick="ssPos('top',this)">⬆ Верх</button>
+                        <button class="ss-opt-btn active" id="ssPosBottom" onclick="ssPos('bottom',this)">⬇ Низ</button>
+                        <button class="ss-opt-btn" id="ssPosCenter" onclick="ssPos('center',this)">· Центр</button>
+                      </div>
+                    </div>
+
+                    <!-- Background toggle -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
+                      <span style="font-size:12px;color:var(--text2);font-weight:600;">🟫 Фон за текстом</span>
+                      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
+                        <input type="checkbox" id="ssBgToggle" style="opacity:0;width:0;height:0;" onchange="ssState._styleCustomised=true;ssState.style.background=this.checked;ssUpdatePreview();">
+                        <span id="ssBgTrack" style="position:absolute;inset:0;background:#555;border-radius:20px;transition:.3s;"></span>
+                        <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssBgThumb"></span>
+                      </label>
+                    </div>
+
                   </div>
-                  <div style="text-align:center;font-size:9px;color:var(--text4);padding:4px 0;">Live preview</div>
                 </div>
-
-                <!-- Settings panel -->
-                <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
-
-                  <!-- Language -->
-                  <div>
-                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🌐 Мова</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-                      <button class="ss-opt-btn active" id="ssLangAuto" onclick="ssLang('auto',this)">🤖 Авто</button>
-                      <button class="ss-opt-btn" id="ssLangUk" onclick="ssLang('uk',this)">🇺🇦 UA</button>
-                      <button class="ss-opt-btn" id="ssLangRu" onclick="ssLang('ru',this)">🇷🇺 RU</button>
-                      <button class="ss-opt-btn" id="ssLangEn" onclick="ssLang('en',this)">🇬🇧 EN</button>
-                      <button class="ss-opt-btn" id="ssLangDe" onclick="ssLang('de',this)">🇩🇪 DE</button>
-                      <button class="ss-opt-btn" id="ssLangFr" onclick="ssLang('fr',this)">🇫🇷 FR</button>
-                    </div>
-                  </div>
-
-                  <!-- Style mode -->
-                  <div>
-                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">✨ Стиль</div>
-                    <div style="display:flex;gap:5px;">
-                      <button class="ss-opt-btn active" id="ssModeSegs" onclick="ssMode('segments',this)" style="flex:1;">📝 Речення</button>
-                      <button class="ss-opt-btn" id="ssModeWords" onclick="ssMode('words',this)" style="flex:1;">⚡ Слово в слово</button>
-                    </div>
-                  </div>
-
-                  <!-- Size -->
-                  <div>
-                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📏 Розмір</div>
-                    <div style="display:flex;gap:5px;">
-                      <button class="ss-opt-btn active" id="ssSzS" onclick="ssSz(72,this)">S</button>
-                      <button class="ss-opt-btn" id="ssSzM" onclick="ssSz(96,this)">M</button>
-                      <button class="ss-opt-btn" id="ssSzL" onclick="ssSz(120,this)">L</button>
-                    </div>
-                  </div>
-
-                  <!-- Color -->
-                  <div>
-                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Колір</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <div class="ss-clr" id="ssClrWhite" onclick="ssClr('white',this)"
-                        style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer;flex-shrink:0;"></div>
-                      <div class="ss-clr" id="ssClrYellow" onclick="ssClr('yellow',this)"
-                        style="width:32px;height:32px;border-radius:50%;background:#FFE600;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
-                      <div class="ss-clr" id="ssClrRed" onclick="ssClr('red',this)"
-                        style="width:32px;height:32px;border-radius:50%;background:#FF2D2D;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
-                      <div class="ss-clr" id="ssClrBlack" onclick="ssClr('black',this)"
-                        style="width:32px;height:32px;border-radius:50%;background:#111;border:3px solid transparent;cursor:pointer;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2);"></div>
-                    </div>
-                  </div>
-
-                  <!-- Uppercase toggle -->
-                  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
-                    <span style="font-size:12px;color:var(--text2);font-weight:600;">🔠 Великі літери</span>
-                    <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
-                      <input type="checkbox" id="ssUpperToggle" style="opacity:0;width:0;height:0;" onchange="ssState.style.uppercase=this.checked;ssUpdatePreview();">
-                      <span id="ssUpperTrack" style="position:absolute;inset:0;background:#555;border-radius:20px;transition:.3s;"></span>
-                      <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssUpperThumb"></span>
-                    </label>
-                  </div>
-
-                  <!-- Position -->
-                  <div>
-                    <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📍 Позиція</div>
-                    <div style="display:flex;gap:5px;">
-                      <button class="ss-opt-btn" id="ssPosTop" onclick="ssPos('top',this)">⬆ Верх</button>
-                      <button class="ss-opt-btn active" id="ssPosBottom" onclick="ssPos('bottom',this)">⬇ Низ</button>
-                      <button class="ss-opt-btn" id="ssPosCenter" onclick="ssPos('center',this)">· Центр</button>
-                    </div>
-                  </div>
-
-                  <!-- Background toggle -->
-                  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
-                    <span style="font-size:12px;color:var(--text2);font-weight:600;">🟫 Фон за текстом</span>
-                    <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
-                      <input type="checkbox" id="ssBgToggle" checked style="opacity:0;width:0;height:0;" onchange="ssState.style.background=this.checked;ssUpdatePreview();">
-                      <span id="ssBgTrack" style="position:absolute;inset:0;background:#4CAF50;border-radius:20px;transition:.3s;"></span>
-                      <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssBgThumb"></span>
-                    </label>
-                  </div>
-
-                </div>
-              </div>
               </div><!-- /ss2Custom -->
 
               <div style="display:flex;gap:8px;margin-top:4px;">
@@ -3764,124 +3771,16 @@
   };
 
   // ── Subtitle style templates ──────────────────────────────────────────────
-  const SS_TEMPLATES = [
-    {
-      id: 'bold-top',
-      emoji: '🔥',
-      name: 'Bold Top',
-      desc: 'Як у @danovskyii — великий жирний текст зверху',
-      wordByWord: false,
-      style: { fontSize: 120, fontColor: 'white', position: 'top', background: false, uppercase: true },
-      // mini preview visual
-      previewBg: '#1a1a2e',
-      previewColor: '#fff',
-      previewShadow: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,-2px 0 0 #000,2px 0 0 #000,0 -2px 0 #000,0 2px 0 #000',
-      previewAlign: 'top',
-      previewUpper: true,
-    },
-    {
-      id: 'red-impact',
-      emoji: '🎯',
-      name: 'Red Impact',
-      desc: 'Червоний жирний зверху — для акцентів і гуків',
-      wordByWord: false,
-      style: { fontSize: 120, fontColor: 'red', position: 'top', background: false, uppercase: true },
-      previewBg: '#1a1a2e',
-      previewColor: '#FF2D2D',
-      previewShadow: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,-2px 0 0 #000,2px 0 0 #000,0 -2px 0 #000,0 2px 0 #000',
-      previewAlign: 'top',
-      previewUpper: true,
-    },
-    {
-      id: 'karaoke',
-      emoji: '⚡',
-      name: 'Karaoke',
-      desc: 'Слово в слово по центру — вірусний TikTok стиль',
-      wordByWord: true,
-      style: { fontSize: 96, fontColor: 'white', position: 'center', background: true, uppercase: false },
-      previewBg: '#222',
-      previewColor: '#fff',
-      previewShadow: 'none',
-      previewAlign: 'center',
-      previewUpper: false,
-    },
-    {
-      id: 'classic',
-      emoji: '📱',
-      name: 'Classic',
-      desc: 'Класичні субтитри знизу з фоном',
-      wordByWord: false,
-      style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
-      previewBg: '#222',
-      previewColor: '#fff',
-      previewShadow: 'none',
-      previewAlign: 'bottom',
-      previewUpper: false,
-    },
-    {
-      id: 'yellow-bold',
-      emoji: '⭐',
-      name: 'Yellow Bold',
-      desc: 'Жовтий без фону — яскраво і помітно',
-      wordByWord: false,
-      style: { fontSize: 96, fontColor: 'yellow', position: 'bottom', background: false, uppercase: true },
-      previewBg: '#1a1a2e',
-      previewColor: '#FFE600',
-      previewShadow: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,-2px 0 0 #000,2px 0 0 #000',
-      previewAlign: 'bottom',
-      previewUpper: true,
-    },
-  ];
+  // Bold Top = @danovskyii style: large white uppercase at top, no background, thick outline
+  const SS_BOLD_TOP = { fontSize: 120, fontColor: 'white', position: 'top', background: false, uppercase: true };
 
-  let ssActiveTmplId = null;
-
-  function ssInitTemplates() {
-    const row = document.getElementById('ssTmplRow');
-    if (!row) return;
-    row.innerHTML = '';
-    SS_TEMPLATES.forEach((tmpl, idx) => {
-      const card = document.createElement('div');
-      card.className = 'ss-tmpl-card' + (ssActiveTmplId === tmpl.id ? ' active' : '');
-      card.id = 'ssTmplCard_' + tmpl.id;
-
-      const alignStyle = tmpl.previewAlign === 'top'
-        ? 'align-items:flex-start;padding-top:6px;'
-        : tmpl.previewAlign === 'bottom'
-        ? 'align-items:flex-end;padding-bottom:6px;'
-        : 'align-items:center;';
-
-      const bgColor = tmpl.previewAlign === 'center' || !tmpl.style.background
-        ? tmpl.previewBg : tmpl.previewBg;
-      const textBg = tmpl.style.background ? 'rgba(0,0,0,0.65)' : 'transparent';
-      const textPad = tmpl.style.background ? '2px 5px' : '0';
-
-      card.innerHTML = `
-        <div class="ss-tmpl-preview" style="background:${tmpl.previewBg};${alignStyle}">
-          <span style="color:${tmpl.previewColor};text-shadow:${tmpl.previewShadow};background:${textBg};padding:${textPad};border-radius:3px;${tmpl.previewUpper ? 'text-transform:uppercase;' : ''}font-size:10px;">
-            ${tmpl.emoji} ${tmpl.previewUpper ? 'ТЕКСТ' : 'Текст'}
-          </span>
-        </div>
-        <div class="ss-tmpl-label">${tmpl.name}</div>
-      `;
-      card.onclick = () => ssApplyTemplate(tmpl);
-      row.appendChild(card);
-    });
-  }
-
-  function ssApplyTemplate(tmpl) {
-    ssActiveTmplId = tmpl.id;
-    // Apply all style settings
-    Object.assign(ssState.style, tmpl.style);
-    ssState.wordByWord = tmpl.wordByWord;
-    // Sync all UI controls
-    ssSyncUI();
-    // Update template card selection
-    document.querySelectorAll('.ss-tmpl-card').forEach(c => c.classList.remove('active'));
-    const activeCard = document.getElementById('ssTmplCard_' + tmpl.id);
-    if (activeCard) activeCard.classList.add('active');
-    // Show description
-    const desc = document.getElementById('ssTmplDesc');
-    if (desc) desc.textContent = tmpl.desc;
+  // Toggle the advanced custom settings panel open/closed
+  function ssToggleCustom() {
+    const panel = document.getElementById('ss2Custom');
+    const btn   = document.getElementById('ssCustomToggleBtn');
+    const isOpen = panel && panel.style.display !== 'none';
+    if (panel) panel.style.display = isOpen ? 'none' : '';
+    if (btn)   btn.textContent = isOpen ? '⚙️ Змінити стиль вручну ▾' : '⚙️ Змінити стиль вручну ▴';
   }
 
   // Sync all UI buttons/toggles from ssState
@@ -3919,24 +3818,25 @@
     const posBtn = document.getElementById(posMap[position]);
     if (posBtn) posBtn.classList.add('active');
 
-    // Background toggle
+    // Background toggle + visual track colour
     const bgToggle = document.getElementById('ssBgToggle');
+    const bgTrack  = document.getElementById('ssBgTrack');
     if (bgToggle) bgToggle.checked = background;
+    if (bgTrack)  bgTrack.style.background = background ? '#4CAF50' : '#555';
 
-    // Uppercase toggle
+    // Uppercase toggle + visual track colour
     const upperToggle = document.getElementById('ssUpperToggle');
+    const upperTrack  = document.getElementById('ssUpperTrack');
     if (upperToggle) upperToggle.checked = !!uppercase;
+    if (upperTrack)  upperTrack.style.background = uppercase ? '#4CAF50' : '#555';
+
+    // Thumb positions — shift right when checked
+    const bgThumb    = document.getElementById('ssBgThumb');
+    const upperThumb = document.getElementById('ssUpperThumb');
+    if (bgThumb)    bgThumb.style.left    = background ? '21px' : '3px';
+    if (upperThumb) upperThumb.style.left = uppercase  ? '21px' : '3px';
 
     ssUpdatePreview();
-  }
-
-  function ssShowTab(tab) {
-    const isTmpl = tab === 'tmpl';
-    document.getElementById('ss2Tmpl').style.display   = isTmpl ? '' : 'none';
-    document.getElementById('ss2Custom').style.display = isTmpl ? 'none' : '';
-    document.getElementById('ssTabTmpl').className   = 'ss-tab' + (isTmpl ? ' active' : '');
-    document.getElementById('ssTabCustom').className = 'ss-tab' + (!isTmpl ? ' active' : '');
-    if (isTmpl) ssInitTemplates();
   }
 
   function ssStep(n) {
@@ -3946,8 +3846,17 @@
       el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
     });
     if (n === 2) {
-      ssInitTemplates();   // render/refresh template cards
-      ssUpdatePreview();
+      // Auto-apply Bold Top on first visit (ssState hasn't been customised yet)
+      if (!ssState._styleCustomised) {
+        Object.assign(ssState.style, SS_BOLD_TOP);
+        ssState.wordByWord = false;
+      }
+      // Always close the custom panel and sync UI
+      const panel = document.getElementById('ss2Custom');
+      const btn   = document.getElementById('ssCustomToggleBtn');
+      if (panel) panel.style.display = 'none';
+      if (btn)   btn.textContent = '⚙️ Змінити стиль вручну ▾';
+      ssSyncUI();
     }
   }
 
@@ -4008,10 +3917,10 @@
   }
 
   function ssMode(mode, el) {
+    ssState._styleCustomised = true;
     ssState.wordByWord = (mode === 'words');
     ['ssModeSegs','ssModeWords'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
     el.classList.add('active');
-    // Don't override position — user chose it intentionally
     ssUpdatePreview();
   }
 
@@ -4023,6 +3932,7 @@
   }
 
   function ssSz(sz, el) {
+    ssState._styleCustomised = true;
     ssState.style.fontSize = sz;
     ['ssSzS','ssSzM','ssSzL'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
     el.classList.add('active');
@@ -4030,6 +3940,7 @@
   }
 
   function ssClr(clr, el) {
+    ssState._styleCustomised = true;
     ssState.style.fontColor = clr;
     document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '3px solid transparent');
     el.style.border = '3px solid var(--accent)';
@@ -4040,6 +3951,7 @@
   }
 
   function ssPos(pos, el) {
+    ssState._styleCustomised = true;
     ssState.style.position = pos;
     ['ssPosTop','ssPosBottom','ssPosCenter'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
     el.classList.add('active');
@@ -4329,33 +4241,16 @@
     const ph = document.getElementById('ssPreviewPlaceholder');
     if (ph) ph.style.display = '';
 
-    // Reset mode buttons to defaults
-    const modeSegs  = document.getElementById('ssModeSegs');
-    const modeWords = document.getElementById('ssModeWords');
-    if (modeSegs)  modeSegs.classList.add('active');
-    if (modeWords) modeWords.classList.remove('active');
-    const posBottom = document.getElementById('ssPosBottom');
-    const posCenter = document.getElementById('ssPosCenter');
-    const posTop    = document.getElementById('ssPosTop');
-    [posTop, posCenter].forEach(b => b && b.classList.remove('active'));
-    if (posBottom) posBottom.classList.add('active');
-    ssState.style.position = 'bottom';
+    // Reset style to Bold Top defaults (next ssStep(2) will re-apply)
+    ssState._styleCustomised = false;
+    Object.assign(ssState.style, SS_BOLD_TOP);
+    ssState.wordByWord = false;
 
     // Reset step-3 panels so next generate starts fresh
     const genPanel = document.getElementById('ssGenerating');
     const segPanel = document.getElementById('ssSegments');
     if (genPanel) { genPanel.style.display = ''; ssSetGenPhase('upload'); }
     if (segPanel) segPanel.style.display = 'none';
-
-    // Reset uppercase toggle
-    const upperToggle = document.getElementById('ssUpperToggle');
-    if (upperToggle) upperToggle.checked = false;
-    ssState.style.uppercase = false;
-
-    // Reset active template
-    ssActiveTmplId = null;
-    // Reset tab back to Templates
-    ssShowTab('tmpl');
 
     // Reset generate button label (might have been changed by ssRestyle)
     const genBtn = document.getElementById('ssGenerateBtn');
