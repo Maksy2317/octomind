@@ -994,7 +994,7 @@
     .ss-opt-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
     /* Template cards */
     .ss-tmpl-card {
-      flex-shrink: 0; width: 104px; border-radius: 12px; overflow: hidden; cursor: pointer;
+      flex-shrink: 0; width: 72px; border-radius: 10px; overflow: hidden; cursor: pointer;
       border: 2px solid var(--border); background: var(--surface2);
       transition: border-color .15s, transform .15s, box-shadow .15s;
     }
@@ -1003,18 +1003,16 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(108,99,255,.25), 0 4px 16px rgba(108,99,255,.2);
     }
+    /* Portrait 9:16 preview — same ratio as the actual vertical video */
     .ss-tmpl-preview {
-      height: 74px; display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 11px; letter-spacing: .3px; padding: 4px 6px;
-      text-align: center; line-height: 1.3; position: relative;
+      width: 100%; aspect-ratio: 9/16; position: relative; overflow: hidden;
       background-size: cover; background-position: center; background-color: #111;
     }
     /* Dark scrim over video frame so text stays readable */
     .ss-tmpl-preview::before {
       content: ''; position: absolute; inset: 0;
-      background: rgba(0,0,0,0.38); pointer-events: none; z-index: 0;
+      background: rgba(0,0,0,0.35); pointer-events: none; z-index: 0;
     }
-    .ss-tmpl-preview > * { position: relative; z-index: 1; }
     .ss-tmpl-label {
       font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
       padding: 4px 4px 7px; border-top: 1px solid var(--border); line-height: 1.3;
@@ -1734,11 +1732,11 @@
                 <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">🎨 Оберіть стиль</div>
                 <div class="ss-templates-row" id="ssTemplateRow">
 
-                  <!-- 1. Karaoke Red — top (ASS marginV=60 → 3% from top) -->
+                  <!-- 1. Karaoke Red — top (ASS marginV=60 → ~3% from top) -->
                   <div class="ss-tmpl-card active" id="ssTmpl0" onclick="ssSelectTemplate(0)">
                     <div class="ss-tmpl-preview" style="background-color:#111;">
-                      <span style="position:absolute;top:4%;left:4%;right:4%;z-index:1;
-                        font-weight:900;font-size:9px;text-transform:uppercase;text-align:center;
+                      <span style="position:absolute;top:3%;left:3%;right:3%;z-index:1;
+                        font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;line-height:1.3;
                         text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;">
                         <span style="color:#fff;">HE </span><span style="color:#FF2D2D;">WAS</span>
                       </span>
@@ -1750,7 +1748,7 @@
                   <div class="ss-tmpl-card" id="ssTmpl1" onclick="ssSelectTemplate(1)">
                     <div class="ss-tmpl-preview" style="background-color:#0d0d0d;">
                       <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;
-                        font-weight:900;font-size:18px;color:#FFE600;text-transform:uppercase;white-space:nowrap;
+                        font-weight:900;font-size:20px;color:#FFE600;text-transform:uppercase;white-space:nowrap;
                         text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;
                         letter-spacing:1px;">GO!</span>
                     </div>
@@ -1761,8 +1759,8 @@
                   <div class="ss-tmpl-card" id="ssTmpl2" onclick="ssSelectTemplate(2)">
                     <div class="ss-tmpl-preview" style="background-color:#111;">
                       <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;
-                        font-weight:900;font-size:9px;text-transform:uppercase;text-align:center;white-space:nowrap;
-                        text-shadow:-1px -1px 0 #000,1px 1px 0 #000;line-height:1.6;">
+                        font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;
+                        text-shadow:-1px -1px 0 #000,1px 1px 0 #000;line-height:1.7;">
                         <span style="color:#fff;">JUST </span><span style="color:#FFE600;">DO</span><br>
                         <span style="color:#fff;">IT NOW</span>
                       </span>
@@ -1770,22 +1768,22 @@
                     <div class="ss-tmpl-label">💛 Hormozi Gold</div>
                   </div>
 
-                  <!-- 4. Netflix Clean — bottom (ASS marginV=120 → 6% from bottom) -->
+                  <!-- 4. Netflix Clean — bottom (ASS marginV=120/1920 ≈ 6%) -->
                   <div class="ss-tmpl-card" id="ssTmpl3" onclick="ssSelectTemplate(3)">
                     <div class="ss-tmpl-preview" style="background-color:#0a0a0a;">
-                      <span style="position:absolute;bottom:6%;left:4%;right:4%;z-index:1;
-                        font-weight:600;font-size:8px;color:#fff;text-align:center;
-                        text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);">this happened</span>
+                      <span style="position:absolute;bottom:6%;left:3%;right:3%;z-index:1;
+                        font-weight:600;font-size:9px;color:#fff;text-align:center;
+                        text-shadow:0 1px 4px #000,0 0 10px rgba(0,0,0,.9);">this happened</span>
                     </div>
                     <div class="ss-tmpl-label">📺 Netflix Clean</div>
                   </div>
 
-                  <!-- 5. Podcast Box — bottom with box background -->
+                  <!-- 5. Podcast Box — bottom with dark box -->
                   <div class="ss-tmpl-card" id="ssTmpl4" onclick="ssSelectTemplate(4)">
                     <div class="ss-tmpl-preview" style="background-color:#0a0a0a;">
-                      <span style="position:absolute;bottom:6%;left:4%;right:4%;z-index:1;
-                        font-weight:700;font-size:8px;color:#fff;text-align:center;
-                        background:rgba(0,0,0,0.78);padding:2px 6px;border-radius:4px;
+                      <span style="position:absolute;bottom:6%;left:3%;right:3%;z-index:1;
+                        font-weight:700;font-size:9px;color:#fff;text-align:center;
+                        background:rgba(0,0,0,0.82);padding:3px 6px;border-radius:3px;
                         letter-spacing:.2px;">this happened</span>
                     </div>
                     <div class="ss-tmpl-label">🎙 Podcast Box</div>
