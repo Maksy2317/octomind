@@ -4384,11 +4384,14 @@
 
       document.getElementById('ssBurning').style.display = 'none';
       document.getElementById('ssDone').style.display = '';
-      document.getElementById('ssDownloadLink').href = data.downloadUrl;
+      // Cache-bust: each burn appends ?v=timestamp so browser always loads the
+      // freshly rendered file instead of the cached version from a previous burn.
+      const freshUrl = data.downloadUrl + '?v=' + Date.now();
+      document.getElementById('ssDownloadLink').href = freshUrl;
       // Show in-browser video preview so user can check result before downloading
       const doneVideo = document.getElementById('ssDoneVideo');
       if (doneVideo) {
-        doneVideo.src = data.downloadUrl;
+        doneVideo.src = freshUrl;
         doneVideo.load();
       }
     } catch(e) {
