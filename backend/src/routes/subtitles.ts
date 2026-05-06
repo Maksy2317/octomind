@@ -45,39 +45,53 @@ function toAssTime(s: number): string {
 }
 
 /** Build an ASS subtitle file from segments + style */
-function buildAss(
-  segments: Array<{ start: number; end: number; text: string }>,
-  style?: {
-    fontSize?: number;
-    fontColor?: string;
-    position?: 'top' | 'bottom' | 'center';
-    background?: boolean;
-  },
+// Shared style type used by both builders
+type SubStyle = {
+  fontSize?: number;
+  fontColor?: string;
+  position?: 'top' | 'bottom' | 'center';
+  background?: boolean;
+  uppercase?: boolean;
+};
+
+// ASS colours: &HAABBGGRR  (alpha-blue-green-red)
+const COLOR_MAP: Record<string, string> = {
+  white:  '&H00FFFFFF',
+  yellow: '&H0000FFFF',
+  red:    '&H000000FF',   // pure red in BGR = 0x0000FF
+  black:  '&H00000000',
+};
+
+function prepareText(raw: string, uppercase: boolean): string {
+  let t = raw.trim()
+    .replace(/\r?\n/g, '\\N')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}');
+  if (uppercase) t = t.toUpperCase();
+  return t;
+}
+
+function buildAssHeader(
+  style: SubStyle,
+  wrapStyle: 0 | 1 = 0,
 ): string {
-  const fontSize   = style?.fontSize   ?? 22;
-  const position   = style?.position   ?? 'bottom';
-  const fontColor  = style?.fontColor  ?? 'white';
-  const withBg     = style?.background !== false;
+  const fontSize    = style.fontSize   ?? 72;
+  const position    = style.position   ?? 'bottom';
+  const fontColor   = style.fontColor  ?? 'white';
+  const withBg      = style.background !== false;
 
-  // ASS colours: &HAABBGGRR  (alpha-blue-green-red)
-  const colorMap: Record<string, string> = {
-    white:  '&H00FFFFFF',
-    yellow: '&H0000FFFF',
-    black:  '&H00000000',
-  };
-  const primaryColor = colorMap[fontColor] ?? '&H00FFFFFF';
+  const primaryColor = COLOR_MAP[fontColor] ?? '&H00FFFFFF';
   const backColor    = withBg ? '&HB4000000' : '&H00000000';
-  const borderStyle  = withBg ? 4 : 1;   // 4 = opaque box, 1 = outline
-  const outline      = withBg ? 0 : 2;
+  const borderStyle  = withBg ? 4 : 1;
+  // No-background: use thick outline (6px) to match the "white text + thick black stroke" TikTok look
+  const outline      = withBg ? 0 : 6;
   const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 200; // ~10% from edge at PlayResY=1920
+  const marginV      = position === 'center' ? 0 : 200;
 
-  // PlayRes matches vertical 9:16 social video (stories/reels/tiktok 1080×1920).
-  // Font sizes are in real pixels at this resolution (no unexpected libass scaling).
-  const header = [
+  return [
     '[Script Info]',
     'ScriptType: v4.00+',
-    'WrapStyle: 0',
+    `WrapStyle: ${wrapStyle}`,
     'ScaledBorderAndShadow: yes',
     'PlayResX: 1080',
     'PlayResY: 1920',
@@ -89,15 +103,19 @@ function buildAss(
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ].join('\n');
+}
+
+function buildAss(
+  segments: Array<{ start: number; end: number; text: string }>,
+  style?: SubStyle,
+): string {
+  const header = buildAssHeader(style ?? {}, 0);
+  const uc = style?.uppercase ?? false;
 
   const events = segments
     .filter(seg => seg.text.trim())
     .map(seg => {
-      const text = seg.text
-        .trim()
-        .replace(/\r?\n/g, '\\N')   // ASS hard line-break
-        .replace(/\{/g, '\\{')      // escape ASS override tags
-        .replace(/\}/g, '\\}');
+      const text = prepareText(seg.text, uc);
       return `Dialogue: 0,${toAssTime(seg.start)},${toAssTime(seg.end)},Default,,0,0,0,,${text}`;
     })
     .join('\n');
@@ -121,45 +139,10 @@ function buildAss(
 function buildAssAccumulating(
   segments: Array<{ start: number; end: number; text: string }>,
   words: Array<{ word: string; start: number; end: number }>,
-  style?: {
-    fontSize?: number;
-    fontColor?: string;
-    position?: 'top' | 'bottom' | 'center';
-    background?: boolean;
-  },
+  style?: SubStyle,
 ): string {
-  const fontSize   = style?.fontSize   ?? 72;
-  const position   = style?.position   ?? 'center';
-  const fontColor  = style?.fontColor  ?? 'white';
-  const withBg     = style?.background !== false;
-
-  const colorMap: Record<string, string> = {
-    white:  '&H00FFFFFF',
-    yellow: '&H0000FFFF',
-    black:  '&H00000000',
-  };
-  const primaryColor = colorMap[fontColor] ?? '&H00FFFFFF';
-  const backColor    = withBg ? '&HB4000000' : '&H00000000';
-  const borderStyle  = withBg ? 4 : 1;
-  const outline      = withBg ? 0 : 2;
-  const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 200;
-
-  const header = [
-    '[Script Info]',
-    'ScriptType: v4.00+',
-    'WrapStyle: 1',   // smart wrap — keeps lines balanced
-    'ScaledBorderAndShadow: yes',
-    'PlayResX: 1080',
-    'PlayResY: 1920',
-    '',
-    '[V4+ Styles]',
-    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,&H00000000,${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},0,${alignment},20,20,${marginV},1`,
-    '',
-    '[Events]',
-    'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
-  ].join('\n');
+  const uc     = style?.uppercase ?? false;
+  const header = buildAssHeader(style ?? { position: 'center' }, 1);
 
   // ── Greedy word→segment assignment ─────────────────────────────────────────
   // Process words in chronological order; each word is assigned to exactly one
@@ -194,7 +177,7 @@ function buildAssAccumulating(
 
     if (segWords.length === 0) {
       // No word-level data → show full segment at once as fallback
-      const text = seg.text.trim().replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+      const text = prepareText(seg.text, uc);
       if (text) events.push(
         `Dialogue: 0,${toAssTime(seg.start)},${toAssTime(seg.end)},Default,,0,0,0,,${text}`,
       );
@@ -207,12 +190,8 @@ function buildAssAccumulating(
       // Duration of this frame: until next word starts (or segment ends for last word)
       const tEnd   = i + 1 < segWords.length ? segWords[i + 1].start : seg.end;
 
-      const text = segWords
-        .slice(0, i + 1)
-        .map(w => w.word.trim())
-        .join(' ')
-        .replace(/\{/g, '\\{')
-        .replace(/\}/g, '\\}');
+      const rawText = segWords.slice(0, i + 1).map(w => w.word.trim()).join(' ');
+      const text = prepareText(rawText, uc);
 
       if (text && tEnd > tStart) {
         events.push(
@@ -285,13 +264,7 @@ subtitlesRouter.post('/burn', async (req: Request, res: Response, next: NextFunc
       segments: Array<{ start: number; end: number; text: string }>;
       words?: Array<{ word: string; start: number; end: number }>;
       wordByWord?: boolean;
-      style?: {
-        fontSize?: number;
-        fontColor?: string;
-        position?: 'top' | 'bottom' | 'center';
-        background?: boolean;
-        outline?: boolean;
-      };
+      style?: SubStyle;
     };
 
     if (!videoId || !segments?.length) {

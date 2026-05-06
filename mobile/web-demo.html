@@ -1750,14 +1750,26 @@
                   <!-- Color -->
                   <div>
                     <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Колір</div>
-                    <div style="display:flex;gap:8px;">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
                       <div class="ss-clr" id="ssClrWhite" onclick="ssClr('white',this)"
                         style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer;flex-shrink:0;"></div>
                       <div class="ss-clr" id="ssClrYellow" onclick="ssClr('yellow',this)"
                         style="width:32px;height:32px;border-radius:50%;background:#FFE600;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
+                      <div class="ss-clr" id="ssClrRed" onclick="ssClr('red',this)"
+                        style="width:32px;height:32px;border-radius:50%;background:#FF2D2D;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
                       <div class="ss-clr" id="ssClrBlack" onclick="ssClr('black',this)"
                         style="width:32px;height:32px;border-radius:50%;background:#111;border:3px solid transparent;cursor:pointer;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2);"></div>
                     </div>
+                  </div>
+
+                  <!-- Uppercase toggle -->
+                  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
+                    <span style="font-size:12px;color:var(--text2);font-weight:600;">🔠 Великі літери</span>
+                    <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
+                      <input type="checkbox" id="ssUpperToggle" style="opacity:0;width:0;height:0;" onchange="ssState.style.uppercase=this.checked;ssUpdatePreview();">
+                      <span id="ssUpperTrack" style="position:absolute;inset:0;background:#555;border-radius:20px;transition:.3s;"></span>
+                      <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssUpperThumb"></span>
+                    </label>
                   </div>
 
                   <!-- Position -->
@@ -3706,7 +3718,7 @@
   const ssState = {
     file: null, videoId: null, language: 'auto',
     segments: [], words: [], wordByWord: false, frameBase64: null,
-    style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true },
+    style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
   };
 
   function ssStep(n) {
@@ -3800,6 +3812,9 @@
     ssState.style.fontColor = clr;
     document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '3px solid transparent');
     el.style.border = '3px solid var(--accent)';
+    // Fix border for black swatch (needs inner shadow to stay visible)
+    const blackSwatch = document.getElementById('ssClrBlack');
+    if (blackSwatch && clr !== 'black') blackSwatch.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.2)';
     ssUpdatePreview();
   }
 
@@ -3823,24 +3838,36 @@
       if (ph) ph.style.display = 'none';
     }
 
-    const { fontSize, fontColor, position, background } = ssState.style;
+    const { fontSize, fontColor, position, background, uppercase } = ssState.style;
     const bg = document.getElementById('ssBgToggle');
     const hasBg = bg ? bg.checked : background;
 
     // Scale font proportionally: preview 140px wide / video 1080px wide ≈ 0.13
     const scaledFont = Math.max(9, Math.round(fontSize * 0.13));
-    const colorMap = { white: '#fff', yellow: '#FFE600', black: '#111' };
+    const colorMap = { white: '#fff', yellow: '#FFE600', red: '#FF2D2D', black: '#111' };
     const color = colorMap[fontColor] || '#fff';
 
     // Preview text: single word for word-by-word, phrase for segments
-    text.textContent = ssState.wordByWord ? 'Слово' : 'Текст субтитрів';
+    const rawPreviewText = ssState.wordByWord ? 'Слово' : 'Текст субтитрів';
+    text.textContent = uppercase ? rawPreviewText.toUpperCase() : rawPreviewText;
 
-    text.style.fontSize  = scaledFont + 'px';
-    text.style.color     = color;
-    text.style.background = hasBg ? 'rgba(0,0,0,0.65)' : 'transparent';
-    text.style.padding   = hasBg ? '3px 7px' : '0';
-    text.style.borderRadius = '4px';
-    text.style.fontWeight = '700';
+    // Sync uppercase toggle visual
+    const upperTrack = document.getElementById('ssUpperTrack');
+    const upperThumb = document.getElementById('ssUpperThumb');
+    if (upperTrack) upperTrack.style.background = uppercase ? '#4CAF50' : '#555';
+    if (upperThumb) upperThumb.style.left = uppercase ? '21px' : '3px';
+
+    text.style.fontSize      = scaledFont + 'px';
+    text.style.color         = color;
+    text.style.background    = hasBg ? 'rgba(0,0,0,0.65)' : 'transparent';
+    text.style.padding       = hasBg ? '3px 7px' : '0';
+    text.style.borderRadius  = '4px';
+    text.style.fontWeight    = '900';
+    text.style.textTransform = uppercase ? 'uppercase' : 'none';
+    // Outline via text-shadow when no background box (simulates ASS outline)
+    text.style.textShadow    = hasBg ? 'none'
+      : `-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000,
+         -2px 0 0 #000, 2px 0 0 #000, 0 -2px 0 #000, 0 2px 0 #000`;
 
     // Position — use % so it scales with the preview box
     text.style.top = text.style.bottom = text.style.transform = '';
@@ -4098,6 +4125,11 @@
     const segPanel = document.getElementById('ssSegments');
     if (genPanel) { genPanel.style.display = ''; ssSetGenPhase('upload'); }
     if (segPanel) segPanel.style.display = 'none';
+
+    // Reset uppercase toggle
+    const upperToggle = document.getElementById('ssUpperToggle') as HTMLInputElement | null;
+    if (upperToggle) upperToggle.checked = false;
+    ssState.style.uppercase = false;
 
     // Reset generate button label (might have been changed by ssRestyle)
     const genBtn = document.getElementById('ssGenerateBtn');
