@@ -186,14 +186,19 @@ function buildAssForSlots(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    // hook  — large, top,    white, opaque box
-    'Style: Hook,Arial,52,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,0,0,8,40,40,120,1',
-    // point — medium, center, white, semi-opaque box
-    'Style: Point,Arial,42,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,4,0,0,5,40,40,0,1',
-    // label — large, center, white, opaque box
-    'Style: Label,Arial,64,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,0,0,5,40,40,0,1',
-    // cta   — small, bottom, yellow, semi-opaque box
-    'Style: CTA,Arial,38,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,4,0,0,2,40,40,120,1',
+    // hook  — 70px, top, YELLOW + thick black stroke + shadow (outline style, no box)
+    //         Yellow grabs attention in the first second; heavy 8px stroke keeps it legible on any background.
+    //         BorderStyle=1 (outline+shadow), Outline=8, Shadow=3, Alignment=8 (top-center), MarginV=60
+    'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,40,40,60,1',
+    // point — 56px, center, white + outline, no box — clean, readable bullet points
+    //         BorderStyle=1, Outline=6, Shadow=2, Alignment=5 (center)
+    'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,40,40,0,1',
+    // label — 80px, center, white, solid box with generous padding — title / chapter heading
+    //         BorderStyle=4 (box), Outline=18 (= box padding px), Shadow=0, BackColour=80% opaque black
+    'Style: Label,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,40,40,0,1',
+    // cta   — 56px, bottom, YELLOW, solid box with padding — prominent call-to-action
+    //         BorderStyle=4 (box), Outline=14, Shadow=0, BackColour=80% opaque black, MarginV=80
+    'Style: CTA,Arial,56,&H0000FFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,2,40,40,80,1',
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
