@@ -86,7 +86,9 @@ function buildAssHeader(
   // No-background: use thick outline (6px) to match the "white text + thick black stroke" TikTok look
   const outline      = withBg ? 0 : 6;
   const alignment    = position === 'top' ? 8 : position === 'center' ? 5 : 2;
-  const marginV      = position === 'center' ? 0 : 200;
+  // top: 60px from edge keeps text tight to the top (was 200 — too low)
+  // bottom: 120px from edge keeps it off the very bottom
+  const marginV      = position === 'center' ? 0 : position === 'top' ? 60 : 120;
 
   return [
     '[Script Info]',
