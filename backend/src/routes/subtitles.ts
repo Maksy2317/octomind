@@ -52,6 +52,8 @@ type SubStyle = {
   position?: 'top' | 'bottom' | 'center';
   background?: boolean;
   uppercase?: boolean;
+  /** If set, the current (last-shown) word is rendered in this colour — karaoke highlight effect */
+  highlightColor?: string;
 };
 
 // ASS colours: &HAABBGGRR  (alpha-blue-green-red)
@@ -146,6 +148,13 @@ function buildAssAccumulating(
   const uc     = style?.uppercase ?? false;
   const header = buildAssHeader(style ?? { position: 'center' }, 1);
 
+  // Karaoke colour for the current (last) word — e.g. red on white text
+  // ASS inline colour format: {\1c&HAABBGGRR&}  (note trailing &)
+  const hlBgr   = style?.highlightColor ? (COLOR_MAP[style.highlightColor] ?? null) : null;
+  const hlTag   = hlBgr ? `{\\1c${hlBgr}&}` : null;   // e.g. {\1c&H000000FF&}
+  // Tag to reset back to primary colour after the highlighted word
+  const resetTag = hlBgr ? `{\\1c&H00FFFFFF&}` : null;
+
   // ── Greedy word→segment assignment ─────────────────────────────────────────
   // Process words in chronological order; each word is assigned to exactly one
   // segment. We advance the segment pointer only when a word is clearly past
@@ -192,8 +201,21 @@ function buildAssAccumulating(
       // Duration of this frame: until next word starts (or segment ends for last word)
       const tEnd   = i + 1 < segWords.length ? segWords[i + 1].start : seg.end;
 
-      const rawText = segWords.slice(0, i + 1).map(w => w.word.trim()).join(' ');
-      const text = prepareText(rawText, uc);
+      let text: string;
+
+      if (hlTag) {
+        // ── Karaoke highlight: previous words in primary colour, current word highlighted ──
+        // Process each word individually so prepareText escaping/uppercase happens
+        // BEFORE we insert ASS override tags (which must not be escaped).
+        const prevWords = segWords.slice(0, i).map(w => prepareText(w.word, uc)).join(' ');
+        const currWord  = prepareText(segWords[i].word, uc);
+        text = prevWords
+          ? `${prevWords} ${hlTag}${currWord}${resetTag}`
+          : `${hlTag}${currWord}${resetTag}`;
+      } else {
+        const rawText = segWords.slice(0, i + 1).map(w => w.word.trim()).join(' ');
+        text = prepareText(rawText, uc);
+      }
 
       if (text && tEnd > tStart) {
         events.push(

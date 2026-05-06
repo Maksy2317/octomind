@@ -1715,15 +1715,17 @@
                 <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Стиль субтитрів</div>
                 <div style="border-radius:12px;overflow:hidden;border:2px solid var(--accent);background:var(--surface2);box-shadow:0 0 0 2px rgba(99,102,241,.15);">
                   <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;">
-                    <!-- Mini inline preview -->
+                    <!-- Mini inline preview: white + red karaoke -->
                     <div style="width:52px;height:36px;background:#111;border-radius:8px;display:flex;align-items:flex-start;justify-content:center;padding-top:5px;flex-shrink:0;">
-                      <span style="color:#fff;font-weight:900;font-size:9px;text-transform:uppercase;letter-spacing:.5px;
-                        text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;">TEXT</span>
+                      <span style="font-weight:900;font-size:9px;text-transform:uppercase;letter-spacing:.5px;
+                        text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;">
+                        <span style="color:#fff;">HE </span><span style="color:#FF2D2D;">WAS</span>
+                      </span>
                     </div>
                     <!-- Label -->
                     <div style="flex:1;">
                       <div style="font-weight:700;font-size:13px;color:var(--text2);">🔥 Bold Top</div>
-                      <div style="font-size:11px;color:var(--text4);margin-top:1px;">Великі літери · зверху · товстий контур</div>
+                      <div style="font-size:11px;color:var(--text4);margin-top:1px;">Білий + <span style="color:#FF2D2D;font-weight:700;">червоний</span> · зверху · слово за словом</div>
                     </div>
                     <!-- Check mark -->
                     <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -3770,8 +3772,9 @@
   };
 
   // ── Subtitle style templates ──────────────────────────────────────────────
-  // Bold Top: white uppercase at top, no background box, thick black outline
-  const SS_BOLD_TOP = { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true };
+  // Bold Top: white uppercase at top, no background box, thick outline
+  // highlightColor: current word shows in red (karaoke TikTok effect), rest in white
+  const SS_BOLD_TOP = { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red' };
 
   // Toggle the advanced custom settings panel open/closed
   function ssToggleCustom() {
@@ -3848,7 +3851,7 @@
       // Auto-apply Bold Top on first visit (ssState hasn't been customised yet)
       if (!ssState._styleCustomised) {
         Object.assign(ssState.style, SS_BOLD_TOP);
-        ssState.wordByWord = false;
+        ssState.wordByWord = true;  // karaoke word-by-word by default
       }
       // Always close the custom panel and sync UI
       const panel = document.getElementById('ss2Custom');
@@ -4226,7 +4229,7 @@
     ssState.videoId = null;
     ssState.segments = [];
     ssState.words = [];
-    ssState.wordByWord = false;
+    ssState.wordByWord = true;   // Bold Top default is karaoke word-by-word
     ssState.frameBase64 = null;
 
     // Reset file info
@@ -4243,7 +4246,7 @@
     // Reset style to Bold Top defaults (next ssStep(2) will re-apply)
     ssState._styleCustomised = false;
     Object.assign(ssState.style, SS_BOLD_TOP);
-    ssState.wordByWord = false;
+    ssState.wordByWord = true;  // karaoke word-by-word by default
 
     // Reset step-3 panels so next generate starts fresh
     const genPanel = document.getElementById('ssGenerating');
