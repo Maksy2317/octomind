@@ -54,6 +54,11 @@ type SubStyle = {
   uppercase?: boolean;
   /** If set, the current (last-shown) word is rendered in this colour — karaoke highlight effect */
   highlightColor?: string;
+  /**
+   * accumulating (default): words build up left-to-right, MAX_GROUP resets
+   * flash: only the current word is shown; previous words disappear instantly (MrBeast / Flash style)
+   */
+  mode?: 'accumulating' | 'flash';
 };
 
 // ASS colours: &HAABBGGRR  (alpha-blue-green-red)
@@ -221,14 +226,16 @@ function buildAssAccumulating(
         // Processed words for this frame (only within current group)
         const processed = groupWords.slice(0, i + 1).map(w => prepareText(w.word, uc));
 
-        // ── Layer 0: all accumulated words in Default (white) style ──────
-        const allText = processed.join(' ');
+        // ── Layer 0: accumulated words OR current word only (flash mode) ──
+        const isFlash = style?.mode === 'flash';
+        const allText = isFlash ? processed[i] : processed.join(' ');
         if (allText) events.push(
           `Dialogue: 0,${toAssTime(tStart)},${toAssTime(tEnd)},Default,,0,0,0,,${allText}`,
         );
 
-        // ── Layer 1: current word in Highlight (red) style ───────────────
-        if (highlightBgr && allText) {
+        // ── Layer 1: current word in Highlight style ─────────────────────
+        // Skip in flash mode — the current word IS the only visible text already
+        if (highlightBgr && allText && !isFlash) {
           const prevText = processed.slice(0, i).join(' ');
           const currText = processed[i];
           const hlText   = prevText

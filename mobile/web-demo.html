@@ -994,20 +994,32 @@
     .ss-opt-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
     /* Template cards */
     .ss-tmpl-card {
-      flex-shrink: 0; width: 90px; border-radius: 12px; overflow: hidden; cursor: pointer;
+      flex-shrink: 0; width: 104px; border-radius: 12px; overflow: hidden; cursor: pointer;
       border: 2px solid var(--border); background: var(--surface2);
-      transition: border-color .15s, transform .15s;
+      transition: border-color .15s, transform .15s, box-shadow .15s;
     }
     .ss-tmpl-card:hover { border-color: var(--accent2); transform: translateY(-2px); }
-    .ss-tmpl-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent)44; }
+    .ss-tmpl-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108,99,255,.25), 0 4px 16px rgba(108,99,255,.2);
+    }
     .ss-tmpl-preview {
-      height: 60px; display: flex; align-items: center; justify-content: center;
+      height: 74px; display: flex; align-items: center; justify-content: center;
       font-weight: 900; font-size: 11px; letter-spacing: .3px; padding: 4px 6px;
-      text-align: center; line-height: 1.2;
+      text-align: center; line-height: 1.3; position: relative;
     }
     .ss-tmpl-label {
       font-size: 10px; font-weight: 700; color: var(--text3); text-align: center;
-      padding: 4px 4px 6px; border-top: 1px solid var(--border);
+      padding: 4px 4px 7px; border-top: 1px solid var(--border); line-height: 1.3;
+    }
+    .ss-templates-row {
+      display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .ss-templates-row::-webkit-scrollbar { display: none; }
+    .ss-tmpl-desc {
+      font-size: 11px; color: var(--text4); text-align: center; margin-top: 4px;
+      min-height: 16px; transition: opacity .2s;
     }
     /* Subtitle live preview */
     .ss-preview-wrap {
@@ -1710,29 +1722,66 @@
             <!-- Sub-step 2: settings -->
             <div id="ss2" style="display:none;">
 
-              <!-- Fixed template: Bold Top -->
+              <!-- Template selection -->
               <div style="margin-bottom:14px;">
-                <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Стиль субтитрів</div>
-                <div style="border-radius:12px;overflow:hidden;border:2px solid var(--accent);background:var(--surface2);box-shadow:0 0 0 2px rgba(99,102,241,.15);">
-                  <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;">
-                    <!-- Mini inline preview: white + red karaoke -->
-                    <div style="width:52px;height:36px;background:#111;border-radius:8px;display:flex;align-items:flex-start;justify-content:center;padding-top:5px;flex-shrink:0;">
-                      <span style="font-weight:900;font-size:9px;text-transform:uppercase;letter-spacing:.5px;
+                <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">🎨 Оберіть стиль</div>
+                <div class="ss-templates-row" id="ssTemplateRow">
+
+                  <!-- 1. Karaoke Red -->
+                  <div class="ss-tmpl-card active" id="ssTmpl0" onclick="ssSelectTemplate(0)">
+                    <div class="ss-tmpl-preview" style="background:#111;align-items:flex-start;padding-top:12px;">
+                      <span style="font-weight:900;font-size:9px;text-transform:uppercase;
                         text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;">
                         <span style="color:#fff;">HE </span><span style="color:#FF2D2D;">WAS</span>
                       </span>
                     </div>
-                    <!-- Label -->
-                    <div style="flex:1;">
-                      <div style="font-weight:700;font-size:13px;color:var(--text2);">🔥 Bold Top</div>
-                      <div style="font-size:11px;color:var(--text4);margin-top:1px;">Білий + <span style="color:#FF2D2D;font-weight:700;">червоний</span> · зверху · слово за словом</div>
-                    </div>
-                    <!-- Check mark -->
-                    <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                      <span style="color:#fff;font-size:12px;line-height:1;">✓</span>
-                    </div>
+                    <div class="ss-tmpl-label">🔥 Karaoke Red</div>
                   </div>
+
+                  <!-- 2. Flash Yellow -->
+                  <div class="ss-tmpl-card" id="ssTmpl1" onclick="ssSelectTemplate(1)">
+                    <div class="ss-tmpl-preview" style="background:#0d0d0d;">
+                      <span style="font-weight:900;font-size:18px;color:#FFE600;text-transform:uppercase;
+                        text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;
+                        letter-spacing:1px;">GO!</span>
+                    </div>
+                    <div class="ss-tmpl-label">⚡ Flash Yellow</div>
+                  </div>
+
+                  <!-- 3. Hormozi Gold -->
+                  <div class="ss-tmpl-card" id="ssTmpl2" onclick="ssSelectTemplate(2)">
+                    <div class="ss-tmpl-preview" style="background:#111;">
+                      <span style="font-weight:900;font-size:9px;text-transform:uppercase;
+                        text-shadow:-1px -1px 0 #000,1px 1px 0 #000;line-height:1.6;text-align:center;">
+                        <span style="color:#fff;">JUST </span><span style="color:#FFE600;">DO</span><br>
+                        <span style="color:#fff;">IT NOW</span>
+                      </span>
+                    </div>
+                    <div class="ss-tmpl-label">💛 Hormozi Gold</div>
+                  </div>
+
+                  <!-- 4. Netflix Clean -->
+                  <div class="ss-tmpl-card" id="ssTmpl3" onclick="ssSelectTemplate(3)">
+                    <div class="ss-tmpl-preview" style="background:#0a0a0a;align-items:flex-end;padding-bottom:10px;">
+                      <span style="font-weight:600;font-size:8px;color:#fff;
+                        text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.8);">this happened</span>
+                    </div>
+                    <div class="ss-tmpl-label">📺 Netflix Clean</div>
+                  </div>
+
+                  <!-- 5. Podcast Box -->
+                  <div class="ss-tmpl-card" id="ssTmpl4" onclick="ssSelectTemplate(4)">
+                    <div class="ss-tmpl-preview" style="background:#0a0a0a;align-items:flex-end;padding-bottom:10px;">
+                      <span style="font-weight:700;font-size:8px;color:#fff;
+                        background:rgba(0,0,0,0.78);padding:2px 6px;border-radius:4px;
+                        letter-spacing:.2px;">this happened</span>
+                    </div>
+                    <div class="ss-tmpl-label">🎙 Podcast Box</div>
+                  </div>
+
                 </div>
+                <!-- Description of selected template -->
+                <div class="ss-tmpl-desc" id="ssTmplDesc">Вірусний TikTok · білий&nbsp;+&nbsp;<span style="color:#FF2D2D;font-weight:700;">червоний</span>&nbsp;· слово за словом</div>
               </div>
 
               <!-- Language selector (always visible) -->
@@ -3767,14 +3816,70 @@
 
   const ssState = {
     file: null, videoId: null, language: 'auto',
-    segments: [], words: [], wordByWord: false, frameBase64: null,
-    style: { fontSize: 72, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
+    segments: [], words: [], wordByWord: true, frameBase64: null,
+    selectedTemplate: 0,
+    _styleCustomised: false,
+    style: { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red', mode: 'accumulating' },
   };
 
   // ── Subtitle style templates ──────────────────────────────────────────────
-  // Bold Top: white uppercase at top, no background box, thick outline
-  // highlightColor: current word shows in red (karaoke TikTok effect), rest in white
-  const SS_BOLD_TOP = { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red' };
+  const SS_TEMPLATES = [
+    {
+      id: 'karaoke-red',
+      name: '🔥 Karaoke Red',
+      desc: 'Вірусний TikTok · білий&nbsp;+&nbsp;<span style="color:#FF2D2D;font-weight:700;">червоний</span>&nbsp;· слово за словом',
+      wordByWord: true,
+      style: { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red', mode: 'accumulating' },
+    },
+    {
+      id: 'flash-yellow',
+      name: '⚡ Flash Yellow',
+      desc: 'Стиль MrBeast · <span style="color:#FFE600;font-weight:700;">жовтий</span>&nbsp;спалах · лише поточне слово',
+      wordByWord: true,
+      style: { fontSize: 100, fontColor: 'yellow', position: 'center', background: false, uppercase: true, mode: 'flash' },
+    },
+    {
+      id: 'hormozi',
+      name: '💛 Hormozi Gold',
+      desc: 'Стиль Гормозі · білий&nbsp;+&nbsp;<span style="color:#FFE600;font-weight:700;">золотий</span>&nbsp;· центр',
+      wordByWord: true,
+      style: { fontSize: 85, fontColor: 'white', position: 'center', background: false, uppercase: true, highlightColor: 'yellow', mode: 'accumulating' },
+    },
+    {
+      id: 'netflix',
+      name: '📺 Netflix Clean',
+      desc: 'Чистий мінімалізм · білий контурний · знизу',
+      wordByWord: false,
+      style: { fontSize: 58, fontColor: 'white', position: 'bottom', background: false, uppercase: false },
+    },
+    {
+      id: 'podcast',
+      name: '🎙 Podcast Box',
+      desc: 'Подкаст / інтерв\'ю · темний фон за текстом · знизу',
+      wordByWord: false,
+      style: { fontSize: 65, fontColor: 'white', position: 'bottom', background: true, uppercase: false },
+    },
+  ];
+
+  function ssSelectTemplate(idx) {
+    ssState.selectedTemplate = idx;
+    const tmpl = SS_TEMPLATES[idx];
+    // Deep-copy style so mutations don't bleed into the template definition
+    ssState.style = Object.assign({}, tmpl.style);
+    ssState.wordByWord = tmpl.wordByWord;
+    ssState._styleCustomised = false;
+
+    // Update card active states
+    for (let i = 0; i < SS_TEMPLATES.length; i++) {
+      const card = document.getElementById('ssTmpl' + i);
+      if (card) card.classList.toggle('active', i === idx);
+    }
+    // Update description line
+    const descEl = document.getElementById('ssTmplDesc');
+    if (descEl) descEl.innerHTML = tmpl.desc;
+
+    ssSyncUI();
+  }
 
   // Toggle the advanced custom settings panel open/closed
   function ssToggleCustom() {
@@ -3848,17 +3953,13 @@
       el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
     });
     if (n === 2) {
-      // Auto-apply Bold Top on first visit (ssState hasn't been customised yet)
-      if (!ssState._styleCustomised) {
-        Object.assign(ssState.style, SS_BOLD_TOP);
-        ssState.wordByWord = true;  // karaoke word-by-word by default
-      }
-      // Always close the custom panel and sync UI
+      // Apply selected template (syncs cards + desc + state)
+      ssSelectTemplate(ssState.selectedTemplate ?? 0);
+      // Always close the custom panel
       const panel = document.getElementById('ss2Custom');
       const btn   = document.getElementById('ssCustomToggleBtn');
       if (panel) panel.style.display = 'none';
       if (btn)   btn.textContent = '⚙️ Змінити стиль вручну ▾';
-      ssSyncUI();
     }
   }
 
@@ -3982,9 +4083,17 @@
     const colorMap = { white: '#fff', yellow: '#FFE600', red: '#FF2D2D', black: '#111' };
     const color = colorMap[fontColor] || '#fff';
 
-    // Preview text: single word for word-by-word, phrase for segments
-    const rawPreviewText = ssState.wordByWord ? 'Слово' : 'Текст субтитрів';
-    text.textContent = uppercase ? rawPreviewText.toUpperCase() : rawPreviewText;
+    // Preview text: show karaoke effect simulation if word-by-word + highlight
+    const hlColor = ssState.style.highlightColor;
+    const hlColorHex = { red: '#FF2D2D', yellow: '#FFE600', white: '#fff' }[hlColor] || null;
+    if (ssState.wordByWord && hlColorHex) {
+      const prev = uppercase ? 'ВІН' : 'він';
+      const curr = uppercase ? 'БУВ' : 'був';
+      text.innerHTML = `<span style="color:${color}">${prev} </span><span style="color:${hlColorHex}">${curr}</span>`;
+    } else {
+      const rawPreviewText = ssState.wordByWord ? (uppercase ? 'СЛОВО' : 'слово') : (uppercase ? 'ТЕКСТ СУБТИТРІВ' : 'Текст субтитрів');
+      text.textContent = rawPreviewText;
+    }
 
     // Sync uppercase toggle visual
     const upperTrack = document.getElementById('ssUpperTrack');
@@ -4037,7 +4146,11 @@
   }
 
   async function ssGenerate() {
-    ssState.style.background = document.getElementById('ssBgToggle').checked;
+    // If the custom panel is open, sync its bg toggle back into state
+    const bgToggleEl = document.getElementById('ssBgToggle');
+    if (bgToggleEl && document.getElementById('ss2Custom').style.display !== 'none') {
+      ssState.style.background = bgToggleEl.checked;
+    }
 
     // ── Re-style shortcut ──────────────────────────────────────────────────
     // If we already have segments from a previous transcription (user came back
@@ -4243,10 +4356,11 @@
     const ph = document.getElementById('ssPreviewPlaceholder');
     if (ph) ph.style.display = '';
 
-    // Reset style to Bold Top defaults (next ssStep(2) will re-apply)
+    // Reset style to first template defaults
+    ssState.selectedTemplate = 0;
     ssState._styleCustomised = false;
-    Object.assign(ssState.style, SS_BOLD_TOP);
-    ssState.wordByWord = true;  // karaoke word-by-word by default
+    ssState.style = Object.assign({}, SS_TEMPLATES[0].style);
+    ssState.wordByWord = SS_TEMPLATES[0].wordByWord;
 
     // Reset step-3 panels so next generate starts fresh
     const genPanel = document.getElementById('ssGenerating');
