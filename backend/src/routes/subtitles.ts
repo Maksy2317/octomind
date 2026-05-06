@@ -184,6 +184,10 @@ function buildAssAccumulating(
     }
   }
 
+  // Max words shown at once before text clears and restarts — keeps subtitles
+  // from overflowing the screen. 5 words ≈ 1–2 lines at the current font size.
+  const MAX_GROUP = 5;
+
   const events: string[] = [];
 
   for (let segIdx = 0; segIdx < segments.length; segIdx++) {
@@ -199,33 +203,41 @@ function buildAssAccumulating(
       continue;
     }
 
-    for (let i = 0; i < segWords.length; i++) {
-      const tStart = segWords[i].start;
-      const tEnd   = i + 1 < segWords.length ? segWords[i + 1].start : seg.end;
-      if (tEnd <= tStart) continue;
+    // Split segment words into groups of MAX_GROUP to prevent long text build-up.
+    // Each group accumulates independently; after MAX_GROUP words the screen
+    // clears and the next group starts fresh — matching the TikTok style.
+    for (let groupStart = 0; groupStart < segWords.length; groupStart += MAX_GROUP) {
+      const groupEnd   = Math.min(groupStart + MAX_GROUP, segWords.length);
+      const groupWords = segWords.slice(groupStart, groupEnd);
 
-      // Prepare processed words
-      const processed = segWords.slice(0, i + 1).map(w => prepareText(w.word, uc));
+      for (let i = 0; i < groupWords.length; i++) {
+        const tStart = groupWords[i].start;
+        // End time: next word in the group, or first word of next group, or segment end
+        const tEnd = i + 1 < groupWords.length
+          ? groupWords[i + 1].start
+          : (groupEnd < segWords.length ? segWords[groupEnd].start : seg.end);
+        if (tEnd <= tStart) continue;
 
-      // ── Layer 0: all accumulated words in Default (white) style ──────────
-      const allText = processed.join(' ');
-      if (allText) events.push(
-        `Dialogue: 0,${toAssTime(tStart)},${toAssTime(tEnd)},Default,,0,0,0,,${allText}`,
-      );
+        // Processed words for this frame (only within current group)
+        const processed = groupWords.slice(0, i + 1).map(w => prepareText(w.word, uc));
 
-      // ── Layer 1: current word in Highlight (red) style ───────────────────
-      // Previous words are made fully transparent (fill + outline) so they
-      // occupy space (keeping the current word in the right position) but
-      // are invisible. Only the current word is opaque and rendered in red.
-      if (highlightBgr && allText) {
-        const prevText = processed.slice(0, i).join(' ');
-        const currText = processed[i];
-        const hlText   = prevText
-          ? `{\\alpha&HFF&}${prevText} {\\alpha&H00&}${currText}`
-          : currText;
-        events.push(
-          `Dialogue: 1,${toAssTime(tStart)},${toAssTime(tEnd)},Highlight,,0,0,0,,${hlText}`,
+        // ── Layer 0: all accumulated words in Default (white) style ──────
+        const allText = processed.join(' ');
+        if (allText) events.push(
+          `Dialogue: 0,${toAssTime(tStart)},${toAssTime(tEnd)},Default,,0,0,0,,${allText}`,
         );
+
+        // ── Layer 1: current word in Highlight (red) style ───────────────
+        if (highlightBgr && allText) {
+          const prevText = processed.slice(0, i).join(' ');
+          const currText = processed[i];
+          const hlText   = prevText
+            ? `{\\alpha&HFF&}${prevText} {\\alpha&H00&}${currText}`
+            : currText;
+          events.push(
+            `Dialogue: 1,${toAssTime(tStart)},${toAssTime(tEnd)},Highlight,,0,0,0,,${hlText}`,
+          );
+        }
       }
     }
   }
