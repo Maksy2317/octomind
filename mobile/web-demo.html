@@ -359,6 +359,30 @@
     .btn-full { width: 100%; justify-content: center; }
     .btn-sm { padding: 8px 14px; font-size: 12px; }
 
+    /* ── Post-render slot editor ── */
+    .slot-edit-item { border:1px solid var(--border); border-radius:10px; margin-bottom:8px; overflow:hidden; }
+    .slot-edit-header { display:flex; align-items:center; padding:11px 14px; cursor:pointer; background:var(--surface2); gap:8px; user-select:none; transition:background .15s; }
+    .slot-edit-header:hover { background:var(--surface3); }
+    .slot-edit-label { font-size:13px; font-weight:600; color:var(--text2); white-space:nowrap; }
+    .slot-edit-preview { flex:1; font-size:12px; color:var(--text4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 8px; }
+    .slot-edit-arrow { font-size:10px; color:var(--text4); flex-shrink:0; transition:transform .2s; }
+    .slot-edit-body { padding:12px 14px; background:var(--surface); border-top:1px solid var(--border); }
+    .slot-edit-textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text1); padding:8px 10px; font-size:13px; resize:none; box-sizing:border-box; margin-bottom:10px; font-family:inherit; }
+    .slot-edit-textarea:focus { outline:none; border-color:var(--accent); }
+    .color-palette { display:flex; gap:9px; flex-wrap:wrap; align-items:center; }
+    .color-palette-label { font-size:11px; color:var(--text4); margin-right:2px; }
+    .cpick { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:transform .15s,box-shadow .15s; flex-shrink:0; }
+    .cpick:hover { transform:scale(1.18); }
+    .cpick.cp-sel { border-color:#fff; box-shadow:0 0 0 2px var(--accent); transform:scale(1.12); }
+    .cpick-white  { background:#FFFFFF; }
+    .cpick-yellow { background:#FFE600; }
+    .cpick-red    { background:#FF3B30; }
+    .cpick-orange { background:#FF9500; }
+    .cpick-blue   { background:#007AFF; }
+    .cpick-green  { background:#34C759; }
+    .cpick-cyan   { background:#00E5FF; }
+    .cpick-pink   { background:#FF2D90; }
+
     /* Dashboard */
     .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
@@ -1678,6 +1702,15 @@
               <div class="card" style="margin-bottom:8px;padding:10px 14px;">
                 <div id="vDoneInfo" style="font-size:12px;color:var(--text3);line-height:1.9;"></div>
               </div>
+              <!-- ✏️ Post-render slot editor (shown only for structured templates) -->
+              <div id="vSlotEditor" style="display:none;margin-bottom:10px;">
+                <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                  ✏️ Редагуй елементи відео
+                </div>
+                <div id="vSlotEditorItems"></div>
+                <button class="btn btn-primary btn-full" style="margin-top:4px;" onclick="vRerender()">🔄 Перерендерити зі змінами</button>
+              </div>
+
               <button class="btn btn-secondary btn-full" onclick="vReset()">+ Створити ще</button>
             </div>
             <div id="vError" style="display:none;" class="card">
@@ -3833,6 +3866,13 @@
           previewVideo.load();
           previewWrap.style.display = '';
         }
+        // Build post-render slot editor for structured templates
+        const slotEditorWrap = document.getElementById('vSlotEditor');
+        if (vS.isStructured && vS.currentTemplate && slotEditorWrap) {
+          vS.slotOverrides = {};
+          vBuildSlotEditor();
+          slotEditorWrap.style.display = 'block';
+        }
       }, 600);
 
     } catch (err) {
@@ -3846,6 +3886,9 @@
   function vReset() {
     vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
     vS.customOverlay = null; vS.textInputs = {}; vS.isStructured = false; vS.currentTemplate = null;
+    vS.slotOverrides = {};
+    const slotEditorWrap = document.getElementById('vSlotEditor');
+    if (slotEditorWrap) slotEditorWrap.style.display = 'none';
     document.getElementById('vfInfo').style.display = 'none';
     document.getElementById('vfThumbWrap').innerHTML = '';
     document.getElementById('vb1').disabled = true;
@@ -3869,6 +3912,162 @@
     document.getElementById('vDone').style.display = 'none';
     document.getElementById('vProcessing').style.display = 'none';
     vs(3);
+  }
+
+  // ── Post-render slot editor ─────────────────────────────────────────────────
+
+  /** Build (or rebuild) the slot editor chips in the Done panel */
+  function vBuildSlotEditor() {
+    const container = document.getElementById('vSlotEditorItems');
+    if (!container || !vS.currentTemplate) return;
+    if (!vS.slotOverrides) vS.slotOverrides = {};
+
+    const COLORS = ['white','yellow','red','orange','blue','green','cyan','pink'];
+    const STYLE_EMOJI = { hook:'🎯', point:'💡', label:'🏷️', cta:'👆' };
+
+    container.innerHTML = '';
+    vS.currentTemplate.slots.forEach(slot => {
+      const curText  = (vS.slotOverrides[slot.id] && vS.slotOverrides[slot.id].text != null)
+        ? vS.slotOverrides[slot.id].text
+        : (vS.textInputs[slot.id] || slot.defaultText || '');
+      const curColor = (vS.slotOverrides[slot.id] && vS.slotOverrides[slot.id].color) || 'white';
+      const emoji    = STYLE_EMOJI[slot.style] || '📝';
+      const preview  = curText.length > 28 ? curText.substring(0, 28) + '…' : curText;
+
+      const item = document.createElement('div');
+      item.className = 'slot-edit-item';
+      item.id = 'sei_' + slot.id;
+      item.innerHTML = `
+        <div class="slot-edit-header" onclick="vToggleSlotEdit('${slot.id}')">
+          <span class="slot-edit-label">${emoji} ${slot.label}</span>
+          <span class="slot-edit-preview">${preview}</span>
+          <span class="slot-edit-arrow" id="sea_${slot.id}">▼</span>
+        </div>
+        <div class="slot-edit-body" id="seb_${slot.id}" style="display:none;">
+          <textarea class="slot-edit-textarea" id="set_${slot.id}" rows="3"
+            placeholder="${slot.defaultText || ''}">${curText}</textarea>
+          <div class="color-palette">
+            <span class="color-palette-label">Колір:</span>
+            ${COLORS.map(c =>
+              `<div class="cpick cpick-${c}${curColor===c?' cp-sel':''}"
+                onclick="vSetSlotColor('${slot.id}','${c}')"
+                title="${c}"></div>`
+            ).join('')}
+          </div>
+        </div>`;
+      container.appendChild(item);
+    });
+  }
+
+  function vToggleSlotEdit(slotId) {
+    const body  = document.getElementById('seb_' + slotId);
+    const arrow = document.getElementById('sea_' + slotId);
+    const isOpen = body.style.display !== 'none';
+    // collapse all
+    document.querySelectorAll('.slot-edit-body').forEach(b => b.style.display = 'none');
+    document.querySelectorAll('.slot-edit-arrow').forEach(a => a.textContent = '▼');
+    if (!isOpen) { body.style.display = 'block'; arrow.textContent = '▲'; }
+  }
+
+  function vSetSlotColor(slotId, color) {
+    if (!vS.slotOverrides) vS.slotOverrides = {};
+    if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
+    vS.slotOverrides[slotId].color = color;
+    // update visual selection inside this slot's palette only
+    const body = document.getElementById('seb_' + slotId);
+    if (body) {
+      body.querySelectorAll('.cpick').forEach(el => el.classList.remove('cp-sel'));
+      const picked = body.querySelector('.cpick-' + color);
+      if (picked) picked.classList.add('cp-sel');
+    }
+  }
+
+  /** Re-render the video with updated text + color overrides (skips re-upload) */
+  async function vRerender() {
+    if (!vS.isStructured || !vS.currentTemplate || !vS.videoId) return;
+    if (!vS.slotOverrides) vS.slotOverrides = {};
+
+    // Collect latest text from editor textareas
+    const updatedTexts = Object.assign({}, vS.textInputs);
+    vS.currentTemplate.slots.forEach(slot => {
+      const ta = document.getElementById('set_' + slot.id);
+      if (ta) {
+        const v = ta.value.trim();
+        updatedTexts[slot.id] = v || slot.defaultText || '';
+        // persist text override so it survives rebuild
+        if (!vS.slotOverrides[slot.id]) vS.slotOverrides[slot.id] = {};
+        vS.slotOverrides[slot.id].text = updatedTexts[slot.id];
+      }
+    });
+    vS.textInputs = updatedTexts;
+
+    // Switch to processing view
+    document.getElementById('vDone').style.display = 'none';
+    const processing = document.getElementById('vProcessing');
+    const done       = document.getElementById('vDone');
+    const errDiv     = document.getElementById('vError');
+    processing.style.display = 'block';
+    errDiv.style.display = 'none';
+
+    const bar = document.getElementById('vProgressBar');
+    const lbl = document.getElementById('vProgressLabel');
+    bar.style.width = '10%';
+    lbl.textContent = 'Перерендеримо з новими параметрами...';
+
+    let pct = 10;
+    const ticker = setInterval(() => {
+      pct = Math.min(pct + (pct < 55 ? 7 : 2), 88);
+      bar.style.width = pct + '%';
+      lbl.textContent = pct + '%';
+    }, 1000);
+
+    // Build slotStyleOverrides — only color (text is in textInputs)
+    const styleOverrides = {};
+    Object.keys(vS.slotOverrides).forEach(sid => {
+      if (vS.slotOverrides[sid].color) {
+        styleOverrides[sid] = { color: vS.slotOverrides[sid].color };
+      }
+    });
+
+    try {
+      const res = await fetch('/api/video/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId:           vS.videoId,
+          templateId:        vS.tmplId,
+          format:            vS.fmt,
+          textInputs:        updatedTexts,
+          structured:        true,
+          slotStyleOverrides: styleOverrides
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      clearInterval(ticker);
+      bar.style.width = '100%';
+      lbl.textContent = '100% — Готово!';
+
+      setTimeout(() => {
+        processing.style.display = 'none';
+        done.style.display = 'block';
+        const freshUrl = data.downloadUrl + '?v=' + Date.now();
+        document.getElementById('vDownloadLink').href = freshUrl;
+        const pv = document.getElementById('vPreviewVideo');
+        const pw = document.getElementById('vDoneVideoWrap');
+        if (pv && pw) { pv.src = freshUrl; pv.load(); pw.style.display = ''; }
+        // Rebuild editor with current values
+        vBuildSlotEditor();
+        document.getElementById('vSlotEditor').style.display = 'block';
+      }, 500);
+
+    } catch (err) {
+      clearInterval(ticker);
+      processing.style.display = 'none';
+      errDiv.style.display = 'block';
+      document.getElementById('vErrorMsg').textContent = err.message || 'Помилка перерендерингу';
+    }
   }
 
   // =============================================

@@ -104,7 +104,7 @@ videoRouter.post('/analyze', async (req: Request, res: Response, next: NextFunct
 videoRouter.post('/process', async (req: Request, res: Response, next: NextFunction) => {
   let overlayPath: string | null = null;
   try {
-    const { videoId, templateId, format, customOverlay, textInputs, structured } =
+    const { videoId, templateId, format, customOverlay, textInputs, structured, slotStyleOverrides } =
       req.body as {
         videoId: string;
         templateId: string;
@@ -112,6 +112,7 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
         customOverlay?: string;
         textInputs?: Record<string, string>;
         structured?: boolean;
+        slotStyleOverrides?: Record<string, { color?: string }>;
       };
 
     if (!videoId || !templateId || !format) {
@@ -138,7 +139,7 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
       const layoutHints = await analyzeFrameForLayout(inputPath);
       console.log(`[process] layoutHints — avoidZone:${layoutHints.avoidZone} needsDarkBox:${layoutHints.needsDarkBox} usedVision:${layoutHints.usedVision}`);
 
-      await applyStructuredTemplate(inputPath, outputPath, structuredTemplate, textInputs, format, layoutHints);
+      await applyStructuredTemplate(inputPath, outputPath, structuredTemplate, textInputs, format, layoutHints, slotStyleOverrides);
       res.json({ downloadUrl: `/output/${outputFilename}` });
       return;
     }

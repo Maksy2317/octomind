@@ -173,10 +173,28 @@ function toAssTimeProc(s: number): string {
  *   60% opaque black = &H99000000
  *   70% opaque black = &H80000000
  */
+/** Per-slot style override coming from the frontend post-render editor */
+interface SlotStyleOverride {
+  color?: string; // one of the SLOT_COLOR_MAP keys
+}
+
+/** ASS colour codes (AABBGGRR) for the frontend colour-picker swatches */
+const SLOT_COLOR_MAP: Record<string, string> = {
+  white:  '00FFFFFF',
+  yellow: '0000FFFF',
+  red:    '000000FF',
+  orange: '0000A5FF',
+  blue:   '00FF0000',
+  green:  '0000FF00',
+  cyan:   '00FFFF00',
+  pink:   '00FF00FF',
+};
+
 function buildAssForSlots(
   slots: StructuredTemplate['slots'],
   textInputs: Record<string, string>,
   hints?: LayoutHints,
+  slotOverrides?: Record<string, SlotStyleOverride>,
 ): string {
   // ── Dynamic TikTok-style layout ──────────────────────────────────────────
   // Every slot type gets its own position + slide-in animation:
@@ -199,18 +217,18 @@ function buildAssForSlots(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    // Hook — 70px YELLOW; outline on dark bg, dark box on bright bg
+    // Hook — 70px WHITE; outline on dark bg, dark box on bright bg
     hints?.needsDarkBox
-      ? 'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,14,0,8,60,60,0,1'
-      : 'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,60,60,0,1',
+      ? 'Style: Hook,Arial,70,&H00FFFFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,14,0,8,60,60,0,1'
+      : 'Style: Hook,Arial,70,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,60,60,0,1',
     // Point — 56px WHITE; outline on dark bg, dark box on bright bg
     hints?.needsDarkBox
       ? 'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,60,60,0,1'
       : 'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,60,60,0,1',
     // Label — 58px WHITE, dark box 14px padding; top-left corner badge, position overridden per-event
     'Style: Label,Arial,58,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,7,60,60,0,1',
-    // CTA — 56px YELLOW, dark box 14px padding; position overridden per-event
-    'Style: CTA,Arial,56,&H0000FFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,2,60,60,0,1',
+    // CTA — 56px WHITE, dark box 14px padding; position overridden per-event
+    'Style: CTA,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,2,60,60,0,1',
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -285,7 +303,13 @@ function buildAssForSlots(
       tags = '{\\move(540,1880,540,1820,0,400)\\fad(350,250)\\an2}';
     }
 
-    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${tags}${text}`);
+    // Per-slot colour override from the post-render editor (\c tag overrides style default)
+    const ovr = slotOverrides?.[slot.id];
+    const colorTag = ovr?.color && SLOT_COLOR_MAP[ovr.color]
+      ? `{\\c&H${SLOT_COLOR_MAP[ovr.color]}&}`
+      : '';
+
+    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${tags}${colorTag}${text}`);
   }
 
   return lines.join('\n') + '\n';
@@ -300,6 +324,7 @@ export function applyStructuredTemplate(
   textInputs: Record<string, string>,
   format: VideoFormat,
   hints?: LayoutHints,
+  slotOverrides?: Record<string, SlotStyleOverride>,
 ): Promise<void> {
   let assPath: string | null = null;
 
@@ -318,7 +343,7 @@ export function applyStructuredTemplate(
     //    Using the `subtitles` filter (libass) instead of `drawtext` (libfreetype)
     //    because mwader/static-ffmpeg guarantees libass but drawtext can be absent.
     assPath = path.join(os.tmpdir(), `octo_tmpl_${uuidv4()}.ass`);
-    fs.writeFileSync(assPath, buildAssForSlots(template.slots, textInputs, hints), 'utf8');
+    fs.writeFileSync(assPath, buildAssForSlots(template.slots, textInputs, hints, slotOverrides), 'utf8');
     console.log(`[applyStructuredTemplate] ASS overlay → ${assPath}`);
 
     // Escape the ASS path for FFmpeg filter syntax (colon is an option separator)
