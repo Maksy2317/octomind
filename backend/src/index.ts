@@ -22,8 +22,9 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Raise body-size limit to 20 MB so base64-encoded photos fit in JSON payloads
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Serve processed videos
 app.use('/output', express.static(path.resolve(outputDir)));
