@@ -1014,7 +1014,7 @@
       background: rgba(0,0,0,0.35); pointer-events: none; z-index: 0;
     }
     /* Neon Glow card: lighter scrim so diamond shimmer shines through */
-    #ssTmpl6 .ss-tmpl-preview::before { background: rgba(0,0,0,0.08); }
+    #ssTmpl6 .ss-tmpl-preview::before { background: rgba(0,0,0,0.35); }
     .ss-tmpl-label {
       font-size: 9px; font-weight: 700; color: var(--text3); text-align: center;
       padding: 4px 4px 6px; border-top: 1px solid var(--border); line-height: 1.3;
@@ -1813,17 +1813,14 @@
                     <div class="ss-tmpl-label">🟡 Reels Bold</div>
                   </div>
 
-                  <!-- 7. Neon Glow — diamond prismatic shimmer, center -->
+                  <!-- 7. Center Box — white text on dark pill, center -->
                   <div class="ss-tmpl-card" id="ssTmpl6" onclick="ssSelectTemplate(6)">
-                    <div class="ss-tmpl-preview" style="background-color:#02020F;">
-                      <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;
-                        font-weight:900;font-size:13px;text-transform:uppercase;text-align:center;
-                        letter-spacing:3px;white-space:nowrap;line-height:1;
-                        background:linear-gradient(170deg,#ffffff 0%,#00FFEE 30%,#B44FFF 60%,#00FFEE 80%,#ffffff 100%);
-                        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-                        filter:drop-shadow(0 0 5px #00FFEE) drop-shadow(0 0 12px rgba(180,79,255,0.85));">NEON</span>
+                    <div class="ss-tmpl-preview" style="background-color:#111;">
+                      <span style="position:absolute;top:50%;left:5%;right:5%;transform:translateY(-50%);z-index:1;
+                        font-weight:700;font-size:9px;color:#fff;text-align:center;line-height:1.4;
+                        background:rgba(0,0,0,0.78);padding:4px 7px;border-radius:4px;">він будував бізнес роками</span>
                     </div>
-                    <div class="ss-tmpl-label">💎 Neon Glow</div>
+                    <div class="ss-tmpl-label">🎬 Center Box</div>
                   </div>
 
                 </div>
@@ -3940,11 +3937,11 @@
       style: { fontSize: 72, fontColor: 'black', position: 'bottom', background: true, bgColor: 'yellow', uppercase: true, mode: 'accumulating' },
     },
     {
-      id: 'neon-glow',
-      name: '💎 Neon Glow',
-      desc: 'Neon · <span style="color:#00FFEA;font-weight:700;text-shadow:0 0 8px #00FFEA;">cyan</span>&nbsp;свічення · слово по центру',
+      id: 'center-box',
+      name: '🎬 Center Box',
+      desc: 'Подкаст / інтерв\'ю · білий на&nbsp;<span style="background:rgba(0,0,0,0.75);color:#fff;padding:1px 5px;border-radius:3px;">темному боксі</span>&nbsp;· по центру · слово за словом',
       wordByWord: true,
-      style: { fontSize: 90, fontColor: 'white', position: 'center', background: false, uppercase: true, mode: 'flash', outlineColor: 'cyan', shadowPx: 0 },
+      style: { fontSize: 72, fontColor: 'white', position: 'center', background: true, uppercase: false, mode: 'accumulating' },
     },
   ];
 
