@@ -176,6 +176,17 @@ function buildAssForSlots(
   slots: StructuredTemplate['slots'],
   textInputs: Record<string, string>,
 ): string {
+  // ── Dynamic TikTok-style layout ──────────────────────────────────────────
+  // Every slot type gets its own position + slide-in animation:
+  //   Hook  → drops from just above into the top zone (slides down)
+  //   Point → cycles through 4 screen zones, each sliding in from a different direction
+  //   Label → fades in at exact center
+  //   CTA   → rises from near-bottom (slides up)
+  //
+  // ASS coordinate system: PlayResX=1080, PlayResY=1920
+  // \an4 = mid-left anchor  \an5 = mid-center  \an6 = mid-right  \an8 = top-center  \an2 = bottom-center
+  // \move(x1,y1,x2,y2,t1ms,t2ms)  \fad(fade_in_ms, fade_out_ms)  \pos(x,y)
+
   const lines: string[] = [
     '[Script Info]',
     'ScriptType: v4.00+',
@@ -186,19 +197,14 @@ function buildAssForSlots(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    // hook  — 70px, top, YELLOW + thick black stroke + shadow (outline style, no box)
-    //         Yellow grabs attention in the first second; heavy 8px stroke keeps it legible on any background.
-    //         BorderStyle=1 (outline+shadow), Outline=8, Shadow=3, Alignment=8 (top-center), MarginV=60
-    'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,40,40,60,1',
-    // point — 56px, center, white + outline, no box — clean, readable bullet points
-    //         BorderStyle=1, Outline=6, Shadow=2, Alignment=5 (center)
-    'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,40,40,0,1',
-    // label — 80px, center, white, solid box with generous padding — title / chapter heading
-    //         BorderStyle=4 (box), Outline=18 (= box padding px), Shadow=0, BackColour=80% opaque black
-    'Style: Label,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,40,40,0,1',
-    // cta   — 56px, bottom, YELLOW, solid box with padding — prominent call-to-action
-    //         BorderStyle=4 (box), Outline=14, Shadow=0, BackColour=80% opaque black, MarginV=80
-    'Style: CTA,Arial,56,&H0000FFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,2,40,40,80,1',
+    // Hook — 70px YELLOW, thick 8px black stroke + 3px shadow; position overridden per-event
+    'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,60,60,0,1',
+    // Point — 56px WHITE, 6px stroke + 2px shadow; position + alignment overridden per-event
+    'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,60,60,0,1',
+    // Label — 80px WHITE, dark box 18px padding; centered, position overridden per-event
+    'Style: Label,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,60,60,0,1',
+    // CTA — 56px YELLOW, dark box 14px padding; position overridden per-event
+    'Style: CTA,Arial,56,&H0000FFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,2,60,60,0,1',
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -206,18 +212,58 @@ function buildAssForSlots(
 
   const styleMap: Record<string, string> = { hook: 'Hook', point: 'Point', label: 'Label', cta: 'CTA' };
 
+  // Four Point zones — cycle through them so consecutive points land in different spots.
+  // Each entry: { x, y, an } = final position + anchor; { fromX, fromY } = start of slide animation.
+  const pointLayouts = [
+    // Zone A: LEFT side, upper-middle — slides in from the LEFT edge
+    { x: 65,   y: 680,  an: 4, fromX: -200, fromY: 680  },
+    // Zone B: CENTER, true middle — slides UP into place
+    { x: 540,  y: 960,  an: 5, fromX: 540,  fromY: 1030 },
+    // Zone C: RIGHT side, lower-middle — slides in from the RIGHT edge
+    { x: 1015, y: 1260, an: 6, fromX: 1250, fromY: 1260 },
+    // Zone D: CENTER, upper-third — slides DOWN into place
+    { x: 540,  y: 540,  an: 5, fromX: 540,  fromY: 490  },
+  ];
+
+  let pointCount = 0;
+
   for (const slot of slots) {
     const raw = (textInputs[slot.id] || (slot as any).defaultText || '').trim();
     if (!raw) continue;
-    // Sanitise text: strip ASS override tags, replace newlines with \N
+
+    // Sanitise: strip existing ASS tags, newlines → \N, safe apostrophe
     const text = raw
       .replace(/\{[^}]*\}/g, '')
       .replace(/\r?\n/g, '\\N')
-      .replace(/'/g, '’');  // curly apostrophe is safe in ASS
+      .replace(/'/g, '’');
+
     const assStyle  = styleMap[slot.style] || 'Point';
     const startTime = toAssTimeProc(slot.startSec);
     const endTime   = toAssTimeProc(Math.min(slot.endSec, 300));
-    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${text}`);
+
+    // Per-slot animation override tags ─────────────────────────────────────
+    let tags = '';
+
+    if (slot.style === 'hook') {
+      // Drops from y=55 → y=90 in 320 ms while fading in; brief fade-out at end
+      tags = '{\\move(540,55,540,90,0,320)\\fad(250,150)\\an8}';
+
+    } else if (slot.style === 'point') {
+      const p = pointLayouts[pointCount % pointLayouts.length];
+      // Slides from off-screen (or adjacent zone) into its final position
+      tags = `{\\move(${p.fromX},${p.fromY},${p.x},${p.y},0,280)\\fad(200,120)\\an${p.an}}`;
+      pointCount++;
+
+    } else if (slot.style === 'label') {
+      // Fades in at exact screen center — no movement, maximum readability
+      tags = '{\\pos(540,960)\\fad(350,200)\\an5}';
+
+    } else if (slot.style === 'cta') {
+      // Rises from y=1880 → y=1820 in 400 ms — classic "slide up" CTA entrance
+      tags = '{\\move(540,1880,540,1820,0,400)\\fad(350,250)\\an2}';
+    }
+
+    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${tags}${text}`);
   }
 
   return lines.join('\n') + '\n';
