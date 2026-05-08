@@ -207,8 +207,8 @@ function buildAssForSlots(
     hints?.needsDarkBox
       ? 'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,60,60,0,1'
       : 'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,60,60,0,1',
-    // Label — 80px WHITE, dark box 18px padding; centered, position overridden per-event
-    'Style: Label,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,60,60,0,1',
+    // Label — 58px WHITE, dark box 14px padding; top-left corner badge, position overridden per-event
+    'Style: Label,Arial,58,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,7,60,60,0,1',
     // CTA — 56px YELLOW, dark box 14px padding; position overridden per-event
     'Style: CTA,Arial,56,&H0000FFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,14,0,2,60,60,0,1',
     '',
@@ -218,17 +218,19 @@ function buildAssForSlots(
 
   const styleMap: Record<string, string> = { hook: 'Hook', point: 'Point', label: 'Label', cta: 'CTA' };
 
-  // Four Point zones — cycle through them so consecutive points land in different spots.
-  // Each entry: { x, y, an } = final position + anchor; { fromX, fromY } = start of slide animation.
+  // Four Point zones — ALL in the top or bottom safe areas to avoid face/subject in center.
+  // Typical social media videos have the person occupying the middle 50% of the frame,
+  // so we place text only in the top ~20% and bottom ~20%.
+  // Each entry: { x, y, an } = final position + anchor; { fromX, fromY } = slide start.
   const pointLayouts = [
-    // Zone A: LEFT side, upper-middle — slides in from the LEFT edge
-    { x: 65,   y: 680,  an: 4, fromX: -200, fromY: 680  },
-    // Zone B: CENTER, true middle — slides UP into place
-    { x: 540,  y: 960,  an: 5, fromX: 540,  fromY: 1030 },
-    // Zone C: RIGHT side, lower-middle — slides in from the RIGHT edge
-    { x: 1015, y: 1260, an: 6, fromX: 1250, fromY: 1260 },
-    // Zone D: CENTER, upper-third — slides DOWN into place
-    { x: 540,  y: 540,  an: 5, fromX: 540,  fromY: 490  },
+    // Zone A: bottom-center — safest universal zone, slides up
+    { x: 540,  y: 1680, an: 2, fromX: 540,  fromY: 1760 },
+    // Zone B: bottom-left corner — slides in from left
+    { x: 80,   y: 1600, an: 4, fromX: -200, fromY: 1600 },
+    // Zone C: top area (just below hook) — slides down
+    { x: 540,  y: 290,  an: 8, fromX: 540,  fromY: 230  },
+    // Zone D: bottom-right corner — slides in from right
+    { x: 1000, y: 1680, an: 6, fromX: 1260, fromY: 1680 },
   ];
 
   // ── Zone avoidance: put the busiest zone (likely face) at the end of the cycle
@@ -274,8 +276,9 @@ function buildAssForSlots(
       pointCount++;
 
     } else if (slot.style === 'label') {
-      // Fades in at exact screen center — no movement, maximum readability
-      tags = '{\\pos(540,960)\\fad(350,200)\\an5}';
+      // Top-left corner badge — slides in from the left edge, like CapCut BEFORE/AFTER chips.
+      // \an7 = top-left anchor, so pos(60,80) places the chip's top-left at (60,80).
+      tags = '{\\move(-160,80,60,80,0,280)\\fad(280,180)\\an7}';
 
     } else if (slot.style === 'cta') {
       // Rises from y=1880 → y=1820 in 400 ms — classic "slide up" CTA entrance
