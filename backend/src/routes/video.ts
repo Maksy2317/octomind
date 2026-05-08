@@ -6,6 +6,7 @@ import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import { analyzeVideo, analyzeFrame, generateTextSuggestions } from '../services/ai';
 import { applyTemplate, applyStructuredTemplate } from '../services/video/processor';
+import { analyzeFrameForLayout } from '../services/video/smartLayout';
 import {
   getTemplateById,
   getTemplatesForFormat,
@@ -133,7 +134,11 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
       if (!structuredTemplate) {
         res.status(404).json({ error: 'Structured template not found' }); return;
       }
-      await applyStructuredTemplate(inputPath, outputPath, structuredTemplate, textInputs, format);
+      // Analyse frame brightness + (optionally) face position via Claude Vision
+      const layoutHints = await analyzeFrameForLayout(inputPath);
+      console.log(`[process] layoutHints — avoidZone:${layoutHints.avoidZone} needsDarkBox:${layoutHints.needsDarkBox} usedVision:${layoutHints.usedVision}`);
+
+      await applyStructuredTemplate(inputPath, outputPath, structuredTemplate, textInputs, format, layoutHints);
       res.json({ downloadUrl: `/output/${outputFilename}` });
       return;
     }

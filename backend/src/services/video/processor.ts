@@ -4,6 +4,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import ffmpeg from 'fluent-ffmpeg';
 import { TemplateConfig, VideoFormat, StructuredTemplate } from '../../types';
+import { LayoutHints } from './smartLayout';
 
 // Always use system FFmpeg — Dockerfile installs Debian apt ffmpeg which includes
 // libfreetype (drawtext), libass (subtitles), libx264, libfdk-aac, etc.
@@ -175,6 +176,7 @@ function toAssTimeProc(s: number): string {
 function buildAssForSlots(
   slots: StructuredTemplate['slots'],
   textInputs: Record<string, string>,
+  hints?: LayoutHints,
 ): string {
   // ── Dynamic TikTok-style layout ──────────────────────────────────────────
   // Every slot type gets its own position + slide-in animation:
@@ -197,10 +199,14 @@ function buildAssForSlots(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    // Hook — 70px YELLOW, thick 8px black stroke + 3px shadow; position overridden per-event
-    'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,60,60,0,1',
-    // Point — 56px WHITE, 6px stroke + 2px shadow; position + alignment overridden per-event
-    'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,60,60,0,1',
+    // Hook — 70px YELLOW; outline on dark bg, dark box on bright bg
+    hints?.needsDarkBox
+      ? 'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,4,14,0,8,60,60,0,1'
+      : 'Style: Hook,Arial,70,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,8,3,8,60,60,0,1',
+    // Point — 56px WHITE; outline on dark bg, dark box on bright bg
+    hints?.needsDarkBox
+      ? 'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,60,60,0,1'
+      : 'Style: Point,Arial,56,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,2,5,60,60,0,1',
     // Label — 80px WHITE, dark box 18px padding; centered, position overridden per-event
     'Style: Label,Arial,80,&H00FFFFFF,&H000000FF,&H00000000,&HCC000000,-1,0,0,0,100,100,0,0,4,18,0,5,60,60,0,1',
     // CTA — 56px YELLOW, dark box 14px padding; position overridden per-event
@@ -224,6 +230,19 @@ function buildAssForSlots(
     // Zone D: CENTER, upper-third — slides DOWN into place
     { x: 540,  y: 540,  an: 5, fromX: 540,  fromY: 490  },
   ];
+
+  // ── Zone avoidance: put the busiest zone (likely face) at the end of the cycle
+  // so the first N points land in safe screen areas.
+  // Layout y-ranges mapped to zones: top 0-639, center 640-1279, bottom 1280-1919
+  const layoutZone = (y: number): 'top' | 'center' | 'bottom' =>
+    y < 640 ? 'top' : y < 1280 ? 'center' : 'bottom';
+
+  const orderedLayouts = hints?.avoidZone
+    ? [
+        ...pointLayouts.filter(p => layoutZone(p.y) !== hints.avoidZone),
+        ...pointLayouts.filter(p => layoutZone(p.y) === hints.avoidZone),
+      ]
+    : pointLayouts;
 
   let pointCount = 0;
 
@@ -249,7 +268,7 @@ function buildAssForSlots(
       tags = '{\\move(540,55,540,90,0,320)\\fad(250,150)\\an8}';
 
     } else if (slot.style === 'point') {
-      const p = pointLayouts[pointCount % pointLayouts.length];
+      const p = orderedLayouts[pointCount % orderedLayouts.length];
       // Slides from off-screen (or adjacent zone) into its final position
       tags = `{\\move(${p.fromX},${p.fromY},${p.x},${p.y},0,280)\\fad(200,120)\\an${p.an}}`;
       pointCount++;
@@ -277,6 +296,7 @@ export function applyStructuredTemplate(
   template: StructuredTemplate,
   textInputs: Record<string, string>,
   format: VideoFormat,
+  hints?: LayoutHints,
 ): Promise<void> {
   let assPath: string | null = null;
 
@@ -295,7 +315,7 @@ export function applyStructuredTemplate(
     //    Using the `subtitles` filter (libass) instead of `drawtext` (libfreetype)
     //    because mwader/static-ffmpeg guarantees libass but drawtext can be absent.
     assPath = path.join(os.tmpdir(), `octo_tmpl_${uuidv4()}.ass`);
-    fs.writeFileSync(assPath, buildAssForSlots(template.slots, textInputs), 'utf8');
+    fs.writeFileSync(assPath, buildAssForSlots(template.slots, textInputs, hints), 'utf8');
     console.log(`[applyStructuredTemplate] ASS overlay → ${assPath}`);
 
     // Escape the ASS path for FFmpeg filter syntax (colon is an option separator)
