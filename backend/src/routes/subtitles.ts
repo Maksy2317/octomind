@@ -198,15 +198,72 @@ function buildAssAccumulating(
     header = header.replace(/^(Style: Default,.+)$/m, `$1\n${hlStyleLine}`);
   }
 
+  // ── resolveWordTimings ────────────────────────────────────────────────────
+  // Whisper's word-level timestamps often omit short words ("a", "the", "в",
+  // "він", etc.), causing every-other-word skipping.  This function uses the
+  // segment TEXT as ground truth — every token in seg.text gets a display slot —
+  // and uses Whisper timestamps as precision anchors where available.
+  // Missing words receive linearly-interpolated timestamps.
+  function resolveWordTimings(
+    segText: string,
+    whisperWords: Array<{ word: string; start: number; end: number }>,
+    segStart: number,
+    segEnd: number,
+  ): Array<{ word: string; start: number; end: number }> {
+    const textWords = segText.trim().split(/\s+/).filter(Boolean);
+    if (!textWords.length) return [];
+    const total = textWords.length;
+    const dur   = Math.max(0.1, segEnd - segStart);
+
+    // anchors[i] = known start time for textWords[i], null = needs interpolation
+    const anchors: Array<number | null> = new Array(total).fill(null);
+
+    if (whisperWords.length > 0) {
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      let ti = 0;
+      for (const ww of whisperWords) {
+        if (ti >= total) break;
+        const wn = norm(ww.word);
+        // Scan up to 4 positions forward to absorb small alignment gaps
+        for (let j = ti; j < Math.min(ti + 4, total); j++) {
+          const tn = norm(textWords[j]);
+          if (wn === tn || wn.includes(tn) || tn.includes(wn)) {
+            anchors[j] = ww.start;
+            ti = j + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    // Guarantee endpoints so interpolation always has boundary values
+    if (anchors[0]         === null) anchors[0]         = segStart;
+    if (anchors[total - 1] === null) anchors[total - 1] = Math.max(segStart, segEnd - 0.05);
+
+    // Linear interpolation for every gap between anchors
+    let i = 0;
+    while (i < total) {
+      if (anchors[i] !== null) { i++; continue; }
+      let p = i - 1, n = i + 1;
+      while (p >= 0    && anchors[p] === null) p--;
+      while (n < total && anchors[n] === null) n++;
+      const t0    = p >= 0    ? anchors[p]! : segStart;
+      const t1    = n < total ? anchors[n]! : segEnd;
+      const steps = n - p;
+      for (let k = i; k < n; k++) anchors[k] = t0 + ((k - p) / steps) * (t1 - t0);
+      i = n;
+    }
+
+    return textWords.map((word, idx) => {
+      const start = anchors[idx] ?? segStart;
+      const end   = idx + 1 < total
+        ? Math.max(start + 0.05, anchors[idx + 1] ?? segEnd)
+        : segEnd;
+      return { word, start, end };
+    });
+  }
+
   // ── Greedy word→segment assignment ─────────────────────────────────────────
-  // Rules:
-  //  1. Sort words by start time (Whisper can return them slightly out of order).
-  //  2. Advance the segment pointer si once a word is clearly past the current segment
-  //     (more than 0.4 s after its end).
-  //  3. ALWAYS assign the word — no lower-bound check that drops gap words.
-  //     Previously a word landing in a pause >0.8 s between two segments would
-  //     advance si past the old segment but fail the lower-bound guard for the new
-  //     one, silently disappearing from the output.
   const sortedWords = [...words]
     .filter(w => w.word.trim())
     .sort((a, b) => a.start - b.start);
@@ -216,29 +273,28 @@ function buildAssAccumulating(
   let si = 0;
   for (const w of sortedWords) {
     while (si < segments.length - 1 && w.start > segments[si].end + 0.4) si++;
-    // Always assign — never skip a word because of gap timing
     if (!segWordMap.has(si)) segWordMap.set(si, []);
     segWordMap.get(si)!.push(w);
   }
 
-  // Max words shown at once before text clears and restarts — keeps subtitles
-  // from overflowing the screen. 5 words ≈ 1–2 lines at the current font size.
+  // Max words shown at once before text clears and restarts
   const MAX_GROUP = 5;
 
   const events: string[] = [];
 
   for (let segIdx = 0; segIdx < segments.length; segIdx++) {
-    const seg      = segments[segIdx];
-    const segWords = segWordMap.get(segIdx) ?? [];
+    const seg = segments[segIdx];
 
-    if (segWords.length === 0) {
-      // No word-level data — show full segment at once (fallback)
-      const text = prepareText(seg.text, uc);
-      if (text) events.push(
-        `Dialogue: 0,${toAssTime(seg.start)},${toAssTime(seg.end)},Default,,0,0,0,,${text}`,
-      );
-      continue;
-    }
+    // Build a COMPLETE word list for this segment: every token from seg.text
+    // is guaranteed a display slot; Whisper timestamps used as anchors.
+    const segWords = resolveWordTimings(
+      seg.text,
+      segWordMap.get(segIdx) ?? [],
+      seg.start,
+      seg.end,
+    );
+
+    if (segWords.length === 0) continue;
 
     // Split segment words into groups of MAX_GROUP to prevent long text build-up.
     // Each group accumulates independently; after MAX_GROUP words the screen
