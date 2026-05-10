@@ -3866,12 +3866,14 @@
           previewVideo.load();
           previewWrap.style.display = '';
         }
-        // Build post-render slot editor for structured templates
+        // Build post-render slot editor + live overlay for structured templates
         const slotEditorWrap = document.getElementById('vSlotEditor');
         if (vS.isStructured && vS.currentTemplate && slotEditorWrap) {
           vS.slotOverrides = {};
           vBuildSlotEditor();
           slotEditorWrap.style.display = 'block';
+          // Build overlay after a brief tick so the video element has rendered dimensions
+          setTimeout(vBuildVideoOverlay, 120);
         }
       }, 600);
 
@@ -3889,6 +3891,8 @@
     vS.slotOverrides = {};
     const slotEditorWrap = document.getElementById('vSlotEditor');
     if (slotEditorWrap) slotEditorWrap.style.display = 'none';
+    const oldOv = document.getElementById('vVideoOverlay');
+    if (oldOv) oldOv.remove();
     document.getElementById('vfInfo').style.display = 'none';
     document.getElementById('vfThumbWrap').innerHTML = '';
     document.getElementById('vb1').disabled = true;
@@ -3945,7 +3949,8 @@
         </div>
         <div class="slot-edit-body" id="seb_${slot.id}" style="display:none;">
           <textarea class="slot-edit-textarea" id="set_${slot.id}" rows="3"
-            placeholder="${slot.defaultText || ''}">${curText}</textarea>
+            placeholder="${slot.defaultText || ''}"
+            oninput="vUpdateOverlayText('${slot.id}',this.value)">${curText}</textarea>
           <div class="color-palette">
             <span class="color-palette-label">Колір:</span>
             ${COLORS.map(c =>
@@ -3973,13 +3978,127 @@
     if (!vS.slotOverrides) vS.slotOverrides = {};
     if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
     vS.slotOverrides[slotId].color = color;
-    // update visual selection inside this slot's palette only
+    // Update swatch selection UI
     const body = document.getElementById('seb_' + slotId);
     if (body) {
       body.querySelectorAll('.cpick').forEach(el => el.classList.remove('cp-sel'));
       const picked = body.querySelector('.cpick-' + color);
       if (picked) picked.classList.add('cp-sel');
     }
+    // ✨ Instant live preview — update overlay text colour without re-rendering
+    const ovEl = document.getElementById('vov_' + slotId);
+    if (ovEl) {
+      const hex = vOvColorHex(color);
+      ovEl.style.color = hex;
+      // For box styles, re-apply box glow tint to match new colour
+      if (ovEl.dataset.hasBg === '1') {
+        ovEl.style.textShadow = `0 0 12px ${hex}44`;
+      }
+    }
+  }
+
+  /** Instant text update in video overlay while typing */
+  function vUpdateOverlayText(slotId, text) {
+    const el = document.getElementById('vov_' + slotId);
+    if (el) el.textContent = text || '';
+  }
+
+  const vOvColorHex = c => ({
+    white:'#FFFFFF', yellow:'#FFE600', red:'#FF3B30', orange:'#FF9500',
+    blue:'#007AFF', green:'#34C759', cyan:'#00E5FF', pink:'#FF2D90'
+  }[c] || '#FFFFFF');
+
+  /**
+   * Build a live-preview text overlay on top of the rendered video.
+   * Positions mirror the ASS coordinate system (1080×1920) scaled to
+   * the actual displayed video dimensions (accounting for letterboxing).
+   */
+  function vBuildVideoOverlay() {
+    const video = document.getElementById('vPreviewVideo');
+    const wrap  = document.getElementById('vDoneVideoWrap');
+    if (!video || !wrap || !vS.currentTemplate) return;
+
+    // Remove stale overlay
+    const old = document.getElementById('vVideoOverlay');
+    if (old) old.remove();
+
+    const elW = video.offsetWidth;
+    const elH = video.offsetHeight;
+    if (!elW || !elH) { setTimeout(vBuildVideoOverlay, 150); return; }
+
+    // Our videos are always 9:16 → calculate actual content rect inside the element
+    const vAsp = 9 / 16;
+    const cAsp = elW / elH;
+    let vW, vH, ox, oy;
+    if (cAsp > vAsp) {           // wider container → black bars left/right
+      vH = elH; vW = elH * vAsp; ox = (elW - vW) / 2; oy = 0;
+    } else {                      // taller container → black bars top/bottom
+      vW = elW; vH = elW / vAsp; ox = 0; oy = (elH - vH) / 2;
+    }
+
+    wrap.style.position = 'relative';
+    const overlay = document.createElement('div');
+    overlay.id = 'vVideoOverlay';
+    overlay.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${vW}px;height:${vH}px;pointer-events:none;overflow:hidden;z-index:2;`;
+    wrap.appendChild(overlay);
+
+    // Font sizes proportional to display height (matching ASS px/1920 ratio)
+    const fHook  = vH * 0.0365;  // 70 / 1920
+    const fPoint = vH * 0.0292;  // 56 / 1920
+    const fLabel = vH * 0.0302;  // 58 / 1920
+
+    // Point zones — match backend pointLayouts (x/1080, y/1920 as %)
+    const ZONES = [
+      { xp:50,   yp:87.5, css:'left:50%;transform:translate(-50%,-100%);text-align:center;' },
+      { xp:7.4,  yp:83.3, css:'left:7.4%;transform:translateY(-50%);text-align:left;'       },
+      { xp:50,   yp:15.1, css:'left:50%;transform:translate(-50%,0);text-align:center;'     },
+      { xp:92.6, yp:87.5, css:'left:92.6%;transform:translate(-100%,-100%);text-align:right;'},
+    ];
+    let pCount = 0;
+
+    vS.currentTemplate.slots.forEach(slot => {
+      const text = (vS.slotOverrides?.[slot.id]?.text != null
+        ? vS.slotOverrides[slot.id].text
+        : vS.textInputs[slot.id] || slot.defaultText || '').trim();
+      if (!text) return;
+
+      const color  = vS.slotOverrides?.[slot.id]?.color || 'white';
+      const hex    = vOvColorHex(color);
+      let   pos = '', fs = fPoint, hasBg = false, maxW = '82%';
+
+      switch (slot.style) {
+        case 'hook':
+          pos = `top:4.7%;left:50%;transform:translateX(-50%);text-align:center;`;
+          fs = fHook; break;
+        case 'label':
+          pos = `top:4.2%;left:5.6%;text-align:left;`;
+          fs = fLabel; hasBg = true; maxW = '45%'; break;
+        case 'cta':
+          pos = `top:94.8%;left:50%;transform:translate(-50%,-100%);text-align:center;`;
+          hasBg = true; break;
+        case 'point': {
+          const z = ZONES[pCount % 4]; pCount++;
+          pos = `top:${z.yp}%;${z.css}`; break;
+        }
+        default: return;
+      }
+
+      const outline = `text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 2px 6px rgba(0,0,0,.85)`;
+      const boxStyle = hasBg ? `background:rgba(0,0,0,.72);padding:2px 8px;border-radius:5px;` : '';
+
+      const el = document.createElement('div');
+      el.id = 'vov_' + slot.id;
+      el.dataset.hasBg = hasBg ? '1' : '0';
+      el.style.cssText = `
+        position:absolute;${pos}
+        color:${hex};
+        font-family:Arial,sans-serif;font-size:${fs}px;font-weight:bold;
+        line-height:1.25;word-break:break-word;max-width:${maxW};
+        ${hasBg ? boxStyle : outline}
+      `;
+      el.textContent = text;
+      overlay.appendChild(el);
+    });
   }
 
   /** Re-render the video with updated text + color overrides (skips re-upload) */
@@ -4057,9 +4176,10 @@
         const pv = document.getElementById('vPreviewVideo');
         const pw = document.getElementById('vDoneVideoWrap');
         if (pv && pw) { pv.src = freshUrl; pv.load(); pw.style.display = ''; }
-        // Rebuild editor with current values
+        // Rebuild editor + live overlay with current values
         vBuildSlotEditor();
         document.getElementById('vSlotEditor').style.display = 'block';
+        setTimeout(vBuildVideoOverlay, 120);
       }, 500);
 
     } catch (err) {
