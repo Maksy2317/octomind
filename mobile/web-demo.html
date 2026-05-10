@@ -374,6 +374,8 @@
     .slot-tab:last-child { border-right:none; }
     .slot-tab.s-active { background:var(--accent); color:#fff; }
     .slot-tab:hover:not(.s-active) { background:var(--surface3); color:var(--text); }
+    /* Green underline = currently playing in video (separate from s-active = editing) */
+    .slot-tab.s-playing { box-shadow:inset 0 -3px 0 var(--green); }
     .slot-active-editor { background:var(--surface2); border:1px solid var(--border); border-radius:0 0 10px 10px; padding:12px; border-top:none; }
 
     /* ── Post-render slot editor ── */
@@ -3932,7 +3934,7 @@
   function vReset() {
     vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
     vS.customOverlay = null; vS.textInputs = {}; vS.isStructured = false; vS.currentTemplate = null;
-    vS.slotOverrides = {}; vS.uploadFilename = null; vS.lastRenderedUrl = null;
+    vS.slotOverrides = {}; vS.uploadFilename = null; vS.lastRenderedUrl = null; vS.activeSlotOverride = null;
     const slotEditorWrap = document.getElementById('vSlotEditor');
     if (slotEditorWrap) slotEditorWrap.style.display = 'none';
     const oldOv = document.getElementById('vVideoOverlay');
@@ -4043,8 +4045,15 @@
         ).join('')}
       </div>`;
 
-    // Rebuild overlay so only this slot's text is shown (no more pile-up)
-    setTimeout(vBuildVideoOverlay, 30);
+    // Lock overlay to this slot while user edits (cleared when video plays again)
+    vS.activeSlotOverride = slotId;
+    // Immediately show this slot's element, hide others (no full rebuild needed)
+    if (vS.currentTemplate) {
+      vS.currentTemplate.slots.forEach(s => {
+        const el = document.getElementById('vov_' + s.id);
+        if (el) el.style.display = s.id === slotId ? '' : 'none';
+      });
+    }
   }
 
   function vSetSlotColor(slotId, color) {
@@ -4058,9 +4067,9 @@
       const picked = editor.querySelector('.cpick-' + color);
       if (picked) picked.classList.add('cp-sel');
     }
-    // Rebuild video overlay — reads the new colour from vS.slotOverrides.
-    // (Direct style.color update is unreliable if the overlay element doesn't exist yet.)
-    vBuildVideoOverlay();
+    // Direct DOM update — overlay element is always in DOM (all slots pre-built)
+    const ovEl = document.getElementById('vov_' + slotId);
+    if (ovEl) ovEl.style.color = vOvColorHex(color);
   }
 
   function vSetSlotFont(slotId, fontId) {
@@ -4074,8 +4083,9 @@
       const picked = editor.querySelector('.fpick-' + fontId);
       if (picked) picked.classList.add('fp-sel');
     }
-    // Rebuild overlay with new font
-    vBuildVideoOverlay();
+    // Direct DOM update
+    const ovEl = document.getElementById('vov_' + slotId);
+    if (ovEl) ovEl.style.fontFamily = vOvFontCss(fontId);
   }
 
   /** Instant text update in video overlay while typing */
@@ -4089,79 +4099,62 @@
     blue:'#007AFF', green:'#34C759', cyan:'#00E5FF', pink:'#FF2D90'
   }[c] || '#FFFFFF');
 
+  const vOvFontCss = id => ({
+    default:   'Arial,sans-serif',
+    condensed: 'Impact,"Arial Narrow",sans-serif',
+    ubuntu:    '"Ubuntu","Trebuchet MS",sans-serif',
+    mono:      '"Courier New",monospace',
+  }[id] || 'Arial,sans-serif');
+
   /**
-   * Build a live-preview text overlay on top of the rendered video.
-   * Positions mirror the ASS coordinate system (1080×1920) scaled to
-   * the actual displayed video element dimensions.
-   *
-   * The video element has aspect-ratio:9/16 set in CSS, so there is no
-   * letterboxing — the overlay simply covers the full video element.
+   * Build live-preview overlay — creates ALL slot elements (all hidden by default).
+   * Visibility is controlled by vSyncOverlay() via timeupdate events.
    */
   function vBuildVideoOverlay() {
     const video = document.getElementById('vPreviewVideo');
     const wrap  = document.getElementById('vDoneVideoWrap');
     if (!video || !wrap || !vS.currentTemplate) return;
 
-    // Remove stale overlay
+    // Remove stale overlay + detach old listeners
     const old = document.getElementById('vVideoOverlay');
     if (old) old.remove();
+    video.removeEventListener('timeupdate', vOnVideoTime);
+    video.removeEventListener('play',       vOnVideoPlay);
 
     const vW = video.offsetWidth;
     if (!vW) { setTimeout(vBuildVideoOverlay, 150); return; }
-    // Derive height from width (aspect-ratio:9/16 is set on video but may not
-    // have settled yet on first paint — calculate it ourselves to be safe).
     const vH = video.offsetHeight || Math.round(vW * 16 / 9);
 
     wrap.style.position = 'relative';
     const overlay = document.createElement('div');
     overlay.id = 'vVideoOverlay';
-    // Cover the entire video element with inset:0 — no letterbox math needed.
     overlay.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;`;
     wrap.appendChild(overlay);
 
-    // Font sizes: exact proportional match to ASS (PlayResY=1920).
-    // Hook=70pt → 70/1920=3.65%, Point=56pt → 2.92%, Label=58pt → 3.02%
-    // No boost — preview looks exactly like the final 1080×1920 video.
+    // Proportional font sizes (exact ASS ratio: PlayResY=1920)
     const fHook  = Math.max(vH * 0.0365, 10);
     const fPoint = Math.max(vH * 0.0292, 9);
     const fLabel = Math.max(vH * 0.0302, 9);
 
-    // Point zones — match backend pointLayouts (x/1080, y/1920 as %)
     const ZONES = [
-      { xp:50,   yp:87.5, css:'left:50%;transform:translate(-50%,-100%);text-align:center;' },
-      { xp:7.4,  yp:83.3, css:'left:7.4%;transform:translateY(-50%);text-align:left;'       },
-      { xp:50,   yp:15.1, css:'left:50%;transform:translate(-50%,0);text-align:center;'     },
-      { xp:92.6, yp:87.5, css:'left:92.6%;transform:translate(-100%,-100%);text-align:right;'},
+      { yp:87.5, css:'left:50%;transform:translate(-50%,-100%);text-align:center;' },
+      { yp:83.3, css:'left:7.4%;transform:translateY(-50%);text-align:left;'       },
+      { yp:15.1, css:'left:50%;transform:translate(-50%,0);text-align:center;'     },
+      { yp:87.5, css:'left:92.6%;transform:translate(-100%,-100%);text-align:right;'},
     ];
     let pCount = 0;
 
-    // Only show the active slot to avoid all text piling on top of each other.
-    // When the user switches tabs the overlay is rebuilt for the new active slot.
-    const activeTabEl = document.querySelector('.slot-tab.s-active');
-    const activeSlotId = activeTabEl
-      ? activeTabEl.id.replace('stab_', '')
-      : vS.currentTemplate?.slots[0]?.id;
-
+    // Create an element for EVERY slot (display:none); timeupdate will show them
     vS.currentTemplate.slots.forEach(slot => {
-      // Count point slots regardless so ZONES index stays correct
-      if (slot.style === 'point') { if (slot.id !== activeSlotId) { pCount++; return; } }
-      else if (slot.id !== activeSlotId) return;
-
       const text = (vS.slotOverrides?.[slot.id]?.text != null
         ? vS.slotOverrides[slot.id].text
         : vS.textInputs[slot.id] || slot.defaultText || '').trim();
-      if (!text) return;
 
-      const color  = vS.slotOverrides?.[slot.id]?.color || 'white';
-      const fontId = vS.slotOverrides?.[slot.id]?.font  || 'default';
-      const hex    = vOvColorHex(color);
-      const fontCss = ({
-        default:   'Arial,sans-serif',
-        condensed: 'Impact,"Arial Narrow",sans-serif',
-        ubuntu:    '"Ubuntu","Trebuchet MS",sans-serif',
-        mono:      '"Courier New",monospace',
-      })[fontId] || 'Arial,sans-serif';
-      let   pos = '', fs = fPoint, hasBg = false, maxW = '90%';
+      const color   = vS.slotOverrides?.[slot.id]?.color || 'white';
+      const fontId  = vS.slotOverrides?.[slot.id]?.font  || 'default';
+      const hex     = vOvColorHex(color);
+      const fontCss = vOvFontCss(fontId);
+      let pos = '', fs = fPoint, hasBg = false, maxW = '90%';
 
       switch (slot.style) {
         case 'hook':
@@ -4180,22 +4173,71 @@
         default: return;
       }
 
-      const outline = `text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 2px 6px rgba(0,0,0,.85)`;
+      const outline  = `text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 2px 6px rgba(0,0,0,.85)`;
       const boxStyle = hasBg ? `background:rgba(0,0,0,.72);padding:2px 8px;border-radius:5px;` : '';
 
       const el = document.createElement('div');
       el.id = 'vov_' + slot.id;
       el.dataset.hasBg = hasBg ? '1' : '0';
       el.style.cssText = `
-        position:absolute;${pos}
-        color:${hex};
-        font-family:${fontCss};font-size:${fs}px;font-weight:bold;
+        position:absolute;${pos}display:none;
+        color:${hex};font-family:${fontCss};font-size:${fs}px;font-weight:bold;
         line-height:1.25;word-break:break-word;max-width:${maxW};
         ${hasBg ? boxStyle : outline}
       `;
-      el.textContent = text;
+      el.textContent = text || '';
       overlay.appendChild(el);
     });
+
+    // Time-sync listeners
+    video.addEventListener('timeupdate', vOnVideoTime);
+    video.addEventListener('play',       vOnVideoPlay);
+
+    // Sync immediately to current time (or activeSlotOverride if set)
+    vSyncOverlay(video.currentTime);
+  }
+
+  /** Show the right slot in overlay based on video time. Called by timeupdate. */
+  function vOnVideoTime() { vSyncOverlay(this.currentTime); }
+
+  /** When video starts playing, release manual override → follow video time. */
+  function vOnVideoPlay() {
+    vS.activeSlotOverride = null;
+    vSyncOverlay(document.getElementById('vPreviewVideo')?.currentTime || 0);
+  }
+
+  /**
+   * Show/hide overlay elements to match the current video time.
+   * If vS.activeSlotOverride is set (user clicked a tab while paused),
+   * that slot stays visible until the video plays again.
+   */
+  function vSyncOverlay(t) {
+    if (!vS.currentTemplate) return;
+    let playingId = null;
+
+    vS.currentTemplate.slots.forEach(slot => {
+      const el = document.getElementById('vov_' + slot.id);
+      if (!el) return;
+
+      let visible;
+      if (vS.activeSlotOverride) {
+        visible = slot.id === vS.activeSlotOverride;
+      } else {
+        const start = slot.startSec != null ? slot.startSec : 0;
+        const end   = slot.endSec   != null ? slot.endSec   : 9999;
+        visible = t >= start && t < end;
+      }
+
+      el.style.display = visible ? '' : 'none';
+      if (visible) playingId = slot.id;
+    });
+
+    // Green underline on the tab that's currently playing in the video
+    document.querySelectorAll('.slot-tab').forEach(t => t.classList.remove('s-playing'));
+    if (playingId) {
+      const pt = document.getElementById('stab_' + playingId);
+      if (pt) pt.classList.add('s-playing');
+    }
   }
 
   /** Re-render the video with updated text + color overrides (skips re-upload) */
