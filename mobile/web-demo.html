@@ -4008,17 +4008,20 @@
             onclick="vSetSlotColor('${slotId}','${c}')" title="${c}"></div>`
         ).join('')}
       </div>`;
+
+    // Rebuild overlay so only this slot's text is shown (no more pile-up)
+    setTimeout(vBuildVideoOverlay, 30);
   }
 
   function vSetSlotColor(slotId, color) {
     if (!vS.slotOverrides) vS.slotOverrides = {};
     if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
     vS.slotOverrides[slotId].color = color;
-    // Update swatch selection UI
-    const body = document.getElementById('seb_' + slotId);
-    if (body) {
-      body.querySelectorAll('.cpick').forEach(el => el.classList.remove('cp-sel'));
-      const picked = body.querySelector('.cpick-' + color);
+    // Update swatch selection UI (swatches live in #vSlotActiveEditor for active tab)
+    const editor = document.getElementById('vSlotActiveEditor');
+    if (editor) {
+      editor.querySelectorAll('.cpick').forEach(el => el.classList.remove('cp-sel'));
+      const picked = editor.querySelector('.cpick-' + color);
       if (picked) picked.classList.add('cp-sel');
     }
     // ✨ Instant live preview — update overlay text colour without re-rendering
@@ -4094,7 +4097,18 @@
     ];
     let pCount = 0;
 
+    // Only show the active slot to avoid all text piling on top of each other.
+    // When the user switches tabs the overlay is rebuilt for the new active slot.
+    const activeTabEl = document.querySelector('.slot-tab.s-active');
+    const activeSlotId = activeTabEl
+      ? activeTabEl.id.replace('stab_', '')
+      : vS.currentTemplate?.slots[0]?.id;
+
     vS.currentTemplate.slots.forEach(slot => {
+      // Count point slots regardless so ZONES index stays correct
+      if (slot.style === 'point') { if (slot.id !== activeSlotId) { pCount++; return; } }
+      else if (slot.id !== activeSlotId) return;
+
       const text = (vS.slotOverrides?.[slot.id]?.text != null
         ? vS.slotOverrides[slot.id].text
         : vS.textInputs[slot.id] || slot.defaultText || '').trim();
