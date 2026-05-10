@@ -10,6 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="OctoMind">
   <link rel="apple-touch-icon" href="assets/icon.png">
+  <!-- Ubuntu font for overlay preview (bold weight only) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
   <!-- Theme restore BEFORE paint -->
   <script>
     try {
@@ -396,6 +399,16 @@
     .cpick-green  { background:#34C759; }
     .cpick-cyan   { background:#00E5FF; }
     .cpick-pink   { background:#FF2D90; }
+    /* ── Font picker ── */
+    .font-palette { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+    .font-palette-label { font-size:11px; color:var(--text4); margin-right:2px; white-space:nowrap; }
+    .fpick { padding:4px 10px; border-radius:6px; cursor:pointer; border:2px solid var(--border); background:var(--surface2); color:var(--text2); font-size:13px; font-weight:700; transition:border-color .15s,background .15s; white-space:nowrap; }
+    .fpick:hover { background:var(--surface3); border-color:var(--accent2); }
+    .fpick.fp-sel { border-color:var(--accent); background:var(--surface3); color:var(--text); box-shadow:0 0 0 1px var(--accent); }
+    .fpick-default   { font-family:Arial,sans-serif; }
+    .fpick-condensed { font-family:Impact,'Arial Narrow',sans-serif; }
+    .fpick-ubuntu    { font-family:'Ubuntu','Trebuchet MS',sans-serif; }
+    .fpick-mono      { font-family:'Courier New',monospace; }
 
     /* Dashboard */
     .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
@@ -3989,10 +4002,17 @@
     if (!slot) return;
 
     const COLORS = ['white','yellow','red','orange','blue','green','cyan','pink'];
+    const FONTS  = [
+      { id:'default',   label:'Arial' },
+      { id:'condensed', label:'Impact' },
+      { id:'ubuntu',    label:'Rounded' },
+      { id:'mono',      label:'Mono' },
+    ];
     const curText  = (vS.slotOverrides[slotId]?.text != null)
       ? vS.slotOverrides[slotId].text
       : (vS.textInputs[slotId] || slot.defaultText || '');
     const curColor = vS.slotOverrides[slotId]?.color || 'white';
+    const curFont  = vS.slotOverrides[slotId]?.font  || 'default';
 
     const editor = document.getElementById('vSlotActiveEditor');
     if (!editor) return;
@@ -4006,6 +4026,13 @@
         ${COLORS.map(c =>
           `<div class="cpick cpick-${c}${curColor===c?' cp-sel':''}"
             onclick="vSetSlotColor('${slotId}','${c}')" title="${c}"></div>`
+        ).join('')}
+      </div>
+      <div class="font-palette">
+        <span class="font-palette-label">Шрифт:</span>
+        ${FONTS.map(f =>
+          `<button class="fpick fpick-${f.id}${curFont===f.id?' fp-sel':''}"
+            onclick="vSetSlotFont('${slotId}','${f.id}')">${f.label}</button>`
         ).join('')}
       </div>`;
 
@@ -4029,6 +4056,21 @@
     vBuildVideoOverlay();
   }
 
+  function vSetSlotFont(slotId, fontId) {
+    if (!vS.slotOverrides) vS.slotOverrides = {};
+    if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
+    vS.slotOverrides[slotId].font = fontId;
+    // Update font picker selection ring
+    const editor = document.getElementById('vSlotActiveEditor');
+    if (editor) {
+      editor.querySelectorAll('.fpick').forEach(el => el.classList.remove('fp-sel'));
+      const picked = editor.querySelector('.fpick-' + fontId);
+      if (picked) picked.classList.add('fp-sel');
+    }
+    // Rebuild overlay with new font
+    vBuildVideoOverlay();
+  }
+
   /** Instant text update in video overlay while typing */
   function vUpdateOverlayText(slotId, text) {
     const el = document.getElementById('vov_' + slotId);
@@ -4043,7 +4085,10 @@
   /**
    * Build a live-preview text overlay on top of the rendered video.
    * Positions mirror the ASS coordinate system (1080×1920) scaled to
-   * the actual displayed video dimensions (accounting for letterboxing).
+   * the actual displayed video element dimensions.
+   *
+   * The video element has aspect-ratio:9/16 set in CSS, so there is no
+   * letterboxing — the overlay simply covers the full video element.
    */
   function vBuildVideoOverlay() {
     const video = document.getElementById('vPreviewVideo');
@@ -4054,32 +4099,24 @@
     const old = document.getElementById('vVideoOverlay');
     if (old) old.remove();
 
-    const elW = video.offsetWidth;
-    const elH = video.offsetHeight;
-    if (!elW || !elH) { setTimeout(vBuildVideoOverlay, 150); return; }
-
-    // Our videos are always 9:16 → calculate actual content rect inside the element
-    const vAsp = 9 / 16;
-    const cAsp = elW / elH;
-    let vW, vH, ox, oy;
-    if (cAsp > vAsp) {           // wider container → black bars left/right
-      vH = elH; vW = elH * vAsp; ox = (elW - vW) / 2; oy = 0;
-    } else {                      // taller container → black bars top/bottom
-      vW = elW; vH = elW / vAsp; ox = 0; oy = (elH - vH) / 2;
-    }
+    const vW = video.offsetWidth;
+    if (!vW) { setTimeout(vBuildVideoOverlay, 150); return; }
+    // Derive height from width (aspect-ratio:9/16 is set on video but may not
+    // have settled yet on first paint — calculate it ourselves to be safe).
+    const vH = video.offsetHeight || Math.round(vW * 16 / 9);
 
     wrap.style.position = 'relative';
     const overlay = document.createElement('div');
     overlay.id = 'vVideoOverlay';
-    overlay.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${vW}px;height:${vH}px;pointer-events:none;overflow:hidden;z-index:2;`;
+    // Cover the entire video element with inset:0 — no letterbox math needed.
+    overlay.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;`;
     wrap.appendChild(overlay);
 
-    // Font sizes: scale from ASS ratios but apply a boost for readability in the small preview.
-    // The overlay is just a colour/text preview — exact pixel match with the final render
-    // matters less than legibility at 200-400px display height.
-    const fHook  = Math.max(vH * 0.060, 15);  // 70/1920 boosted
-    const fPoint = Math.max(vH * 0.052, 13);  // 56/1920 boosted
-    const fLabel = Math.max(vH * 0.050, 13);  // 58/1920 boosted
+    // Font sizes scaled to preview height.
+    // ASS reference: Hook=70pt, Point=56pt, Label=58pt at PlayResY=1920.
+    const fHook  = Math.max(vH * 0.058, 14);
+    const fPoint = Math.max(vH * 0.050, 12);
+    const fLabel = Math.max(vH * 0.048, 12);
 
     // Point zones — match backend pointLayouts (x/1080, y/1920 as %)
     const ZONES = [
@@ -4108,7 +4145,14 @@
       if (!text) return;
 
       const color  = vS.slotOverrides?.[slot.id]?.color || 'white';
+      const fontId = vS.slotOverrides?.[slot.id]?.font  || 'default';
       const hex    = vOvColorHex(color);
+      const fontCss = ({
+        default:   'Arial,sans-serif',
+        condensed: 'Impact,"Arial Narrow",sans-serif',
+        ubuntu:    '"Ubuntu","Trebuchet MS",sans-serif',
+        mono:      '"Courier New",monospace',
+      })[fontId] || 'Arial,sans-serif';
       let   pos = '', fs = fPoint, hasBg = false, maxW = '90%';
 
       switch (slot.style) {
@@ -4137,7 +4181,7 @@
       el.style.cssText = `
         position:absolute;${pos}
         color:${hex};
-        font-family:Arial,sans-serif;font-size:${fs}px;font-weight:bold;
+        font-family:${fontCss};font-size:${fs}px;font-weight:bold;
         line-height:1.25;word-break:break-word;max-width:${maxW};
         ${hasBg ? boxStyle : outline}
       `;
@@ -4188,11 +4232,14 @@
       lbl.textContent = pct + '%';
     }, 1000);
 
-    // Build slotStyleOverrides — only color (text is in textInputs)
+    // Build slotStyleOverrides — color + font (text is in textInputs)
     const styleOverrides = {};
     Object.keys(vS.slotOverrides).forEach(sid => {
-      if (vS.slotOverrides[sid].color) {
-        styleOverrides[sid] = { color: vS.slotOverrides[sid].color };
+      const ovr = vS.slotOverrides[sid];
+      if (ovr.color || ovr.font) {
+        styleOverrides[sid] = {};
+        if (ovr.color) styleOverrides[sid].color = ovr.color;
+        if (ovr.font && ovr.font !== 'default') styleOverrides[sid].font = ovr.font;
       }
     });
 

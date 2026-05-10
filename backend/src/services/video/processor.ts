@@ -176,6 +176,7 @@ function toAssTimeProc(s: number): string {
 /** Per-slot style override coming from the frontend post-render editor */
 interface SlotStyleOverride {
   color?: string; // one of the SLOT_COLOR_MAP keys
+  font?:  string; // one of the SLOT_FONT_MAP keys
 }
 
 /** ASS colour codes (AABBGGRR) for the frontend colour-picker swatches */
@@ -188,6 +189,21 @@ const SLOT_COLOR_MAP: Record<string, string> = {
   green:  '0000FF00',
   cyan:   '00FFFF00',
   pink:   '00FF00FF',
+};
+
+/**
+ * ASS font names for the frontend font-picker.
+ * All fonts must be installed in the Docker image (see Dockerfile).
+ *   default   → Liberation Sans  (clean Arial equivalent, fonts-liberation)
+ *   ubuntu    → Ubuntu           (rounded modern, fonts-ubuntu)
+ *   condensed → Nimbus Sans Narrow (condensed/impact-style, fonts-urw-base35)
+ *   mono      → DejaVu Sans Mono (monospace retro, fonts-dejavu-core)
+ */
+const SLOT_FONT_MAP: Record<string, string> = {
+  default:   'Liberation Sans',
+  ubuntu:    'Ubuntu',
+  condensed: 'Nimbus Sans Narrow',
+  mono:      'DejaVu Sans Mono',
 };
 
 function buildAssForSlots(
@@ -303,13 +319,16 @@ function buildAssForSlots(
       tags = '{\\move(540,1880,540,1820,0,400)\\fad(350,250)\\an2}';
     }
 
-    // Per-slot colour override from the post-render editor (\c tag overrides style default)
+    // Per-slot colour + font overrides from the post-render editor
     const ovr = slotOverrides?.[slot.id];
     const colorTag = ovr?.color && SLOT_COLOR_MAP[ovr.color]
       ? `{\\c&H${SLOT_COLOR_MAP[ovr.color]}&}`
       : '';
+    const fontTag = ovr?.font && SLOT_FONT_MAP[ovr.font]
+      ? `{\\fn${SLOT_FONT_MAP[ovr.font]}}`
+      : '';
 
-    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${tags}${colorTag}${text}`);
+    lines.push(`Dialogue: 0,${startTime},${endTime},${assStyle},,0,0,0,,${tags}${colorTag}${fontTag}${text}`);
   }
 
   return lines.join('\n') + '\n';

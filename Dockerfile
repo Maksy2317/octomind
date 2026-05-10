@@ -4,9 +4,19 @@ FROM node:20-slim
 COPY --from=mwader/static-ffmpeg:latest /ffmpeg /usr/local/bin/ffmpeg
 COPY --from=mwader/static-ffmpeg:latest /ffprobe /usr/local/bin/ffprobe
 
-# Install fonts for drawtext + shared libs needed at runtime
+# Install fonts for subtitles/libass rendering
+# fonts-dejavu-core    → DejaVu Sans / DejaVu Sans Mono (always-available fallback)
+# fonts-liberation     → Liberation Sans Bold  (Arial equivalent, clean/default)
+# fonts-ubuntu         → Ubuntu Bold           (rounded, modern)
+# fonts-urw-base35     → Nimbus Sans Narrow    (condensed/impact-style)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends fonts-dejavu-core && \
+    apt-get install -y --no-install-recommends \
+        fonts-dejavu-core \
+        fonts-liberation \
+        fonts-ubuntu \
+        fonts-urw-base35 \
+        fontconfig && \
+    fc-cache -f && \
     rm -rf /var/lib/apt/lists/*
 
 # Verify FFmpeg works and has required filters — fails build if broken
