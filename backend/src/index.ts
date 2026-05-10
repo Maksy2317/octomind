@@ -29,6 +29,13 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 // Serve processed videos
 app.use('/output', express.static(path.resolve(outputDir)));
 
+// Serve original uploads so the frontend can use the un-rendered video as a clean
+// preview canvas (no baked-in ASS text). Files are UUID-named so enumeration is hard.
+const uploadDir = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(process.cwd(), 'uploads');
+app.use('/uploads', express.static(uploadDir));
+
 app.use('/api/video', videoRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/subtitles', subtitlesRouter);

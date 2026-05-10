@@ -3843,6 +3843,7 @@
       const uploadData = await uploadRes.json();
       if (uploadData.error) throw new Error(uploadData.error);
       vS.videoId = uploadData.videoId;
+      vS.uploadFilename = uploadData.filename; // keep original for clean preview
 
       // 2. Process with template
       lbl.textContent = 'Застосовуємо шаблон FFmpeg...';
@@ -3891,8 +3892,9 @@
       setTimeout(() => {
         processing.style.display = 'none';
         done.style.display = 'block';
-        // Cache-bust so the player always shows the freshly-rendered video
+        // Download link → rendered video (with baked-in text)
         const freshUrl = processData.downloadUrl + '?v=' + Date.now();
+        vS.lastRenderedUrl = freshUrl;
         document.getElementById('vDownloadLink').href = freshUrl;
         document.getElementById('vrd').textContent = tmplDisplayName + ' · ' + (fmtN[vS.fmt] || vS.fmt);
         document.getElementById('vDoneInfo').innerHTML =
@@ -3900,9 +3902,14 @@
           `${tmplEmoji}<strong>Шаблон:</strong> ${tmplDisplayName}<br>` +
           `🎬 <strong>Кодек:</strong> H.264 · AAC · faststart<br>` +
           `✅ Файл готовий до публікації в Instagram / TikTok`;
-        // Populate inline video preview
+        // Preview video → ORIGINAL upload (no baked-in text) so the HTML overlay
+        // is the only visible text — colour / font changes show cleanly.
         const previewVideo = document.getElementById('vPreviewVideo');
-        if (previewVideo) { previewVideo.src = freshUrl; previewVideo.load(); }
+        if (previewVideo) {
+          const origUrl = vS.uploadFilename ? '/uploads/' + vS.uploadFilename : freshUrl;
+          previewVideo.src = origUrl;
+          previewVideo.load();
+        }
         // Build post-render slot editor + live overlay for structured templates
         const slotEditorWrap = document.getElementById('vSlotEditor');
         if (vS.isStructured && vS.currentTemplate && slotEditorWrap) {
@@ -3925,7 +3932,7 @@
   function vReset() {
     vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
     vS.customOverlay = null; vS.textInputs = {}; vS.isStructured = false; vS.currentTemplate = null;
-    vS.slotOverrides = {};
+    vS.slotOverrides = {}; vS.uploadFilename = null; vS.lastRenderedUrl = null;
     const slotEditorWrap = document.getElementById('vSlotEditor');
     if (slotEditorWrap) slotEditorWrap.style.display = 'none';
     const oldOv = document.getElementById('vVideoOverlay');
@@ -4112,11 +4119,12 @@
     overlay.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;`;
     wrap.appendChild(overlay);
 
-    // Font sizes scaled to preview height.
-    // ASS reference: Hook=70pt, Point=56pt, Label=58pt at PlayResY=1920.
-    const fHook  = Math.max(vH * 0.058, 14);
-    const fPoint = Math.max(vH * 0.050, 12);
-    const fLabel = Math.max(vH * 0.048, 12);
+    // Font sizes: exact proportional match to ASS (PlayResY=1920).
+    // Hook=70pt → 70/1920=3.65%, Point=56pt → 2.92%, Label=58pt → 3.02%
+    // No boost — preview looks exactly like the final 1080×1920 video.
+    const fHook  = Math.max(vH * 0.0365, 10);
+    const fPoint = Math.max(vH * 0.0292, 9);
+    const fLabel = Math.max(vH * 0.0302, 9);
 
     // Point zones — match backend pointLayouts (x/1080, y/1920 as %)
     const ZONES = [
@@ -4267,9 +4275,14 @@
         processing.style.display = 'none';
         done.style.display = 'block';
         const freshUrl = data.downloadUrl + '?v=' + Date.now();
+        vS.lastRenderedUrl = freshUrl;
         document.getElementById('vDownloadLink').href = freshUrl;
+        // Preview stays on the ORIGINAL video (no baked text) — overlay is the only text
         const pv = document.getElementById('vPreviewVideo');
-        if (pv) { pv.src = freshUrl; pv.load(); }
+        if (pv) {
+          const origUrl = vS.uploadFilename ? '/uploads/' + vS.uploadFilename : freshUrl;
+          if (pv.src !== origUrl) { pv.src = origUrl; pv.load(); }
+        }
         // Rebuild editor + live overlay with current values
         vBuildSlotEditor();
         document.getElementById('vSlotEditor').style.display = 'block';
