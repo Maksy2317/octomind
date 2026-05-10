@@ -359,6 +359,20 @@
     .btn-full { width: 100%; justify-content: center; }
     .btn-sm { padding: 8px 14px; font-size: 12px; }
 
+    /* ── Done state two-column layout ── */
+    .v-done-layout { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+    .v-done-vidpane { flex:0 0 220px; max-width:220px; }
+    .v-done-editpane { flex:1; min-width:220px; display:flex; flex-direction:column; gap:8px; }
+    @media (max-width:540px) { .v-done-vidpane { flex:1 1 100%; max-width:100%; } }
+
+    /* ── Slot tabs ── */
+    .slot-tab-bar { display:flex; border-radius:10px; overflow:hidden; border:1px solid var(--border); margin-bottom:0; }
+    .slot-tab { flex:1; padding:9px 4px; text-align:center; font-size:11px; font-weight:600; cursor:pointer; background:var(--surface2); color:var(--text3); border:none; border-right:1px solid var(--border); transition:background .15s,color .15s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:inherit; }
+    .slot-tab:last-child { border-right:none; }
+    .slot-tab.s-active { background:var(--accent); color:#fff; }
+    .slot-tab:hover:not(.s-active) { background:var(--surface3); color:var(--text); }
+    .slot-active-editor { background:var(--surface2); border:1px solid var(--border); border-radius:0 0 10px 10px; padding:12px; border-top:none; }
+
     /* ── Post-render slot editor ── */
     .slot-edit-item { border:1px solid var(--border); border-radius:10px; margin-bottom:8px; overflow:hidden; }
     .slot-edit-header { display:flex; align-items:center; padding:11px 14px; cursor:pointer; background:var(--surface2); gap:8px; user-select:none; transition:background .15s; }
@@ -1683,35 +1697,50 @@
               <div id="vProgressLabel" style="font-size:12px;color:var(--text4);margin-top:8px;">Завантаження та обробка...</div>
             </div>
             <div id="vDone" style="display:none;">
-              <!-- Inline video preview (portrait 9:16) -->
-              <div id="vDoneVideoWrap" style="border-radius:14px;overflow:hidden;background:#000;margin-bottom:12px;line-height:0;display:none;">
-                <video id="vPreviewVideo" controls playsinline style="width:100%;max-height:400px;display:block;object-fit:contain;"></video>
-              </div>
-              <!-- Title pill -->
-              <div class="card" style="text-align:center;padding:16px 20px;background:linear-gradient(135deg,#1a1040,#12121E);border-color:#4CAF5066;margin-bottom:10px;">
-                <div style="font-size:36px;margin-bottom:6px;">🎉</div>
-                <div class="card-title" style="color:#4CAF50;margin-bottom:2px;">Відео готове!</div>
-                <div class="card-sub" id="vrd">Шаблон застосовано</div>
-              </div>
-              <!-- Action buttons — mirrors subtitle section layout -->
-              <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <a id="vDownloadLink" href="#" download="octo_video.mp4" class="btn btn-primary" style="flex:1;text-decoration:none;text-align:center;">💾 Завантажити</a>
-                <button class="btn btn-secondary" style="flex:1;" onclick="vRework()">✏️ Змінити текст</button>
-              </div>
-              <!-- Tech info (compact) -->
-              <div class="card" style="margin-bottom:8px;padding:10px 14px;">
-                <div id="vDoneInfo" style="font-size:12px;color:var(--text3);line-height:1.9;"></div>
-              </div>
-              <!-- ✏️ Post-render slot editor (shown only for structured templates) -->
-              <div id="vSlotEditor" style="display:none;margin-bottom:10px;">
-                <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-                  ✏️ Редагуй елементи відео
+              <!-- ── Compact header ── -->
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:12px 16px;background:linear-gradient(135deg,#1a1040,#12121E);border:1px solid #4CAF5044;border-radius:14px;">
+                <span style="font-size:28px;line-height:1;">🎉</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;color:#4CAF50;font-size:15px;">Відео готове!</div>
+                  <div id="vrd" style="font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Шаблон застосовано</div>
                 </div>
-                <div id="vSlotEditorItems"></div>
-                <button class="btn btn-primary btn-full" style="margin-top:4px;" onclick="vRerender()">🔄 Перерендерити зі змінами</button>
+                <a id="vDownloadLink" href="#" download="octo_video.mp4" class="btn btn-primary btn-sm" style="text-decoration:none;white-space:nowrap;flex-shrink:0;">💾 Завантажити</a>
               </div>
 
-              <button class="btn btn-secondary btn-full" onclick="vReset()">+ Створити ще</button>
+              <!-- ── Main layout: video left, editor right ── -->
+              <div class="v-done-layout">
+
+                <!-- Video pane -->
+                <div class="v-done-vidpane">
+                  <div id="vDoneVideoWrap" style="border-radius:12px;overflow:hidden;background:#000;line-height:0;position:relative;">
+                    <video id="vPreviewVideo" controls playsinline style="width:100%;display:block;object-fit:contain;max-height:400px;"></video>
+                  </div>
+                  <!-- Tech info below video -->
+                  <div style="margin-top:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+                    <div id="vDoneInfo" style="font-size:11px;color:var(--text4);line-height:1.8;"></div>
+                  </div>
+                </div>
+
+                <!-- Editor pane (structured templates only) -->
+                <div class="v-done-editpane" id="vSlotEditor" style="display:none;">
+                  <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">✏️ Редагуй елементи</div>
+
+                  <!-- Tab bar -->
+                  <div class="slot-tab-bar" id="vSlotTabBar"></div>
+
+                  <!-- Active slot editor (populated by vActivateSlotTab) -->
+                  <div class="slot-active-editor" id="vSlotActiveEditor"></div>
+
+                  <!-- Re-render -->
+                  <button class="btn btn-primary btn-full" onclick="vRerender()" style="margin-top:4px;">🔄 Застосувати зміни</button>
+                </div>
+              </div>
+
+              <!-- ── Bottom actions ── -->
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="btn btn-secondary" style="flex:1;" onclick="vRework()">↩ Змінити текст</button>
+                <button class="btn btn-secondary" style="flex:1;" onclick="vReset()">+ Новий проект</button>
+              </div>
             </div>
             <div id="vError" style="display:none;" class="card">
               <div style="text-align:center;padding:20px;">
@@ -3860,12 +3889,7 @@
           `✅ Файл готовий до публікації в Instagram / TikTok`;
         // Populate inline video preview
         const previewVideo = document.getElementById('vPreviewVideo');
-        const previewWrap  = document.getElementById('vDoneVideoWrap');
-        if (previewVideo && previewWrap) {
-          previewVideo.src = freshUrl;
-          previewVideo.load();
-          previewWrap.style.display = '';
-        }
+        if (previewVideo) { previewVideo.src = freshUrl; previewVideo.load(); }
         // Build post-render slot editor + live overlay for structured templates
         const slotEditorWrap = document.getElementById('vSlotEditor');
         if (vS.isStructured && vS.currentTemplate && slotEditorWrap) {
@@ -3901,18 +3925,14 @@
     document.getElementById('vSlotInputs').innerHTML = '';
     // Clear inline preview
     const pv = document.getElementById('vPreviewVideo');
-    const pw = document.getElementById('vDoneVideoWrap');
     if (pv) pv.src = '';
-    if (pw) pw.style.display = 'none';
     vs(1);
   }
 
   /** Go back to step 3 (text inputs) without losing the uploaded video — lets user tweak text and re-render */
   function vRework() {
     const pv = document.getElementById('vPreviewVideo');
-    const pw = document.getElementById('vDoneVideoWrap');
     if (pv) pv.src = '';
-    if (pw) pw.style.display = 'none';
     document.getElementById('vDone').style.display = 'none';
     document.getElementById('vProcessing').style.display = 'none';
     vs(3);
@@ -3922,56 +3942,72 @@
 
   /** Build (or rebuild) the slot editor chips in the Done panel */
   function vBuildSlotEditor() {
-    const container = document.getElementById('vSlotEditorItems');
-    if (!container || !vS.currentTemplate) return;
+    const tabBar = document.getElementById('vSlotTabBar');
+    if (!tabBar || !vS.currentTemplate) return;
     if (!vS.slotOverrides) vS.slotOverrides = {};
 
-    const COLORS = ['white','yellow','red','orange','blue','green','cyan','pink'];
     const STYLE_EMOJI = { hook:'🎯', point:'💡', label:'🏷️', cta:'👆' };
 
-    container.innerHTML = '';
-    vS.currentTemplate.slots.forEach(slot => {
-      const curText  = (vS.slotOverrides[slot.id] && vS.slotOverrides[slot.id].text != null)
-        ? vS.slotOverrides[slot.id].text
-        : (vS.textInputs[slot.id] || slot.defaultText || '');
-      const curColor = (vS.slotOverrides[slot.id] && vS.slotOverrides[slot.id].color) || 'white';
-      const emoji    = STYLE_EMOJI[slot.style] || '📝';
-      const preview  = curText.length > 28 ? curText.substring(0, 28) + '…' : curText;
-
-      const item = document.createElement('div');
-      item.className = 'slot-edit-item';
-      item.id = 'sei_' + slot.id;
-      item.innerHTML = `
-        <div class="slot-edit-header" onclick="vToggleSlotEdit('${slot.id}')">
-          <span class="slot-edit-label">${emoji} ${slot.label}</span>
-          <span class="slot-edit-preview">${preview}</span>
-          <span class="slot-edit-arrow" id="sea_${slot.id}">▼</span>
-        </div>
-        <div class="slot-edit-body" id="seb_${slot.id}" style="display:none;">
-          <textarea class="slot-edit-textarea" id="set_${slot.id}" rows="3"
-            placeholder="${slot.defaultText || ''}"
-            oninput="vUpdateOverlayText('${slot.id}',this.value)">${curText}</textarea>
-          <div class="color-palette">
-            <span class="color-palette-label">Колір:</span>
-            ${COLORS.map(c =>
-              `<div class="cpick cpick-${c}${curColor===c?' cp-sel':''}"
-                onclick="vSetSlotColor('${slot.id}','${c}')"
-                title="${c}"></div>`
-            ).join('')}
-          </div>
-        </div>`;
-      container.appendChild(item);
+    tabBar.innerHTML = '';
+    vS.currentTemplate.slots.forEach((slot, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'slot-tab' + (i === 0 ? ' s-active' : '');
+      btn.id = 'stab_' + slot.id;
+      // Short tab label: emoji + first word of label
+      btn.textContent = (STYLE_EMOJI[slot.style] || '📝') + ' ' + slot.label.split(' ')[0];
+      btn.title = slot.label;
+      btn.onclick = () => vActivateSlotTab(slot.id);
+      tabBar.appendChild(btn);
     });
+
+    // Activate first slot
+    if (vS.currentTemplate.slots.length) {
+      vActivateSlotTab(vS.currentTemplate.slots[0].id);
+    }
   }
 
-  function vToggleSlotEdit(slotId) {
-    const body  = document.getElementById('seb_' + slotId);
-    const arrow = document.getElementById('sea_' + slotId);
-    const isOpen = body.style.display !== 'none';
-    // collapse all
-    document.querySelectorAll('.slot-edit-body').forEach(b => b.style.display = 'none');
-    document.querySelectorAll('.slot-edit-arrow').forEach(a => a.textContent = '▼');
-    if (!isOpen) { body.style.display = 'block'; arrow.textContent = '▲'; }
+  /** Save current tab's textarea value, then switch to the given slot */
+  function vActivateSlotTab(slotId) {
+    // Persist current active tab's text before switching
+    const prevTab = document.querySelector('.slot-tab.s-active');
+    if (prevTab) {
+      const prevId = prevTab.id.replace('stab_', '');
+      const prevTa = document.getElementById('set_' + prevId);
+      if (prevTa) {
+        if (!vS.slotOverrides[prevId]) vS.slotOverrides[prevId] = {};
+        vS.slotOverrides[prevId].text = prevTa.value;
+      }
+    }
+
+    // Update tab highlights
+    document.querySelectorAll('.slot-tab').forEach(t => t.classList.remove('s-active'));
+    const activeTab = document.getElementById('stab_' + slotId);
+    if (activeTab) activeTab.classList.add('s-active');
+
+    // Render editor for this slot
+    const slot = vS.currentTemplate?.slots.find(s => s.id === slotId);
+    if (!slot) return;
+
+    const COLORS = ['white','yellow','red','orange','blue','green','cyan','pink'];
+    const curText  = (vS.slotOverrides[slotId]?.text != null)
+      ? vS.slotOverrides[slotId].text
+      : (vS.textInputs[slotId] || slot.defaultText || '');
+    const curColor = vS.slotOverrides[slotId]?.color || 'white';
+
+    const editor = document.getElementById('vSlotActiveEditor');
+    if (!editor) return;
+    editor.innerHTML = `
+      <div style="font-size:11px;color:var(--text4);font-weight:600;margin-bottom:6px;">${slot.label}</div>
+      <textarea class="slot-edit-textarea" id="set_${slotId}" rows="3"
+        placeholder="${(slot.defaultText || '').replace(/"/g,'&quot;')}"
+        oninput="vUpdateOverlayText('${slotId}',this.value)">${curText}</textarea>
+      <div class="color-palette" style="margin-top:4px;">
+        <span class="color-palette-label">Колір:</span>
+        ${COLORS.map(c =>
+          `<div class="cpick cpick-${c}${curColor===c?' cp-sel':''}"
+            onclick="vSetSlotColor('${slotId}','${c}')" title="${c}"></div>`
+        ).join('')}
+      </div>`;
   }
 
   function vSetSlotColor(slotId, color) {
@@ -4042,10 +4078,12 @@
     overlay.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${vW}px;height:${vH}px;pointer-events:none;overflow:hidden;z-index:2;`;
     wrap.appendChild(overlay);
 
-    // Font sizes proportional to display height (matching ASS px/1920 ratio)
-    const fHook  = vH * 0.0365;  // 70 / 1920
-    const fPoint = vH * 0.0292;  // 56 / 1920
-    const fLabel = vH * 0.0302;  // 58 / 1920
+    // Font sizes: scale from ASS ratios but apply a boost for readability in the small preview.
+    // The overlay is just a colour/text preview — exact pixel match with the final render
+    // matters less than legibility at 200-400px display height.
+    const fHook  = Math.max(vH * 0.055, 14);  // 70/1920 boosted
+    const fPoint = Math.max(vH * 0.046, 12);  // 56/1920 boosted
+    const fLabel = Math.max(vH * 0.048, 12);  // 58/1920 boosted
 
     // Point zones — match backend pointLayouts (x/1080, y/1920 as %)
     const ZONES = [
@@ -4106,16 +4144,19 @@
     if (!vS.isStructured || !vS.currentTemplate || !vS.videoId) return;
     if (!vS.slotOverrides) vS.slotOverrides = {};
 
-    // Collect latest text from editor textareas
+    // Save the currently-visible textarea (only active tab is in DOM)
+    const activeTa = document.querySelector('#vSlotActiveEditor textarea');
+    if (activeTa) {
+      const activeSlotId = activeTa.id.replace('set_', '');
+      if (!vS.slotOverrides[activeSlotId]) vS.slotOverrides[activeSlotId] = {};
+      vS.slotOverrides[activeSlotId].text = activeTa.value;
+    }
+
+    // Build updatedTexts from overrides + originals
     const updatedTexts = Object.assign({}, vS.textInputs);
     vS.currentTemplate.slots.forEach(slot => {
-      const ta = document.getElementById('set_' + slot.id);
-      if (ta) {
-        const v = ta.value.trim();
-        updatedTexts[slot.id] = v || slot.defaultText || '';
-        // persist text override so it survives rebuild
-        if (!vS.slotOverrides[slot.id]) vS.slotOverrides[slot.id] = {};
-        vS.slotOverrides[slot.id].text = updatedTexts[slot.id];
+      if (vS.slotOverrides[slot.id]?.text != null) {
+        updatedTexts[slot.id] = vS.slotOverrides[slot.id].text || slot.defaultText || '';
       }
     });
     vS.textInputs = updatedTexts;
@@ -4174,8 +4215,7 @@
         const freshUrl = data.downloadUrl + '?v=' + Date.now();
         document.getElementById('vDownloadLink').href = freshUrl;
         const pv = document.getElementById('vPreviewVideo');
-        const pw = document.getElementById('vDoneVideoWrap');
-        if (pv && pw) { pv.src = freshUrl; pv.load(); pw.style.display = ''; }
+        if (pv) { pv.src = freshUrl; pv.load(); }
         // Rebuild editor + live overlay with current values
         vBuildSlotEditor();
         document.getElementById('vSlotEditor').style.display = 'block';
