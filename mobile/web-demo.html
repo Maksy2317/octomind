@@ -1098,6 +1098,21 @@
       padding: 3px 6px; border-radius: 4px; font-weight: 700;
       line-height: 1.3; transition: all 0.2s;
     }
+    /* ── Carousel ─────────────────────────────────────────── */
+    .cr-theme-swatch { transition: border-color .15s, transform .15s; }
+    .cr-theme-swatch:hover { transform: scale(1.1); }
+    .cr-theme-active { border-color: var(--accent) !important; }
+    .cr-slide-thumb {
+      border-radius: 10px; overflow: hidden; cursor: pointer;
+      border: 2px solid transparent; transition: border-color .2s, transform .2s;
+      aspect-ratio: 1; background: #111;
+    }
+    .cr-slide-thumb:hover { border-color: var(--accent2); transform: scale(1.02); }
+    .cr-slide-thumb canvas { width: 100%; height: 100%; display: block; }
+    .cr-slide-label {
+      font-size: 10px; color: var(--text4); text-align: center;
+      margin-top: 4px; font-weight: 600;
+    }
     .cal-post-item {
       display: flex; align-items: center; gap: 8px; padding: 8px 10px;
       background: var(--surface2); border-radius: 10px; margin-bottom: 6px;
@@ -1118,6 +1133,8 @@
     body.light-mode .cal-type-chip { background: var(--surface2); border-color: var(--border); }
     body.light-mode .cal-post-item { background: var(--surface2); }
   </style>
+  <!-- JSZip for carousel ZIP download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -1603,6 +1620,7 @@
           <div class="vsteps" style="margin-bottom:14px;">
             <div class="vstep active" id="vModeCreator" onclick="vSwitchMode('creator')">🎬 Відео</div>
             <div class="vstep" id="vModeSubs" onclick="vSwitchMode('subs')">📝 Субтитри</div>
+            <div class="vstep" id="vModeCarousel" onclick="vSwitchMode('carousel')">🎠 Карусель</div>
           </div>
 
           <!-- ═══ VIDEO CREATOR mode ═══ -->
@@ -2103,6 +2121,148 @@
             </div>
 
           </div><!-- /vModeSubsWrap -->
+
+          <!-- ═══ CAROUSEL mode ═══ -->
+          <div id="vModeCarouselWrap" style="display:none;">
+
+            <div class="vsteps" style="margin-bottom:16px;">
+              <div class="vstep active" id="crn1">1. Тема</div>
+              <div class="vstep" id="crn2">2. Генерація</div>
+              <div class="vstep" id="crn3">3. Готово</div>
+            </div>
+
+            <!-- Step 1: topic + options -->
+            <div id="cr1">
+              <!-- Info pills -->
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
+                  <span style="font-size:15px;">🤖</span><span style="font-size:12px;font-weight:600;color:var(--text);">GPT-4 генерує текст</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
+                  <span style="font-size:15px;">🖼</span><span style="font-size:12px;font-weight:600;color:var(--text);">1080×1080 PNG</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
+                  <span style="font-size:15px;">📦</span><span style="font-size:12px;font-weight:600;color:var(--text);">ZIP з усіма слайдами</span>
+                </div>
+              </div>
+
+              <div class="card" style="padding:16px;">
+                <!-- Topic -->
+                <div style="margin-bottom:16px;">
+                  <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">💡 Тема карусель</label>
+                  <textarea id="crTopic" rows="3" placeholder="Наприклад: 5 порад як прокидатись о 5 ранку&#10;або: Помилки початківців у маркетингу&#10;або: Чому варто пити каву вранці"
+                    style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box;resize:none;font-family:inherit;line-height:1.4;"></textarea>
+                </div>
+
+                <!-- Slides count + language -->
+                <div style="display:flex;gap:12px;margin-bottom:16px;">
+                  <div style="flex:1;">
+                    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">📊 Кількість слайдів</label>
+                    <div style="display:flex;gap:5px;">
+                      <button class="ss-opt-btn active" id="crSl4" onclick="crSetSlides(4,this)">4</button>
+                      <button class="ss-opt-btn" id="crSl6" onclick="crSetSlides(6,this)">6</button>
+                      <button class="ss-opt-btn" id="crSl8" onclick="crSetSlides(8,this)">8</button>
+                      <button class="ss-opt-btn" id="crSl10" onclick="crSetSlides(10,this)">10</button>
+                    </div>
+                  </div>
+                  <div style="flex:1;">
+                    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">🌐 Мова</label>
+                    <div style="display:flex;gap:5px;">
+                      <button class="ss-opt-btn active" id="crLangUk" onclick="crSetLang('uk',this)">🇺🇦 UA</button>
+                      <button class="ss-opt-btn" id="crLangRu" onclick="crSetLang('ru',this)">🇷🇺 RU</button>
+                      <button class="ss-opt-btn" id="crLangEn" onclick="crSetLang('en',this)">🇬🇧 EN</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Color theme -->
+                <div style="margin-bottom:16px;">
+                  <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px;">🎨 Кольорова тема</label>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;" id="crThemePicker">
+                    <div class="cr-theme-swatch cr-theme-active" data-theme="dark" onclick="crSetTheme('dark',this)"
+                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0D0D1A,#1a1040);cursor:pointer;border:3px solid var(--accent);position:relative;" title="🌙 Темний">
+                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🌙</div>
+                    </div>
+                    <div class="cr-theme-swatch" data-theme="blue" onclick="crSetTheme('blue',this)"
+                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0A1628,#1e3a5f);cursor:pointer;border:3px solid transparent;position:relative;" title="🌊 Синій">
+                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🌊</div>
+                    </div>
+                    <div class="cr-theme-swatch" data-theme="orange" onclick="crSetTheme('orange',this)"
+                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1A0800,#3d1500);cursor:pointer;border:3px solid transparent;position:relative;" title="🔥 Помаранч">
+                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🔥</div>
+                    </div>
+                    <div class="cr-theme-swatch" data-theme="green" onclick="crSetTheme('green',this)"
+                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#071A0A,#0d3b14);cursor:pointer;border:3px solid transparent;position:relative;" title="🌿 Зелений">
+                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🌿</div>
+                    </div>
+                    <div class="cr-theme-swatch" data-theme="pink" onclick="crSetTheme('pink',this)"
+                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#160A1A,#2d1040);cursor:pointer;border:3px solid transparent;position:relative;" title="💜 Рожевий">
+                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">💜</div>
+                    </div>
+                    <div class="cr-theme-swatch" data-theme="white" onclick="crSetTheme('white',this)"
+                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#F9F9F9,#e8e8e8);cursor:pointer;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);position:relative;" title="⬜ Мінімал">
+                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">⬜</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Premium DALL-E toggle -->
+                <div style="margin-top:24px;padding:12px 14px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC44;border-radius:12px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-size:13px;font-weight:700;color:var(--text);">✨ AI фото на фоні <span style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:800;"> PREMIUM</span></div>
+                      <div style="font-size:11px;color:var(--text3);margin-top:2px;">DALL-E 3 генерує унікальне фото для кожного слайду</div>
+                      <div style="font-size:10px;color:#FF6B35;margin-top:3px;">~$0.04 за слайд · займає 30+ сек</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;margin-left:10px;">
+                      <input type="checkbox" id="crDalleToggle" style="opacity:0;width:0;height:0;">
+                      <span id="crDalleTrack" style="position:absolute;inset:0;background:#333;border-radius:20px;transition:.3s;"></span>
+                      <span id="crDalleThumb" style="position:absolute;top:4px;left:4px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary btn-full" style="margin-top:16px;" onclick="crGenerate()">🤖 Генерувати карусель →</button>
+              </div>
+            </div>
+
+            <!-- Step 2: Generating spinner -->
+            <div id="cr2" style="display:none;">
+              <div class="card" style="text-align:center;padding:48px 24px;">
+                <div style="font-size:48px;margin-bottom:16px;" id="crGenIcon">🤖</div>
+                <div class="card-title" style="margin-bottom:8px;" id="crGenTitle">GPT-4 генерує контент...</div>
+                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;" id="crGenSub">Створюємо структуру слайдів</div>
+                <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;max-width:280px;margin:0 auto;">
+                  <div id="crGenBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:15%;transition:width 1.5s ease;"></div>
+                </div>
+                <div id="crGenProgress" style="font-size:11px;color:var(--text4);margin-top:10px;"></div>
+              </div>
+            </div>
+
+            <!-- Step 3: Preview + Download -->
+            <div id="cr3" style="display:none;">
+              <!-- Header -->
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#1a1040,#12121E);border:1px solid #4CAF5044;border-radius:14px;">
+                <span style="font-size:26px;">🎠</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;color:#4CAF50;font-size:14px;">Карусель готова!</div>
+                  <div id="crDoneInfo" style="font-size:11px;color:var(--text3);">Завантажуй або переглядай</div>
+                </div>
+                <button onclick="crDownloadZip()" id="crDownloadBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;flex-shrink:0;">📦 ZIP</button>
+              </div>
+
+              <!-- Slide preview grid -->
+              <div id="crPreviewGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;"></div>
+
+              <!-- Bottom actions -->
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" style="flex:1;" onclick="crStep(1)">← Нова карусель</button>
+                <button class="btn btn-secondary" style="flex:1;" onclick="crDownloadZip()">📦 Завантажити ZIP</button>
+              </div>
+            </div>
+
+          </div><!-- /vModeCarouselWrap -->
+
         </div>
 
         <!-- Carousel -->
@@ -4513,11 +4673,12 @@
 
   // Mode switcher
   function vSwitchMode(mode) {
-    const isCreator = mode === 'creator';
-    document.getElementById('vModeCreatorWrap').style.display = isCreator ? '' : 'none';
-    document.getElementById('vModeSubsWrap').style.display  = isCreator ? 'none' : '';
-    document.getElementById('vModeCreator').className = 'vstep' + (isCreator ? ' active' : '');
-    document.getElementById('vModeSubs').className   = 'vstep' + (!isCreator ? ' active' : '');
+    document.getElementById('vModeCreatorWrap').style.display  = mode === 'creator'  ? '' : 'none';
+    document.getElementById('vModeSubsWrap').style.display     = mode === 'subs'     ? '' : 'none';
+    document.getElementById('vModeCarouselWrap').style.display = mode === 'carousel' ? '' : 'none';
+    document.getElementById('vModeCreator').className  = 'vstep' + (mode === 'creator'  ? ' active' : '');
+    document.getElementById('vModeSubs').className     = 'vstep' + (mode === 'subs'     ? ' active' : '');
+    document.getElementById('vModeCarousel').className = 'vstep' + (mode === 'carousel' ? ' active' : '');
   }
 
   const ssState = {
@@ -6435,6 +6596,409 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       }
     } catch {}
   })();
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  CAROUSEL GENERATOR
+  // ══════════════════════════════════════════════════════════════════════════
+
+  const CR_THEMES = {
+    dark:   { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4', dot:'rgba(124,92,252,0.3)' },
+    blue:   { bg1:'#0A1628', bg2:'#0d2545', accent:'#38BDF8', text:'#FFFFFF', sub:'#94A3B8', dot:'rgba(56,189,248,0.3)'  },
+    orange: { bg1:'#1A0800', bg2:'#3d1200', accent:'#FF6B35', text:'#FFFFFF', sub:'#FFA07A', dot:'rgba(255,107,53,0.3)'  },
+    green:  { bg1:'#071A0A', bg2:'#0d3514', accent:'#4ADE80', text:'#FFFFFF', sub:'#86EFAC', dot:'rgba(74,222,128,0.3)'  },
+    pink:   { bg1:'#160A1A', bg2:'#2d0d40', accent:'#E879F9', text:'#FFFFFF', sub:'#C084FC', dot:'rgba(232,121,249,0.3)' },
+    white:  { bg1:'#F5F5F5', bg2:'#EAEAEA', accent:'#111111', text:'#111111', sub:'#555555', dot:'rgba(0,0,0,0.12)'      },
+  };
+
+  const crState = {
+    topic: '', slidesCount: 4, language: 'uk', theme: 'dark',
+    dalleEnabled: false,
+    slides: [],       // generated slide data
+    canvases: [],     // rendered canvases
+  };
+
+  // ── UI helpers ──────────────────────────────────────────────────────────────
+  function crStep(n) {
+    [1, 2, 3].forEach(i => {
+      const el = document.getElementById('cr' + i);
+      if (el) el.style.display = i === n ? '' : 'none';
+      const lbl = document.getElementById('crn' + i);
+      if (lbl) lbl.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
+    });
+  }
+
+  function crSetSlides(n, btn) {
+    crState.slidesCount = n;
+    ['crSl4','crSl6','crSl8','crSl10'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.classList.remove('active');
+    });
+    if (btn) btn.classList.add('active');
+  }
+
+  function crSetLang(lang, btn) {
+    crState.language = lang;
+    ['crLangUk','crLangRu','crLangEn'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.classList.remove('active');
+    });
+    if (btn) btn.classList.add('active');
+  }
+
+  function crSetTheme(themeId, el) {
+    crState.theme = themeId;
+    document.querySelectorAll('.cr-theme-swatch').forEach(s => {
+      s.classList.remove('cr-theme-active');
+      s.style.borderColor = 'transparent';
+    });
+    el.classList.add('cr-theme-active');
+    el.style.borderColor = 'var(--accent)';
+  }
+
+  // ── Generation ──────────────────────────────────────────────────────────────
+  async function crGenerate() {
+    const topic = document.getElementById('crTopic').value.trim();
+    if (!topic) { alert('Введи тему карусель!'); return; }
+    crState.topic = topic;
+    crState.dalleEnabled = document.getElementById('crDalleToggle').checked;
+
+    crStep(2);
+    const bar  = document.getElementById('crGenBar');
+    const icon = document.getElementById('crGenIcon');
+    const title= document.getElementById('crGenTitle');
+    const sub  = document.getElementById('crGenSub');
+    const prog = document.getElementById('crGenProgress');
+    bar.style.width = '15%';
+    icon.textContent = '🤖'; title.textContent = 'GPT-4 генерує контент...'; sub.textContent = 'Створюємо структуру слайдів'; prog.textContent = '';
+
+    try {
+      // 1. Generate text content
+      const genRes = await fetch('/api/carousel/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, slidesCount: crState.slidesCount, language: crState.language }),
+      });
+      if (!genRes.ok) throw new Error('Помилка генерації тексту');
+      const data = await genRes.json();
+      crState.slides = data.slides || [];
+      if (!crState.slides.length) throw new Error('GPT не повернув слайди');
+
+      bar.style.width = '40%';
+
+      // 2. If premium DALL-E — generate background images
+      const bgImages = [];
+      if (crState.dalleEnabled) {
+        icon.textContent = '🎨'; title.textContent = 'DALL-E малює фони...';
+        for (let i = 0; i < crState.slides.length; i++) {
+          const slide = crState.slides[i];
+          sub.textContent = `Малюємо фото для слайду ${i + 1} з ${crState.slides.length}...`;
+          prog.textContent = `~${(crState.slides.length - i - 1) * 8} сек залишилось`;
+          bar.style.width = (40 + Math.round((i / crState.slides.length) * 45)) + '%';
+
+          const description = slide.type === 'cover'
+            ? `${topic} — hero image, dramatic`
+            : `${slide.title || ''} — ${slide.text || ''}`;
+
+          try {
+            const dalleRes = await fetch('/api/carousel/dalle', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ description, theme: crState.theme }),
+            });
+            if (dalleRes.ok) {
+              const { b64 } = await dalleRes.json();
+              bgImages.push(b64 ? await crLoadBase64Image(b64) : null);
+            } else {
+              bgImages.push(null);
+            }
+          } catch {
+            bgImages.push(null);
+          }
+        }
+      }
+
+      bar.style.width = '88%';
+      icon.textContent = '🖼'; title.textContent = 'Рендеримо слайди...'; sub.textContent = ''; prog.textContent = '';
+
+      // 3. Render all canvases
+      crState.canvases = crState.slides.map((slide, i) =>
+        crRenderSlide(slide, i, crState.slides.length, CR_THEMES[crState.theme], bgImages[i] || null)
+      );
+
+      bar.style.width = '100%';
+
+      // 4. Show preview
+      crBuildPreview();
+      crStep(3);
+      const info = document.getElementById('crDoneInfo');
+      if (info) info.textContent = `${crState.slides.length} слайдів · ${crState.theme} тема${crState.dalleEnabled ? ' · AI фото' : ''}`;
+
+    } catch (e) {
+      crStep(1);
+      alert('Помилка: ' + e.message);
+    }
+  }
+
+  function crLoadBase64Image(b64) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = 'data:image/png;base64,' + b64;
+    });
+  }
+
+  // ── Canvas rendering ────────────────────────────────────────────────────────
+  function crRenderSlide(slide, index, total, theme, bgImage) {
+    const SIZE = 1080;
+    const canvas = document.createElement('canvas');
+    canvas.width = SIZE; canvas.height = SIZE;
+    const ctx = canvas.getContext('2d');
+
+    // ── Background ──
+    if (bgImage) {
+      // Draw DALL-E image cropped to square
+      const s = Math.min(bgImage.naturalWidth, bgImage.naturalHeight);
+      const ox = (bgImage.naturalWidth  - s) / 2;
+      const oy = (bgImage.naturalHeight - s) / 2;
+      ctx.drawImage(bgImage, ox, oy, s, s, 0, 0, SIZE, SIZE);
+      // Dark overlay for text readability
+      const overlay = ctx.createLinearGradient(0, 0, 0, SIZE);
+      overlay.addColorStop(0,   'rgba(0,0,0,0.50)');
+      overlay.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+      overlay.addColorStop(1,   'rgba(0,0,0,0.70)');
+      ctx.fillStyle = overlay;
+      ctx.fillRect(0, 0, SIZE, SIZE);
+    } else {
+      // Gradient background
+      const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+      grad.addColorStop(0, theme.bg1);
+      grad.addColorStop(1, theme.bg2);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, SIZE, SIZE);
+
+      // Decorative circles
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = theme.accent;
+      ctx.beginPath(); ctx.arc(SIZE * 0.88, SIZE * 0.12, SIZE * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(SIZE * 0.10, SIZE * 0.90, SIZE * 0.16, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.08;
+      ctx.beginPath(); ctx.arc(SIZE * 0.50, SIZE * 0.50, SIZE * 0.40, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // ── Accent bar (left side) ──
+    ctx.fillStyle = theme.accent;
+    ctx.fillRect(54, 80, 8, SIZE - 160);
+
+    // ── Slide number + total (top right) ──
+    ctx.font = `500 ${SIZE * 0.030}px Arial, sans-serif`;
+    ctx.fillStyle = theme.accent + 'CC';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${index + 1} / ${total}`, SIZE - 60, 100);
+
+    // ── Content by slide type ──
+    const PAD = 100;
+    const CW  = SIZE - PAD * 2;
+
+    if (slide.type === 'cover') {
+      crDrawCover(ctx, slide, SIZE, PAD, CW, theme);
+    } else if (slide.type === 'cta') {
+      crDrawCTA(ctx, slide, SIZE, PAD, CW, theme);
+    } else {
+      crDrawPoint(ctx, slide, SIZE, PAD, CW, theme);
+    }
+
+    // ── Progress dots (bottom) ──
+    const dotR   = 10;
+    const dotGap = 28;
+    const dotY   = SIZE - 60;
+    const totalW = (total - 1) * dotGap;
+    const startX = SIZE / 2 - totalW / 2;
+    for (let i = 0; i < total; i++) {
+      ctx.beginPath();
+      ctx.arc(startX + i * dotGap, dotY, i === index ? dotR : dotR * 0.55, 0, Math.PI * 2);
+      ctx.fillStyle = i === index ? theme.accent : theme.dot;
+      ctx.fill();
+    }
+
+    return canvas;
+  }
+
+  function crDrawCover(ctx, slide, SIZE, PAD, CW, theme) {
+    const cy = SIZE / 2;
+
+    // Big emoji
+    ctx.font = `${SIZE * 0.15}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(slide.emoji || '🚀', SIZE / 2, cy - SIZE * 0.15);
+
+    // Title
+    ctx.fillStyle = theme.text;
+    ctx.font = `900 ${SIZE * 0.072}px Arial, sans-serif`;
+    const titleLines = crWrapText(ctx, (slide.title || '').toUpperCase(), SIZE / 2, cy - SIZE * 0.02, CW, SIZE * 0.085);
+
+    // Accent underline
+    ctx.fillStyle = theme.accent;
+    ctx.fillRect(SIZE / 2 - 80, cy + (titleLines) * SIZE * 0.085, 160, 6);
+
+    // Subtitle
+    ctx.font = `400 ${SIZE * 0.038}px Arial, sans-serif`;
+    ctx.fillStyle = theme.sub;
+    crWrapText(ctx, slide.subtitle || '', SIZE / 2, cy + (titleLines + 0.5) * SIZE * 0.085 + 30, CW * 0.85, SIZE * 0.050);
+  }
+
+  function crDrawPoint(ctx, slide, SIZE, PAD, CW, theme) {
+    const cy = SIZE / 2;
+
+    // Big number badge
+    const bR = SIZE * 0.10;
+    const bX = SIZE / 2;
+    const bY = cy - SIZE * 0.20;
+    ctx.beginPath();
+    ctx.arc(bX, bY, bR, 0, Math.PI * 2);
+    ctx.fillStyle = theme.accent + '25';
+    ctx.fill();
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    // Emoji or number inside
+    ctx.font = `${SIZE * 0.075}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = theme.text;
+    ctx.fillText(slide.emoji || String(slide.number || ''), bX, bY + SIZE * 0.026);
+
+    // Point title
+    ctx.font = `800 ${SIZE * 0.060}px Arial, sans-serif`;
+    ctx.fillStyle = theme.text;
+    const titleY = cy + SIZE * 0.02;
+    const titleLines = crWrapText(ctx, slide.title || '', SIZE / 2, titleY, CW * 0.85, SIZE * 0.072);
+
+    // Body text
+    ctx.font = `400 ${SIZE * 0.038}px Arial, sans-serif`;
+    ctx.fillStyle = theme.sub;
+    crWrapText(ctx, slide.text || '', SIZE / 2, titleY + titleLines * SIZE * 0.072 + SIZE * 0.04, CW * 0.80, SIZE * 0.050);
+  }
+
+  function crDrawCTA(ctx, slide, SIZE, PAD, CW, theme) {
+    const cy = SIZE / 2;
+
+    // Emoji
+    ctx.font = `${SIZE * 0.12}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(slide.emoji || '🔔', SIZE / 2, cy - SIZE * 0.12);
+
+    // CTA title
+    ctx.font = `900 ${SIZE * 0.065}px Arial, sans-serif`;
+    ctx.fillStyle = theme.accent;
+    const titleLines = crWrapText(ctx, slide.title || '', SIZE / 2, cy + SIZE * 0.02, CW * 0.85, SIZE * 0.078);
+
+    // CTA body
+    ctx.font = `400 ${SIZE * 0.038}px Arial, sans-serif`;
+    ctx.fillStyle = theme.sub;
+    crWrapText(ctx, slide.text || '', SIZE / 2, cy + (titleLines + 0.3) * SIZE * 0.078 + SIZE * 0.04, CW * 0.80, SIZE * 0.050);
+
+    // "Save & Share" pill
+    const pillY = cy + (titleLines + 2) * SIZE * 0.078 + SIZE * 0.06;
+    const pillW = SIZE * 0.50, pillH = SIZE * 0.082;
+    const pillX = SIZE / 2 - pillW / 2;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2);
+    ctx.fillStyle = theme.accent;
+    ctx.fill();
+    ctx.font = `700 ${SIZE * 0.036}px Arial, sans-serif`;
+    ctx.fillStyle = theme.bg1;
+    ctx.fillText('Зберегти та поділитись', SIZE / 2, pillY + pillH * 0.65);
+  }
+
+  /** Word-wrap helper: draws text centered at (x, startY), returns line count. */
+  function crWrapText(ctx, text, x, startY, maxWidth, lineHeight) {
+    if (!text) return 0;
+    const words = text.split(' ');
+    const lines = [];
+    let line = '';
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line); line = word;
+      } else { line = test; }
+    }
+    if (line) lines.push(line);
+    // Center vertically from startY
+    lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
+    return lines.length;
+  }
+
+  // ── Preview grid ────────────────────────────────────────────────────────────
+  function crBuildPreview() {
+    const grid = document.getElementById('crPreviewGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    crState.canvases.forEach((canvas, i) => {
+      const slide = crState.slides[i];
+      const wrap = document.createElement('div');
+
+      const thumb = document.createElement('div');
+      thumb.className = 'cr-slide-thumb';
+
+      // Scale-down canvas for preview
+      const preview = document.createElement('canvas');
+      const PS = 270;
+      preview.width = PS; preview.height = PS;
+      const pctx = preview.getContext('2d');
+      pctx.drawImage(canvas, 0, 0, 1080, 1080, 0, 0, PS, PS);
+      thumb.appendChild(preview);
+
+      const label = document.createElement('div');
+      label.className = 'cr-slide-label';
+      const typeLabel = { cover:'Обкладинка', point:`Пункт ${slide.number || ''}`, cta:'Заклик' };
+      label.textContent = typeLabel[slide.type] || `Слайд ${i + 1}`;
+
+      wrap.appendChild(thumb);
+      wrap.appendChild(label);
+      grid.appendChild(wrap);
+    });
+  }
+
+  // ── ZIP Download ────────────────────────────────────────────────────────────
+  async function crDownloadZip() {
+    if (!crState.canvases.length) return;
+    const btn = document.getElementById('crDownloadBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Пакуємо...'; }
+
+    try {
+      const zip = new JSZip();
+      for (let i = 0; i < crState.canvases.length; i++) {
+        const canvas = crState.canvases[i];
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const slide = crState.slides[i];
+        const name  = slide.type === 'cover' ? '01_cover.png'
+                    : slide.type === 'cta'   ? `${String(i + 1).padStart(2, '0')}_cta.png`
+                    : `${String(i + 1).padStart(2, '0')}_slide.png`;
+        zip.file(name, blob);
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'carousel.zip'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
+    }
+  }
+
+  // Toggle premium DALL-E visual
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('crDalleToggle');
+    const track  = document.getElementById('crDalleTrack');
+    const thumb  = document.getElementById('crDalleThumb');
+    if (toggle && track && thumb) {
+      toggle.addEventListener('change', () => {
+        track.style.background = toggle.checked ? '#7C5CFC' : '#333';
+        thumb.style.left       = toggle.checked ? '24px' : '4px';
+      });
+    }
+  });
 
 </script>
 

@@ -6,6 +6,7 @@ import fs from 'fs';
 import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
 import { subtitlesRouter } from './routes/subtitles';
+import { carouselRouter } from './routes/carousel';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/uploads', express.static(uploadDir));
 app.use('/api/video', videoRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/subtitles', subtitlesRouter);
+app.use('/api/carousel', carouselRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
