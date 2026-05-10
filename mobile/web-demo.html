@@ -2015,6 +2015,17 @@
                       </label>
                     </div>
 
+                    <!-- Font picker -->
+                    <div>
+                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🔤 Шрифт</div>
+                      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="fpick fpick-default fp-sel" id="ssFontDefault" onclick="ssFontPick('default',this)">Arial</button>
+                        <button class="fpick fpick-condensed" id="ssFontCondensed" onclick="ssFontPick('condensed',this)" style="font-family:Impact,'Arial Narrow',sans-serif;">Impact</button>
+                        <button class="fpick fpick-ubuntu" id="ssFontRounded" onclick="ssFontPick('rounded',this)">Rounded</button>
+                        <button class="fpick fpick-mono" id="ssFontMono" onclick="ssFontPick('mono',this)">Mono</button>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div><!-- /ss2Custom -->
@@ -4514,7 +4525,7 @@
     segments: [], words: [], wordByWord: true, frameBase64: null,
     selectedTemplate: 0,
     _styleCustomised: false,
-    style: { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red', mode: 'accumulating' },
+    style: { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red', mode: 'accumulating', fontName: 'default' },
   };
 
   // ── Subtitle style templates ──────────────────────────────────────────────
@@ -4573,8 +4584,11 @@
   function ssSelectTemplate(idx) {
     ssState.selectedTemplate = idx;
     const tmpl = SS_TEMPLATES[idx];
+    // Preserve the user's font choice across template switches
+    const prevFont = ssState.style?.fontName || 'default';
     // Deep-copy style so mutations don't bleed into the template definition
     ssState.style = Object.assign({}, tmpl.style);
+    ssState.style.fontName = prevFont;
     ssState.wordByWord = tmpl.wordByWord;
     ssState._styleCustomised = false;
 
@@ -4652,6 +4666,24 @@
     if (bgThumb)    bgThumb.style.left    = background ? '21px' : '3px';
     if (upperThumb) upperThumb.style.left = uppercase  ? '21px' : '3px';
 
+    // Font picker buttons
+    const fontId = ssState.style.fontName || 'default';
+    ['ssFontDefault','ssFontCondensed','ssFontRounded','ssFontMono'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.classList.remove('fp-sel');
+    });
+    const fontBtnMap = { default:'ssFontDefault', condensed:'ssFontCondensed', rounded:'ssFontRounded', mono:'ssFontMono' };
+    const activeFontBtn = document.getElementById(fontBtnMap[fontId]);
+    if (activeFontBtn) activeFontBtn.classList.add('fp-sel');
+
+    ssUpdatePreview();
+  }
+
+  function ssFontPick(fontId, btn) {
+    ssState._styleCustomised = true;
+    ssState.style.fontName = fontId;
+    // Update button highlight
+    document.querySelectorAll('#ssFontDefault,#ssFontCondensed,#ssFontRounded,#ssFontMono').forEach(b => b.classList.remove('fp-sel'));
+    btn.classList.add('fp-sel');
     ssUpdatePreview();
   }
 
@@ -4804,6 +4836,8 @@
 
     // Scale font proportionally: preview 140px wide / video 1080px wide ≈ 0.13
     const scaledFont = Math.max(9, Math.round(fontSize * 0.13));
+    const fontFamilyMap = { default:'Arial,sans-serif', condensed:"Impact,'Arial Narrow',sans-serif", rounded:"'Ubuntu','Trebuchet MS',sans-serif", mono:"'Courier New',monospace" };
+    const previewFontFamily = fontFamilyMap[fontName] || fontFamilyMap.default;
     const colorMap = { white: '#fff', yellow: '#FFE600', red: '#FF2D2D', black: '#111', cyan: '#00FFEA' };
     const color = colorMap[fontColor] || '#fff';
 
@@ -4837,6 +4871,7 @@
     text.style.padding       = (hasBg || ssState.style.bgColor) ? '3px 7px' : '0';
     text.style.borderRadius  = '4px';
     text.style.fontWeight    = '900';
+    text.style.fontFamily    = previewFontFamily;
     text.style.textTransform = uppercase ? 'uppercase' : 'none';
     // Outline/stroke simulation — use outlineColor if set (neon = cyan stroke), else black
     const outlineHex = { cyan: '#00FFEA', red: '#FF2D2D', yellow: '#FFE600', white: '#fff' }[ssState.style.outlineColor] || '#000';

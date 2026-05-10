@@ -45,6 +45,14 @@ function toAssTime(s: number): string {
 }
 
 /** Build an ASS subtitle file from segments + style */
+// Font name IDs → ASS Fontname (must match fonts installed in Dockerfile)
+const SS_FONT_MAP: Record<string, string> = {
+  default:   'Liberation Sans',    // fonts-liberation  — clean modern sans
+  condensed: 'Nimbus Sans Narrow', // fonts-urw-base35  — condensed/Impact-style
+  mono:      'DejaVu Sans Mono',   // fonts-dejavu-core — monospace/techy
+  rounded:   'DejaVu Sans',        // fonts-dejavu-core — rounded/friendly fallback
+};
+
 // Shared style type used by both builders
 type SubStyle = {
   fontSize?: number;
@@ -52,6 +60,8 @@ type SubStyle = {
   position?: 'top' | 'bottom' | 'center';
   background?: boolean;
   uppercase?: boolean;
+  /** Font id: 'default' | 'condensed' | 'mono' | 'rounded' */
+  fontName?: string;
   /** If set, the current (last-shown) word is rendered in this colour — karaoke highlight effect */
   highlightColor?: string;
   /**
@@ -94,6 +104,7 @@ function buildAssHeader(
   const position    = style.position   ?? 'bottom';
   const fontColor   = style.fontColor  ?? 'white';
   const withBg      = style.background !== false;
+  const assFont     = SS_FONT_MAP[style.fontName ?? ''] ?? 'Liberation Sans';
 
   const primaryColor = COLOR_MAP[fontColor] ?? '&H00FFFFFF';
 
@@ -130,7 +141,7 @@ function buildAssHeader(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    `Style: Default,Arial,${fontSize},${primaryColor},&H000000FF,${outlineColor},${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},10,10,${marginV},1`,
+    `Style: Default,${assFont},${fontSize},${primaryColor},&H000000FF,${outlineColor},${backColor},-1,0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},10,10,${marginV},1`,
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -194,7 +205,7 @@ function buildAssAccumulating(
     // Carry shadow depth so the highlight word has the same dimensional look as the base text
     const hlShadow = style?.shadowPx ?? 2;
     const hlStyleLine =
-      `Style: Highlight,Arial,${fontSize},${highlightBgr},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,${hlShadow},${alignment},10,10,${marginV},1`;
+      `Style: Highlight,${SS_FONT_MAP[style?.fontName ?? ''] ?? 'Liberation Sans'},${fontSize},${highlightBgr},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,${hlShadow},${alignment},10,10,${marginV},1`;
     header = header.replace(/^(Style: Default,.+)$/m, `$1\n${hlStyleLine}`);
   }
 
