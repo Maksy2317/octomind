@@ -361,9 +361,9 @@
 
     /* ── Done state two-column layout ── */
     .v-done-layout { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
-    .v-done-vidpane { flex:0 0 220px; max-width:220px; }
-    .v-done-editpane { flex:1; min-width:220px; display:flex; flex-direction:column; gap:8px; }
-    @media (max-width:540px) { .v-done-vidpane { flex:1 1 100%; max-width:100%; } }
+    .v-done-vidpane { flex:0 0 260px; max-width:260px; }
+    .v-done-editpane { flex:1; min-width:200px; display:flex; flex-direction:column; gap:8px; }
+    @media (max-width:580px) { .v-done-vidpane { flex:1 1 100%; max-width:100%; } }
 
     /* ── Slot tabs ── */
     .slot-tab-bar { display:flex; border-radius:10px; overflow:hidden; border:1px solid var(--border); margin-bottom:0; }
@@ -1713,7 +1713,7 @@
                 <!-- Video pane -->
                 <div class="v-done-vidpane">
                   <div id="vDoneVideoWrap" style="border-radius:12px;overflow:hidden;background:#000;line-height:0;position:relative;">
-                    <video id="vPreviewVideo" controls playsinline style="width:100%;display:block;object-fit:contain;max-height:400px;"></video>
+                    <video id="vPreviewVideo" controls playsinline style="width:100%;aspect-ratio:9/16;display:block;object-fit:contain;"></video>
                   </div>
                   <!-- Tech info below video -->
                   <div style="margin-top:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
@@ -4017,23 +4017,16 @@
     if (!vS.slotOverrides) vS.slotOverrides = {};
     if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
     vS.slotOverrides[slotId].color = color;
-    // Update swatch selection UI (swatches live in #vSlotActiveEditor for active tab)
+    // Update swatch ring UI
     const editor = document.getElementById('vSlotActiveEditor');
     if (editor) {
       editor.querySelectorAll('.cpick').forEach(el => el.classList.remove('cp-sel'));
       const picked = editor.querySelector('.cpick-' + color);
       if (picked) picked.classList.add('cp-sel');
     }
-    // ✨ Instant live preview — update overlay text colour without re-rendering
-    const ovEl = document.getElementById('vov_' + slotId);
-    if (ovEl) {
-      const hex = vOvColorHex(color);
-      ovEl.style.color = hex;
-      // For box styles, re-apply box glow tint to match new colour
-      if (ovEl.dataset.hasBg === '1') {
-        ovEl.style.textShadow = `0 0 12px ${hex}44`;
-      }
-    }
+    // Rebuild video overlay — reads the new colour from vS.slotOverrides.
+    // (Direct style.color update is unreliable if the overlay element doesn't exist yet.)
+    vBuildVideoOverlay();
   }
 
   /** Instant text update in video overlay while typing */
@@ -4084,9 +4077,9 @@
     // Font sizes: scale from ASS ratios but apply a boost for readability in the small preview.
     // The overlay is just a colour/text preview — exact pixel match with the final render
     // matters less than legibility at 200-400px display height.
-    const fHook  = Math.max(vH * 0.055, 14);  // 70/1920 boosted
-    const fPoint = Math.max(vH * 0.046, 12);  // 56/1920 boosted
-    const fLabel = Math.max(vH * 0.048, 12);  // 58/1920 boosted
+    const fHook  = Math.max(vH * 0.060, 15);  // 70/1920 boosted
+    const fPoint = Math.max(vH * 0.052, 13);  // 56/1920 boosted
+    const fLabel = Math.max(vH * 0.050, 13);  // 58/1920 boosted
 
     // Point zones — match backend pointLayouts (x/1080, y/1920 as %)
     const ZONES = [
@@ -4116,7 +4109,7 @@
 
       const color  = vS.slotOverrides?.[slot.id]?.color || 'white';
       const hex    = vOvColorHex(color);
-      let   pos = '', fs = fPoint, hasBg = false, maxW = '82%';
+      let   pos = '', fs = fPoint, hasBg = false, maxW = '90%';
 
       switch (slot.style) {
         case 'hook':
