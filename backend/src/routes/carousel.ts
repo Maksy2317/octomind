@@ -126,3 +126,73 @@ carouselRouter.post('/dalle', async (req: Request, res: Response, next: NextFunc
     next(err);
   }
 });
+
+// ── POST /api/carousel/analyze-photos ───────────────────────────────────────
+// GPT-4 Vision analyzes ALL uploaded photos together and returns:
+//   - a unified theme description
+//   - a short caption for each photo
+//   - a suggested mood/color note
+carouselRouter.post('/analyze-photos', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { photos, stylePrompt = '', language = 'uk' } = req.body as {
+      photos: string[];
+      stylePrompt?: string;
+      language?: string;
+    };
+
+    if (!photos?.length) { res.status(400).json({ error: 'photos required' }); return; }
+    if (!process.env.OPENAI_API_KEY) {
+      res.status(500).json({ error: 'OPENAI_API_KEY not configured' }); return;
+    }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const langLabel = language === 'uk' ? 'Ukrainian' : language === 'ru' ? 'Russian' : 'English';
+
+    const imageContent: OpenAI.Chat.ChatCompletionContentPart[] = photos.map(b64 => ({
+      type: 'image_url' as const,
+      image_url: {
+        url: b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`,
+        detail: 'low' as const,
+      },
+    }));
+
+    const userMsg = `Analyze these ${photos.length} photos and create a unified Instagram carousel in ${langLabel}.
+${stylePrompt ? `Style instruction: "${stylePrompt}"` : ''}
+
+Return ONLY this JSON (no markdown):
+{
+  "theme": "2-3 word visual mood description",
+  "overallCaption": "One catchy sentence tying all photos (max 15 words)",
+  "captions": ["caption for photo 1 (max 12 words)", "..."],
+  "hashtags": "#tag1 #tag2 #tag3 #tag4 #tag5",
+  "colorMood": "warm | cool | neutral | vibrant | muted"
+}
+
+captions must have exactly ${photos.length} items. All text in ${langLabel}.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
+        role: 'user',
+        content: [{ type: 'text', text: userMsg }, ...imageContent],
+      }],
+      response_format: { type: 'json_object' },
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const captions: string[] = result.captions || [];
+    while (captions.length < photos.length) captions.push('');
+
+    res.json({
+      theme:          result.theme          || 'unified style',
+      overallCaption: result.overallCaption || '',
+      captions:       captions.slice(0, photos.length),
+      hashtags:       result.hashtags       || '',
+      colorMood:      result.colorMood      || 'neutral',
+    });
+  } catch (err) {
+    next(err);
+  }
+});

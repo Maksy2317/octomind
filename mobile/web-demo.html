@@ -2131,99 +2131,69 @@
               <div class="vstep" id="crn3">3. Готово</div>
             </div>
 
-            <!-- Step 1: topic + options -->
+            <!-- Step 1: photo upload + options -->
             <div id="cr1">
-              <!-- Info pills -->
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">🤖</span><span style="font-size:12px;font-weight:600;color:var(--text);">GPT-4 генерує текст</span>
+              <input type="file" id="crFileInput" accept="image/*" multiple style="display:none" onchange="crHandleFiles(this.files)">
+
+              <!-- Photo upload grid -->
+              <div style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <label style="font-size:13px;font-weight:700;color:var(--text);">📸 Завантаж фото <span style="color:var(--text3);font-weight:400;font-size:11px;">(2–10 фото)</span></label>
+                  <button class="btn btn-secondary btn-sm" onclick="crClearPhotos()" id="crClearBtn" style="display:none;font-size:11px;padding:4px 8px;">✕ Очистити</button>
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">🖼</span><span style="font-size:12px;font-weight:600;color:var(--text);">1080×1080 PNG</span>
+                <div id="crPhotoGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                  <!-- 8 slots rendered by JS -->
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">📦</span><span style="font-size:12px;font-weight:600;color:var(--text);">ZIP з усіма слайдами</span>
+                <div id="crPhotoCount" style="font-size:11px;color:var(--text4);margin-top:6px;text-align:center;"></div>
+              </div>
+
+              <!-- Style prompt -->
+              <div style="margin-bottom:14px;">
+                <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">✍️ Стиль та інструкції <span style="color:var(--text4);font-weight:400;">(необов'язково)</span></label>
+                <textarea id="crStylePrompt" rows="2"
+                  placeholder="Наприклад: темний luxury стиль, мінімалізм, акцент на продукті"
+                  style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box;resize:none;font-family:inherit;line-height:1.4;"></textarea>
+              </div>
+
+              <!-- Language + Theme row -->
+              <div style="display:flex;gap:12px;margin-bottom:14px;">
+                <div style="flex:1;">
+                  <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">🌐 Мова</label>
+                  <div style="display:flex;gap:5px;">
+                    <button class="ss-opt-btn active" id="crLangUk" onclick="crSetLang('uk',this)">🇺🇦 UA</button>
+                    <button class="ss-opt-btn" id="crLangRu" onclick="crSetLang('ru',this)">🇷🇺 RU</button>
+                    <button class="ss-opt-btn" id="crLangEn" onclick="crSetLang('en',this)">🇬🇧 EN</button>
+                  </div>
+                </div>
+                <div style="flex:1.4;">
+                  <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">🎨 Оверлей-тема</label>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;" id="crThemePicker">
+                    <div class="cr-theme-swatch cr-theme-active" data-theme="dark" onclick="crSetTheme('dark',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0D0D1A,#1a1040);cursor:pointer;border:3px solid var(--accent);" title="🌙"></div>
+                    <div class="cr-theme-swatch" data-theme="blue" onclick="crSetTheme('blue',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0A1628,#1e3a5f);cursor:pointer;border:3px solid transparent;" title="🌊"></div>
+                    <div class="cr-theme-swatch" data-theme="orange" onclick="crSetTheme('orange',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1A0800,#3d1500);cursor:pointer;border:3px solid transparent;" title="🔥"></div>
+                    <div class="cr-theme-swatch" data-theme="green" onclick="crSetTheme('green',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#071A0A,#0d3b14);cursor:pointer;border:3px solid transparent;" title="🌿"></div>
+                    <div class="cr-theme-swatch" data-theme="pink" onclick="crSetTheme('pink',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#160A1A,#2d1040);cursor:pointer;border:3px solid transparent;" title="💜"></div>
+                    <div class="cr-theme-swatch" data-theme="white" onclick="crSetTheme('white',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#F9F9F9,#e8e8e8);cursor:pointer;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);" title="⬜"></div>
+                  </div>
                 </div>
               </div>
 
-              <div class="card" style="padding:16px;">
-                <!-- Topic -->
-                <div style="margin-bottom:16px;">
-                  <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">💡 Тема карусель</label>
-                  <textarea id="crTopic" rows="3" placeholder="Наприклад: 5 порад як прокидатись о 5 ранку&#10;або: Помилки початківців у маркетингу&#10;або: Чому варто пити каву вранці"
-                    style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box;resize:none;font-family:inherit;line-height:1.4;"></textarea>
-                </div>
-
-                <!-- Slides count + language -->
-                <div style="display:flex;gap:12px;margin-bottom:16px;">
+              <!-- Premium DALL-E restyle block -->
+              <div id="crPremiumBlock" style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC44;border-radius:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
                   <div style="flex:1;">
-                    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">📊 Кількість слайдів</label>
-                    <div style="display:flex;gap:5px;">
-                      <button class="ss-opt-btn active" id="crSl4" onclick="crSetSlides(4,this)">4</button>
-                      <button class="ss-opt-btn" id="crSl6" onclick="crSetSlides(6,this)">6</button>
-                      <button class="ss-opt-btn" id="crSl8" onclick="crSetSlides(8,this)">8</button>
-                      <button class="ss-opt-btn" id="crSl10" onclick="crSetSlides(10,this)">10</button>
+                    <div style="font-size:13px;font-weight:700;color:var(--text);">✨ AI рестайл фото
+                      <span style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:10px;font-weight:800;margin-left:4px;">PREMIUM</span>
                     </div>
+                    <div id="crPremiumDesc" style="font-size:11px;color:var(--text3);margin-top:2px;">DALL-E 3 перемалює кожне фото в єдиному художньому стилі</div>
                   </div>
-                  <div style="flex:1;">
-                    <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">🌐 Мова</label>
-                    <div style="display:flex;gap:5px;">
-                      <button class="ss-opt-btn active" id="crLangUk" onclick="crSetLang('uk',this)">🇺🇦 UA</button>
-                      <button class="ss-opt-btn" id="crLangRu" onclick="crSetLang('ru',this)">🇷🇺 RU</button>
-                      <button class="ss-opt-btn" id="crLangEn" onclick="crSetLang('en',this)">🇬🇧 EN</button>
-                    </div>
+                  <div id="crPremiumToggleWrap" style="margin-left:10px;flex-shrink:0;">
+                    <!-- populated by crUpdatePremiumUI() -->
                   </div>
                 </div>
-
-                <!-- Color theme -->
-                <div style="margin-bottom:16px;">
-                  <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:8px;">🎨 Кольорова тема</label>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;" id="crThemePicker">
-                    <div class="cr-theme-swatch cr-theme-active" data-theme="dark" onclick="crSetTheme('dark',this)"
-                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0D0D1A,#1a1040);cursor:pointer;border:3px solid var(--accent);position:relative;" title="🌙 Темний">
-                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🌙</div>
-                    </div>
-                    <div class="cr-theme-swatch" data-theme="blue" onclick="crSetTheme('blue',this)"
-                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0A1628,#1e3a5f);cursor:pointer;border:3px solid transparent;position:relative;" title="🌊 Синій">
-                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🌊</div>
-                    </div>
-                    <div class="cr-theme-swatch" data-theme="orange" onclick="crSetTheme('orange',this)"
-                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1A0800,#3d1500);cursor:pointer;border:3px solid transparent;position:relative;" title="🔥 Помаранч">
-                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🔥</div>
-                    </div>
-                    <div class="cr-theme-swatch" data-theme="green" onclick="crSetTheme('green',this)"
-                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#071A0A,#0d3b14);cursor:pointer;border:3px solid transparent;position:relative;" title="🌿 Зелений">
-                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">🌿</div>
-                    </div>
-                    <div class="cr-theme-swatch" data-theme="pink" onclick="crSetTheme('pink',this)"
-                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#160A1A,#2d1040);cursor:pointer;border:3px solid transparent;position:relative;" title="💜 Рожевий">
-                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">💜</div>
-                    </div>
-                    <div class="cr-theme-swatch" data-theme="white" onclick="crSetTheme('white',this)"
-                      style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#F9F9F9,#e8e8e8);cursor:pointer;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);position:relative;" title="⬜ Мінімал">
-                      <div style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text3);">⬜</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Premium DALL-E toggle -->
-                <div style="margin-top:24px;padding:12px 14px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC44;border-radius:12px;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;">
-                    <div>
-                      <div style="font-size:13px;font-weight:700;color:var(--text);">✨ AI фото на фоні <span style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:800;"> PREMIUM</span></div>
-                      <div style="font-size:11px;color:var(--text3);margin-top:2px;">DALL-E 3 генерує унікальне фото для кожного слайду</div>
-                      <div style="font-size:10px;color:#FF6B35;margin-top:3px;">~$0.04 за слайд · займає 30+ сек</div>
-                    </div>
-                    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;margin-left:10px;">
-                      <input type="checkbox" id="crDalleToggle" style="opacity:0;width:0;height:0;">
-                      <span id="crDalleTrack" style="position:absolute;inset:0;background:#333;border-radius:20px;transition:.3s;"></span>
-                      <span id="crDalleThumb" style="position:absolute;top:4px;left:4px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;"></span>
-                    </label>
-                  </div>
-                </div>
-
-                <button class="btn btn-primary btn-full" style="margin-top:16px;" onclick="crGenerate()">🤖 Генерувати карусель →</button>
               </div>
+
+              <button class="btn btn-primary btn-full" id="crGenerateBtn" onclick="crGenerate()" disabled>🤖 Аналізувати та створити →</button>
             </div>
 
             <!-- Step 2: Generating spinner -->
@@ -2554,6 +2524,21 @@
             <div class="srow"><div class="sinfo"><h4 data-i18n="s_autotemplate">Авто-выбор шаблона</h4><p data-i18n="s_autotemplate_sub">Octo выбирает лучший шаблон сам</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
             <div class="srow"><div class="sinfo"><h4 data-i18n="s_notifications">Уведомления</h4><p data-i18n="s_notifications_sub">Когда видео готово</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
           </div>
+          <!-- PREMIUM TEST TOGGLE -->
+          <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC55;border-radius:14px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;">🧪 Тестування</div>
+            <div class="srow" style="background:transparent;padding:0;border:none;">
+              <div class="sinfo">
+                <h4 style="color:var(--text);">✨ Premium режим <span style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:800;">ТЕСТ</span></h4>
+                <p style="color:var(--text3);">Розблокувати всі преміум функції без оплати</p>
+              </div>
+              <div class="toggle" id="premiumTestToggle" onclick="octoTogglePremium()"></div>
+            </div>
+            <div id="premiumTestBadge" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(124,92,252,0.15);border:1px solid #7C5CFC55;border-radius:8px;font-size:12px;color:#9B8EC4;text-align:center;">
+              ✅ Premium активовано · DALL-E та всі функції розблоковані
+            </div>
+          </div>
+
           <button class="btn btn-primary" onclick="alert('Настройки сохранены! 🐙')" data-i18n="btn_save">💾 Сохранить</button>
         </div>
 
@@ -4679,6 +4664,7 @@
     document.getElementById('vModeCreator').className  = 'vstep' + (mode === 'creator'  ? ' active' : '');
     document.getElementById('vModeSubs').className     = 'vstep' + (mode === 'subs'     ? ' active' : '');
     document.getElementById('vModeCarousel').className = 'vstep' + (mode === 'carousel' ? ' active' : '');
+    if (mode === 'carousel') { crInitGrid(); crUpdatePremiumUI(); }
   }
 
   const ssState = {
@@ -6598,24 +6584,125 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   })();
 
   // ══════════════════════════════════════════════════════════════════════════
-  //  CAROUSEL GENERATOR
+  //  PREMIUM TEST MODE (localStorage flag)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  function octoIsPremium() {
+    return localStorage.getItem('octo_premium_test') === 'true';
+  }
+  function octoTogglePremium() {
+    const next = !octoIsPremium();
+    localStorage.setItem('octo_premium_test', next ? 'true' : 'false');
+    const tog   = document.getElementById('premiumTestToggle');
+    const badge = document.getElementById('premiumTestBadge');
+    if (tog)   tog.classList.toggle('on', next);
+    if (badge) badge.style.display = next ? '' : 'none';
+    crUpdatePremiumUI();  // refresh carousel premium block
+  }
+
+  // Initialise settings toggle on load
+  document.addEventListener('DOMContentLoaded', () => {
+    const isPrem = octoIsPremium();
+    const tog   = document.getElementById('premiumTestToggle');
+    const badge = document.getElementById('premiumTestBadge');
+    if (tog)   tog.classList.toggle('on', isPrem);
+    if (badge) badge.style.display = isPrem ? '' : 'none';
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  CAROUSEL GENERATOR (photo-upload mode)
   // ══════════════════════════════════════════════════════════════════════════
 
   const CR_THEMES = {
-    dark:   { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4', dot:'rgba(124,92,252,0.3)' },
-    blue:   { bg1:'#0A1628', bg2:'#0d2545', accent:'#38BDF8', text:'#FFFFFF', sub:'#94A3B8', dot:'rgba(56,189,248,0.3)'  },
-    orange: { bg1:'#1A0800', bg2:'#3d1200', accent:'#FF6B35', text:'#FFFFFF', sub:'#FFA07A', dot:'rgba(255,107,53,0.3)'  },
-    green:  { bg1:'#071A0A', bg2:'#0d3514', accent:'#4ADE80', text:'#FFFFFF', sub:'#86EFAC', dot:'rgba(74,222,128,0.3)'  },
-    pink:   { bg1:'#160A1A', bg2:'#2d0d40', accent:'#E879F9', text:'#FFFFFF', sub:'#C084FC', dot:'rgba(232,121,249,0.3)' },
-    white:  { bg1:'#F5F5F5', bg2:'#EAEAEA', accent:'#111111', text:'#111111', sub:'#555555', dot:'rgba(0,0,0,0.12)'      },
+    dark:   { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' },
+    blue:   { bg1:'#0A1628', bg2:'#0d2545', accent:'#38BDF8', text:'#FFFFFF', sub:'#94A3B8' },
+    orange: { bg1:'#1A0800', bg2:'#3d1200', accent:'#FF6B35', text:'#FFFFFF', sub:'#FFA07A' },
+    green:  { bg1:'#071A0A', bg2:'#0d3514', accent:'#4ADE80', text:'#FFFFFF', sub:'#86EFAC' },
+    pink:   { bg1:'#160A1A', bg2:'#2d0d40', accent:'#E879F9', text:'#FFFFFF', sub:'#C084FC' },
+    white:  { bg1:'#F5F5F5', bg2:'#EAEAEA', accent:'#111111', text:'#111111', sub:'#555555' },
   };
 
   const crState = {
-    topic: '', slidesCount: 4, language: 'uk', theme: 'dark',
-    dalleEnabled: false,
-    slides: [],       // generated slide data
-    canvases: [],     // rendered canvases
+    language: 'uk', theme: 'dark', dalleEnabled: false,
+    photos: [],      // { file, dataUrl, img } objects
+    captions: [],    // from AI analysis
+    canvases: [],
   };
+
+  // ── Photo grid ──────────────────────────────────────────────────────────────
+  const CR_MAX_PHOTOS = 10;
+  const CR_GRID_SLOTS = 8;
+
+  function crInitGrid() {
+    const grid = document.getElementById('crPhotoGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 0; i < CR_GRID_SLOTS; i++) {
+      const slot = document.createElement('div');
+      slot.id = 'crSlot' + i;
+      slot.style.cssText = 'aspect-ratio:1;border-radius:10px;border:2px dashed var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;transition:border-color .2s;';
+      slot.innerHTML = `<div style="text-align:center;color:var(--text4);pointer-events:none;"><div style="font-size:22px;">+</div><div style="font-size:10px;margin-top:2px;">${i + 1}</div></div>`;
+      slot.onclick = () => document.getElementById('crFileInput').click();
+      grid.appendChild(slot);
+    }
+    crRefreshGrid();
+  }
+
+  function crRefreshGrid() {
+    for (let i = 0; i < CR_GRID_SLOTS; i++) {
+      const slot = document.getElementById('crSlot' + i);
+      if (!slot) continue;
+      if (crState.photos[i]) {
+        const p = crState.photos[i];
+        slot.innerHTML = `
+          <img src="${p.dataUrl}" style="width:100%;height:100%;object-fit:cover;">
+          <button onclick="event.stopPropagation();crRemovePhoto(${i})" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1;">✕</button>`;
+        slot.style.borderStyle = 'solid';
+        slot.style.borderColor = 'var(--accent)';
+      } else {
+        slot.innerHTML = `<div style="text-align:center;color:var(--text4);pointer-events:none;"><div style="font-size:22px;">+</div><div style="font-size:10px;margin-top:2px;">${i + 1}</div></div>`;
+        slot.style.borderStyle = 'dashed';
+        slot.style.borderColor = 'var(--border)';
+      }
+    }
+    const count = crState.photos.length;
+    const countEl = document.getElementById('crPhotoCount');
+    if (countEl) countEl.textContent = count ? `${count} фото завантажено` : '';
+    const clearBtn = document.getElementById('crClearBtn');
+    if (clearBtn) clearBtn.style.display = count ? '' : 'none';
+    const genBtn = document.getElementById('crGenerateBtn');
+    if (genBtn) genBtn.disabled = count < 2;
+  }
+
+  function crHandleFiles(files) {
+    const remaining = CR_MAX_PHOTOS - crState.photos.length;
+    const toLoad = Array.from(files).slice(0, remaining);
+    let loaded = 0;
+    toLoad.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const dataUrl = e.target.result;
+        const img = new Image();
+        img.onload = () => {
+          crState.photos.push({ file, dataUrl, img });
+          loaded++;
+          if (loaded === toLoad.length) crRefreshGrid();
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function crRemovePhoto(idx) {
+    crState.photos.splice(idx, 1);
+    crRefreshGrid();
+  }
+
+  function crClearPhotos() {
+    crState.photos = [];
+    crRefreshGrid();
+  }
 
   // ── UI helpers ──────────────────────────────────────────────────────────────
   function crStep(n) {
@@ -6625,14 +6712,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       const lbl = document.getElementById('crn' + i);
       if (lbl) lbl.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
     });
-  }
-
-  function crSetSlides(n, btn) {
-    crState.slidesCount = n;
-    ['crSl4','crSl6','crSl8','crSl10'].forEach(id => {
-      const b = document.getElementById(id); if (b) b.classList.remove('active');
-    });
-    if (btn) btn.classList.add('active');
+    if (n === 1) crInitGrid();
   }
 
   function crSetLang(lang, btn) {
@@ -6646,93 +6726,111 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   function crSetTheme(themeId, el) {
     crState.theme = themeId;
     document.querySelectorAll('.cr-theme-swatch').forEach(s => {
-      s.classList.remove('cr-theme-active');
       s.style.borderColor = 'transparent';
     });
-    el.classList.add('cr-theme-active');
-    el.style.borderColor = 'var(--accent)';
+    if (el) el.style.borderColor = 'var(--accent)';
+  }
+
+  function crUpdatePremiumUI() {
+    const wrap = document.getElementById('crPremiumToggleWrap');
+    if (!wrap) return;
+    const isPrem = octoIsPremium();
+    if (isPrem) {
+      wrap.innerHTML = `
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
+          <input type="checkbox" id="crDalleToggle" style="opacity:0;width:0;height:0;" onchange="crState.dalleEnabled=this.checked;this.nextElementSibling.style.background=this.checked?'#7C5CFC':'#333';this.nextElementSibling.nextElementSibling.style.left=this.checked?'24px':'4px'">
+          <span style="position:absolute;inset:0;background:#333;border-radius:20px;transition:.3s;"></span>
+          <span style="position:absolute;top:4px;left:4px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;"></span>
+        </label>`;
+      const desc = document.getElementById('crPremiumDesc');
+      if (desc) desc.textContent = 'DALL-E 3 перемалює кожне фото в єдиному художньому стилі';
+    } else {
+      wrap.innerHTML = `<button onclick="crShowUpgradeHint()" style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);border:none;color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer;">🔒 Upgrade</button>`;
+      const desc = document.getElementById('crPremiumDesc');
+      if (desc) desc.textContent = 'Увімкни Premium у Налаштуваннях щоб розблокувати';
+    }
+  }
+
+  function crShowUpgradeHint() {
+    alert('✨ Для доступу до DALL-E рестайлу увімкни Premium режим у Налаштуваннях → 🧪 Тестування');
   }
 
   // ── Generation ──────────────────────────────────────────────────────────────
   async function crGenerate() {
-    const topic = document.getElementById('crTopic').value.trim();
-    if (!topic) { alert('Введи тему карусель!'); return; }
-    crState.topic = topic;
-    crState.dalleEnabled = document.getElementById('crDalleToggle').checked;
+    if (crState.photos.length < 2) { alert('Додай мінімум 2 фото!'); return; }
+    const stylePrompt = document.getElementById('crStylePrompt')?.value.trim() || '';
+    const dalleToggle = document.getElementById('crDalleToggle');
+    crState.dalleEnabled = octoIsPremium() && dalleToggle?.checked;
 
     crStep(2);
-    const bar  = document.getElementById('crGenBar');
-    const icon = document.getElementById('crGenIcon');
-    const title= document.getElementById('crGenTitle');
-    const sub  = document.getElementById('crGenSub');
-    const prog = document.getElementById('crGenProgress');
+    const bar   = document.getElementById('crGenBar');
+    const icon  = document.getElementById('crGenIcon');
+    const title = document.getElementById('crGenTitle');
+    const sub   = document.getElementById('crGenSub');
+    const prog  = document.getElementById('crGenProgress');
+
     bar.style.width = '15%';
-    icon.textContent = '🤖'; title.textContent = 'GPT-4 генерує контент...'; sub.textContent = 'Створюємо структуру слайдів'; prog.textContent = '';
+    icon.textContent = '👁'; title.textContent = 'GPT-4 аналізує фото...';
+    sub.textContent = `Передивляється ${crState.photos.length} фото разом`; prog.textContent = '';
 
     try {
-      // 1. Generate text content
-      const genRes = await fetch('/api/carousel/generate', {
+      // 1. Analyze photos with GPT-4 Vision
+      const photos64 = crState.photos.map(p => p.dataUrl);
+      const analysisRes = await fetch('/api/carousel/analyze-photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, slidesCount: crState.slidesCount, language: crState.language }),
+        body: JSON.stringify({ photos: photos64, stylePrompt, language: crState.language }),
       });
-      if (!genRes.ok) throw new Error('Помилка генерації тексту');
-      const data = await genRes.json();
-      crState.slides = data.slides || [];
-      if (!crState.slides.length) throw new Error('GPT не повернув слайди');
+      if (!analysisRes.ok) throw new Error('Помилка аналізу фото');
+      const analysis = await analysisRes.json();
+      crState.captions = analysis.captions || crState.photos.map((_, i) => `Фото ${i + 1}`);
 
-      bar.style.width = '40%';
+      bar.style.width = '45%';
 
-      // 2. If premium DALL-E — generate background images
-      const bgImages = [];
+      // 2. Premium DALL-E restyle
+      const bgImages = crState.photos.map(p => p.img); // default: use original
       if (crState.dalleEnabled) {
-        icon.textContent = '🎨'; title.textContent = 'DALL-E малює фони...';
-        for (let i = 0; i < crState.slides.length; i++) {
-          const slide = crState.slides[i];
-          sub.textContent = `Малюємо фото для слайду ${i + 1} з ${crState.slides.length}...`;
-          prog.textContent = `~${(crState.slides.length - i - 1) * 8} сек залишилось`;
-          bar.style.width = (40 + Math.round((i / crState.slides.length) * 45)) + '%';
-
-          const description = slide.type === 'cover'
-            ? `${topic} — hero image, dramatic`
-            : `${slide.title || ''} — ${slide.text || ''}`;
-
+        icon.textContent = '🎨'; title.textContent = 'DALL-E перемальовує фото...';
+        for (let i = 0; i < crState.photos.length; i++) {
+          sub.textContent = `Рестайл фото ${i + 1} з ${crState.photos.length}...`;
+          prog.textContent = `~${(crState.photos.length - i - 1) * 8} сек`;
+          bar.style.width = (45 + Math.round((i / crState.photos.length) * 40)) + '%';
           try {
-            const dalleRes = await fetch('/api/carousel/dalle', {
+            const dr = await fetch('/api/carousel/dalle', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ description, theme: crState.theme }),
+              body: JSON.stringify({
+                description: `${analysis.theme} style, ${crState.captions[i]}`,
+                theme: crState.theme
+              }),
             });
-            if (dalleRes.ok) {
-              const { b64 } = await dalleRes.json();
-              bgImages.push(b64 ? await crLoadBase64Image(b64) : null);
-            } else {
-              bgImages.push(null);
+            if (dr.ok) {
+              const { b64 } = await dr.json();
+              if (b64) bgImages[i] = await crLoadBase64Image(b64);
             }
-          } catch {
-            bgImages.push(null);
-          }
+          } catch {}
         }
       }
 
       bar.style.width = '88%';
-      icon.textContent = '🖼'; title.textContent = 'Рендеримо слайди...'; sub.textContent = ''; prog.textContent = '';
+      icon.textContent = '🖼'; title.textContent = 'Рендеримо слайди...';
+      sub.textContent = ''; prog.textContent = '';
 
-      // 3. Render all canvases
-      crState.canvases = crState.slides.map((slide, i) =>
-        crRenderSlide(slide, i, crState.slides.length, CR_THEMES[crState.theme], bgImages[i] || null)
+      // 3. Render canvases
+      const theme = CR_THEMES[crState.theme];
+      crState.canvases = crState.photos.map((_, i) =>
+        crRenderPhotoSlide(bgImages[i], crState.captions[i], analysis.overallCaption, i, crState.photos.length, theme, analysis.hashtags)
       );
 
       bar.style.width = '100%';
-
-      // 4. Show preview
       crBuildPreview();
       crStep(3);
       const info = document.getElementById('crDoneInfo');
-      if (info) info.textContent = `${crState.slides.length} слайдів · ${crState.theme} тема${crState.dalleEnabled ? ' · AI фото' : ''}`;
+      if (info) info.textContent = `${crState.photos.length} слайдів · "${analysis.theme}"${crState.dalleEnabled ? ' · AI рестайл' : ''}`;
 
-    } catch (e) {
+    } catch(e) {
       crStep(1);
+      crInitGrid();
       alert('Помилка: ' + e.message);
     }
   }
@@ -6742,176 +6840,86 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = reject;
-      img.src = 'data:image/png;base64,' + b64;
+      img.src = b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64;
     });
   }
 
-  // ── Canvas rendering ────────────────────────────────────────────────────────
-  function crRenderSlide(slide, index, total, theme, bgImage) {
+  // ── Canvas: render one photo slide ─────────────────────────────────────────
+  function crRenderPhotoSlide(photo, caption, overallCaption, index, total, theme, hashtags) {
     const SIZE = 1080;
     const canvas = document.createElement('canvas');
     canvas.width = SIZE; canvas.height = SIZE;
     const ctx = canvas.getContext('2d');
 
-    // ── Background ──
-    if (bgImage) {
-      // Draw DALL-E image cropped to square
-      const s = Math.min(bgImage.naturalWidth, bgImage.naturalHeight);
-      const ox = (bgImage.naturalWidth  - s) / 2;
-      const oy = (bgImage.naturalHeight - s) / 2;
-      ctx.drawImage(bgImage, ox, oy, s, s, 0, 0, SIZE, SIZE);
-      // Dark overlay for text readability
-      const overlay = ctx.createLinearGradient(0, 0, 0, SIZE);
-      overlay.addColorStop(0,   'rgba(0,0,0,0.50)');
-      overlay.addColorStop(0.5, 'rgba(0,0,0,0.35)');
-      overlay.addColorStop(1,   'rgba(0,0,0,0.70)');
-      ctx.fillStyle = overlay;
-      ctx.fillRect(0, 0, SIZE, SIZE);
+    // Draw photo cropped to square
+    if (photo) {
+      const s = Math.min(photo.naturalWidth || photo.width, photo.naturalHeight || photo.height);
+      const ox = ((photo.naturalWidth || photo.width)  - s) / 2;
+      const oy = ((photo.naturalHeight || photo.height) - s) / 2;
+      ctx.drawImage(photo, ox, oy, s, s, 0, 0, SIZE, SIZE);
     } else {
-      // Gradient background
       const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-      grad.addColorStop(0, theme.bg1);
-      grad.addColorStop(1, theme.bg2);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, SIZE, SIZE);
-
-      // Decorative circles
-      ctx.save();
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = theme.accent;
-      ctx.beginPath(); ctx.arc(SIZE * 0.88, SIZE * 0.12, SIZE * 0.22, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(SIZE * 0.10, SIZE * 0.90, SIZE * 0.16, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 0.08;
-      ctx.beginPath(); ctx.arc(SIZE * 0.50, SIZE * 0.50, SIZE * 0.40, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+      grad.addColorStop(0, theme.bg1); grad.addColorStop(1, theme.bg2);
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, SIZE, SIZE);
     }
 
-    // ── Accent bar (left side) ──
+    // Gradient overlay bottom 40%
+    const botGrad = ctx.createLinearGradient(0, SIZE * 0.55, 0, SIZE);
+    botGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    botGrad.addColorStop(0.4, 'rgba(0,0,0,0.65)');
+    botGrad.addColorStop(1, 'rgba(0,0,0,0.88)');
+    ctx.fillStyle = botGrad; ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Top gradient (lighter)
+    const topGrad = ctx.createLinearGradient(0, 0, 0, SIZE * 0.25);
+    topGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+    topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = topGrad; ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Accent line top
     ctx.fillStyle = theme.accent;
-    ctx.fillRect(54, 80, 8, SIZE - 160);
+    ctx.fillRect(0, 0, SIZE, 6);
 
-    // ── Slide number + total (top right) ──
-    ctx.font = `500 ${SIZE * 0.030}px Arial, sans-serif`;
-    ctx.fillStyle = theme.accent + 'CC';
+    // Slide counter top-right
+    ctx.font = `600 ${SIZE * 0.028}px Arial, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.textAlign = 'right';
-    ctx.fillText(`${index + 1} / ${total}`, SIZE - 60, 100);
+    ctx.fillText(`${index + 1} / ${total}`, SIZE - 50, 55);
 
-    // ── Content by slide type ──
-    const PAD = 100;
-    const CW  = SIZE - PAD * 2;
+    // OctoMind watermark top-left
+    ctx.font = `700 ${SIZE * 0.022}px Arial, sans-serif`;
+    ctx.fillStyle = theme.accent + 'CC';
+    ctx.textAlign = 'left';
+    ctx.fillText('OctoMind', 50, 55);
 
-    if (slide.type === 'cover') {
-      crDrawCover(ctx, slide, SIZE, PAD, CW, theme);
-    } else if (slide.type === 'cta') {
-      crDrawCTA(ctx, slide, SIZE, PAD, CW, theme);
-    } else {
-      crDrawPoint(ctx, slide, SIZE, PAD, CW, theme);
+    // Caption text (bottom)
+    ctx.textAlign = 'left';
+    const capY = SIZE - 160;
+    ctx.font = `800 ${SIZE * 0.052}px Arial, sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    const capLines = crWrapText(ctx, caption || '', 50, capY, SIZE - 100, SIZE * 0.062);
+
+    // Hashtags
+    if (hashtags && index === total - 1) {
+      ctx.font = `400 ${SIZE * 0.026}px Arial, sans-serif`;
+      ctx.fillStyle = theme.accent + 'CC';
+      ctx.fillText(hashtags, 50, capY + capLines * SIZE * 0.062 + 20);
     }
 
-    // ── Progress dots (bottom) ──
-    const dotR   = 10;
-    const dotGap = 28;
-    const dotY   = SIZE - 60;
-    const totalW = (total - 1) * dotGap;
-    const startX = SIZE / 2 - totalW / 2;
+    // Progress dots bottom
+    const dotR = 9, dotGap = 26, dotY = SIZE - 40;
+    const startX = SIZE / 2 - ((total - 1) * dotGap) / 2;
     for (let i = 0; i < total; i++) {
       ctx.beginPath();
-      ctx.arc(startX + i * dotGap, dotY, i === index ? dotR : dotR * 0.55, 0, Math.PI * 2);
-      ctx.fillStyle = i === index ? theme.accent : theme.dot;
+      ctx.arc(startX + i * dotGap, dotY, i === index ? dotR : dotR * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = i === index ? theme.accent : 'rgba(255,255,255,0.35)';
       ctx.fill();
     }
 
     return canvas;
   }
 
-  function crDrawCover(ctx, slide, SIZE, PAD, CW, theme) {
-    const cy = SIZE / 2;
-
-    // Big emoji
-    ctx.font = `${SIZE * 0.15}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.fillText(slide.emoji || '🚀', SIZE / 2, cy - SIZE * 0.15);
-
-    // Title
-    ctx.fillStyle = theme.text;
-    ctx.font = `900 ${SIZE * 0.072}px Arial, sans-serif`;
-    const titleLines = crWrapText(ctx, (slide.title || '').toUpperCase(), SIZE / 2, cy - SIZE * 0.02, CW, SIZE * 0.085);
-
-    // Accent underline
-    ctx.fillStyle = theme.accent;
-    ctx.fillRect(SIZE / 2 - 80, cy + (titleLines) * SIZE * 0.085, 160, 6);
-
-    // Subtitle
-    ctx.font = `400 ${SIZE * 0.038}px Arial, sans-serif`;
-    ctx.fillStyle = theme.sub;
-    crWrapText(ctx, slide.subtitle || '', SIZE / 2, cy + (titleLines + 0.5) * SIZE * 0.085 + 30, CW * 0.85, SIZE * 0.050);
-  }
-
-  function crDrawPoint(ctx, slide, SIZE, PAD, CW, theme) {
-    const cy = SIZE / 2;
-
-    // Big number badge
-    const bR = SIZE * 0.10;
-    const bX = SIZE / 2;
-    const bY = cy - SIZE * 0.20;
-    ctx.beginPath();
-    ctx.arc(bX, bY, bR, 0, Math.PI * 2);
-    ctx.fillStyle = theme.accent + '25';
-    ctx.fill();
-    ctx.strokeStyle = theme.accent;
-    ctx.lineWidth = 5;
-    ctx.stroke();
-
-    // Emoji or number inside
-    ctx.font = `${SIZE * 0.075}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = theme.text;
-    ctx.fillText(slide.emoji || String(slide.number || ''), bX, bY + SIZE * 0.026);
-
-    // Point title
-    ctx.font = `800 ${SIZE * 0.060}px Arial, sans-serif`;
-    ctx.fillStyle = theme.text;
-    const titleY = cy + SIZE * 0.02;
-    const titleLines = crWrapText(ctx, slide.title || '', SIZE / 2, titleY, CW * 0.85, SIZE * 0.072);
-
-    // Body text
-    ctx.font = `400 ${SIZE * 0.038}px Arial, sans-serif`;
-    ctx.fillStyle = theme.sub;
-    crWrapText(ctx, slide.text || '', SIZE / 2, titleY + titleLines * SIZE * 0.072 + SIZE * 0.04, CW * 0.80, SIZE * 0.050);
-  }
-
-  function crDrawCTA(ctx, slide, SIZE, PAD, CW, theme) {
-    const cy = SIZE / 2;
-
-    // Emoji
-    ctx.font = `${SIZE * 0.12}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.fillText(slide.emoji || '🔔', SIZE / 2, cy - SIZE * 0.12);
-
-    // CTA title
-    ctx.font = `900 ${SIZE * 0.065}px Arial, sans-serif`;
-    ctx.fillStyle = theme.accent;
-    const titleLines = crWrapText(ctx, slide.title || '', SIZE / 2, cy + SIZE * 0.02, CW * 0.85, SIZE * 0.078);
-
-    // CTA body
-    ctx.font = `400 ${SIZE * 0.038}px Arial, sans-serif`;
-    ctx.fillStyle = theme.sub;
-    crWrapText(ctx, slide.text || '', SIZE / 2, cy + (titleLines + 0.3) * SIZE * 0.078 + SIZE * 0.04, CW * 0.80, SIZE * 0.050);
-
-    // "Save & Share" pill
-    const pillY = cy + (titleLines + 2) * SIZE * 0.078 + SIZE * 0.06;
-    const pillW = SIZE * 0.50, pillH = SIZE * 0.082;
-    const pillX = SIZE / 2 - pillW / 2;
-    ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillW, pillH, pillH / 2);
-    ctx.fillStyle = theme.accent;
-    ctx.fill();
-    ctx.font = `700 ${SIZE * 0.036}px Arial, sans-serif`;
-    ctx.fillStyle = theme.bg1;
-    ctx.fillText('Зберегти та поділитись', SIZE / 2, pillY + pillH * 0.65);
-  }
-
-  /** Word-wrap helper: draws text centered at (x, startY), returns line count. */
+  /** Word-wrap: draws text left-aligned from (x, startY), returns line count. */
   function crWrapText(ctx, text, x, startY, maxWidth, lineHeight) {
     if (!text) return 0;
     const words = text.split(' ');
@@ -6924,7 +6932,6 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       } else { line = test; }
     }
     if (line) lines.push(line);
-    // Center vertically from startY
     lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
     return lines.length;
   }
@@ -6935,25 +6942,17 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     if (!grid) return;
     grid.innerHTML = '';
     crState.canvases.forEach((canvas, i) => {
-      const slide = crState.slides[i];
       const wrap = document.createElement('div');
-
       const thumb = document.createElement('div');
       thumb.className = 'cr-slide-thumb';
-
-      // Scale-down canvas for preview
       const preview = document.createElement('canvas');
       const PS = 270;
       preview.width = PS; preview.height = PS;
-      const pctx = preview.getContext('2d');
-      pctx.drawImage(canvas, 0, 0, 1080, 1080, 0, 0, PS, PS);
+      preview.getContext('2d').drawImage(canvas, 0, 0, 1080, 1080, 0, 0, PS, PS);
       thumb.appendChild(preview);
-
       const label = document.createElement('div');
       label.className = 'cr-slide-label';
-      const typeLabel = { cover:'Обкладинка', point:`Пункт ${slide.number || ''}`, cta:'Заклик' };
-      label.textContent = typeLabel[slide.type] || `Слайд ${i + 1}`;
-
+      label.textContent = `Слайд ${i + 1}`;
       wrap.appendChild(thumb);
       wrap.appendChild(label);
       grid.appendChild(wrap);
@@ -6965,39 +6964,24 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     if (!crState.canvases.length) return;
     const btn = document.getElementById('crDownloadBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Пакуємо...'; }
-
     try {
       const zip = new JSZip();
       for (let i = 0; i < crState.canvases.length; i++) {
-        const canvas = crState.canvases[i];
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const slide = crState.slides[i];
-        const name  = slide.type === 'cover' ? '01_cover.png'
-                    : slide.type === 'cta'   ? `${String(i + 1).padStart(2, '0')}_cta.png`
-                    : `${String(i + 1).padStart(2, '0')}_slide.png`;
-        zip.file(name, blob);
+        const blob = await new Promise(resolve => crState.canvases[i].toBlob(resolve, 'image/png'));
+        zip.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
       }
-      const content = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'carousel.zip'; a.click();
+      const url = URL.createObjectURL(await zip.generateAsync({ type: 'blob' }));
+      Object.assign(document.createElement('a'), { href: url, download: 'carousel.zip' }).click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
     }
   }
 
-  // Toggle premium DALL-E visual
+  // Init grid + premium UI when carousel tab is opened
   document.addEventListener('DOMContentLoaded', () => {
-    const toggle = document.getElementById('crDalleToggle');
-    const track  = document.getElementById('crDalleTrack');
-    const thumb  = document.getElementById('crDalleThumb');
-    if (toggle && track && thumb) {
-      toggle.addEventListener('change', () => {
-        track.style.background = toggle.checked ? '#7C5CFC' : '#333';
-        thumb.style.left       = toggle.checked ? '24px' : '4px';
-      });
-    }
+    crInitGrid();
+    crUpdatePremiumUI();
   });
 
 </script>
