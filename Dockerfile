@@ -7,13 +7,12 @@ COPY --from=mwader/static-ffmpeg:latest /ffprobe /usr/local/bin/ffprobe
 # Install fonts for subtitles/libass rendering
 # fonts-dejavu-core    → DejaVu Sans / DejaVu Sans Mono (always-available fallback)
 # fonts-liberation     → Liberation Sans Bold  (Arial equivalent, clean/default)
-# fonts-ubuntu         → Ubuntu Bold           (rounded, modern)
 # fonts-urw-base35     → Nimbus Sans Narrow    (condensed/impact-style)
+# Note: fonts-ubuntu is NOT available in Debian Bookworm slim — skip it.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         fonts-dejavu-core \
         fonts-liberation \
-        fonts-ubuntu \
         fonts-urw-base35 \
         fontconfig && \
     fc-cache -f && \

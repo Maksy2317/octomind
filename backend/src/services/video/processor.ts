@@ -194,14 +194,14 @@ const SLOT_COLOR_MAP: Record<string, string> = {
 /**
  * ASS font names for the frontend font-picker.
  * All fonts must be installed in the Docker image (see Dockerfile).
- *   default   → Liberation Sans  (clean Arial equivalent, fonts-liberation)
- *   ubuntu    → Ubuntu           (rounded modern, fonts-ubuntu)
+ *   default   → Liberation Sans    (clean Arial equivalent, fonts-liberation)
+ *   ubuntu    → DejaVu Sans        (rounded fallback; fonts-ubuntu unavailable on Debian slim)
  *   condensed → Nimbus Sans Narrow (condensed/impact-style, fonts-urw-base35)
- *   mono      → DejaVu Sans Mono (monospace retro, fonts-dejavu-core)
+ *   mono      → DejaVu Sans Mono   (monospace retro, fonts-dejavu-core)
  */
 const SLOT_FONT_MAP: Record<string, string> = {
   default:   'Liberation Sans',
-  ubuntu:    'Ubuntu',
+  ubuntu:    'DejaVu Sans',
   condensed: 'Nimbus Sans Narrow',
   mono:      'DejaVu Sans Mono',
 };
