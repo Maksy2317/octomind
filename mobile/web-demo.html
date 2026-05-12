@@ -2161,9 +2161,6 @@
               <div id="carThemePicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
             </div>
 
-            <!-- Premium DALL-E block (rendered by JS) -->
-            <div id="carPremiumBlock" style="margin-top:10px;"></div>
-
             <button class="btn btn-primary btn-full" onclick="carBuild()" id="carBuildBtn" disabled style="opacity:0.5;margin-top:14px;">🤖 Аналізувати та створити →</button>
           </div>
 
@@ -5299,7 +5296,6 @@
   let carPhotos = new Array(8).fill(null); // base64 strings or null
   let carLang    = 'uk';
   let carThemeId = 'dark';
-  let carDalleEnabled = false;
   let carCanvases = [];
 
   function carInit() {
@@ -5403,36 +5399,6 @@
 
   function carInitExtras() {
     carRenderThemePicker();
-    carRenderPremiumBlock();
-  }
-
-  function carRenderPremiumBlock() {
-    const wrap = document.getElementById('carPremiumBlock');
-    if (!wrap) return;
-    if (octoIsPremium()) {
-      wrap.innerHTML = `
-        <div style="padding:10px 12px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC55;border-radius:10px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="checkbox" id="carDalleChk" style="opacity:0;width:0;height:0;" onchange="carDalleEnabled=this.checked;document.getElementById('carDallePill').style.background=this.checked?'#7C5CFC':'#333';document.getElementById('carDalleDot').style.left=this.checked?'24px':'4px'">
-            <div onclick="document.getElementById('carDalleChk').click()" style="width:46px;height:26px;border-radius:13px;background:#333;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;" id="carDallePill">
-              <div id="carDalleDot" style="position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;"></div>
-            </div>
-            <div>
-              <div style="font-size:12px;font-weight:700;color:#fff;">✨ AI Enhance <span style="background:#7C5CFC;color:#fff;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;">PREMIUM</span></div>
-              <div style="font-size:10px;color:rgba(255,255,255,.5);">~15 сек/фото · gpt-image-1</div>
-            </div>
-          </div>
-          <div style="margin-top:7px;padding:6px 8px;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.3);border-radius:7px;font-size:11px;color:#81C784;line-height:1.4;">
-            ✅ Покращує <b>твої оригінальні фото</b> — додає освітлення, атмосферу, стиль. Люди та композиція залишаються.
-          </div>
-        </div>`;
-    } else {
-      wrap.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
-          <div style="font-size:11px;color:var(--text3);">🎨 DALL-E рестайл фону</div>
-          <button onclick="showScreen('pricing')" style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);border:none;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">🔒 Upgrade</button>
-        </div>`;
-    }
   }
 
   // ── Build (AI-powered) ───────────────────────────────────────────────────────
@@ -5468,40 +5434,12 @@
       progSub.textContent = 'Генерую слайди…';
       progTime.textContent = '';
 
-      // Step 2: load images (optionally DALL-E restyle)
+      // Step 2: load original photos as Image objects
       let bgImages = photos.map(src => {
         const img = new Image();
         img.src = src;
         return img;
       });
-
-      const dalleChk = document.getElementById('carDalleChk');
-      carDalleEnabled = dalleChk ? dalleChk.checked : false;
-      if (carDalleEnabled && octoIsPremium()) {
-        for (let i = 0; i < photos.length; i++) {
-          progSub.textContent = `✨ AI Enhance фото ${i + 1} з ${photos.length}…`;
-          progBar.style.width = (45 + Math.round((i / photos.length) * 40)) + '%';
-          try {
-            // Pass ONLY colorMood as visual style — NEVER the style prompt textarea
-            // (textarea contains context like team names which would get baked as text/logos into the image)
-            const moodMap = { warm:'warm golden cinematic', cool:'cool blue cinematic', vibrant:'vibrant saturated', muted:'muted film', neutral:'cinematic' };
-            const visualStyle = moodMap[analysis.colorMood] || 'cinematic professional photography';
-            const dr = await fetch(`${BACKEND}/api/carousel/enhance`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: photos[i], prompt: visualStyle }),
-            });
-            if (dr.ok) {
-              const dj = await dr.json();
-              if (dj.b64) {
-                const dImg = new Image();
-                await new Promise(r => { dImg.onload = r; dImg.src = `data:image/png;base64,${dj.b64}`; });
-                bgImages[i] = dImg;
-              }
-            }
-          } catch {}
-        }
-      }
 
       progBar.style.width = '85%';
       progSub.textContent = 'Рендерю Canvas…';
@@ -5538,7 +5476,7 @@
       });
 
       const resInfo = document.getElementById('carResInfo');
-      if (resInfo) resInfo.textContent = `${photos.length} слайдів · "${analysis.theme}"${carDalleEnabled ? ' · AI рестайл' : ''}`;
+      if (resInfo) resInfo.textContent = `${photos.length} слайдів · "${analysis.theme}"`;
 
       const capDiv = document.getElementById('carCaptions');
       capDiv.innerHTML = captions.map((c, i) => `
@@ -6819,7 +6757,6 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     const badge = document.getElementById('premiumTestBadge');
     if (tog)   tog.classList.toggle('on', next);
     if (badge) badge.style.display = next ? '' : 'none';
-    carRenderPremiumBlock();   // refresh carousel screen premium block
   }
 
   // Initialise settings toggle on load
