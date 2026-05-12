@@ -240,16 +240,14 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `RULE #2 — BACKGROUND ONLY: Apply "${styleHint}" only to background and non-human elements. ` +
         `RULE #3 — NO TEXT anywhere.`;
 
-    const editParams: Parameters<typeof openai.images.edit>[0] = {
+    const response = await openai.images.edit({
       model: 'gpt-image-1',
       image: imageFile,
+      ...(maskFile ? { mask: maskFile } : {}),
       prompt: enhancePrompt,
       n: 1,
       size: '1024x1024',
-    };
-    if (maskFile) (editParams as Record<string, unknown>).mask = maskFile;
-
-    const response = await openai.images.edit(editParams);
+    } as Parameters<typeof openai.images.edit>[0]);
 
     res.json({ b64: response.data?.[0]?.b64_json ?? null });
   } catch (err) {
