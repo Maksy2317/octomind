@@ -5856,82 +5856,82 @@
   }
 
   /**
-   * After AI returns its result we COMPOSITE:
-   *   - AI result as the base layer  (background changes visible)
-   *   - Original person painted back on top in center zone
-   * This makes faces/bodies 100% original pixels — AI cannot change them.
+   * Pixel-level composite: directly reads RGBA arrays from both images and writes
+   * original pixels for the center zone, AI pixels for edges.
+   * This is 100% reliable — no canvas compositing ops, no alpha channel issues.
+   *
+   * Zone layout (x axis):
+   *   0%–18%   → AI pixels only   (far background left)
+   *   18%–30%  → fade AI→original
+   *   30%–70%  → ORIGINAL pixels  (person: face, shirt, body — pixel-perfect)
+   *   70%–82%  → fade original→AI
+   *   82%–100% → AI pixels only   (far background right)
+   *
+   * Top/bottom: similar small fade zones (18% each side).
    */
   function photoAiComposite(aiResultDataUrl, orig1024DataUrl) {
     return new Promise(resolve => {
       const aiImg   = new Image();
       const origImg = new Image();
       let loaded = 0;
+
       const onLoad = () => {
         if (++loaded < 2) return;
-        const SIZE = 1024;
+        const S = 1024;
 
-        // ── Step 1: protection mask — vertical strip covers full-height person ──
-        // Center band = opaque (protected). Left/right/top/bottom edges = transparent (AI edits here).
-        // IMPORTANT: use destination-out to actually CUT transparent holes in opaque base.
-        // Drawing a transparent gradient with source-over does NOT create transparency!
-        const maskCv = document.createElement('canvas');
-        maskCv.width = SIZE; maskCv.height = SIZE;
-        const mctx = maskCv.getContext('2d');
+        // Draw both to canvas to read pixel data
+        const aiCv = document.createElement('canvas');
+        aiCv.width = S; aiCv.height = S;
+        const aiCtx = aiCv.getContext('2d');
+        aiCtx.drawImage(aiImg, 0, 0, S, S);
 
-        // Start: fully opaque = protect everything
-        mctx.fillStyle = 'rgba(0,0,0,1)';
-        mctx.fillRect(0, 0, SIZE, SIZE);
+        const orCv = document.createElement('canvas');
+        orCv.width = S; orCv.height = S;
+        const orCtx = orCv.getContext('2d');
+        orCtx.drawImage(origImg, 0, 0, S, S);
 
-        // Switch to destination-out: drawing opaque ERASES (makes transparent = editable)
-        mctx.globalCompositeOperation = 'destination-out';
+        const aiPx = aiCtx.getImageData(0, 0, S, S).data;
+        const orPx = orCtx.getImageData(0, 0, S, S).data;
+        const out  = new Uint8ClampedArray(S * S * 4);
 
-        // Erase LEFT edge (background — AI may edit)
-        const lgCut = mctx.createLinearGradient(0, 0, SIZE * 0.22, 0);
-        lgCut.addColorStop(0, 'rgba(0,0,0,1)');   // fully erase at edge
-        lgCut.addColorStop(1, 'rgba(0,0,0,0)');   // keep protected toward center
-        mctx.fillStyle = lgCut;
-        mctx.fillRect(0, 0, SIZE * 0.22, SIZE);
+        // Boundaries (pixels)
+        const LF0 = S * 0.18, LF1 = S * 0.30;   // left fade zone
+        const RF0 = S * 0.70, RF1 = S * 0.82;   // right fade zone
+        const TF0 = S * 0.10, TF1 = S * 0.20;   // top fade zone
+        const BF0 = S * 0.82, BF1 = S * 0.92;   // bottom fade zone
 
-        // Erase RIGHT edge
-        const rgCut = mctx.createLinearGradient(SIZE * 0.78, 0, SIZE, 0);
-        rgCut.addColorStop(0, 'rgba(0,0,0,0)');
-        rgCut.addColorStop(1, 'rgba(0,0,0,1)');
-        mctx.fillStyle = rgCut;
-        mctx.fillRect(SIZE * 0.78, 0, SIZE * 0.22, SIZE);
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const i = (y * S + x) * 4;
 
-        // Erase TOP edge (sky)
-        const tgCut = mctx.createLinearGradient(0, 0, 0, SIZE * 0.18);
-        tgCut.addColorStop(0, 'rgba(0,0,0,1)');
-        tgCut.addColorStop(1, 'rgba(0,0,0,0)');
-        mctx.fillStyle = tgCut;
-        mctx.fillRect(0, 0, SIZE, SIZE * 0.18);
+            // origWeight = 1 → original pixel; 0 → AI pixel
+            let wx = 1, wy = 1;
 
-        // Erase BOTTOM edge (ground)
-        const bgCut = mctx.createLinearGradient(0, SIZE * 0.85, 0, SIZE);
-        bgCut.addColorStop(0, 'rgba(0,0,0,0)');
-        bgCut.addColorStop(1, 'rgba(0,0,0,1)');
-        mctx.fillStyle = bgCut;
-        mctx.fillRect(0, SIZE * 0.85, SIZE, SIZE * 0.15);
+            if      (x < LF0)  wx = 0;
+            else if (x < LF1)  wx = (x - LF0) / (LF1 - LF0);
+            else if (x > RF1)  wx = 0;
+            else if (x > RF0)  wx = 1 - (x - RF0) / (RF1 - RF0);
 
-        mctx.globalCompositeOperation = 'source-over'; // reset
+            if      (y < TF0)  wy = 0;
+            else if (y < TF1)  wy = (y - TF0) / (TF1 - TF0);
+            else if (y > BF1)  wy = 0;
+            else if (y > BF0)  wy = 1 - (y - BF0) / (BF1 - BF0);
 
-        // ── Step 2: original image clipped to mask ────────────────────────
-        const origMasked = document.createElement('canvas');
-        origMasked.width = SIZE; origMasked.height = SIZE;
-        const omctx = origMasked.getContext('2d');
-        omctx.drawImage(origImg, 0, 0, SIZE, SIZE);
-        omctx.globalCompositeOperation = 'destination-in';
-        omctx.drawImage(maskCv, 0, 0);           // keep only protected zone
+            const w = wx * wy;  // combined weight
 
-        // ── Step 3: AI result + original person on top ────────────────────
+            out[i]   = orPx[i]   * w + aiPx[i]   * (1 - w);
+            out[i+1] = orPx[i+1] * w + aiPx[i+1] * (1 - w);
+            out[i+2] = orPx[i+2] * w + aiPx[i+2] * (1 - w);
+            out[i+3] = 255;
+          }
+        }
+
         const finalCv = document.createElement('canvas');
-        finalCv.width = SIZE; finalCv.height = SIZE;
-        const fctx = finalCv.getContext('2d');
-        fctx.drawImage(aiImg,     0, 0, SIZE, SIZE);  // AI background
-        fctx.drawImage(origMasked, 0, 0);              // original person on top
-
+        finalCv.width = S; finalCv.height = S;
+        finalCv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
         resolve(finalCv.toDataURL('image/png'));
       };
+
       aiImg.onload   = onLoad;
       origImg.onload = onLoad;
       aiImg.src   = aiResultDataUrl;
