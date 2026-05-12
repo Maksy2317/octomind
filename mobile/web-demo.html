@@ -1620,7 +1620,6 @@
           <div class="vsteps" style="margin-bottom:14px;">
             <div class="vstep active" id="vModeCreator" onclick="vSwitchMode('creator')">🎬 Відео</div>
             <div class="vstep" id="vModeSubs" onclick="vSwitchMode('subs')">📝 Субтитри</div>
-            <div class="vstep" id="vModeCarousel" onclick="vSwitchMode('carousel')">🎠 Карусель</div>
           </div>
 
           <!-- ═══ VIDEO CREATOR mode ═══ -->
@@ -2122,116 +2121,6 @@
 
           </div><!-- /vModeSubsWrap -->
 
-          <!-- ═══ CAROUSEL mode ═══ -->
-          <div id="vModeCarouselWrap" style="display:none;">
-
-            <div class="vsteps" style="margin-bottom:16px;">
-              <div class="vstep active" id="crn1">1. Тема</div>
-              <div class="vstep" id="crn2">2. Генерація</div>
-              <div class="vstep" id="crn3">3. Готово</div>
-            </div>
-
-            <!-- Step 1: photo upload + options -->
-            <div id="cr1">
-              <input type="file" id="crFileInput" accept="image/*" multiple style="display:none" onchange="crHandleFiles(this.files)">
-
-              <!-- Photo upload grid -->
-              <div style="margin-bottom:14px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                  <label style="font-size:13px;font-weight:700;color:var(--text);">📸 Завантаж фото <span style="color:var(--text3);font-weight:400;font-size:11px;">(2–10 фото)</span></label>
-                  <button class="btn btn-secondary btn-sm" onclick="crClearPhotos()" id="crClearBtn" style="display:none;font-size:11px;padding:4px 8px;">✕ Очистити</button>
-                </div>
-                <div id="crPhotoGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-                  <!-- 8 slots rendered by JS -->
-                </div>
-                <div id="crPhotoCount" style="font-size:11px;color:var(--text4);margin-top:6px;text-align:center;"></div>
-              </div>
-
-              <!-- Style prompt -->
-              <div style="margin-bottom:14px;">
-                <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">✍️ Стиль та інструкції <span style="color:var(--text4);font-weight:400;">(необов'язково)</span></label>
-                <textarea id="crStylePrompt" rows="2"
-                  placeholder="Наприклад: темний luxury стиль, мінімалізм, акцент на продукті"
-                  style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box;resize:none;font-family:inherit;line-height:1.4;"></textarea>
-              </div>
-
-              <!-- Language + Theme row -->
-              <div style="display:flex;gap:12px;margin-bottom:14px;">
-                <div style="flex:1;">
-                  <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">🌐 Мова</label>
-                  <div style="display:flex;gap:5px;">
-                    <button class="ss-opt-btn active" id="crLangUk" onclick="crSetLang('uk',this)">🇺🇦 UA</button>
-                    <button class="ss-opt-btn" id="crLangRu" onclick="crSetLang('ru',this)">🇷🇺 RU</button>
-                    <button class="ss-opt-btn" id="crLangEn" onclick="crSetLang('en',this)">🇬🇧 EN</button>
-                  </div>
-                </div>
-                <div style="flex:1.4;">
-                  <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">🎨 Оверлей-тема</label>
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;" id="crThemePicker">
-                    <div class="cr-theme-swatch cr-theme-active" data-theme="dark" onclick="crSetTheme('dark',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0D0D1A,#1a1040);cursor:pointer;border:3px solid var(--accent);" title="🌙"></div>
-                    <div class="cr-theme-swatch" data-theme="blue" onclick="crSetTheme('blue',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0A1628,#1e3a5f);cursor:pointer;border:3px solid transparent;" title="🌊"></div>
-                    <div class="cr-theme-swatch" data-theme="orange" onclick="crSetTheme('orange',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1A0800,#3d1500);cursor:pointer;border:3px solid transparent;" title="🔥"></div>
-                    <div class="cr-theme-swatch" data-theme="green" onclick="crSetTheme('green',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#071A0A,#0d3b14);cursor:pointer;border:3px solid transparent;" title="🌿"></div>
-                    <div class="cr-theme-swatch" data-theme="pink" onclick="crSetTheme('pink',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#160A1A,#2d1040);cursor:pointer;border:3px solid transparent;" title="💜"></div>
-                    <div class="cr-theme-swatch" data-theme="white" onclick="crSetTheme('white',this)" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#F9F9F9,#e8e8e8);cursor:pointer;border:3px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);" title="⬜"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Premium DALL-E restyle block -->
-              <div id="crPremiumBlock" style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC44;border-radius:12px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;">
-                  <div style="flex:1;">
-                    <div style="font-size:13px;font-weight:700;color:var(--text);">✨ AI рестайл фото
-                      <span style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:10px;font-weight:800;margin-left:4px;">PREMIUM</span>
-                    </div>
-                    <div id="crPremiumDesc" style="font-size:11px;color:var(--text3);margin-top:2px;">DALL-E 3 перемалює кожне фото в єдиному художньому стилі</div>
-                  </div>
-                  <div id="crPremiumToggleWrap" style="margin-left:10px;flex-shrink:0;">
-                    <!-- populated by crUpdatePremiumUI() -->
-                  </div>
-                </div>
-              </div>
-
-              <button class="btn btn-primary btn-full" id="crGenerateBtn" onclick="crGenerate()" disabled>🤖 Аналізувати та створити →</button>
-            </div>
-
-            <!-- Step 2: Generating spinner -->
-            <div id="cr2" style="display:none;">
-              <div class="card" style="text-align:center;padding:48px 24px;">
-                <div style="font-size:48px;margin-bottom:16px;" id="crGenIcon">🤖</div>
-                <div class="card-title" style="margin-bottom:8px;" id="crGenTitle">GPT-4 генерує контент...</div>
-                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;" id="crGenSub">Створюємо структуру слайдів</div>
-                <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;max-width:280px;margin:0 auto;">
-                  <div id="crGenBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:15%;transition:width 1.5s ease;"></div>
-                </div>
-                <div id="crGenProgress" style="font-size:11px;color:var(--text4);margin-top:10px;"></div>
-              </div>
-            </div>
-
-            <!-- Step 3: Preview + Download -->
-            <div id="cr3" style="display:none;">
-              <!-- Header -->
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#1a1040,#12121E);border:1px solid #4CAF5044;border-radius:14px;">
-                <span style="font-size:26px;">🎠</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;color:#4CAF50;font-size:14px;">Карусель готова!</div>
-                  <div id="crDoneInfo" style="font-size:11px;color:var(--text3);">Завантажуй або переглядай</div>
-                </div>
-                <button onclick="crDownloadZip()" id="crDownloadBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;flex-shrink:0;">📦 ZIP</button>
-              </div>
-
-              <!-- Slide preview grid -->
-              <div id="crPreviewGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;"></div>
-
-              <!-- Bottom actions -->
-              <div style="display:flex;gap:8px;">
-                <button class="btn btn-secondary" style="flex:1;" onclick="crStep(1)">← Нова карусель</button>
-                <button class="btn btn-secondary" style="flex:1;" onclick="crDownloadZip()">📦 Завантажити ZIP</button>
-              </div>
-            </div>
-
-          </div><!-- /vModeCarouselWrap -->
 
         </div>
 
@@ -4688,13 +4577,10 @@
 
   // Mode switcher
   function vSwitchMode(mode) {
-    document.getElementById('vModeCreatorWrap').style.display  = mode === 'creator'  ? '' : 'none';
-    document.getElementById('vModeSubsWrap').style.display     = mode === 'subs'     ? '' : 'none';
-    document.getElementById('vModeCarouselWrap').style.display = mode === 'carousel' ? '' : 'none';
-    document.getElementById('vModeCreator').className  = 'vstep' + (mode === 'creator'  ? ' active' : '');
-    document.getElementById('vModeSubs').className     = 'vstep' + (mode === 'subs'     ? ' active' : '');
-    document.getElementById('vModeCarousel').className = 'vstep' + (mode === 'carousel' ? ' active' : '');
-    if (mode === 'carousel') { crInitGrid(); crUpdatePremiumUI(); }
+    document.getElementById('vModeCreatorWrap').style.display = mode === 'creator' ? '' : 'none';
+    document.getElementById('vModeSubsWrap').style.display    = mode === 'subs'    ? '' : 'none';
+    document.getElementById('vModeCreator').className = 'vstep' + (mode === 'creator' ? ' active' : '');
+    document.getElementById('vModeSubs').className    = 'vstep' + (mode === 'subs'    ? ' active' : '');
   }
 
   const ssState = {
@@ -6659,8 +6545,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     const badge = document.getElementById('premiumTestBadge');
     if (tog)   tog.classList.toggle('on', next);
     if (badge) badge.style.display = next ? '' : 'none';
-    crUpdatePremiumUI();       // refresh video-tab carousel premium block
-    carRenderPremiumBlock();   // refresh main carousel screen premium block
+    carRenderPremiumBlock();   // refresh carousel screen premium block
   }
 
   // Initialise settings toggle on load
