@@ -5833,6 +5833,43 @@
     document.getElementById('photoAiPrompt').value = text;
   }
 
+  /**
+   * Creates a PNG alpha mask that protects the subject (center of image).
+   * Transparent pixels = OpenAI may edit this area (background/edges).
+   * Opaque pixels     = OpenAI must NOT touch this area (person/subject).
+   */
+  function photoAiCreateMask(dataUrl) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const W = img.width, H = img.height;
+        const cv = document.createElement('canvas');
+        cv.width = W; cv.height = H;
+        const ctx = cv.getContext('2d');
+
+        // Start fully transparent (= AI can edit everywhere by default)
+        ctx.clearRect(0, 0, W, H);
+
+        // Paint opaque black in the central subject area (= protect person).
+        // Use a radial gradient so edges of subject blend naturally.
+        const cx = W * 0.5, cy = H * 0.48;         // slight upward center
+        const innerR = Math.min(W, H) * 0.20;       // fully opaque core
+        const outerR = Math.max(W, H) * 0.62;       // fade-out zone
+
+        const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+        grad.addColorStop(0,    'rgba(0,0,0,1)');    // protect (opaque)
+        grad.addColorStop(0.45, 'rgba(0,0,0,0.97)');
+        grad.addColorStop(0.72, 'rgba(0,0,0,0.6)');
+        grad.addColorStop(1,    'rgba(0,0,0,0)');    // editable (transparent)
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        resolve(cv.toDataURL('image/png'));
+      };
+      img.src = dataUrl;
+    });
+  }
+
   async function photoAiGenerate() {
     const prompt = document.getElementById('photoAiPrompt').value.trim();
     if (!prompt) { alert('Напиши що змінити!'); return; }
@@ -5843,11 +5880,16 @@
     document.getElementById('photoAiStep3').style.display = 'block';
     const bar = document.getElementById('photoAiProgBar');
     const txt = document.getElementById('photoAiProgText');
+    txt.textContent = 'Готую маску захисту…';
+    bar.style.width = '5%';
+
+    // Generate center-protection mask BEFORE calling AI
+    const maskDataUrl = await photoAiCreateMask(photoAiOrigDataUrl);
 
     // Animate progress bar
-    let pct = 0;
+    let pct = 8;
     const tick = setInterval(() => {
-      pct = Math.min(pct + (pct < 60 ? 3 : 0.8), 90);
+      pct = Math.min(pct + (pct < 60 ? 3 : 0.8), 92);
       bar.style.width = pct + '%';
       txt.textContent = pct < 30 ? '~20 секунд' : pct < 60 ? '~15 секунд' : 'Майже готово…';
     }, 600);
@@ -5857,7 +5899,7 @@
       const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: photoAiOrigDataUrl, prompt }),
+        body: JSON.stringify({ image: photoAiOrigDataUrl, mask: maskDataUrl, prompt }),
       });
       clearInterval(tick);
       if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);

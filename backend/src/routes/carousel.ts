@@ -203,8 +203,9 @@ captions must have exactly ${photos.length} items. All text in ${langLabel}.`;
 // returns the enhanced photo as base64 PNG.
 carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { image, prompt } = req.body as {
+    const { image, mask, prompt } = req.body as {
       image: string;
+      mask?: string;   // alpha-channel PNG: transparent = editable, opaque = protected
       prompt?: string;
     };
 
@@ -215,28 +216,40 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // Convert base64 → Buffer → File object for the SDK
-    const base64Data = image.replace(/^data:image\/[^;]+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-    const imageFile = await toFile(buffer, 'photo.png', { type: 'image/png' });
+    // Convert image base64 → Buffer → File
+    const imgBase64 = image.replace(/^data:image\/[^;]+;base64,/, '');
+    const imgBuffer = Buffer.from(imgBase64, 'base64');
+    const imageFile = await toFile(imgBuffer, 'photo.png', { type: 'image/png' });
 
-    // Build a prompt that preserves ALL people and only edits the background/environment
-    const styleHint = prompt?.trim() || 'cinematic colour grading';
-    const enhancePrompt =
-      `RULE #1 — PEOPLE: Every person, face, body, skin, clothing, hair and human figure must remain ` +
-      `100% unchanged. Do not move, resize, retouch, alter, or replace any person in any way. ` +
-      `RULE #2 — BACKGROUND ONLY: Apply the following edit ONLY to the background, sky, ground, ` +
-      `environment and non-human elements: "${styleHint}". ` +
-      `RULE #3 — NO TEXT: Do not add any text, letters, logos, watermarks or typography anywhere. ` +
-      `Summary: change background/environment/lighting only; preserve every human exactly as-is.`;
+    // Convert mask base64 → Buffer → File (if provided)
+    let maskFile: Awaited<ReturnType<typeof toFile>> | undefined;
+    if (mask) {
+      const maskBase64 = mask.replace(/^data:image\/[^;]+;base64,/, '');
+      const maskBuffer = Buffer.from(maskBase64, 'base64');
+      maskFile = await toFile(maskBuffer, 'mask.png', { type: 'image/png' });
+    }
 
-    const response = await openai.images.edit({
+    // Prompt: only describe WHAT to do to the editable (transparent) zone
+    const styleHint = prompt?.trim() || 'cinematic colour grading and dramatic lighting';
+    const enhancePrompt = maskFile
+      // With mask: the mask already protects people; just describe the background edit
+      ? `Apply to the unmasked (background) area only: ${styleHint}. ` +
+        `Do not add any text, letters, logos or watermarks.`
+      // Without mask: full text-based rules
+      : `RULE #1 — PEOPLE: Every person, face, body, skin, clothing, hair must remain 100% unchanged. ` +
+        `RULE #2 — BACKGROUND ONLY: Apply "${styleHint}" only to background and non-human elements. ` +
+        `RULE #3 — NO TEXT anywhere.`;
+
+    const editParams: Parameters<typeof openai.images.edit>[0] = {
       model: 'gpt-image-1',
       image: imageFile,
       prompt: enhancePrompt,
       n: 1,
       size: '1024x1024',
-    });
+    };
+    if (maskFile) (editParams as Record<string, unknown>).mask = maskFile;
+
+    const response = await openai.images.edit(editParams);
 
     res.json({ b64: response.data?.[0]?.b64_json ?? null });
   } catch (err) {
