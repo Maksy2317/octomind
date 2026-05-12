@@ -5870,26 +5870,43 @@
         if (++loaded < 2) return;
         const SIZE = 1024;
 
-        // ── Step 1: protection mask (center = opaque, edges = transparent) ──
+        // ── Step 1: protection mask — vertical strip covers full-height person ──
+        // Left/right edges are editable (background); center band is 100% protected.
         const maskCv = document.createElement('canvas');
         maskCv.width = SIZE; maskCv.height = SIZE;
         const mctx = maskCv.getContext('2d');
-        mctx.clearRect(0, 0, SIZE, SIZE);
 
-        // Large central zone — covers full-length person.
-        // cy slightly up (faces tend to be in upper 40%).
-        const cx = SIZE * 0.5, cy = SIZE * 0.40;
-        const innerR = SIZE * 0.28;   // fully opaque (face + chest)
-        const outerR = SIZE * 0.72;   // fade-out reaches corners
-
-        const grad = mctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
-        grad.addColorStop(0,    'rgba(0,0,0,1)');
-        grad.addColorStop(0.30, 'rgba(0,0,0,1)');    // hard protected core
-        grad.addColorStop(0.58, 'rgba(0,0,0,0.92)');
-        grad.addColorStop(0.80, 'rgba(0,0,0,0.55)');
-        grad.addColorStop(1,    'rgba(0,0,0,0)');
-        mctx.fillStyle = grad;
+        // Fill everything opaque (protected) first
+        mctx.fillStyle = 'rgba(0,0,0,1)';
         mctx.fillRect(0, 0, SIZE, SIZE);
+
+        // Cut transparent on the LEFT edge (background only)
+        const leftGrad = mctx.createLinearGradient(0, 0, SIZE * 0.22, 0);
+        leftGrad.addColorStop(0, 'rgba(0,0,0,0)');   // transparent = editable
+        leftGrad.addColorStop(1, 'rgba(0,0,0,1)');   // opaque = protected
+        mctx.fillStyle = leftGrad;
+        mctx.fillRect(0, 0, SIZE * 0.22, SIZE);
+
+        // Cut transparent on the RIGHT edge (background only)
+        const rightGrad = mctx.createLinearGradient(SIZE * 0.78, 0, SIZE, 0);
+        rightGrad.addColorStop(0, 'rgba(0,0,0,1)');
+        rightGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        mctx.fillStyle = rightGrad;
+        mctx.fillRect(SIZE * 0.78, 0, SIZE * 0.22, SIZE);
+
+        // Cut transparent on the TOP edge (sky/far background only)
+        const topGrad = mctx.createLinearGradient(0, 0, 0, SIZE * 0.15);
+        topGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        topGrad.addColorStop(1, 'rgba(0,0,0,1)');
+        mctx.fillStyle = topGrad;
+        mctx.fillRect(0, 0, SIZE, SIZE * 0.15);
+
+        // Cut transparent on the BOTTOM edge (ground only)
+        const botGrad = mctx.createLinearGradient(0, SIZE * 0.88, 0, SIZE);
+        botGrad.addColorStop(0, 'rgba(0,0,0,1)');
+        botGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        mctx.fillStyle = botGrad;
+        mctx.fillRect(0, SIZE * 0.88, SIZE, SIZE * 0.12);
 
         // ── Step 2: original image clipped to mask ────────────────────────
         const origMasked = document.createElement('canvas');
@@ -5931,11 +5948,16 @@
     txt.textContent = 'Підготовка…';
     bar.style.width = '4%';
 
-    // Pre-compute the 1024 crop (same as OpenAI internal crop) for later compositing
+    // ── CRITICAL: use the SAME square 1024px crop for EVERYTHING ──────────────
+    // AI receives this exact image → output is 1024×1024 aligned to this crop.
+    // Compositing reference is also this crop → pixels line up perfectly.
     photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl);
 
-    // Also send the mask to guide AI where to edit
-    const maskDataUrl = await photoAiCreateMask(photoAiOrigDataUrl);
+    // Mask generated at same 1024×1024 dimensions as image we send to AI
+    const maskDataUrl = await photoAiCreateMask(photoAiOrig1024);
+
+    // Also update "before" preview to show what AI actually sees (square crop)
+    document.getElementById('photoAiBefore').src = photoAiOrig1024;
 
     // Animate progress bar
     let pct = 10;
@@ -5950,7 +5972,8 @@
       const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: photoAiOrigDataUrl, mask: maskDataUrl, prompt }),
+        // ↓ Send the SQUARE crop, NOT the original — guarantees alignment with compositing
+        body: JSON.stringify({ image: photoAiOrig1024, mask: maskDataUrl, prompt }),
       });
       clearInterval(tick);
       if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
@@ -5982,8 +6005,9 @@
   }
 
   /**
-   * For API mask: same gradient but at original image dimensions.
-   * Transparent = editable background. Opaque = protected person.
+   * API mask (sent to OpenAI): vertical strip — center protected, edges editable.
+   * Transparent = AI may edit (background). Opaque = AI must not touch (person).
+   * Input is always 1024×1024 (photoAiOrig1024) so image and mask are aligned.
    */
   function photoAiCreateMask(dataUrl) {
     return new Promise(resolve => {
@@ -5993,18 +6017,31 @@
         const cv = document.createElement('canvas');
         cv.width = W; cv.height = H;
         const ctx = cv.getContext('2d');
-        ctx.clearRect(0, 0, W, H);
-        const cx = W * 0.5, cy = H * 0.40;
-        const innerR = Math.min(W, H) * 0.28;
-        const outerR = Math.max(W, H) * 0.72;
-        const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
-        grad.addColorStop(0,    'rgba(0,0,0,1)');
-        grad.addColorStop(0.30, 'rgba(0,0,0,1)');
-        grad.addColorStop(0.58, 'rgba(0,0,0,0.92)');
-        grad.addColorStop(0.80, 'rgba(0,0,0,0.55)');
-        grad.addColorStop(1,    'rgba(0,0,0,0)');
-        ctx.fillStyle = grad;
+
+        // Start fully opaque (protect everything)
+        ctx.fillStyle = 'rgba(0,0,0,1)';
         ctx.fillRect(0, 0, W, H);
+
+        // Transparent left edge (background)
+        const lg = ctx.createLinearGradient(0, 0, W * 0.22, 0);
+        lg.addColorStop(0, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = lg; ctx.fillRect(0, 0, W * 0.22, H);
+
+        // Transparent right edge (background)
+        const rg = ctx.createLinearGradient(W * 0.78, 0, W, 0);
+        rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = rg; ctx.fillRect(W * 0.78, 0, W * 0.22, H);
+
+        // Transparent top (sky)
+        const tg = ctx.createLinearGradient(0, 0, 0, H * 0.15);
+        tg.addColorStop(0, 'rgba(0,0,0,0)'); tg.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = tg; ctx.fillRect(0, 0, W, H * 0.15);
+
+        // Transparent bottom (ground far)
+        const bg = ctx.createLinearGradient(0, H * 0.88, 0, H);
+        bg.addColorStop(0, 'rgba(0,0,0,1)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = bg; ctx.fillRect(0, H * 0.88, W, H * 0.12);
+
         resolve(cv.toDataURL('image/png'));
       };
       img.src = dataUrl;
