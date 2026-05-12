@@ -6834,12 +6834,6 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     ctx.textAlign = 'right';
     ctx.fillText(`${index + 1} / ${total}`, SIZE - 50, 55);
 
-    // OctoMind watermark top-left
-    ctx.font = `700 ${SIZE * 0.022}px Arial, sans-serif`;
-    ctx.fillStyle = theme.accent + 'CC';
-    ctx.textAlign = 'left';
-    ctx.fillText('OctoMind', 50, 55);
-
     // Caption text (bottom)
     ctx.textAlign = 'left';
     const capY = SIZE - 160;
