@@ -5894,11 +5894,11 @@
         const orPx = orCtx.getImageData(0, 0, S, S).data;
         const out  = new Uint8ClampedArray(S * S * 4);
 
-        // Boundaries (pixels)
-        const LF0 = S * 0.18, LF1 = S * 0.30;   // left fade zone
-        const RF0 = S * 0.70, RF1 = S * 0.82;   // right fade zone
-        const TF0 = S * 0.10, TF1 = S * 0.20;   // top fade zone
-        const BF0 = S * 0.82, BF1 = S * 0.92;   // bottom fade zone
+        // Boundaries (pixels) — narrow 5% fade for sharp edges, wide protected center
+        const LF0 = S * 0.15, LF1 = S * 0.20;   // left fade  (5%)
+        const RF0 = S * 0.80, RF1 = S * 0.85;   // right fade (5%)
+        const TF0 = S * 0.08, TF1 = S * 0.13;   // top fade   (5%)
+        const BF0 = S * 0.87, BF1 = S * 0.92;   // bottom fade(5%)
 
         for (let y = 0; y < S; y++) {
           for (let x = 0; x < S; x++) {
