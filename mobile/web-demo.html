@@ -2218,17 +2218,19 @@
                 <div class="photo-tmpl-grid" id="photoTmplGrid"></div>
                 <div class="photo-before-after">
                   <div class="photo-ba-wrap">
-                    <canvas id="photoBefore" width="400" height="400"></canvas>
+                    <canvas id="photoBefore" width="1080" height="1080"></canvas>
                     <div class="photo-ba-label">Оригинал</div>
                   </div>
-                  <div class="photo-ba-wrap">
-                    <canvas id="photoAfter" width="400" height="400"></canvas>
+                  <div class="photo-ba-wrap" style="cursor:zoom-in;" onclick="photoFilterFullscreen()" title="Натисни для повного перегляду">
+                    <canvas id="photoAfter" width="1080" height="1080"></canvas>
                     <div class="photo-ba-label" id="photoAfterLabel">Шаблон</div>
+                    <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:5px;padding:2px 6px;pointer-events:none;">🔍</div>
                   </div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:4px;">
-                  <button class="btn btn-primary" style="flex:1;" onclick="photoDownload()">💾 Скачать</button>
-                  <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoReset()">↩ Новое фото</button>
+                  <button class="btn btn-primary" style="flex:1;" onclick="photoDownload()">💾 Скачати</button>
+                  <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoFilterFullscreen()">🔍 На весь екран</button>
+                  <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoReset()">↩</button>
                 </div>
               </div>
             </div>
@@ -2254,7 +2256,7 @@
             <div id="photoAiStep2" style="display:none;">
               <div class="card">
                 <div class="card-title" style="margin-bottom:10px;">✍️ Що змінити?</div>
-                <img id="photoAiBefore" style="width:100%;border-radius:10px;margin-bottom:12px;max-height:300px;object-fit:cover;">
+                <img id="photoAiBefore" style="width:100%;border-radius:10px;margin-bottom:12px;max-height:420px;object-fit:contain;background:var(--surface3);">
                 <textarea id="photoAiPrompt" rows="3"
                   placeholder="Наприклад: прибери прищі на обличчі · прибери людей на фоні · зроби небо більш драматичним · розмий фон · додай теплі тони"
                   style="width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text1);border-radius:10px;padding:10px;font-size:13px;resize:none;box-sizing:border-box;outline:none;font-family:inherit;line-height:1.5;"></textarea>
@@ -2288,13 +2290,18 @@
             <div id="photoAiStep4" style="display:none;">
               <div class="card">
                 <div class="card-title" style="margin-bottom:12px;">✅ Готово!</div>
+                <!-- Full-width after image, then small side-by-side below -->
+                <div style="margin-bottom:10px;">
+                  <img id="photoAiAfterImg" style="width:100%;border-radius:10px;object-fit:contain;background:var(--surface3);cursor:zoom-in;max-height:480px;" onclick="photoAiFullscreen()" title="Натисни для повного перегляду">
+                  <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨ · натисни для повного перегляду 🔍</div>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
                   <div>
-                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;aspect-ratio:1;object-fit:cover;">
+                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);max-height:160px;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">До</div>
                   </div>
                   <div>
-                    <img id="photoAiAfterImg" style="width:100%;border-radius:8px;aspect-ratio:1;object-fit:cover;">
+                    <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);max-height:160px;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨</div>
                   </div>
                 </div>
@@ -5702,9 +5709,9 @@
     if (!grid) return;
     grid.innerHTML = PHOTO_TEMPLATES.map(t => {
       const canvas = document.createElement('canvas');
-      canvas.width = 120; canvas.height = 120;
+      canvas.width = 300; canvas.height = 300;
       photoDrawTo(canvas, photoImg, t, false);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       return `<div class="photo-tmpl ${t.id === photoTmplId ? 'selected' : ''}" onclick="photoSelectTmpl('${t.id}')">
         <div class="photo-tmpl-prev"><img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;"></div>
         <div class="photo-tmpl-label">${t.name}</div>
@@ -5713,7 +5720,7 @@
   }
 
   function photoDrawTo(canvas, img, tmpl, large) {
-    const size = large ? 400 : 120;
+    const size = large ? 1080 : 300;
     canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext('2d');
     // Cover-crop image to square
@@ -5862,7 +5869,8 @@
 
       // Show result
       document.getElementById('photoAiBeforeSmall').src = photoAiOrigDataUrl;
-      document.getElementById('photoAiAfterImg').src = photoAiResultDataUrl;
+      document.getElementById('photoAiAfterSmall').src  = photoAiResultDataUrl;
+      document.getElementById('photoAiAfterImg').src    = photoAiResultDataUrl;
       document.getElementById('photoAiStep3').style.display = 'none';
       document.getElementById('photoAiStep4').style.display = 'block';
     } catch (err) {
@@ -5894,6 +5902,43 @@
     a.href = photoAiResultDataUrl;
     a.download = 'octo_ai_edit.png';
     a.click();
+  }
+
+  // ── Generic image fullscreen lightbox ──────────────────────────────────────
+  function photoShowFullscreen(src, label) {
+    const lb = document.createElement('div');
+    lb.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;';
+    lb.onclick = e => { if (e.target === lb || e.target === img) lb.remove(); };
+    const topBar = document.createElement('div');
+    topBar.style.cssText = 'position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;';
+    topBar.innerHTML = `<span style="color:#fff;font-size:13px;font-weight:700;">${label || ''}</span>`;
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = 'background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer;line-height:1;';
+    closeBtn.onclick = () => lb.remove();
+    topBar.appendChild(closeBtn);
+    const dlBtn = document.createElement('button');
+    dlBtn.textContent = '💾 Скачати';
+    dlBtn.style.cssText = 'background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;margin-right:8px;';
+    dlBtn.onclick = () => { const a = document.createElement('a'); a.href = src; a.download = 'octo_photo.jpg'; a.click(); };
+    topBar.insertBefore(dlBtn, closeBtn);
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'max-width:92vw;max-height:84vh;border-radius:10px;object-fit:contain;';
+    lb.appendChild(topBar);
+    lb.appendChild(img);
+    document.body.appendChild(lb);
+  }
+
+  function photoFilterFullscreen() {
+    const cv = document.getElementById('photoAfter');
+    if (!cv) return;
+    photoShowFullscreen(cv.toDataURL('image/jpeg', 0.95), '🎨 Результат фільтра');
+  }
+
+  function photoAiFullscreen() {
+    if (!photoAiResultDataUrl) return;
+    photoShowFullscreen(photoAiResultDataUrl, '🤖 AI редагування');
   }
 
   // =============================================

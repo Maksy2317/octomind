@@ -220,14 +220,15 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     const buffer = Buffer.from(base64Data, 'base64');
     const imageFile = await toFile(buffer, 'photo.png', { type: 'image/png' });
 
-    // Build a prompt that preserves subjects but enhances style only
-    const styleHint = prompt?.trim() || 'dramatic cinematic style';
+    // Build a prompt that preserves ALL people and only edits the background/environment
+    const styleHint = prompt?.trim() || 'cinematic colour grading';
     const enhancePrompt =
-      `Photo enhancement only: ${styleHint}. ` +
-      `CRITICAL RULES: Do NOT add any text, words, letters, titles, captions, logos, or typography of any kind. ` +
-      `Do NOT change or alter any faces or people — preserve all faces exactly as in the original. ` +
-      `Preserve all original subjects, people and composition exactly. ` +
-      `Only enhance: lighting, colour grading, contrast, atmosphere, cinematic feel.`;
+      `RULE #1 — PEOPLE: Every person, face, body, skin, clothing, hair and human figure must remain ` +
+      `100% unchanged. Do not move, resize, retouch, alter, or replace any person in any way. ` +
+      `RULE #2 — BACKGROUND ONLY: Apply the following edit ONLY to the background, sky, ground, ` +
+      `environment and non-human elements: "${styleHint}". ` +
+      `RULE #3 — NO TEXT: Do not add any text, letters, logos, watermarks or typography anywhere. ` +
+      `Summary: change background/environment/lighting only; preserve every human exactly as-is.`;
 
     const response = await openai.images.edit({
       model: 'gpt-image-1',
