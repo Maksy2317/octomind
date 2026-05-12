@@ -1334,11 +1334,8 @@
       <div class="nav-item" onclick="showScreen('video',this)">
         <span class="nav-icon">🎬</span> Video
       </div>
-      <div class="nav-item" onclick="showScreen('carousel',this)">
-        <span class="nav-icon">🖼️</span> Carousel
-      </div>
       <div class="nav-item" onclick="showScreen('photo',this)">
-        <span class="nav-icon">📸</span> Photo Edit
+        <span class="nav-icon">📸</span> Photo
       </div>
       <div class="nav-item" onclick="showScreen('caption',this)">
         <span class="nav-icon">✍️</span> Caption AI
@@ -1431,7 +1428,7 @@
               <div class="tool-desc" data-i18n="tool_video_desc">Завантаж відео — AI вибере шаблон і обробить під Stories, Reels або TikTok.</div>
               <span class="tool-tag">Reels</span><span class="tool-tag">TikTok</span><span class="tool-tag">Stories</span>
             </div>
-            <div class="tool-card" onclick="showScreen('carousel',null)">
+            <div class="tool-card" onclick="showScreen('photo',null);photoSwitchTab('carousel')">
               <div class="tool-icon">🖼️</div>
               <div class="tool-name">Carousel Builder</div>
               <div class="tool-desc" data-i18n="tool_carousel_desc">Завантаж фото — AI об'єднає в єдиний стиль і напише підписи до кожного слайду.</div>
@@ -2124,9 +2121,9 @@
 
         </div>
 
-        <!-- Carousel -->
-        <div class="screen" id="carousel">
-          <!-- Hidden file inputs (one per slot) -->
+        <!-- Photo (unified: Carousel + Filters + AI Editor) -->
+        <div class="screen" id="photo">
+          <!-- Hidden file inputs for carousel slots -->
           <input type="file" id="carFile0" accept="image/*" style="display:none" onchange="carSlotFile(0,this)">
           <input type="file" id="carFile1" accept="image/*" style="display:none" onchange="carSlotFile(1,this)">
           <input type="file" id="carFile2" accept="image/*" style="display:none" onchange="carSlotFile(2,this)">
@@ -2135,75 +2132,64 @@
           <input type="file" id="carFile5" accept="image/*" style="display:none" onchange="carSlotFile(5,this)">
           <input type="file" id="carFile6" accept="image/*" style="display:none" onchange="carSlotFile(6,this)">
           <input type="file" id="carFile7" accept="image/*" style="display:none" onchange="carSlotFile(7,this)">
-
-          <div class="card">
-            <div class="card-title">🖼️ AI Carousel</div>
-            <div class="card-sub">Завантаж 2–8 фото — Octo аналізує всі разом і робить єдиний стиль</div>
-            <div class="pgrid" id="carSlots"></div>
-
-            <!-- Style prompt -->
-            <div style="margin-top:12px;">
-              <textarea id="carStylePromptInput" placeholder="Стиль (необов'язково): luxury fashion, minimalist, vibrant…"
-                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text1);border-radius:10px;padding:10px;font-size:12px;resize:none;box-sizing:border-box;outline:none;"
-                rows="2"></textarea>
-            </div>
-
-            <!-- Language -->
-            <div style="display:flex;gap:6px;margin-top:8px;">
-              <button id="carLangBtnUk" class="ss-opt-btn active" onclick="carSetLang('uk',this)">🇺🇦 UA</button>
-              <button id="carLangBtnRu" class="ss-opt-btn" onclick="carSetLang('ru',this)">🇷🇺 RU</button>
-              <button id="carLangBtnEn" class="ss-opt-btn" onclick="carSetLang('en',this)">🇬🇧 EN</button>
-            </div>
-
-            <!-- Theme picker (rendered by JS) -->
-            <div style="margin-top:10px;">
-              <div style="font-size:10px;color:var(--text4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🎨 Тема</div>
-              <div id="carThemePicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-            </div>
-
-            <button class="btn btn-primary btn-full" onclick="carBuild()" id="carBuildBtn" disabled style="opacity:0.5;margin-top:14px;">🤖 Аналізувати та створити →</button>
-          </div>
-
-          <!-- Progress card -->
-          <div id="carProgCard" style="display:none;" class="card">
-            <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;" id="carProgSub">Аналізую фото…</div>
-            <div style="background:var(--surface3);border-radius:100px;height:6px;overflow:hidden;margin-bottom:4px;">
-              <div id="carProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7C5CFC,#38BDF8);border-radius:100px;transition:width .4s;"></div>
-            </div>
-            <div style="font-size:11px;color:var(--text4);" id="carProgTime"></div>
-          </div>
-
-          <!-- Results -->
-          <div id="carRes" style="display:none">
-            <div class="card">
-              <div class="card-title">✅ Карусель готова!</div>
-              <div class="card-sub" id="carResInfo"></div>
-              <div id="carSlidesPrev" style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;"></div>
-              <div style="display:flex;gap:8px;margin-top:14px;">
-                <button class="btn btn-primary btn-sm" onclick="carDownloadZip()" id="carDlBtn">📦 ZIP</button>
-                <button class="btn btn-secondary btn-sm" onclick="carBuild()">🔄 Пересоздати</button>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-title">🐙 Підписи та хештеги</div>
-              <div id="carCaptions" style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Photo -->
-        <div class="screen" id="photo">
           <input type="file" id="photoFile"   accept="image/*" style="display:none" onchange="photoLoad(this)">
           <input type="file" id="photoAiFile" accept="image/*" style="display:none" onchange="photoAiLoad(this)">
 
           <!-- Mode tabs -->
           <div class="vsteps" style="margin-bottom:14px;">
-            <div class="vstep active" id="photoTabFilters" onclick="photoSwitchTab('filters')">🎨 Фільтри</div>
-            <div class="vstep"        id="photoTabAi"      onclick="photoSwitchTab('ai')">🤖 AI Редактор</div>
+            <div class="vstep active" id="photoTabCarousel" onclick="photoSwitchTab('carousel')">🎠 Карусель</div>
+            <div class="vstep"        id="photoTabFilters"  onclick="photoSwitchTab('filters')">🎨 Фільтри</div>
+            <div class="vstep"        id="photoTabAi"       onclick="photoSwitchTab('ai')">🤖 AI Редактор</div>
           </div>
 
+          <!-- ── Carousel tab ── -->
+          <div id="photoCarouselWrap">
+            <div class="card">
+              <div class="card-title">🖼️ AI Carousel</div>
+              <div class="card-sub">Завантаж 2–8 фото — Octo аналізує всі разом і робить єдиний стиль</div>
+              <div class="pgrid" id="carSlots"></div>
+              <div style="margin-top:12px;">
+                <textarea id="carStylePromptInput" placeholder="Стиль (необов'язково): luxury fashion, minimalist, vibrant…"
+                  style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text1);border-radius:10px;padding:10px;font-size:12px;resize:none;box-sizing:border-box;outline:none;"
+                  rows="2"></textarea>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px;">
+                <button id="carLangBtnUk" class="ss-opt-btn active" onclick="carSetLang('uk',this)">🇺🇦 UA</button>
+                <button id="carLangBtnRu" class="ss-opt-btn" onclick="carSetLang('ru',this)">🇷🇺 RU</button>
+                <button id="carLangBtnEn" class="ss-opt-btn" onclick="carSetLang('en',this)">🇬🇧 EN</button>
+              </div>
+              <div style="margin-top:10px;">
+                <div style="font-size:10px;color:var(--text4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🎨 Тема</div>
+                <div id="carThemePicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+              </div>
+              <button class="btn btn-primary btn-full" onclick="carBuild()" id="carBuildBtn" disabled style="opacity:0.5;margin-top:14px;">🤖 Аналізувати та створити →</button>
+            </div>
+            <div id="carProgCard" style="display:none;" class="card">
+              <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;" id="carProgSub">Аналізую фото…</div>
+              <div style="background:var(--surface3);border-radius:100px;height:6px;overflow:hidden;margin-bottom:4px;">
+                <div id="carProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7C5CFC,#38BDF8);border-radius:100px;transition:width .4s;"></div>
+              </div>
+              <div style="font-size:11px;color:var(--text4);" id="carProgTime"></div>
+            </div>
+            <div id="carRes" style="display:none">
+              <div class="card">
+                <div class="card-title">✅ Карусель готова!</div>
+                <div class="card-sub" id="carResInfo"></div>
+                <div id="carSlidesPrev" style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;"></div>
+                <div style="display:flex;gap:8px;margin-top:14px;">
+                  <button class="btn btn-primary btn-sm" onclick="carDownloadZip()" id="carDlBtn">📦 ZIP</button>
+                  <button class="btn btn-secondary btn-sm" onclick="carBuild()">🔄 Пересоздати</button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title">🐙 Підписи та хештеги</div>
+                <div id="carCaptions" style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
+              </div>
+            </div>
+          </div><!-- /photoCarouselWrap -->
+
           <!-- ── Filters tab (existing) ── -->
-          <div id="photoFiltersWrap">
+          <div id="photoFiltersWrap" style="display:none;">
             <div id="photoStep1">
               <div class="card">
                 <div class="card-title">📸 TikTok Photo Edit</div>
@@ -2796,7 +2782,6 @@
     advisor:   ['screen_advisor',   'screen_advisor_sub'],
     analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
     video:     ['screen_video',     'screen_video_sub'],
-    carousel:  ['screen_carousel',  'screen_carousel_sub'],
     photo:     ['screen_photo',     'screen_photo_sub'],
     pricing:   ['screen_pricing',   'screen_pricing_sub'],
     profile:   ['screen_profile',   'screen_profile_sub'],
@@ -3333,7 +3318,7 @@
     }
     window.scrollTo(0, 0);
     closeSidebar();
-    if (id === 'carousel') carInit();
+    if (id === 'photo')    photoSwitchTab('carousel');
     if (id === 'calendar') calInit();
     if (id === 'caption')  capInitScreen();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
@@ -5724,10 +5709,13 @@
 
   // ── Photo tab switcher ────────────────────────────────────────────────────
   function photoSwitchTab(tab) {
-    document.getElementById('photoFiltersWrap').style.display = tab === 'filters' ? '' : 'none';
-    document.getElementById('photoAiWrap').style.display      = tab === 'ai'      ? '' : 'none';
-    document.getElementById('photoTabFilters').className = 'vstep' + (tab === 'filters' ? ' active' : '');
-    document.getElementById('photoTabAi').className      = 'vstep' + (tab === 'ai'      ? ' active' : '');
+    document.getElementById('photoCarouselWrap').style.display = tab === 'carousel' ? '' : 'none';
+    document.getElementById('photoFiltersWrap').style.display  = tab === 'filters'  ? '' : 'none';
+    document.getElementById('photoAiWrap').style.display       = tab === 'ai'       ? '' : 'none';
+    document.getElementById('photoTabCarousel').className = 'vstep' + (tab === 'carousel' ? ' active' : '');
+    document.getElementById('photoTabFilters').className  = 'vstep' + (tab === 'filters'  ? ' active' : '');
+    document.getElementById('photoTabAi').className       = 'vstep' + (tab === 'ai'       ? ' active' : '');
+    if (tab === 'carousel') carInit();
   }
 
   // =============================================
