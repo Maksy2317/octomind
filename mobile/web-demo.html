@@ -5834,41 +5834,89 @@
   }
 
   /**
-   * Creates a PNG alpha mask that protects the subject (center of image).
-   * Transparent pixels = OpenAI may edit this area (background/edges).
-   * Opaque pixels     = OpenAI must NOT touch this area (person/subject).
+   * Cover-crops image to SIZE×SIZE square (same crop OpenAI does internally).
+   * Returns a data URL — used so we composite against the exact same crop AI sees.
    */
-  function photoAiCreateMask(dataUrl) {
+  function photoAiResize1024(dataUrl, SIZE) {
+    SIZE = SIZE || 1024;
     return new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
-        const W = img.width, H = img.height;
         const cv = document.createElement('canvas');
-        cv.width = W; cv.height = H;
+        cv.width = SIZE; cv.height = SIZE;
         const ctx = cv.getContext('2d');
-
-        // Start fully transparent (= AI can edit everywhere by default)
-        ctx.clearRect(0, 0, W, H);
-
-        // Paint opaque black in the central subject area (= protect person).
-        // Use a radial gradient so edges of subject blend naturally.
-        const cx = W * 0.5, cy = H * 0.48;         // slight upward center
-        const innerR = Math.min(W, H) * 0.20;       // fully opaque core
-        const outerR = Math.max(W, H) * 0.62;       // fade-out zone
-
-        const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
-        grad.addColorStop(0,    'rgba(0,0,0,1)');    // protect (opaque)
-        grad.addColorStop(0.45, 'rgba(0,0,0,0.97)');
-        grad.addColorStop(0.72, 'rgba(0,0,0,0.6)');
-        grad.addColorStop(1,    'rgba(0,0,0,0)');    // editable (transparent)
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-
+        const s = Math.min(img.width, img.height);
+        const sx = (img.width - s) / 2;
+        const sy = (img.height - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, SIZE, SIZE);
         resolve(cv.toDataURL('image/png'));
       };
       img.src = dataUrl;
     });
   }
+
+  /**
+   * After AI returns its result we COMPOSITE:
+   *   - AI result as the base layer  (background changes visible)
+   *   - Original person painted back on top in center zone
+   * This makes faces/bodies 100% original pixels — AI cannot change them.
+   */
+  function photoAiComposite(aiResultDataUrl, orig1024DataUrl) {
+    return new Promise(resolve => {
+      const aiImg   = new Image();
+      const origImg = new Image();
+      let loaded = 0;
+      const onLoad = () => {
+        if (++loaded < 2) return;
+        const SIZE = 1024;
+
+        // ── Step 1: protection mask (center = opaque, edges = transparent) ──
+        const maskCv = document.createElement('canvas');
+        maskCv.width = SIZE; maskCv.height = SIZE;
+        const mctx = maskCv.getContext('2d');
+        mctx.clearRect(0, 0, SIZE, SIZE);
+
+        // Large central zone — covers full-length person.
+        // cy slightly up (faces tend to be in upper 40%).
+        const cx = SIZE * 0.5, cy = SIZE * 0.40;
+        const innerR = SIZE * 0.28;   // fully opaque (face + chest)
+        const outerR = SIZE * 0.72;   // fade-out reaches corners
+
+        const grad = mctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+        grad.addColorStop(0,    'rgba(0,0,0,1)');
+        grad.addColorStop(0.30, 'rgba(0,0,0,1)');    // hard protected core
+        grad.addColorStop(0.58, 'rgba(0,0,0,0.92)');
+        grad.addColorStop(0.80, 'rgba(0,0,0,0.55)');
+        grad.addColorStop(1,    'rgba(0,0,0,0)');
+        mctx.fillStyle = grad;
+        mctx.fillRect(0, 0, SIZE, SIZE);
+
+        // ── Step 2: original image clipped to mask ────────────────────────
+        const origMasked = document.createElement('canvas');
+        origMasked.width = SIZE; origMasked.height = SIZE;
+        const omctx = origMasked.getContext('2d');
+        omctx.drawImage(origImg, 0, 0, SIZE, SIZE);
+        omctx.globalCompositeOperation = 'destination-in';
+        omctx.drawImage(maskCv, 0, 0);           // keep only protected zone
+
+        // ── Step 3: AI result + original person on top ────────────────────
+        const finalCv = document.createElement('canvas');
+        finalCv.width = SIZE; finalCv.height = SIZE;
+        const fctx = finalCv.getContext('2d');
+        fctx.drawImage(aiImg,     0, 0, SIZE, SIZE);  // AI background
+        fctx.drawImage(origMasked, 0, 0);              // original person on top
+
+        resolve(finalCv.toDataURL('image/png'));
+      };
+      aiImg.onload   = onLoad;
+      origImg.onload = onLoad;
+      aiImg.src   = aiResultDataUrl;
+      origImg.src = orig1024DataUrl;
+    });
+  }
+
+  // Store the 1024×1024 crop so we can composite without re-loading
+  let photoAiOrig1024 = null;
 
   async function photoAiGenerate() {
     const prompt = document.getElementById('photoAiPrompt').value.trim();
@@ -5880,14 +5928,17 @@
     document.getElementById('photoAiStep3').style.display = 'block';
     const bar = document.getElementById('photoAiProgBar');
     const txt = document.getElementById('photoAiProgText');
-    txt.textContent = 'Готую маску захисту…';
-    bar.style.width = '5%';
+    txt.textContent = 'Підготовка…';
+    bar.style.width = '4%';
 
-    // Generate center-protection mask BEFORE calling AI
+    // Pre-compute the 1024 crop (same as OpenAI internal crop) for later compositing
+    photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl);
+
+    // Also send the mask to guide AI where to edit
     const maskDataUrl = await photoAiCreateMask(photoAiOrigDataUrl);
 
     // Animate progress bar
-    let pct = 8;
+    let pct = 10;
     const tick = setInterval(() => {
       pct = Math.min(pct + (pct < 60 ? 3 : 0.8), 92);
       bar.style.width = pct + '%';
@@ -5906,11 +5957,18 @@
       const data = await resp.json();
       if (!data.b64) throw new Error('AI не повернув зображення');
 
-      photoAiResultDataUrl = `data:image/png;base64,${data.b64}`;
+      txt.textContent = 'Накладаю оригінал…';
+      bar.style.width = '96%';
+
+      // ── KEY STEP: composite AI result + original person pixels ──────────
+      // This guarantees the face / body are 100% original — AI cannot change them.
+      const aiResult = `data:image/png;base64,${data.b64}`;
+      photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024);
+
       bar.style.width = '100%';
 
       // Show result
-      document.getElementById('photoAiBeforeSmall').src = photoAiOrigDataUrl;
+      document.getElementById('photoAiBeforeSmall').src = photoAiOrig1024; // show same crop
       document.getElementById('photoAiAfterSmall').src  = photoAiResultDataUrl;
       document.getElementById('photoAiAfterImg').src    = photoAiResultDataUrl;
       document.getElementById('photoAiStep3').style.display = 'none';
@@ -5921,6 +5979,36 @@
       document.getElementById('photoAiStep2').style.display = 'block';
       alert('Помилка: ' + (err.message || err));
     }
+  }
+
+  /**
+   * For API mask: same gradient but at original image dimensions.
+   * Transparent = editable background. Opaque = protected person.
+   */
+  function photoAiCreateMask(dataUrl) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const W = img.width, H = img.height;
+        const cv = document.createElement('canvas');
+        cv.width = W; cv.height = H;
+        const ctx = cv.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+        const cx = W * 0.5, cy = H * 0.40;
+        const innerR = Math.min(W, H) * 0.28;
+        const outerR = Math.max(W, H) * 0.72;
+        const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+        grad.addColorStop(0,    'rgba(0,0,0,1)');
+        grad.addColorStop(0.30, 'rgba(0,0,0,1)');
+        grad.addColorStop(0.58, 'rgba(0,0,0,0.92)');
+        grad.addColorStop(0.80, 'rgba(0,0,0,0.55)');
+        grad.addColorStop(1,    'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+        resolve(cv.toDataURL('image/png'));
+      };
+      img.src = dataUrl;
+    });
   }
 
   function photoAiAgain() {
