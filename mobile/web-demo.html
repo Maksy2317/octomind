@@ -2196,45 +2196,123 @@
 
         <!-- Photo -->
         <div class="screen" id="photo">
-          <input type="file" id="photoFile" accept="image/*" style="display:none" onchange="photoLoad(this)">
+          <input type="file" id="photoFile"   accept="image/*" style="display:none" onchange="photoLoad(this)">
+          <input type="file" id="photoAiFile" accept="image/*" style="display:none" onchange="photoAiLoad(this)">
 
-          <!-- Upload step -->
-          <div id="photoStep1">
-            <div class="card">
-              <div class="card-title">📸 TikTok Photo Edit</div>
-              <div class="card-sub">Загрузи фото — выбери TikTok-шаблон и скачай результат</div>
-              <label for="photoFile" class="dropzone" style="margin-bottom:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;">
-                <div style="font-size:44px;margin-bottom:8px;">📸</div>
-                <h3>Нажми или перетащи фото</h3>
-                <p style="color:var(--text3);font-size:12px;margin-top:4px;">JPG, PNG, WEBP · до 50MB</p>
-              </label>
+          <!-- Mode tabs -->
+          <div class="vsteps" style="margin-bottom:14px;">
+            <div class="vstep active" id="photoTabFilters" onclick="photoSwitchTab('filters')">🎨 Фільтри</div>
+            <div class="vstep"        id="photoTabAi"      onclick="photoSwitchTab('ai')">🤖 AI Редактор</div>
+          </div>
+
+          <!-- ── Filters tab (existing) ── -->
+          <div id="photoFiltersWrap">
+            <div id="photoStep1">
+              <div class="card">
+                <div class="card-title">📸 TikTok Photo Edit</div>
+                <div class="card-sub">Загрузи фото — выбери TikTok-шаблон и скачай результат</div>
+                <label for="photoFile" class="dropzone" style="margin-bottom:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;">
+                  <div style="font-size:44px;margin-bottom:8px;">📸</div>
+                  <h3>Нажми или перетащи фото</h3>
+                  <p style="color:var(--text3);font-size:12px;margin-top:4px;">JPG, PNG, WEBP · до 50MB</p>
+                </label>
+              </div>
+            </div>
+            <div id="photoStep2" style="display:none">
+              <div class="card">
+                <div class="card-title" style="margin-bottom:10px;">🎨 Выбери TikTok-шаблон</div>
+                <div class="photo-tmpl-grid" id="photoTmplGrid"></div>
+                <div class="photo-before-after">
+                  <div class="photo-ba-wrap">
+                    <canvas id="photoBefore" width="400" height="400"></canvas>
+                    <div class="photo-ba-label">Оригинал</div>
+                  </div>
+                  <div class="photo-ba-wrap">
+                    <canvas id="photoAfter" width="400" height="400"></canvas>
+                    <div class="photo-ba-label" id="photoAfterLabel">Шаблон</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:4px;">
+                  <button class="btn btn-primary" style="flex:1;" onclick="photoDownload()">💾 Скачать</button>
+                  <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoReset()">↩ Новое фото</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Editor step -->
-          <div id="photoStep2" style="display:none">
-            <div class="card">
-              <div class="card-title" style="margin-bottom:10px;">🎨 Выбери TikTok-шаблон</div>
-              <div class="photo-tmpl-grid" id="photoTmplGrid"></div>
+          <!-- ── AI Editor tab ── -->
+          <div id="photoAiWrap" style="display:none;">
 
-              <!-- Before / After preview -->
-              <div class="photo-before-after">
-                <div class="photo-ba-wrap">
-                  <canvas id="photoBefore" width="400" height="400"></canvas>
-                  <div class="photo-ba-label">Оригинал</div>
-                </div>
-                <div class="photo-ba-wrap">
-                  <canvas id="photoAfter" width="400" height="400"></canvas>
-                  <div class="photo-ba-label" id="photoAfterLabel">Шаблон</div>
-                </div>
-              </div>
-
-              <div style="display:flex;gap:8px;margin-top:4px;">
-                <button class="btn btn-primary" style="flex:1;" onclick="photoDownload()">💾 Скачать</button>
-                <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoReset()">↩ Новое фото</button>
+            <!-- Step 1: upload -->
+            <div id="photoAiStep1">
+              <div class="card">
+                <div class="card-title">🤖 AI Photo Editor</div>
+                <div class="card-sub">Завантаж фото і скажи що змінити — AI зробить це</div>
+                <label for="photoAiFile" class="dropzone" style="margin-bottom:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;">
+                  <div style="font-size:44px;margin-bottom:8px;">🖼️</div>
+                  <h3>Завантаж фото</h3>
+                  <p style="color:var(--text3);font-size:12px;margin-top:4px;">JPG, PNG · до 20MB</p>
+                </label>
               </div>
             </div>
-          </div>
+
+            <!-- Step 2: instruction -->
+            <div id="photoAiStep2" style="display:none;">
+              <div class="card">
+                <div class="card-title" style="margin-bottom:10px;">✍️ Що змінити?</div>
+                <img id="photoAiBefore" style="width:100%;border-radius:10px;margin-bottom:12px;max-height:300px;object-fit:cover;">
+                <textarea id="photoAiPrompt" rows="3"
+                  placeholder="Наприклад: прибери прищі на обличчі · прибери людей на фоні · зроби небо більш драматичним · розмий фон · додай теплі тони"
+                  style="width:100%;background:var(--surface2);border:1.5px solid var(--border);color:var(--text1);border-radius:10px;padding:10px;font-size:13px;resize:none;box-sizing:border-box;outline:none;font-family:inherit;line-height:1.5;"></textarea>
+                <!-- Quick presets -->
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+                  <button class="ss-opt-btn" onclick="photoAiPreset('Прибери прищі та недоліки шкіри')">✨ Шкіра</button>
+                  <button class="ss-opt-btn" onclick="photoAiPreset('Розмий фон, залиш людину чіткою')">🌀 Фон</button>
+                  <button class="ss-opt-btn" onclick="photoAiPreset('Прибери зайвих людей на фоні')">👤 Люди</button>
+                  <button class="ss-opt-btn" onclick="photoAiPreset('Зроби більш кінематографічне освітлення')">🎬 Кіно</button>
+                  <button class="ss-opt-btn" onclick="photoAiPreset('Поміняй небо на красивий захід сонця')">🌅 Небо</button>
+                  <button class="ss-opt-btn" onclick="photoAiPreset('Збільш контраст і насиченість кольорів')">🎨 Кольори</button>
+                </div>
+                <button onclick="photoAiGenerate()" id="photoAiBtn" class="btn btn-primary btn-full" style="margin-top:12px;">✨ Редагувати →</button>
+                <button onclick="photoAiReset()" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;">↩ Інше фото</button>
+              </div>
+            </div>
+
+            <!-- Step 3: progress -->
+            <div id="photoAiStep3" style="display:none;">
+              <div class="card" style="text-align:center;padding:40px 24px;">
+                <div style="font-size:48px;margin-bottom:16px;">🤖</div>
+                <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:8px;">AI редагує фото…</div>
+                <div style="font-size:12px;color:var(--text3);margin-bottom:20px;" id="photoAiProgText">~15–20 секунд</div>
+                <div style="background:var(--surface2);border-radius:100px;height:6px;overflow:hidden;max-width:260px;margin:0 auto;">
+                  <div id="photoAiProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7C5CFC,#38BDF8);border-radius:100px;transition:width .6s;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4: result -->
+            <div id="photoAiStep4" style="display:none;">
+              <div class="card">
+                <div class="card-title" style="margin-bottom:12px;">✅ Готово!</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+                  <div>
+                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;aspect-ratio:1;object-fit:cover;">
+                    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">До</div>
+                  </div>
+                  <div>
+                    <img id="photoAiAfterImg" style="width:100%;border-radius:8px;aspect-ratio:1;object-fit:cover;">
+                    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨</div>
+                  </div>
+                </div>
+                <button onclick="photoAiDownload()" class="btn btn-primary btn-full">💾 Скачати</button>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                  <button onclick="photoAiAgain()" class="btn btn-secondary btn-sm" style="flex:1;">🔄 Змінити запит</button>
+                  <button onclick="photoAiReset()" class="btn btn-secondary btn-sm" style="flex:1;">📸 Нове фото</button>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /photoAiWrap -->
         </div>
 
         <!-- Pricing -->
@@ -5404,16 +5482,14 @@
           progSub.textContent = `✨ AI Enhance фото ${i + 1} з ${photos.length}…`;
           progBar.style.width = (45 + Math.round((i / photos.length) * 40)) + '%';
           try {
-            // Pass ONLY visual style — never captions or team names (they'd get baked into image)
-            const visualStyle = (document.getElementById('carStylePromptInput')?.value || '').trim()
-              || analysis.colorMood || 'cinematic';
+            // Pass ONLY colorMood as visual style — NEVER the style prompt textarea
+            // (textarea contains context like team names which would get baked as text/logos into the image)
+            const moodMap = { warm:'warm golden cinematic', cool:'cool blue cinematic', vibrant:'vibrant saturated', muted:'muted film', neutral:'cinematic' };
+            const visualStyle = moodMap[analysis.colorMood] || 'cinematic professional photography';
             const dr = await fetch(`${BACKEND}/api/carousel/enhance`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                image: photos[i],
-                prompt: visualStyle,
-              }),
+              body: JSON.stringify({ image: photos[i], prompt: visualStyle }),
             });
             if (dr.ok) {
               const dj = await dr.json();
@@ -5706,6 +5782,110 @@
     photoImg = null;
     document.getElementById('photoStep1').style.display = 'block';
     document.getElementById('photoStep2').style.display = 'none';
+  }
+
+  // ── Photo tab switcher ────────────────────────────────────────────────────
+  function photoSwitchTab(tab) {
+    document.getElementById('photoFiltersWrap').style.display = tab === 'filters' ? '' : 'none';
+    document.getElementById('photoAiWrap').style.display      = tab === 'ai'      ? '' : 'none';
+    document.getElementById('photoTabFilters').className = 'vstep' + (tab === 'filters' ? ' active' : '');
+    document.getElementById('photoTabAi').className      = 'vstep' + (tab === 'ai'      ? ' active' : '');
+  }
+
+  // =============================================
+  // 🤖 AI PHOTO EDITOR
+  // =============================================
+  let photoAiOrigDataUrl = null;
+  let photoAiResultDataUrl = null;
+
+  function photoAiLoad(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = '';
+    const reader = new FileReader();
+    reader.onload = e => {
+      photoAiOrigDataUrl = e.target.result;
+      document.getElementById('photoAiBefore').src = photoAiOrigDataUrl;
+      document.getElementById('photoAiStep1').style.display = 'none';
+      document.getElementById('photoAiStep2').style.display = 'block';
+      document.getElementById('photoAiStep3').style.display = 'none';
+      document.getElementById('photoAiStep4').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function photoAiPreset(text) {
+    document.getElementById('photoAiPrompt').value = text;
+  }
+
+  async function photoAiGenerate() {
+    const prompt = document.getElementById('photoAiPrompt').value.trim();
+    if (!prompt) { alert('Напиши що змінити!'); return; }
+    if (!photoAiOrigDataUrl) return;
+
+    // Show progress
+    document.getElementById('photoAiStep2').style.display = 'none';
+    document.getElementById('photoAiStep3').style.display = 'block';
+    const bar = document.getElementById('photoAiProgBar');
+    const txt = document.getElementById('photoAiProgText');
+
+    // Animate progress bar
+    let pct = 0;
+    const tick = setInterval(() => {
+      pct = Math.min(pct + (pct < 60 ? 3 : 0.8), 90);
+      bar.style.width = pct + '%';
+      txt.textContent = pct < 30 ? '~20 секунд' : pct < 60 ? '~15 секунд' : 'Майже готово…';
+    }, 600);
+
+    try {
+      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+      const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: photoAiOrigDataUrl, prompt }),
+      });
+      clearInterval(tick);
+      if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
+      const data = await resp.json();
+      if (!data.b64) throw new Error('AI не повернув зображення');
+
+      photoAiResultDataUrl = `data:image/png;base64,${data.b64}`;
+      bar.style.width = '100%';
+
+      // Show result
+      document.getElementById('photoAiBeforeSmall').src = photoAiOrigDataUrl;
+      document.getElementById('photoAiAfterImg').src = photoAiResultDataUrl;
+      document.getElementById('photoAiStep3').style.display = 'none';
+      document.getElementById('photoAiStep4').style.display = 'block';
+    } catch (err) {
+      clearInterval(tick);
+      document.getElementById('photoAiStep3').style.display = 'none';
+      document.getElementById('photoAiStep2').style.display = 'block';
+      alert('Помилка: ' + (err.message || err));
+    }
+  }
+
+  function photoAiAgain() {
+    document.getElementById('photoAiStep4').style.display = 'none';
+    document.getElementById('photoAiStep2').style.display = 'block';
+  }
+
+  function photoAiReset() {
+    photoAiOrigDataUrl = null;
+    photoAiResultDataUrl = null;
+    document.getElementById('photoAiPrompt').value = '';
+    document.getElementById('photoAiStep4').style.display = 'none';
+    document.getElementById('photoAiStep3').style.display = 'none';
+    document.getElementById('photoAiStep2').style.display = 'none';
+    document.getElementById('photoAiStep1').style.display = 'block';
+  }
+
+  function photoAiDownload() {
+    if (!photoAiResultDataUrl) return;
+    const a = document.createElement('a');
+    a.href = photoAiResultDataUrl;
+    a.download = 'octo_ai_edit.png';
+    a.click();
   }
 
   // =============================================
