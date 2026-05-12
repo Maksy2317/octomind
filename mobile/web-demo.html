@@ -2292,18 +2292,19 @@
             <div id="photoAiStep4" style="display:none;">
               <div class="card">
                 <div class="card-title" style="margin-bottom:12px;">✅ Готово!</div>
-                <!-- Full-width after image, then small side-by-side below -->
-                <div style="margin-bottom:10px;">
-                  <img id="photoAiAfterImg" style="width:100%;border-radius:10px;object-fit:contain;background:var(--surface3);cursor:zoom-in;max-height:480px;" onclick="photoAiFullscreen()" title="Натисни для повного перегляду">
-                  <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨ · натисни для повного перегляду 🔍</div>
+                <!-- Main result — square image centred, no side letterboxing -->
+                <div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:center;">
+                  <img id="photoAiAfterImg" style="max-width:100%;max-height:520px;width:auto;height:auto;border-radius:12px;cursor:zoom-in;display:block;" onclick="photoAiFullscreen()" title="Натисни для повного перегляду">
+                  <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:6px;">Після ✨ · натисни для повного перегляду 🔍</div>
                 </div>
+                <!-- Side-by-side comparison -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
                   <div>
-                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);max-height:160px;">
+                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;object-fit:cover;background:var(--surface3);height:140px;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">До</div>
                   </div>
                   <div>
-                    <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);max-height:160px;">
+                    <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:cover;background:var(--surface3);height:140px;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨</div>
                   </div>
                 </div>
@@ -6098,7 +6099,7 @@
    * blurPx = Gaussian blur radius in pixels (default 28).
    */
   async function photoAiBlurBg(orig1024DataUrl, segMask, blurPx) {
-    blurPx = blurPx || 40; // strong bokeh-style blur
+    blurPx = blurPx || 55; // strong bokeh-style blur
     const S = 1024;
 
     const img = await new Promise(resolve => {
