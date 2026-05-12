@@ -5871,42 +5871,49 @@
         const SIZE = 1024;
 
         // ── Step 1: protection mask — vertical strip covers full-height person ──
-        // Left/right edges are editable (background); center band is 100% protected.
+        // Center band = opaque (protected). Left/right/top/bottom edges = transparent (AI edits here).
+        // IMPORTANT: use destination-out to actually CUT transparent holes in opaque base.
+        // Drawing a transparent gradient with source-over does NOT create transparency!
         const maskCv = document.createElement('canvas');
         maskCv.width = SIZE; maskCv.height = SIZE;
         const mctx = maskCv.getContext('2d');
 
-        // Fill everything opaque (protected) first
+        // Start: fully opaque = protect everything
         mctx.fillStyle = 'rgba(0,0,0,1)';
         mctx.fillRect(0, 0, SIZE, SIZE);
 
-        // Cut transparent on the LEFT edge (background only)
-        const leftGrad = mctx.createLinearGradient(0, 0, SIZE * 0.22, 0);
-        leftGrad.addColorStop(0, 'rgba(0,0,0,0)');   // transparent = editable
-        leftGrad.addColorStop(1, 'rgba(0,0,0,1)');   // opaque = protected
-        mctx.fillStyle = leftGrad;
+        // Switch to destination-out: drawing opaque ERASES (makes transparent = editable)
+        mctx.globalCompositeOperation = 'destination-out';
+
+        // Erase LEFT edge (background — AI may edit)
+        const lgCut = mctx.createLinearGradient(0, 0, SIZE * 0.22, 0);
+        lgCut.addColorStop(0, 'rgba(0,0,0,1)');   // fully erase at edge
+        lgCut.addColorStop(1, 'rgba(0,0,0,0)');   // keep protected toward center
+        mctx.fillStyle = lgCut;
         mctx.fillRect(0, 0, SIZE * 0.22, SIZE);
 
-        // Cut transparent on the RIGHT edge (background only)
-        const rightGrad = mctx.createLinearGradient(SIZE * 0.78, 0, SIZE, 0);
-        rightGrad.addColorStop(0, 'rgba(0,0,0,1)');
-        rightGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        mctx.fillStyle = rightGrad;
+        // Erase RIGHT edge
+        const rgCut = mctx.createLinearGradient(SIZE * 0.78, 0, SIZE, 0);
+        rgCut.addColorStop(0, 'rgba(0,0,0,0)');
+        rgCut.addColorStop(1, 'rgba(0,0,0,1)');
+        mctx.fillStyle = rgCut;
         mctx.fillRect(SIZE * 0.78, 0, SIZE * 0.22, SIZE);
 
-        // Cut transparent on the TOP edge (sky/far background only)
-        const topGrad = mctx.createLinearGradient(0, 0, 0, SIZE * 0.15);
-        topGrad.addColorStop(0, 'rgba(0,0,0,0)');
-        topGrad.addColorStop(1, 'rgba(0,0,0,1)');
-        mctx.fillStyle = topGrad;
-        mctx.fillRect(0, 0, SIZE, SIZE * 0.15);
+        // Erase TOP edge (sky)
+        const tgCut = mctx.createLinearGradient(0, 0, 0, SIZE * 0.18);
+        tgCut.addColorStop(0, 'rgba(0,0,0,1)');
+        tgCut.addColorStop(1, 'rgba(0,0,0,0)');
+        mctx.fillStyle = tgCut;
+        mctx.fillRect(0, 0, SIZE, SIZE * 0.18);
 
-        // Cut transparent on the BOTTOM edge (ground only)
-        const botGrad = mctx.createLinearGradient(0, SIZE * 0.88, 0, SIZE);
-        botGrad.addColorStop(0, 'rgba(0,0,0,1)');
-        botGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        mctx.fillStyle = botGrad;
-        mctx.fillRect(0, SIZE * 0.88, SIZE, SIZE * 0.12);
+        // Erase BOTTOM edge (ground)
+        const bgCut = mctx.createLinearGradient(0, SIZE * 0.85, 0, SIZE);
+        bgCut.addColorStop(0, 'rgba(0,0,0,0)');
+        bgCut.addColorStop(1, 'rgba(0,0,0,1)');
+        mctx.fillStyle = bgCut;
+        mctx.fillRect(0, SIZE * 0.85, SIZE, SIZE * 0.15);
+
+        mctx.globalCompositeOperation = 'source-over'; // reset
 
         // ── Step 2: original image clipped to mask ────────────────────────
         const origMasked = document.createElement('canvas');
@@ -6018,30 +6025,30 @@
         cv.width = W; cv.height = H;
         const ctx = cv.getContext('2d');
 
-        // Start fully opaque (protect everything)
+        // Start fully opaque (protect everything — person is here)
         ctx.fillStyle = 'rgba(0,0,0,1)';
         ctx.fillRect(0, 0, W, H);
 
-        // Transparent left edge (background)
-        const lg = ctx.createLinearGradient(0, 0, W * 0.22, 0);
-        lg.addColorStop(0, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(0,0,0,1)');
-        ctx.fillStyle = lg; ctx.fillRect(0, 0, W * 0.22, H);
+        // destination-out: drawing opaque ERASES pixels (makes them transparent = AI edits there)
+        ctx.globalCompositeOperation = 'destination-out';
 
-        // Transparent right edge (background)
-        const rg = ctx.createLinearGradient(W * 0.78, 0, W, 0);
-        rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = rg; ctx.fillRect(W * 0.78, 0, W * 0.22, H);
+        const lgCut = ctx.createLinearGradient(0, 0, W * 0.22, 0);
+        lgCut.addColorStop(0, 'rgba(0,0,0,1)'); lgCut.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = lgCut; ctx.fillRect(0, 0, W * 0.22, H);
 
-        // Transparent top (sky)
-        const tg = ctx.createLinearGradient(0, 0, 0, H * 0.15);
-        tg.addColorStop(0, 'rgba(0,0,0,0)'); tg.addColorStop(1, 'rgba(0,0,0,1)');
-        ctx.fillStyle = tg; ctx.fillRect(0, 0, W, H * 0.15);
+        const rgCut = ctx.createLinearGradient(W * 0.78, 0, W, 0);
+        rgCut.addColorStop(0, 'rgba(0,0,0,0)'); rgCut.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = rgCut; ctx.fillRect(W * 0.78, 0, W * 0.22, H);
 
-        // Transparent bottom (ground far)
-        const bg = ctx.createLinearGradient(0, H * 0.88, 0, H);
-        bg.addColorStop(0, 'rgba(0,0,0,1)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = bg; ctx.fillRect(0, H * 0.88, W, H * 0.12);
+        const tgCut = ctx.createLinearGradient(0, 0, 0, H * 0.18);
+        tgCut.addColorStop(0, 'rgba(0,0,0,1)'); tgCut.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = tgCut; ctx.fillRect(0, 0, W, H * 0.18);
 
+        const bgCut = ctx.createLinearGradient(0, H * 0.85, 0, H);
+        bgCut.addColorStop(0, 'rgba(0,0,0,0)'); bgCut.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = bgCut; ctx.fillRect(0, H * 0.85, W, H * 0.15);
+
+        ctx.globalCompositeOperation = 'source-over';
         resolve(cv.toDataURL('image/png'));
       };
       img.src = dataUrl;
