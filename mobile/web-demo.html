@@ -2176,14 +2176,25 @@
                 <div class="card-title">✅ Карусель готова!</div>
                 <div class="card-sub" id="carResInfo"></div>
                 <div id="carSlidesPrev" style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;"></div>
+                <!-- Font picker -->
+                <div style="margin-top:12px;">
+                  <div style="font-size:10px;color:var(--text4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🔤 Шрифт</div>
+                  <div id="carFontPicker" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button onclick="carSetFont('modern')"  class="ss-opt-btn active" id="carFont_modern">Сучасний</button>
+                    <button onclick="carSetFont('classic')" class="ss-opt-btn"        id="carFont_classic">Класичний</button>
+                    <button onclick="carSetFont('impact')"  class="ss-opt-btn"        id="carFont_impact">💥 Удар</button>
+                    <button onclick="carSetFont('thin')"    class="ss-opt-btn"        id="carFont_thin">✦ Тонкий</button>
+                  </div>
+                </div>
                 <div style="display:flex;gap:8px;margin-top:14px;">
                   <button class="btn btn-primary btn-sm" onclick="carDownloadZip()" id="carDlBtn">📦 ZIP</button>
                   <button class="btn btn-secondary btn-sm" onclick="carBuild()">🔄 Пересоздати</button>
                 </div>
               </div>
               <div class="card">
-                <div class="card-title">🐙 Підписи та хештеги</div>
-                <div id="carCaptions" style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
+                <div class="card-title">✏️ Редагувати підписи</div>
+                <div style="font-size:11px;color:var(--text4);margin-bottom:8px;">Змінюй текст → натискай ✅ щоб оновити слайд</div>
+                <div id="carCaptions" style="display:flex;flex-direction:column;gap:8px;"></div>
               </div>
             </div>
           </div><!-- /photoCarouselWrap -->
@@ -5282,6 +5293,10 @@
   let carLang    = 'uk';
   let carThemeId = 'dark';
   let carCanvases = [];
+  let carBgImages = [];       // Image objects — kept for re-render on edit
+  let carCaptionTexts = [];   // user-editable captions
+  let carAnalysisData = {};   // full analysis result
+  let carFontStyle = 'modern'; // active font choice
 
   function carInit() {
     try {
@@ -5420,11 +5435,13 @@
       progTime.textContent = '';
 
       // Step 2: load original photos as Image objects
-      let bgImages = photos.map(src => {
+      carBgImages = photos.map(src => {
         const img = new Image();
         img.src = src;
         return img;
       });
+      carCaptionTexts = [...captions];
+      carAnalysisData = analysis;
 
       progBar.style.width = '85%';
       progSub.textContent = 'Рендерю Canvas…';
@@ -5433,42 +5450,21 @@
       const theme = (typeof CR_THEMES !== 'undefined')
         ? (CR_THEMES[carThemeId] || CR_THEMES.dark)
         : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
-      carCanvases = photos.map((_, i) =>
-        crRenderPhotoSlide(bgImages[i], captions[i], analysis.overallCaption, i, photos.length, theme, analysis.hashtags)
+      carCanvases = carBgImages.map((img, i) =>
+        crRenderPhotoSlide(img, carCaptionTexts[i], analysis.overallCaption, i, photos.length, theme, analysis.hashtags, carFontStyle)
       );
 
       progBar.style.width = '100%';
       progCard.style.display = 'none';
 
       // Thumbnail row
-      const prev = document.getElementById('carSlidesPrev');
-      prev.innerHTML = '';
-      carCanvases.forEach((cv, i) => {
-        const wrap = document.createElement('div');
-        wrap.style.cssText = `flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;border:2px solid ${theme.accent};cursor:pointer;position:relative;`;
-        wrap.title = 'Натисни для перегляду';
-        wrap.onclick = () => carOpenLightbox(i);
-        const thumb = document.createElement('canvas');
-        thumb.width = 90; thumb.height = 90;
-        thumb.getContext('2d').drawImage(cv, 0, 0, 90, 90);
-        // small zoom hint icon
-        const hint = document.createElement('div');
-        hint.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:4px;padding:1px 4px;pointer-events:none;';
-        hint.textContent = '🔍';
-        wrap.appendChild(thumb);
-        wrap.appendChild(hint);
-        prev.appendChild(wrap);
-      });
+      carRebuildThumbs(theme);
 
       const resInfo = document.getElementById('carResInfo');
       if (resInfo) resInfo.textContent = `${photos.length} слайдів · "${analysis.theme}"`;
 
-      const capDiv = document.getElementById('carCaptions');
-      capDiv.innerHTML = captions.map((c, i) => `
-        <div style="background:var(--surface2);border-radius:8px;padding:10px;border-left:3px solid ${theme.accent};">
-          <strong style="color:${theme.accent};">Слайд ${i+1}:</strong> ${c}
-        </div>`).join('') +
-        (analysis.hashtags ? `<div style="margin-top:6px;color:var(--text3);font-size:11px;">${analysis.hashtags}</div>` : '');
+      // Editable captions
+      carRebuildCaptionEditor(theme);
 
       document.getElementById('carRes').style.display = 'block';
       document.getElementById('carRes').scrollIntoView({ behavior: 'smooth' });
@@ -5476,6 +5472,92 @@
       progCard.style.display = 'none';
       alert('Помилка: ' + (err.message || err));
     }
+  }
+
+  // ── Rebuild thumbnails row ───────────────────────────────────────────────────
+  function carRebuildThumbs(theme) {
+    const t = theme || (CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { accent: '#7C5CFC' });
+    const prev = document.getElementById('carSlidesPrev');
+    if (!prev) return;
+    prev.innerHTML = '';
+    carCanvases.forEach((cv, i) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = `flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;border:2px solid ${t.accent};cursor:pointer;position:relative;`;
+      wrap.title = 'Натисни для перегляду';
+      wrap.onclick = () => carOpenLightbox(i);
+      const thumb = document.createElement('canvas');
+      thumb.width = 90; thumb.height = 90;
+      thumb.getContext('2d').drawImage(cv, 0, 0, 90, 90);
+      const hint = document.createElement('div');
+      hint.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:4px;padding:1px 4px;pointer-events:none;';
+      hint.textContent = '🔍';
+      wrap.appendChild(thumb);
+      wrap.appendChild(hint);
+      prev.appendChild(wrap);
+    });
+  }
+
+  // ── Update single thumbnail ───────────────────────────────────────────────────
+  function carUpdateThumb(i) {
+    const prev = document.getElementById('carSlidesPrev');
+    if (!prev) return;
+    const thumbs = prev.querySelectorAll('canvas');
+    if (thumbs[i]) thumbs[i].getContext('2d').drawImage(carCanvases[i], 0, 0, 90, 90);
+  }
+
+  // ── Rebuild editable caption list ─────────────────────────────────────────────
+  function carRebuildCaptionEditor(theme) {
+    const t = theme || (CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { accent: '#7C5CFC' });
+    const capDiv = document.getElementById('carCaptions');
+    if (!capDiv) return;
+    capDiv.innerHTML = carCaptionTexts.map((c, i) => `
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;border-left:3px solid ${t.accent};">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <strong style="color:${t.accent};font-size:12px;">Слайд ${i + 1}</strong>
+          <button onclick="carRerenderSlide(${i})" style="background:${t.accent};color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">✅ Оновити</button>
+        </div>
+        <textarea id="carCapText_${i}" rows="2"
+          style="width:100%;background:var(--surface3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px;font-size:12px;resize:none;box-sizing:border-box;outline:none;font-family:inherit;line-height:1.5;"
+        >${c}</textarea>
+      </div>`).join('') +
+      (carAnalysisData.hashtags
+        ? `<div style="margin-top:4px;color:var(--text3);font-size:11px;padding:4px 0;">${carAnalysisData.hashtags}</div>`
+        : '');
+  }
+
+  // ── Re-render single slide after text edit ─────────────────────────────────────
+  function carRerenderSlide(i) {
+    const textEl = document.getElementById('carCapText_' + i);
+    if (!textEl || !carBgImages[i]) return;
+    carCaptionTexts[i] = textEl.value;
+    const theme = CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
+    carCanvases[i] = crRenderPhotoSlide(carBgImages[i], carCaptionTexts[i], carAnalysisData.overallCaption, i, carBgImages.length, theme, carAnalysisData.hashtags, carFontStyle);
+    carUpdateThumb(i);
+    // Refresh lightbox if it's showing this slide
+    const lb = document.getElementById('carLightbox');
+    if (lb && lb.style.display === 'flex' && carLbIndex === i) carLbRender();
+    // Visual feedback: flash button green
+    const btn = textEl.parentElement.querySelector('button');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✔ Готово!'; setTimeout(() => { btn.textContent = orig; }, 1200); }
+  }
+
+  // ── Font switcher — re-renders ALL slides ──────────────────────────────────────
+  function carSetFont(f) {
+    carFontStyle = f;
+    // Update picker button states
+    ['modern','classic','impact','thin'].forEach(key => {
+      const btn = document.getElementById('carFont_' + key);
+      if (btn) btn.classList.toggle('active', key === f);
+    });
+    if (!carBgImages.length) return;
+    const theme = CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
+    carCanvases = carBgImages.map((img, i) =>
+      crRenderPhotoSlide(img, carCaptionTexts[i], carAnalysisData.overallCaption, i, carBgImages.length, theme, carAnalysisData.hashtags, f)
+    );
+    carRebuildThumbs(theme);
+    // Refresh lightbox if open
+    const lb = document.getElementById('carLightbox');
+    if (lb && lb.style.display === 'flex') carLbRender();
   }
 
   // ── Slide lightbox ──────────────────────────────────────────────────────────
@@ -6966,7 +7048,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       // 3. Render canvases
       const theme = CR_THEMES[crState.theme];
       crState.canvases = crState.photos.map((_, i) =>
-        crRenderPhotoSlide(bgImages[i], crState.captions[i], analysis.overallCaption, i, crState.photos.length, theme, analysis.hashtags)
+        crRenderPhotoSlide(bgImages[i], crState.captions[i], analysis.overallCaption, i, crState.photos.length, theme, analysis.hashtags, carFontStyle)
       );
 
       bar.style.width = '100%';
@@ -6992,7 +7074,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   }
 
   // ── Canvas: render one photo slide ─────────────────────────────────────────
-  function crRenderPhotoSlide(photo, caption, overallCaption, index, total, theme, hashtags) {
+  function crRenderPhotoSlide(photo, caption, overallCaption, index, total, theme, hashtags, fontStyle) {
     const SIZE = 1080;
     const canvas = document.createElement('canvas');
     canvas.width = SIZE; canvas.height = SIZE;
@@ -7045,14 +7127,21 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     ctx.restore();
 
     // ── 6. Caption text ───────────────────────────────────────────────────────
+    const _fontDefs = {
+      modern:  { font: `800 ${SIZE * 0.056}px Arial, sans-serif`,                  lh: SIZE * 0.068 },
+      classic: { font: `bold ${SIZE * 0.054}px Georgia, 'Times New Roman', serif`, lh: SIZE * 0.068 },
+      impact:  { font: `normal ${SIZE * 0.065}px Impact, 'Arial Narrow', sans-serif`, lh: SIZE * 0.074 },
+      thin:    { font: `300 italic ${SIZE * 0.058}px Arial, sans-serif`,            lh: SIZE * 0.070 },
+    };
+    const _fd = _fontDefs[fontStyle] || _fontDefs.modern;
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.9)';
     ctx.shadowBlur   = 24;
     ctx.shadowOffsetY = 3;
     ctx.textAlign = 'left';
-    ctx.font = `800 ${SIZE * 0.056}px Arial, sans-serif`;
+    ctx.font = _fd.font;
     ctx.fillStyle = '#FFFFFF';
-    crWrapText(ctx, caption || '', SIZE * 0.058, SIZE - SIZE * 0.19, SIZE * 0.86, SIZE * 0.068);
+    crWrapText(ctx, caption || '', SIZE * 0.058, SIZE - SIZE * 0.19, SIZE * 0.86, _fd.lh);
     ctx.restore();
 
     // ── 7. Progress dots (bottom-center) — no hashtags on slide ──────────────
