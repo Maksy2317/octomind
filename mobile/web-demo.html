@@ -13,6 +13,8 @@
   <!-- Ubuntu font for overlay preview (bold weight only) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
+  <!-- MediaPipe Selfie Segmentation — pixel-perfect person/background separation -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/selfie_segmentation.js" crossorigin="anonymous"></script>
   <!-- Theme restore BEFORE paint -->
   <script>
     try {
@@ -5805,6 +5807,8 @@
     document.getElementById('photoTabFilters').className  = 'vstep' + (tab === 'filters'  ? ' active' : '');
     document.getElementById('photoTabAi').className       = 'vstep' + (tab === 'ai'       ? ' active' : '');
     if (tab === 'carousel') carInit();
+    // Pre-warm MediaPipe when user opens AI Editor so WASM loads in background
+    if (tab === 'ai') setTimeout(() => photoAiGetSeg(), 300);
   }
 
   // =============================================
@@ -5855,21 +5859,160 @@
     });
   }
 
+  // ── MediaPipe Selfie Segmentation ─────────────────────────────────────────
+  // Gives a true pixel-perfect person/background mask.
+  // White (1.0) = person, Black (0.0) = background.
+  let _mpSeg = null;
+  let _mpSegPromise = null; // singleton: prevents double-init if called twice before ready
+
   /**
-   * Pixel-level composite: directly reads RGBA arrays from both images and writes
-   * original pixels for the center zone, AI pixels for edges.
-   * This is 100% reliable — no canvas compositing ops, no alpha channel issues.
-   *
-   * Zone layout (x axis):
-   *   0%–18%   → AI pixels only   (far background left)
-   *   18%–30%  → fade AI→original
-   *   30%–70%  → ORIGINAL pixels  (person: face, shirt, body — pixel-perfect)
-   *   70%–82%  → fade original→AI
-   *   82%–100% → AI pixels only   (far background right)
-   *
-   * Top/bottom: similar small fade zones (18% each side).
+   * Returns the MediaPipe SelfieSegmentation instance (initialised lazily).
+   * Singleton promise — safe to call multiple times simultaneously.
+   * Resolves with the instance or null on failure.
    */
-  function photoAiComposite(aiResultDataUrl, orig1024DataUrl) {
+  function photoAiGetSeg() {
+    if (_mpSegPromise) return _mpSegPromise;
+    if (!window.SelfieSegmentation) return Promise.resolve(null);
+
+    _mpSegPromise = new Promise(resolve => {
+      try {
+        const seg = new SelfieSegmentation({
+          locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${f}`
+        });
+        seg.setOptions({ modelSelection: 1 }); // 1 = landscape model (best quality)
+        // Warm-up: send a tiny 4×4 image so the WASM loads now, not on first real call
+        const warmCv = document.createElement('canvas');
+        warmCv.width = 4; warmCv.height = 4;
+        warmCv.getContext('2d').fillRect(0, 0, 4, 4);
+        const warmImg = new Image();
+        warmImg.onload = () => {
+          seg.onResults(() => {}); // suppress warm-up result
+          seg.send({ image: warmImg }).then(() => {
+            _mpSeg = seg;
+            resolve(_mpSeg);
+          }).catch(() => {
+            _mpSegPromise = null; // allow retry on next call
+            resolve(null);
+          });
+        };
+        warmImg.onerror = () => { _mpSegPromise = null; resolve(null); };
+        warmImg.src = warmCv.toDataURL();
+      } catch (e) {
+        _mpSegPromise = null;
+        resolve(null);
+      }
+    });
+
+    return _mpSegPromise;
+  }
+
+  /**
+   * Run MediaPipe segmentation on a 1024×1024 data URL.
+   * Returns Float32Array[1024*1024] with person probability 0..1 per pixel,
+   * or null if MediaPipe is unavailable.
+   */
+  async function photoAiRunSeg(imageDataUrl) {
+    const seg = await photoAiGetSeg();
+    if (!seg) return null;
+
+    const img = await new Promise(resolve => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = imageDataUrl;
+    });
+    if (!img) return null;
+
+    return new Promise(resolve => {
+      seg.onResults(results => {
+        try {
+          const S = 1024;
+          const mc = document.createElement('canvas');
+          mc.width = S; mc.height = S;
+          mc.getContext('2d').drawImage(results.segmentationMask, 0, 0, S, S);
+          const d = mc.getContext('2d').getImageData(0, 0, S, S).data;
+          // Red channel = person probability (255=person, 0=background)
+          const mask = new Float32Array(S * S);
+          for (let i = 0; i < S * S; i++) mask[i] = d[i * 4] / 255;
+          resolve(mask);
+        } catch (e) { resolve(null); }
+      });
+      seg.send({ image: img }).catch(() => resolve(null));
+    });
+  }
+
+  /**
+   * Smoothstep(x) — smooth transition 0→1 for x in [0,1].
+   * Used for anti-aliased person/background blending at mask edges.
+   */
+  function _smoothstep(x) {
+    const t = Math.max(0, Math.min(1, x));
+    return t * t * (3 - 2 * t);
+  }
+
+  /**
+   * Create the API mask to send to OpenAI images.edit:
+   *   Transparent (alpha=0)   = background → AI may edit here
+   *   Opaque (alpha=255)      = person     → AI must NOT touch
+   *
+   * Uses segMask (Float32Array) if available, else falls back to rectangular strip.
+   */
+  function photoAiCreateMask(dataUrl, segMask) {
+    return new Promise(resolve => {
+      const S = 1024;
+      const cv = document.createElement('canvas');
+      cv.width = S; cv.height = S;
+
+      if (segMask) {
+        // ── Pixel-perfect mask from segmentation ────────────────────────────
+        const d = new Uint8ClampedArray(S * S * 4);
+        for (let i = 0; i < S * S; i++) {
+          const idx = i * 4;
+          // Expand person zone a bit (erode bg by a couple of pixels) using smoothstep
+          const p = _smoothstep((segMask[i] - 0.35) / 0.30); // sharpen at 0.35–0.65
+          d[idx]   = 0;
+          d[idx+1] = 0;
+          d[idx+2] = 0;
+          d[idx+3] = Math.round(p * 255); // opaque=protect, transparent=edit
+        }
+        cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
+        resolve(cv.toDataURL('image/png'));
+        return;
+      }
+
+      // ── Fallback: rectangular strip (center protected, edges editable) ───
+      const img = new Image();
+      img.onload = () => {
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.fillRect(0, 0, S, S);
+        ctx.globalCompositeOperation = 'destination-out';
+        const lgCut = ctx.createLinearGradient(0, 0, S * 0.22, 0);
+        lgCut.addColorStop(0, 'rgba(0,0,0,1)'); lgCut.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = lgCut; ctx.fillRect(0, 0, S * 0.22, S);
+        const rgCut = ctx.createLinearGradient(S * 0.78, 0, S, 0);
+        rgCut.addColorStop(0, 'rgba(0,0,0,0)'); rgCut.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = rgCut; ctx.fillRect(S * 0.78, 0, S * 0.22, S);
+        const tgCut = ctx.createLinearGradient(0, 0, 0, S * 0.18);
+        tgCut.addColorStop(0, 'rgba(0,0,0,1)'); tgCut.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = tgCut; ctx.fillRect(0, 0, S, S * 0.18);
+        const bgCut = ctx.createLinearGradient(0, S * 0.85, 0, S);
+        bgCut.addColorStop(0, 'rgba(0,0,0,0)'); bgCut.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = bgCut; ctx.fillRect(0, S * 0.85, S, S * 0.15);
+        ctx.globalCompositeOperation = 'source-over';
+        resolve(cv.toDataURL('image/png'));
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  /**
+   * Pixel-level composite: merge AI result (background) + original (person).
+   *
+   * If segMask (Float32Array) is provided → per-pixel accuracy using the segmentation.
+   * Otherwise → rectangular zone fallback.
+   */
+  function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
     return new Promise(resolve => {
       const aiImg   = new Image();
       const origImg = new Image();
@@ -5879,50 +6022,53 @@
         if (++loaded < 2) return;
         const S = 1024;
 
-        // Draw both to canvas to read pixel data
         const aiCv = document.createElement('canvas');
         aiCv.width = S; aiCv.height = S;
-        const aiCtx = aiCv.getContext('2d');
-        aiCtx.drawImage(aiImg, 0, 0, S, S);
+        aiCv.getContext('2d').drawImage(aiImg, 0, 0, S, S);
+        const aiPx = aiCv.getContext('2d').getImageData(0, 0, S, S).data;
 
         const orCv = document.createElement('canvas');
         orCv.width = S; orCv.height = S;
-        const orCtx = orCv.getContext('2d');
-        orCtx.drawImage(origImg, 0, 0, S, S);
+        orCv.getContext('2d').drawImage(origImg, 0, 0, S, S);
+        const orPx = orCv.getContext('2d').getImageData(0, 0, S, S).data;
 
-        const aiPx = aiCtx.getImageData(0, 0, S, S).data;
-        const orPx = orCtx.getImageData(0, 0, S, S).data;
-        const out  = new Uint8ClampedArray(S * S * 4);
+        const out = new Uint8ClampedArray(S * S * 4);
 
-        // Boundaries (pixels) — narrow 5% fade for sharp edges, wide protected center
-        const LF0 = S * 0.15, LF1 = S * 0.20;   // left fade  (5%)
-        const RF0 = S * 0.80, RF1 = S * 0.85;   // right fade (5%)
-        const TF0 = S * 0.08, TF1 = S * 0.13;   // top fade   (5%)
-        const BF0 = S * 0.87, BF1 = S * 0.92;   // bottom fade(5%)
-
-        for (let y = 0; y < S; y++) {
-          for (let x = 0; x < S; x++) {
-            const i = (y * S + x) * 4;
-
-            // origWeight = 1 → original pixel; 0 → AI pixel
-            let wx = 1, wy = 1;
-
-            if      (x < LF0)  wx = 0;
-            else if (x < LF1)  wx = (x - LF0) / (LF1 - LF0);
-            else if (x > RF1)  wx = 0;
-            else if (x > RF0)  wx = 1 - (x - RF0) / (RF1 - RF0);
-
-            if      (y < TF0)  wy = 0;
-            else if (y < TF1)  wy = (y - TF0) / (TF1 - TF0);
-            else if (y > BF1)  wy = 0;
-            else if (y > BF0)  wy = 1 - (y - BF0) / (BF1 - BF0);
-
-            const w = wx * wy;  // combined weight
-
-            out[i]   = orPx[i]   * w + aiPx[i]   * (1 - w);
-            out[i+1] = orPx[i+1] * w + aiPx[i+1] * (1 - w);
-            out[i+2] = orPx[i+2] * w + aiPx[i+2] * (1 - w);
-            out[i+3] = 255;
+        if (segMask) {
+          // ── Segmentation-based: true per-pixel person/background merge ──
+          for (let i = 0; i < S * S; i++) {
+            const idx = i * 4;
+            // Person weight: smooth transition from 0.35 to 0.65 person probability
+            const w = _smoothstep((segMask[i] - 0.35) / 0.30);
+            out[idx]   = orPx[idx]   * w + aiPx[idx]   * (1 - w);
+            out[idx+1] = orPx[idx+1] * w + aiPx[idx+1] * (1 - w);
+            out[idx+2] = orPx[idx+2] * w + aiPx[idx+2] * (1 - w);
+            out[idx+3] = 255;
+          }
+        } else {
+          // ── Rectangular zone fallback ────────────────────────────────────
+          const LF0 = S * 0.15, LF1 = S * 0.20;
+          const RF0 = S * 0.80, RF1 = S * 0.85;
+          const TF0 = S * 0.08, TF1 = S * 0.13;
+          const BF0 = S * 0.87, BF1 = S * 0.92;
+          for (let y = 0; y < S; y++) {
+            for (let x = 0; x < S; x++) {
+              const i = (y * S + x) * 4;
+              let wx = 1, wy = 1;
+              if      (x < LF0) wx = 0;
+              else if (x < LF1) wx = (x - LF0) / (LF1 - LF0);
+              else if (x > RF1) wx = 0;
+              else if (x > RF0) wx = 1 - (x - RF0) / (RF1 - RF0);
+              if      (y < TF0) wy = 0;
+              else if (y < TF1) wy = (y - TF0) / (TF1 - TF0);
+              else if (y > BF1) wy = 0;
+              else if (y > BF0) wy = 1 - (y - BF0) / (BF1 - BF0);
+              const w = wx * wy;
+              out[i]   = orPx[i]   * w + aiPx[i]   * (1 - w);
+              out[i+1] = orPx[i+1] * w + aiPx[i+1] * (1 - w);
+              out[i+2] = orPx[i+2] * w + aiPx[i+2] * (1 - w);
+              out[i+3] = 255;
+            }
           }
         }
 
@@ -5937,6 +6083,89 @@
       aiImg.src   = aiResultDataUrl;
       origImg.src = orig1024DataUrl;
     });
+  }
+
+  /**
+   * CLIENT-SIDE background blur using MediaPipe segmentation mask.
+   * No API call — runs entirely in the browser.
+   * blurPx = Gaussian blur radius in pixels (default 28).
+   */
+  async function photoAiBlurBg(orig1024DataUrl, segMask, blurPx) {
+    blurPx = blurPx || 40; // strong bokeh-style blur
+    const S = 1024;
+
+    const img = await new Promise(resolve => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.src = orig1024DataUrl;
+    });
+
+    // ── Original pixels ──────────────────────────────────────────────────────
+    const origCv = document.createElement('canvas');
+    origCv.width = S; origCv.height = S;
+    origCv.getContext('2d').drawImage(img, 0, 0, S, S);
+    const origPx = origCv.getContext('2d').getImageData(0, 0, S, S).data;
+
+    // ── Blurred pixels (oversized canvas to avoid edge cutoff) ───────────────
+    const PAD = blurPx * 3; // generous padding so blur doesn't cut off at edges
+    const blurCv = document.createElement('canvas');
+    blurCv.width = S + PAD * 2;
+    blurCv.height = S + PAD * 2;
+    const blurCtx = blurCv.getContext('2d');
+    // Fill padding with edge pixels by drawing the image stretched to fill
+    blurCtx.drawImage(img, 0, 0, blurCv.width, blurCv.height);
+    // Draw the real image centred on top of the stretched version
+    blurCtx.filter = `blur(${blurPx}px)`;
+    blurCtx.drawImage(img, PAD, PAD, S, S);
+    blurCtx.filter = 'none';
+    const blurPx2 = blurCtx.getImageData(PAD, PAD, S, S).data;
+
+    // ── Composite: person=sharp, background=blurred ───────────────────────────
+    const out = new Uint8ClampedArray(S * S * 4);
+
+    if (segMask) {
+      for (let i = 0; i < S * S; i++) {
+        const idx = i * 4;
+        // Person weight (1 = fully sharp, 0 = fully blurred)
+        const w = _smoothstep((segMask[i] - 0.35) / 0.30);
+        out[idx]   = origPx[idx]   * w + blurPx2[idx]   * (1 - w);
+        out[idx+1] = origPx[idx+1] * w + blurPx2[idx+1] * (1 - w);
+        out[idx+2] = origPx[idx+2] * w + blurPx2[idx+2] * (1 - w);
+        out[idx+3] = 255;
+      }
+    } else {
+      // Fallback: rectangular zone sharp, rest blurred
+      const LF0 = S * 0.15, LF1 = S * 0.22;
+      const RF0 = S * 0.78, RF1 = S * 0.85;
+      const TF0 = S * 0.08, TF1 = S * 0.15;
+      const BF0 = S * 0.85, BF1 = S * 0.92;
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const i = (y * S + x) * 4;
+          let wx = 1, wy = 1;
+          if      (x < LF0) wx = 0; else if (x < LF1) wx = (x - LF0) / (LF1 - LF0);
+          else if (x > RF1) wx = 0; else if (x > RF0) wx = 1 - (x - RF0) / (RF1 - RF0);
+          if      (y < TF0) wy = 0; else if (y < TF1) wy = (y - TF0) / (TF1 - TF0);
+          else if (y > BF1) wy = 0; else if (y > BF0) wy = 1 - (y - BF0) / (BF1 - BF0);
+          const w = wx * wy;
+          out[i]   = origPx[i]   * w + blurPx2[i]   * (1 - w);
+          out[i+1] = origPx[i+1] * w + blurPx2[i+1] * (1 - w);
+          out[i+2] = origPx[i+2] * w + blurPx2[i+2] * (1 - w);
+          out[i+3] = 255;
+        }
+      }
+    }
+
+    const finalCv = document.createElement('canvas');
+    finalCv.width = S; finalCv.height = S;
+    finalCv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
+    return finalCv.toDataURL('image/png');
+  }
+
+  /** Detect if the prompt is a "blur background" request (no AI API call needed). */
+  function _isBlurPrompt(prompt) {
+    const p = prompt.toLowerCase();
+    return /розм|blur|боке|bokeh|depth.of.field|дефок|dof/.test(p);
   }
 
   // Store the 1024×1024 crop so we can composite without re-loading
@@ -5955,104 +6184,73 @@
     txt.textContent = 'Підготовка…';
     bar.style.width = '4%';
 
-    // ── CRITICAL: use the SAME square 1024px crop for EVERYTHING ──────────────
-    // AI receives this exact image → output is 1024×1024 aligned to this crop.
-    // Compositing reference is also this crop → pixels line up perfectly.
+    // ── Use the SAME square 1024px crop for everything ─────────────────────
     photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl);
-
-    // Mask generated at same 1024×1024 dimensions as image we send to AI
-    const maskDataUrl = await photoAiCreateMask(photoAiOrig1024);
-
-    // Also update "before" preview to show what AI actually sees (square crop)
     document.getElementById('photoAiBefore').src = photoAiOrig1024;
 
-    // Animate progress bar
-    let pct = 10;
-    const tick = setInterval(() => {
-      pct = Math.min(pct + (pct < 60 ? 3 : 0.8), 92);
-      bar.style.width = pct + '%';
-      txt.textContent = pct < 30 ? '~20 секунд' : pct < 60 ? '~15 секунд' : 'Майже готово…';
-    }, 600);
-
     try {
-      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-      const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // ↓ Send the SQUARE crop, NOT the original — guarantees alignment with compositing
-        body: JSON.stringify({ image: photoAiOrig1024, mask: maskDataUrl, prompt }),
-      });
-      clearInterval(tick);
-      if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
-      const data = await resp.json();
-      if (!data.b64) throw new Error('AI не повернув зображення');
+      // ── Step 1: Run MediaPipe segmentation (pixel-perfect person mask) ───
+      txt.textContent = 'Визначаю людину…';
+      bar.style.width = '12%';
+      const segMask = await photoAiRunSeg(photoAiOrig1024);
+      bar.style.width = '30%';
 
-      txt.textContent = 'Накладаю оригінал…';
-      bar.style.width = '96%';
+      // ── Step 2: Choose path based on prompt type ─────────────────────────
+      if (_isBlurPrompt(prompt)) {
+        // ── CLIENT-SIDE BLUR PATH — no API call needed ───────────────────
+        txt.textContent = 'Розмиваю фон…';
+        bar.style.width = '55%';
+        photoAiResultDataUrl = await photoAiBlurBg(photoAiOrig1024, segMask);
+        bar.style.width = '100%';
+      } else {
+        // ── AI EDIT PATH — send to OpenAI with pixel-accurate mask ───────
+        const maskDataUrl = await photoAiCreateMask(photoAiOrig1024, segMask);
+        bar.style.width = '40%';
+        txt.textContent = segMask ? '🎯 Точна маска готова…' : 'Маска готова…';
 
-      // ── KEY STEP: composite AI result + original person pixels ──────────
-      // This guarantees the face / body are 100% original — AI cannot change them.
-      const aiResult = `data:image/png;base64,${data.b64}`;
-      photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024);
+        // Animate while waiting for API
+        let pct = 42;
+        let tick = setInterval(() => {
+          pct = Math.min(pct + (pct < 70 ? 2 : 0.5), 90);
+          bar.style.width = pct + '%';
+          txt.textContent = pct < 55 ? '~20 секунд' : pct < 75 ? '~10 секунд' : 'Майже готово…';
+        }, 700);
 
-      bar.style.width = '100%';
+        try {
+          const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+          const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: photoAiOrig1024, mask: maskDataUrl, prompt }),
+          });
+          clearInterval(tick); tick = null;
+          if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
+          const data = await resp.json();
+          if (!data.b64) throw new Error('AI не повернув зображення');
+
+          txt.textContent = 'Накладаю оригінал…';
+          bar.style.width = '95%';
+
+          // Composite: AI background + original person pixels
+          const aiResult = `data:image/png;base64,${data.b64}`;
+          photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+          bar.style.width = '100%';
+        } finally {
+          if (tick) { clearInterval(tick); tick = null; }
+        }
+      }
 
       // Show result
-      document.getElementById('photoAiBeforeSmall').src = photoAiOrig1024; // show same crop
+      document.getElementById('photoAiBeforeSmall').src = photoAiOrig1024;
       document.getElementById('photoAiAfterSmall').src  = photoAiResultDataUrl;
       document.getElementById('photoAiAfterImg').src    = photoAiResultDataUrl;
       document.getElementById('photoAiStep3').style.display = 'none';
       document.getElementById('photoAiStep4').style.display = 'block';
     } catch (err) {
-      clearInterval(tick);
       document.getElementById('photoAiStep3').style.display = 'none';
       document.getElementById('photoAiStep2').style.display = 'block';
       alert('Помилка: ' + (err.message || err));
     }
-  }
-
-  /**
-   * API mask (sent to OpenAI): vertical strip — center protected, edges editable.
-   * Transparent = AI may edit (background). Opaque = AI must not touch (person).
-   * Input is always 1024×1024 (photoAiOrig1024) so image and mask are aligned.
-   */
-  function photoAiCreateMask(dataUrl) {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const W = img.width, H = img.height;
-        const cv = document.createElement('canvas');
-        cv.width = W; cv.height = H;
-        const ctx = cv.getContext('2d');
-
-        // Start fully opaque (protect everything — person is here)
-        ctx.fillStyle = 'rgba(0,0,0,1)';
-        ctx.fillRect(0, 0, W, H);
-
-        // destination-out: drawing opaque ERASES pixels (makes them transparent = AI edits there)
-        ctx.globalCompositeOperation = 'destination-out';
-
-        const lgCut = ctx.createLinearGradient(0, 0, W * 0.22, 0);
-        lgCut.addColorStop(0, 'rgba(0,0,0,1)'); lgCut.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = lgCut; ctx.fillRect(0, 0, W * 0.22, H);
-
-        const rgCut = ctx.createLinearGradient(W * 0.78, 0, W, 0);
-        rgCut.addColorStop(0, 'rgba(0,0,0,0)'); rgCut.addColorStop(1, 'rgba(0,0,0,1)');
-        ctx.fillStyle = rgCut; ctx.fillRect(W * 0.78, 0, W * 0.22, H);
-
-        const tgCut = ctx.createLinearGradient(0, 0, 0, H * 0.18);
-        tgCut.addColorStop(0, 'rgba(0,0,0,1)'); tgCut.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = tgCut; ctx.fillRect(0, 0, W, H * 0.18);
-
-        const bgCut = ctx.createLinearGradient(0, H * 0.85, 0, H);
-        bgCut.addColorStop(0, 'rgba(0,0,0,0)'); bgCut.addColorStop(1, 'rgba(0,0,0,1)');
-        ctx.fillStyle = bgCut; ctx.fillRect(0, H * 0.85, W, H * 0.15);
-
-        ctx.globalCompositeOperation = 'source-over';
-        resolve(cv.toDataURL('image/png'));
-      };
-      img.src = dataUrl;
-    });
   }
 
   function photoAiAgain() {
