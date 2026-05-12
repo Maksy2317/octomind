@@ -5795,10 +5795,46 @@
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 3000);
     }
 
-    // Клик — показывает фразу и меняет маскота
+    // ── Hide / show ──────────────────────────────────────────────────────────
+    // Mini restore button (shown when mascot is hidden)
+    const restoreBtn = document.createElement('div');
+    restoreBtn.id = 'octoRestoreBtn';
+    restoreBtn.textContent = '🐙';
+    restoreBtn.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:9999;width:36px;height:36px;border-radius:50%;background:rgba(108,99,255,.25);border:1.5px solid rgba(108,99,255,.5);display:none;align-items:center;justify-content:center;font-size:18px;cursor:pointer;backdrop-filter:blur(6px);transition:opacity .3s;';
+    restoreBtn.title = 'Показати Octo';
+    restoreBtn.onclick = () => octoShow();
+    document.body.appendChild(restoreBtn);
+
+    function octoHide() {
+      widget.style.transition = 'transform .35s cubic-bezier(.4,0,.2,1), opacity .35s';
+      widget.style.transform = 'translateY(140px)';
+      widget.style.opacity = '0';
+      setTimeout(() => {
+        widget.style.display = 'none';
+        restoreBtn.style.display = 'flex';
+      }, 350);
+    }
+
+    function octoShow() {
+      restoreBtn.style.display = 'none';
+      widget.style.display = '';
+      widget.style.opacity = '0';
+      widget.style.transform = 'translateY(140px)';
+      requestAnimationFrame(() => {
+        widget.style.transition = 'transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s';
+        widget.style.transform = 'translateY(0)';
+        widget.style.opacity = '1';
+      });
+    }
+
+    // Клик — показывает фразу и меняет маскота; двойной — прячет
     const mascots = ['assets/octo_happy.png','assets/octo_thumbsup.png','assets/octo_celebrate.png','assets/octo_idea.png','assets/octo_search.png'];
     let mascotIdx = 0;
+    let lastClickTime = 0;
     widget.addEventListener('click', () => {
+      const now = Date.now();
+      if (now - lastClickTime < 350) { octoHide(); return; } // double-click
+      lastClickTime = now;
       mascotIdx = (mascotIdx + 1) % mascots.length;
       octoImg.style.transform = 'scale(1.3) rotate(-10deg)';
       setTimeout(() => {
@@ -5807,6 +5843,13 @@
       }, 150);
       showBubble();
     });
+
+    // Свайп вниз — прячет
+    let touchStartY = 0;
+    widget.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+    widget.addEventListener('touchend', e => {
+      if (e.changedTouches[0].clientY - touchStartY > 50) octoHide();
+    }, { passive: true });
 
     // Слежение за мышкой
     let mouseX = window.innerWidth / 2;
