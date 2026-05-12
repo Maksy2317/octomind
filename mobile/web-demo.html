@@ -2248,28 +2248,58 @@
           <input type="file" id="carFile7" accept="image/*" style="display:none" onchange="carSlotFile(7,this)">
 
           <div class="card">
-            <div class="card-title">🖼️ Carousel Builder</div>
-            <div class="card-sub" data-i18n="car_sub">Загрузи 2–10 фото — Octo создаёт единый стиль и подписи</div>
+            <div class="card-title">🖼️ AI Carousel</div>
+            <div class="card-sub">Завантаж 2–8 фото — Octo аналізує всі разом і робить єдиний стиль</div>
             <div class="pgrid" id="carSlots"></div>
 
-            <div class="card-title" style="margin:14px 0 10px;" data-i18n="car_tmpl_title">Шаблон оформления</div>
-            <div class="tmpl-grid" id="carTmplGrid"></div>
+            <!-- Style prompt -->
+            <div style="margin-top:12px;">
+              <textarea id="carStylePromptInput" placeholder="Стиль (необов'язково): luxury fashion, minimalist, vibrant…"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text1);border-radius:10px;padding:10px;font-size:12px;resize:none;box-sizing:border-box;outline:none;"
+                rows="2"></textarea>
+            </div>
 
-            <button class="btn btn-primary btn-full" onclick="buildCarousel()" id="carBuildBtn" disabled style="opacity:0.5">🐙 <span data-i18n="car_build_btn">Создать карусель</span></button>
+            <!-- Language -->
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <button id="carLangBtnUk" class="ss-opt-btn active" onclick="carSetLang('uk',this)">🇺🇦 UA</button>
+              <button id="carLangBtnRu" class="ss-opt-btn" onclick="carSetLang('ru',this)">🇷🇺 RU</button>
+              <button id="carLangBtnEn" class="ss-opt-btn" onclick="carSetLang('en',this)">🇬🇧 EN</button>
+            </div>
+
+            <!-- Theme picker (rendered by JS) -->
+            <div style="margin-top:10px;">
+              <div style="font-size:10px;color:var(--text4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🎨 Тема</div>
+              <div id="carThemePicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+
+            <!-- Premium DALL-E block (rendered by JS) -->
+            <div id="carPremiumBlock" style="margin-top:10px;"></div>
+
+            <button class="btn btn-primary btn-full" onclick="carBuild()" id="carBuildBtn" disabled style="opacity:0.5;margin-top:14px;">🤖 Аналізувати та створити →</button>
           </div>
 
+          <!-- Progress card -->
+          <div id="carProgCard" style="display:none;" class="card">
+            <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;" id="carProgSub">Аналізую фото…</div>
+            <div style="background:var(--surface3);border-radius:100px;height:6px;overflow:hidden;margin-bottom:4px;">
+              <div id="carProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7C5CFC,#38BDF8);border-radius:100px;transition:width .4s;"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text4);" id="carProgTime"></div>
+          </div>
+
+          <!-- Results -->
           <div id="carRes" style="display:none">
             <div class="card">
-              <div class="card-title">✅ <span data-i18n="car_done_title">Карусель готова!</span></div>
-              <div class="card-sub" data-i18n="car_done_sub">Octo добавил единый стиль и подписи к каждому слайду</div>
+              <div class="card-title">✅ Карусель готова!</div>
+              <div class="card-sub" id="carResInfo"></div>
               <div id="carSlidesPrev" style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;"></div>
               <div style="display:flex;gap:8px;margin-top:14px;">
-                <button class="btn btn-primary btn-sm" onclick="carDownloadAll()">💾 <span data-i18n="car_download">Скачать все</span></button>
-                <button class="btn btn-secondary btn-sm" onclick="buildCarousel()">🔄 <span data-i18n="car_redo">Пересоздать</span></button>
+                <button class="btn btn-primary btn-sm" onclick="carDownloadZip()" id="carDlBtn">📦 ZIP</button>
+                <button class="btn btn-secondary btn-sm" onclick="carBuild()">🔄 Пересоздати</button>
               </div>
             </div>
             <div class="card">
-              <div class="card-title">🐙 <span data-i18n="car_captions_title">Подписи от Octo</span></div>
+              <div class="card-title">🐙 Підписи та хештеги</div>
               <div id="carCaptions" style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--text2);line-height:1.6;"></div>
             </div>
           </div>
@@ -5299,82 +5329,43 @@
   }
 
   // =============================================
-  // 🖼️ CAROUSEL BUILDER — real photo upload + templates
+  // 🖼️ CAROUSEL BUILDER — AI photo analysis + Canvas
   // =============================================
-  const CAR_TEMPLATES = [
-    {
-      id: 'dark-luxury',
-      name: 'Dark Luxury',
-      desc: 'Тёмный фон, золотые акценты',
-      badge: '🔥',
-      layout: 'grid-2x2',
-      overlay: 'linear-gradient(to top, rgba(0,0,0,0.75) 50%, transparent)',
-      textColor: '#FFD700',
-      borderColor: '#B8860B',
-      fontWeight: '700',
-    },
-    {
-      id: 'minimal-white',
-      name: 'Minimal Clean',
-      desc: 'Белые рамки, чистый стиль',
-      badge: null,
-      layout: 'grid-strip',
-      overlay: 'linear-gradient(to top, rgba(255,255,255,0.15) 40%, transparent)',
-      textColor: '#ffffff',
-      borderColor: '#ffffff',
-      fontWeight: '600',
-    },
-    {
-      id: 'gradient-pop',
-      name: 'Gradient Pop',
-      desc: 'Яркие градиенты, bold текст',
-      badge: '✨',
-      layout: 'grid-featured',
-      overlay: 'linear-gradient(135deg, rgba(108,99,255,0.6) 0%, rgba(167,139,250,0.4) 100%)',
-      textColor: '#ffffff',
-      borderColor: '#6C63FF',
-      fontWeight: '800',
-    },
-    {
-      id: 'film-vintage',
-      name: 'Film Vintage',
-      desc: 'Плёночный эффект, ретро',
-      badge: null,
-      layout: 'grid-hero',
-      overlay: 'linear-gradient(to top, rgba(139,90,43,0.7) 50%, rgba(0,0,0,0.2) 100%)',
-      textColor: '#F5DEB3',
-      borderColor: '#8B6914',
-      fontWeight: '600',
-    },
-  ];
 
   let carPhotos = new Array(8).fill(null); // base64 strings or null
-  let carTmplId = 'dark-luxury';
+  let carLang    = 'uk';
+  let carThemeId = 'dark';
+  let carDalleEnabled = false;
+  let carCanvases = [];
 
   function carInit() {
-    // Restore from localStorage
     try {
       const saved = JSON.parse(localStorage.getItem('octo_carousel') || '{}');
       if (saved.photos) carPhotos = saved.photos;
-      if (saved.tmplId) carTmplId = saved.tmplId;
+      if (saved.lang)   carLang   = saved.lang;
+      if (saved.theme)  carThemeId = saved.theme;
     } catch {}
     carRenderSlots();
-    carRenderTemplates();
+    carInitExtras();
     carUpdateBuildBtn();
+    // Restore language button highlight
+    document.querySelectorAll('#carLangBtnUk,#carLangBtnRu,#carLangBtnEn').forEach(b => b.classList.remove('active'));
+    const lb = document.getElementById('carLangBtn' + carLang.charAt(0).toUpperCase() + carLang.slice(1));
+    if (lb) lb.classList.add('active');
   }
 
   function carSave() {
     try {
-      localStorage.setItem('octo_carousel', JSON.stringify({ photos: carPhotos, tmplId: carTmplId }));
+      localStorage.setItem('octo_carousel', JSON.stringify({ photos: carPhotos, lang: carLang, theme: carThemeId }));
     } catch {}
   }
 
+  // ── Slot management ──────────────────────────────────────────────────────────
   function carRenderSlots() {
     const grid = document.getElementById('carSlots');
     if (!grid) return;
     grid.innerHTML = '';
     for (let i = 0; i < 8; i++) {
-      // Use <label> so clicking anywhere on the slot natively opens the file picker
       const slot = document.createElement('label');
       slot.htmlFor = 'carFile' + i;
       slot.className = 'pslot' + (carPhotos[i] ? ' filled' : '');
@@ -5387,41 +5378,6 @@
     }
   }
 
-  function carRenderTemplates() {
-    const grid = document.getElementById('carTmplGrid');
-    if (!grid) return;
-    grid.innerHTML = CAR_TEMPLATES.map(t => {
-      const filledPhotos = carPhotos.filter(Boolean);
-      const cells = carPreviewCells(t, filledPhotos);
-      return `
-        <div class="tmpl-card ${t.id === carTmplId ? 'selected' : ''}" onclick="carSelectTmpl('${t.id}')">
-          ${t.badge ? `<div class="tmpl-badge">${t.badge}</div>` : ''}
-          <div class="tmpl-preview ${t.layout}" style="background:var(--surface2);">${cells}</div>
-          <div class="tmpl-meta">
-            <div class="tmpl-name">${t.name}</div>
-            <div class="tmpl-desc">${t.desc}</div>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
-  function carPreviewCells(t, photos) {
-    const count = t.layout === 'grid-2x2' ? 4 : t.layout === 'grid-strip' ? 3 : t.layout === 'grid-featured' ? 3 : 1;
-    const cells = [];
-    for (let i = 0; i < count; i++) {
-      const imgSrc = photos[i];
-      const extraClass = (t.layout === 'grid-featured' && i === 0) ? ' rowspan2' : '';
-      cells.push(`<div class="tmpl-cell${extraClass}" style="border:1px solid ${t.borderColor}33;">${imgSrc ? `<img src="${imgSrc}">` : ''}</div>`);
-    }
-    return cells.join('');
-  }
-
-  function carSelectTmpl(id) {
-    carTmplId = id;
-    carSave();
-    carRenderTemplates();
-  }
-
   function carSlotFile(idx, input) {
     const file = input.files[0];
     if (!file) return;
@@ -5431,7 +5387,6 @@
       input.value = '';
       carSave();
       carRenderSlots();
-      carRenderTemplates();
       carUpdateBuildBtn();
     };
     reader.readAsDataURL(file);
@@ -5439,14 +5394,12 @@
 
   function carDelPhoto(idx, e) {
     e.stopPropagation();
-    e.preventDefault(); // prevent label from opening file picker on delete click
+    e.preventDefault();
     carPhotos[idx] = null;
-    // Compact: move non-null photos to front
     const filled = carPhotos.filter(Boolean);
     carPhotos = [...filled, ...new Array(8 - filled.length).fill(null)];
     carSave();
     carRenderSlots();
-    carRenderTemplates();
     carUpdateBuildBtn();
     document.getElementById('carRes').style.display = 'none';
   }
@@ -5460,75 +5413,184 @@
     btn.style.opacity = ok ? '1' : '0.5';
   }
 
-  const CAR_CAPTIONS = [
-    ['Каждый момент — это история. Поделись своей ✨', 'Детали, которые делают разницу 💫', 'Вдохновение повсюду — только посмотри вокруг 🌟', 'Твой стиль, твои правила 🔥', 'Красота в деталях 💎', 'Создано с душой — почувствуй разницу ✨'],
-    ['This moment is everything ✨', 'Details make the difference 💫', 'Find inspiration everywhere 🌟', 'Your style, your rules 🔥', 'Beauty is in the details 💎', 'Made with passion — feel the difference ✨'],
-  ];
-
-  function buildCarousel() {
-    const photos = carPhotos.filter(Boolean);
-    if (photos.length < 2) return;
-    const tmpl = CAR_TEMPLATES.find(t => t.id === carTmplId) || CAR_TEMPLATES[0];
-    const lang = currentLang || 'ru';
-    const caps = lang === 'en' ? CAR_CAPTIONS[1] : CAR_CAPTIONS[0];
-
-    // Render result slides
-    const prev = document.getElementById('carSlidesPrev');
-    prev.innerHTML = photos.map((src, i) => `
-      <div class="slide-out" style="border: 2px solid ${tmpl.borderColor};">
-        <img src="${src}" alt="">
-        <div class="slide-overlay" style="background:${tmpl.overlay};">
-          <span style="color:${tmpl.textColor};font-weight:${tmpl.fontWeight};font-size:8px;">${i+1}/${photos.length}</span>
-        </div>
-      </div>`).join('');
-
-    // Render captions
-    const capDiv = document.getElementById('carCaptions');
-    capDiv.innerHTML = photos.map((_, i) => `
-      <div style="background:var(--surface2);border-radius:8px;padding:10px;border-left:3px solid ${tmpl.borderColor};">
-        <strong style="color:${tmpl.textColor};">Слайд ${i+1}:</strong> ${caps[i % caps.length]}
-      </div>`).join('');
-
-    const res = document.getElementById('carRes');
-    res.style.display = 'block';
-    res.scrollIntoView({ behavior: 'smooth' });
+  // ── Lang / Theme / Extras ────────────────────────────────────────────────────
+  function carSetLang(lang, btn) {
+    carLang = lang;
+    carSave();
+    document.querySelectorAll('#carLangBtnUk,#carLangBtnRu,#carLangBtnEn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
   }
 
-  function carDownloadAll() {
+  function carSetTheme(id) {
+    carThemeId = id;
+    carSave();
+    carRenderThemePicker();
+  }
+
+  function carRenderThemePicker() {
+    const wrap = document.getElementById('carThemePicker');
+    if (!wrap || typeof CR_THEMES === 'undefined') return;
+    const labels = { dark:'🌑 Dark', blue:'🔵 Ocean', orange:'🔥 Sunset', green:'🌿 Nature', pink:'💜 Neon', white:'⬜ Clean' };
+    wrap.innerHTML = Object.keys(CR_THEMES).map(id => `
+      <button onclick="carSetTheme('${id}')" style="padding:5px 10px;border-radius:8px;border:2px solid ${id===carThemeId?CR_THEMES[id].accent:'transparent'};background:${CR_THEMES[id].bg1};color:${CR_THEMES[id].text};font-size:11px;font-weight:700;cursor:pointer;transition:border-color .2s;">
+        ${labels[id]||id}
+      </button>`).join('');
+  }
+
+  function carInitExtras() {
+    carRenderThemePicker();
+    carRenderPremiumBlock();
+  }
+
+  function carRenderPremiumBlock() {
+    const wrap = document.getElementById('carPremiumBlock');
+    if (!wrap) return;
+    if (octoIsPremium()) {
+      wrap.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC55;border-radius:10px;">
+          <input type="checkbox" id="carDalleChk" style="opacity:0;width:0;height:0;" onchange="carDalleEnabled=this.checked;document.getElementById('carDallePill').style.background=this.checked?'#7C5CFC':'#333';document.getElementById('carDalleDot').style.left=this.checked?'24px':'4px'">
+          <div onclick="document.getElementById('carDalleChk').click()" style="width:46px;height:26px;border-radius:13px;background:#333;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;" id="carDallePill">
+            <div id="carDalleDot" style="position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;"></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#fff;">🎨 DALL-E рестайл <span style="background:#7C5CFC;color:#fff;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;">PREMIUM</span></div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);">AI перестилює фон кожного слайду (~8 сек/фото)</div>
+          </div>
+        </div>`;
+    } else {
+      wrap.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--text3);">🎨 DALL-E рестайл фону</div>
+          <button onclick="showScreen('pricing')" style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);border:none;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">🔒 Upgrade</button>
+        </div>`;
+    }
+  }
+
+  // ── Build (AI-powered) ───────────────────────────────────────────────────────
+  async function carBuild() {
     const photos = carPhotos.filter(Boolean);
-    const tmpl = CAR_TEMPLATES.find(t => t.id === carTmplId) || CAR_TEMPLATES[0];
-    photos.forEach((src, i) => {
-      // Draw photo + overlay on canvas then download
-      const canvas = document.createElement('canvas');
-      canvas.width = 1080; canvas.height = 1350;
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      img.onload = () => {
-        // Cover crop
-        const scale = Math.max(1080 / img.width, 1350 / img.height);
-        const w = img.width * scale, h = img.height * scale;
-        ctx.drawImage(img, (1080 - w) / 2, (1350 - h) / 2, w, h);
-        // Overlay
-        const grad = ctx.createLinearGradient(0, 1350 * 0.5, 0, 1350);
-        grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, 'rgba(0,0,0,0.7)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 1080, 1350);
-        // Border
-        ctx.strokeStyle = tmpl.borderColor;
-        ctx.lineWidth = 8;
-        ctx.strokeRect(4, 4, 1072, 1342);
-        // Number
-        ctx.fillStyle = tmpl.textColor;
-        ctx.font = `bold 48px -apple-system, sans-serif`;
-        ctx.fillText(`${i+1}/${photos.length}`, 40, 1300);
-        const a = document.createElement('a');
-        a.download = `slide_${i+1}_${tmpl.id}.jpg`;
-        a.href = canvas.toDataURL('image/jpeg', 0.92);
-        a.click();
-      };
-      img.src = src;
-    });
+    if (photos.length < 2) return;
+
+    const progCard = document.getElementById('carProgCard');
+    const progSub  = document.getElementById('carProgSub');
+    const progBar  = document.getElementById('carProgBar');
+    const progTime = document.getElementById('carProgTime');
+    document.getElementById('carRes').style.display = 'none';
+    progCard.style.display = 'block';
+    progSub.textContent = `Аналізую ${photos.length} фото разом…`;
+    progBar.style.width = '10%';
+    progTime.textContent = '~5 сек';
+
+    try {
+      const stylePrompt = (document.getElementById('carStylePromptInput')?.value || '').trim();
+      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+
+      // Step 1: AI photo analysis
+      const resp = await fetch(`${BACKEND}/api/carousel/analyze-photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos, stylePrompt, language: carLang }),
+      });
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      const analysis = await resp.json();
+      const captions = analysis.captions || photos.map((_, i) => `Фото ${i + 1}`);
+
+      progBar.style.width = '45%';
+      progSub.textContent = 'Генерую слайди…';
+      progTime.textContent = '';
+
+      // Step 2: load images (optionally DALL-E restyle)
+      let bgImages = photos.map(src => {
+        const img = new Image();
+        img.src = src;
+        return img;
+      });
+
+      const dalleChk = document.getElementById('carDalleChk');
+      carDalleEnabled = dalleChk ? dalleChk.checked : false;
+      if (carDalleEnabled && octoIsPremium()) {
+        for (let i = 0; i < photos.length; i++) {
+          progSub.textContent = `AI рестайл ${i + 1} з ${photos.length}…`;
+          progBar.style.width = (45 + Math.round((i / photos.length) * 40)) + '%';
+          try {
+            const dr = await fetch(`${BACKEND}/api/carousel/dalle`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ description: `${analysis.theme}, ${captions[i]}`, theme: carThemeId }),
+            });
+            if (dr.ok) {
+              const dj = await dr.json();
+              if (dj.b64) {
+                const dImg = new Image();
+                await new Promise(r => { dImg.onload = r; dImg.src = `data:image/png;base64,${dj.b64}`; });
+                bgImages[i] = dImg;
+              }
+            }
+          } catch {}
+        }
+      }
+
+      progBar.style.width = '85%';
+      progSub.textContent = 'Рендерю Canvas…';
+
+      // Step 3: render 1080×1080 canvases using shared crRenderPhotoSlide
+      const theme = (typeof CR_THEMES !== 'undefined')
+        ? (CR_THEMES[carThemeId] || CR_THEMES.dark)
+        : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
+      carCanvases = photos.map((_, i) =>
+        crRenderPhotoSlide(bgImages[i], captions[i], analysis.overallCaption, i, photos.length, theme, analysis.hashtags)
+      );
+
+      progBar.style.width = '100%';
+      progCard.style.display = 'none';
+
+      // Thumbnail row
+      const prev = document.getElementById('carSlidesPrev');
+      prev.innerHTML = '';
+      carCanvases.forEach(cv => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;border:2px solid ${theme.accent};`;
+        const thumb = document.createElement('canvas');
+        thumb.width = 90; thumb.height = 90;
+        thumb.getContext('2d').drawImage(cv, 0, 0, 90, 90);
+        wrap.appendChild(thumb);
+        prev.appendChild(wrap);
+      });
+
+      const resInfo = document.getElementById('carResInfo');
+      if (resInfo) resInfo.textContent = `${photos.length} слайдів · "${analysis.theme}"${carDalleEnabled ? ' · AI рестайл' : ''}`;
+
+      const capDiv = document.getElementById('carCaptions');
+      capDiv.innerHTML = captions.map((c, i) => `
+        <div style="background:var(--surface2);border-radius:8px;padding:10px;border-left:3px solid ${theme.accent};">
+          <strong style="color:${theme.accent};">Слайд ${i+1}:</strong> ${c}
+        </div>`).join('') +
+        (analysis.hashtags ? `<div style="margin-top:6px;color:var(--text3);font-size:11px;">${analysis.hashtags}</div>` : '');
+
+      document.getElementById('carRes').style.display = 'block';
+      document.getElementById('carRes').scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+      progCard.style.display = 'none';
+      alert('Помилка: ' + (err.message || err));
+    }
+  }
+
+  async function carDownloadZip() {
+    if (!carCanvases.length) { alert('Спочатку створи карусель!'); return; }
+    if (typeof JSZip === 'undefined') { alert('JSZip не завантажено. Перевір підключення.'); return; }
+    const btn = document.getElementById('carDlBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Пакую…'; }
+    const zip = new JSZip();
+    for (let i = 0; i < carCanvases.length; i++) {
+      const blob = await new Promise(r => carCanvases[i].toBlob(r, 'image/png'));
+      zip.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
+    }
+    const content = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = 'octo_carousel.zip';
+    a.click();
+    if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
   }
 
   function sStyle(el) {
@@ -6597,7 +6659,8 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     const badge = document.getElementById('premiumTestBadge');
     if (tog)   tog.classList.toggle('on', next);
     if (badge) badge.style.display = next ? '' : 'none';
-    crUpdatePremiumUI();  // refresh carousel premium block
+    crUpdatePremiumUI();       // refresh video-tab carousel premium block
+    carRenderPremiumBlock();   // refresh main carousel screen premium block
   }
 
   // Initialise settings toggle on load
