@@ -5340,12 +5340,12 @@
               <div id="carDalleDot" style="position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;"></div>
             </div>
             <div>
-              <div style="font-size:12px;font-weight:700;color:#fff;">🎨 DALL-E рестайл <span style="background:#7C5CFC;color:#fff;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;">PREMIUM</span></div>
-              <div style="font-size:10px;color:rgba(255,255,255,.5);">~8 сек/фото</div>
+              <div style="font-size:12px;font-weight:700;color:#fff;">✨ AI Enhance <span style="background:#7C5CFC;color:#fff;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;">PREMIUM</span></div>
+              <div style="font-size:10px;color:rgba(255,255,255,.5);">~15 сек/фото · gpt-image-1</div>
             </div>
           </div>
-          <div style="margin-top:7px;padding:6px 8px;background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.3);border-radius:7px;font-size:11px;color:#FFB400;line-height:1.4;">
-            ⚠️ DALL-E <b>повністю замінює</b> твої фото на AI-картинки. Якщо хочеш зберегти оригінальні фото — залиш вимкненим.
+          <div style="margin-top:7px;padding:6px 8px;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.3);border-radius:7px;font-size:11px;color:#81C784;line-height:1.4;">
+            ✅ Покращує <b>твої оригінальні фото</b> — додає освітлення, атмосферу, стиль. Люди та композиція залишаються.
           </div>
         </div>`;
     } else {
@@ -5401,13 +5401,17 @@
       carDalleEnabled = dalleChk ? dalleChk.checked : false;
       if (carDalleEnabled && octoIsPremium()) {
         for (let i = 0; i < photos.length; i++) {
-          progSub.textContent = `AI рестайл ${i + 1} з ${photos.length}…`;
+          progSub.textContent = `✨ AI Enhance фото ${i + 1} з ${photos.length}…`;
           progBar.style.width = (45 + Math.round((i / photos.length) * 40)) + '%';
           try {
-            const dr = await fetch(`${BACKEND}/api/carousel/dalle`, {
+            const stylePrompt = (document.getElementById('carStylePromptInput')?.value || '').trim();
+            const dr = await fetch(`${BACKEND}/api/carousel/enhance`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ description: `${analysis.theme}, ${captions[i]}`, theme: carThemeId }),
+              body: JSON.stringify({
+                image: photos[i],
+                prompt: [stylePrompt, analysis.theme, captions[i]].filter(Boolean).join(', '),
+              }),
             });
             if (dr.ok) {
               const dj = await dr.json();

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 
 export const carouselRouter = Router();
 
@@ -192,6 +192,50 @@ captions must have exactly ${photos.length} items. All text in ${langLabel}.`;
       hashtags:       result.hashtags       || '',
       colorMood:      result.colorMood      || 'neutral',
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/carousel/enhance ───────────────────────────────────────────────
+// Premium: gpt-image-1 edits the user's ACTUAL photo (not a replacement).
+// Sends the original image + a style prompt to the images.edit endpoint and
+// returns the enhanced photo as base64 PNG.
+carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image, prompt } = req.body as {
+      image: string;
+      prompt?: string;
+    };
+
+    if (!image)  { res.status(400).json({ error: 'image required' }); return; }
+    if (!process.env.OPENAI_API_KEY) {
+      res.status(500).json({ error: 'OPENAI_API_KEY not configured' }); return;
+    }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Convert base64 → Buffer → File object for the SDK
+    const base64Data = image.replace(/^data:image\/[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const imageFile = await toFile(buffer, 'photo.png', { type: 'image/png' });
+
+    // Build a prompt that preserves subjects but enhances style
+    const styleHint = prompt?.trim() || 'dramatic cinematic style';
+    const enhancePrompt =
+      `${styleHint}. ` +
+      `Preserve all original subjects, people, faces and the overall composition exactly as they are. ` +
+      `Only enhance the lighting, colours, atmosphere and visual style.`;
+
+    const response = await openai.images.edit({
+      model: 'gpt-image-1',
+      image: imageFile,
+      prompt: enhancePrompt,
+      n: 1,
+      size: '1024x1024',
+    });
+
+    res.json({ b64: response.data?.[0]?.b64_json ?? null });
   } catch (err) {
     next(err);
   }
