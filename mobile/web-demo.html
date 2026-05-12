@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
   <!-- MediaPipe Selfie Segmentation — pixel-perfect person/background separation -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/selfie_segmentation.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js" crossorigin="anonymous"></script>
   <!-- Theme restore BEFORE paint -->
   <script>
     try {
@@ -5877,7 +5877,7 @@
     _mpSegPromise = new Promise(resolve => {
       try {
         const seg = new SelfieSegmentation({
-          locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1/${f}`
+          locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/${f}`
         });
         seg.setOptions({ modelSelection: 1 }); // 1 = landscape model (best quality)
         // Warm-up: send a tiny 4×4 image so the WASM loads now, not on first real call
@@ -5933,7 +5933,14 @@
           const d = mc.getContext('2d').getImageData(0, 0, S, S).data;
           // Red channel = person probability (255=person, 0=background)
           const mask = new Float32Array(S * S);
-          for (let i = 0; i < S * S; i++) mask[i] = d[i * 4] / 255;
+          let personCount = 0;
+          for (let i = 0; i < S * S; i++) {
+            mask[i] = d[i * 4] / 255;
+            if (mask[i] > 0.5) personCount++;
+          }
+          // Sanity check: if <3% or >97% of pixels are "person", segmentation failed
+          const frac = personCount / (S * S);
+          if (frac < 0.03 || frac > 0.97) { resolve(null); return; }
           resolve(mask);
         } catch (e) { resolve(null); }
       });
@@ -6203,10 +6210,13 @@
         photoAiResultDataUrl = await photoAiBlurBg(photoAiOrig1024, segMask);
         bar.style.width = '100%';
       } else {
-        // ── AI EDIT PATH — send to OpenAI with pixel-accurate mask ───────
-        const maskDataUrl = await photoAiCreateMask(photoAiOrig1024, segMask);
+        // ── AI EDIT PATH ─────────────────────────────────────────────────
+        // Strategy: send FULL image with NO mask so AI generates a fully
+        // coherent new background (not just rectangular edge patches).
+        // After AI responds, we paste the original person back using the
+        // segmentation mask — this eliminates gray-side artifacts completely.
         bar.style.width = '40%';
-        txt.textContent = segMask ? '🎯 Точна маска готова…' : 'Маска готова…';
+        txt.textContent = segMask ? '🎯 Сегментація готова…' : 'Підготовка…';
 
         // Animate while waiting for API
         let pct = 42;
@@ -6218,10 +6228,13 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+          // ↓ NO mask — AI edits the full image coherently.
+          //   Gray sides disappear because AI generates one consistent background.
+          //   Player is restored pixel-by-pixel in the composite step below.
           const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: photoAiOrig1024, mask: maskDataUrl, prompt }),
+            body: JSON.stringify({ image: photoAiOrig1024, prompt }),
           });
           clearInterval(tick); tick = null;
           if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
@@ -6231,7 +6244,9 @@
           txt.textContent = 'Накладаю оригінал…';
           bar.style.width = '95%';
 
-          // Composite: AI background + original person pixels
+          // ── KEY: paste original person pixels onto the full AI result ──
+          // segMask (if available) = pixel-accurate person outline from MediaPipe
+          // fallback = rectangular center zone (still much better than before)
           const aiResult = `data:image/png;base64,${data.b64}`;
           photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
           bar.style.width = '100%';
