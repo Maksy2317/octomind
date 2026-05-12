@@ -7010,62 +7010,70 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     canvas.width = SIZE; canvas.height = SIZE;
     const ctx = canvas.getContext('2d');
 
-    // Draw photo cropped to square
-    if (photo) {
-      const s = Math.min(photo.naturalWidth || photo.width, photo.naturalHeight || photo.height);
-      const ox = ((photo.naturalWidth || photo.width)  - s) / 2;
-      const oy = ((photo.naturalHeight || photo.height) - s) / 2;
-      ctx.drawImage(photo, ox, oy, s, s, 0, 0, SIZE, SIZE);
+    // ── 1. Photo (cover-crop to square) ───────────────────────────────────────
+    if (photo && (photo.naturalWidth || photo.width)) {
+      const pw = photo.naturalWidth || photo.width;
+      const ph = photo.naturalHeight || photo.height;
+      const scale = Math.max(SIZE / pw, SIZE / ph);
+      const w = pw * scale, h = ph * scale;
+      ctx.drawImage(photo, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
     } else {
-      const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-      grad.addColorStop(0, theme.bg1); grad.addColorStop(1, theme.bg2);
-      ctx.fillStyle = grad; ctx.fillRect(0, 0, SIZE, SIZE);
+      const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+      bg.addColorStop(0, theme.bg1); bg.addColorStop(1, theme.bg2);
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, SIZE, SIZE);
     }
 
-    // Gradient overlay bottom 40%
-    const botGrad = ctx.createLinearGradient(0, SIZE * 0.55, 0, SIZE);
-    botGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    botGrad.addColorStop(0.4, 'rgba(0,0,0,0.65)');
-    botGrad.addColorStop(1, 'rgba(0,0,0,0.88)');
-    ctx.fillStyle = botGrad; ctx.fillRect(0, 0, SIZE, SIZE);
+    // ── 2. Vignette (darkens edges all around) ────────────────────────────────
+    const vign = ctx.createRadialGradient(SIZE/2, SIZE/2, SIZE*0.28, SIZE/2, SIZE/2, SIZE*0.82);
+    vign.addColorStop(0, 'rgba(0,0,0,0)');
+    vign.addColorStop(1, 'rgba(0,0,0,0.60)');
+    ctx.fillStyle = vign; ctx.fillRect(0, 0, SIZE, SIZE);
 
-    // Top gradient (lighter)
-    const topGrad = ctx.createLinearGradient(0, 0, 0, SIZE * 0.25);
-    topGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
-    topGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = topGrad; ctx.fillRect(0, 0, SIZE, SIZE);
+    // ── 3. Bottom gradient (for text readability) ─────────────────────────────
+    const bot = ctx.createLinearGradient(0, SIZE * 0.42, 0, SIZE);
+    bot.addColorStop(0, 'rgba(0,0,0,0)');
+    bot.addColorStop(0.5, 'rgba(0,0,0,0.55)');
+    bot.addColorStop(1,   'rgba(0,0,0,0.90)');
+    ctx.fillStyle = bot; ctx.fillRect(0, 0, SIZE, SIZE);
 
-    // Accent line top
+    // ── 4. Accent bar — left vertical ─────────────────────────────────────────
     ctx.fillStyle = theme.accent;
-    ctx.fillRect(0, 0, SIZE, 6);
+    ctx.fillRect(0, SIZE * 0.52, 7, SIZE * 0.48);
 
-    // Slide counter top-right
-    ctx.font = `600 ${SIZE * 0.028}px Arial, sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${index + 1} / ${total}`, SIZE - 50, 55);
+    // ── 5. Slide counter — top-right pill ─────────────────────────────────────
+    const numTxt = `${index + 1} / ${total}`;
+    ctx.save();
+    ctx.font = `600 ${SIZE * 0.026}px Arial, sans-serif`;
+    const numW = ctx.measureText(numTxt).width;
+    const pH = SIZE * 0.052, pW = numW + SIZE * 0.052, pR = pH / 2;
+    const pX = SIZE - pW - SIZE * 0.046, pY = SIZE * 0.038;
+    ctx.fillStyle = 'rgba(0,0,0,0.42)';
+    ctx.beginPath();
+    ctx.roundRect(pX, pY, pW, pH, pR);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.textAlign = 'center';
+    ctx.fillText(numTxt, pX + pW / 2, pY + pH * 0.685);
+    ctx.restore();
 
-    // Caption text (bottom)
+    // ── 6. Caption text ───────────────────────────────────────────────────────
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur   = 24;
+    ctx.shadowOffsetY = 3;
     ctx.textAlign = 'left';
-    const capY = SIZE - 160;
-    ctx.font = `800 ${SIZE * 0.052}px Arial, sans-serif`;
+    ctx.font = `800 ${SIZE * 0.056}px Arial, sans-serif`;
     ctx.fillStyle = '#FFFFFF';
-    const capLines = crWrapText(ctx, caption || '', 50, capY, SIZE - 100, SIZE * 0.062);
+    crWrapText(ctx, caption || '', SIZE * 0.058, SIZE - SIZE * 0.19, SIZE * 0.86, SIZE * 0.068);
+    ctx.restore();
 
-    // Hashtags
-    if (hashtags && index === total - 1) {
-      ctx.font = `400 ${SIZE * 0.026}px Arial, sans-serif`;
-      ctx.fillStyle = theme.accent + 'CC';
-      ctx.fillText(hashtags, 50, capY + capLines * SIZE * 0.062 + 20);
-    }
-
-    // Progress dots bottom
-    const dotR = 9, dotGap = 26, dotY = SIZE - 40;
+    // ── 7. Progress dots (bottom-center) — no hashtags on slide ──────────────
+    const dotR = 10, dotGap = 28, dotY = SIZE - 38;
     const startX = SIZE / 2 - ((total - 1) * dotGap) / 2;
     for (let i = 0; i < total; i++) {
       ctx.beginPath();
-      ctx.arc(startX + i * dotGap, dotY, i === index ? dotR : dotR * 0.5, 0, Math.PI * 2);
-      ctx.fillStyle = i === index ? theme.accent : 'rgba(255,255,255,0.35)';
+      ctx.arc(startX + i * dotGap, dotY, i === index ? dotR : dotR * 0.48, 0, Math.PI * 2);
+      ctx.fillStyle = i === index ? theme.accent : 'rgba(255,255,255,0.30)';
       ctx.fill();
     }
 
