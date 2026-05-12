@@ -5695,7 +5695,7 @@
   function photoRenderAll() {
     if (!photoImg) return;
     // Draw original
-    photoDrawTo(document.getElementById('photoBefore'), photoImg, null, false);
+    photoDrawTo(document.getElementById('photoBefore'), photoImg, null, true);
     // Draw with selected template
     const tmpl = PHOTO_TEMPLATES.find(t => t.id === photoTmplId) || PHOTO_TEMPLATES[0];
     photoDrawTo(document.getElementById('photoAfter'), photoImg, tmpl, true);
