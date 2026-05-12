@@ -5404,13 +5404,15 @@
           progSub.textContent = `✨ AI Enhance фото ${i + 1} з ${photos.length}…`;
           progBar.style.width = (45 + Math.round((i / photos.length) * 40)) + '%';
           try {
-            const stylePrompt = (document.getElementById('carStylePromptInput')?.value || '').trim();
+            // Pass ONLY visual style — never captions or team names (they'd get baked into image)
+            const visualStyle = (document.getElementById('carStylePromptInput')?.value || '').trim()
+              || analysis.colorMood || 'cinematic';
             const dr = await fetch(`${BACKEND}/api/carousel/enhance`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 image: photos[i],
-                prompt: [stylePrompt, analysis.theme, captions[i]].filter(Boolean).join(', '),
+                prompt: visualStyle,
               }),
             });
             if (dr.ok) {

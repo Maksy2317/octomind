@@ -220,12 +220,14 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     const buffer = Buffer.from(base64Data, 'base64');
     const imageFile = await toFile(buffer, 'photo.png', { type: 'image/png' });
 
-    // Build a prompt that preserves subjects but enhances style
+    // Build a prompt that preserves subjects but enhances style only
     const styleHint = prompt?.trim() || 'dramatic cinematic style';
     const enhancePrompt =
-      `${styleHint}. ` +
-      `Preserve all original subjects, people, faces and the overall composition exactly as they are. ` +
-      `Only enhance the lighting, colours, atmosphere and visual style.`;
+      `Photo enhancement only: ${styleHint}. ` +
+      `CRITICAL RULES: Do NOT add any text, words, letters, titles, captions, logos, or typography of any kind. ` +
+      `Do NOT change or alter any faces or people — preserve all faces exactly as in the original. ` +
+      `Preserve all original subjects, people and composition exactly. ` +
+      `Only enhance: lighting, colour grading, contrast, atmosphere, cinematic feel.`;
 
     const response = await openai.images.edit({
       model: 'gpt-image-1',
