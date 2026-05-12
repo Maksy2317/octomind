@@ -5433,13 +5433,20 @@
       // Thumbnail row
       const prev = document.getElementById('carSlidesPrev');
       prev.innerHTML = '';
-      carCanvases.forEach(cv => {
+      carCanvases.forEach((cv, i) => {
         const wrap = document.createElement('div');
-        wrap.style.cssText = `flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;border:2px solid ${theme.accent};`;
+        wrap.style.cssText = `flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;border:2px solid ${theme.accent};cursor:pointer;position:relative;`;
+        wrap.title = 'Натисни для перегляду';
+        wrap.onclick = () => carOpenLightbox(i);
         const thumb = document.createElement('canvas');
         thumb.width = 90; thumb.height = 90;
         thumb.getContext('2d').drawImage(cv, 0, 0, 90, 90);
+        // small zoom hint icon
+        const hint = document.createElement('div');
+        hint.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:4px;padding:1px 4px;pointer-events:none;';
+        hint.textContent = '🔍';
         wrap.appendChild(thumb);
+        wrap.appendChild(hint);
         prev.appendChild(wrap);
       });
 
@@ -5459,6 +5466,39 @@
       progCard.style.display = 'none';
       alert('Помилка: ' + (err.message || err));
     }
+  }
+
+  // ── Slide lightbox ──────────────────────────────────────────────────────────
+  let carLbIndex = 0;
+
+  function carOpenLightbox(idx) {
+    carLbIndex = idx;
+    carLbRender();
+    const lb = document.getElementById('carLightbox');
+    lb.style.display = 'flex';
+  }
+
+  function carCloseLightbox() {
+    document.getElementById('carLightbox').style.display = 'none';
+  }
+
+  function carLbNav(dir) {
+    carLbIndex = (carLbIndex + dir + carCanvases.length) % carCanvases.length;
+    carLbRender();
+  }
+
+  function carLbRender() {
+    const cv = carCanvases[carLbIndex];
+    document.getElementById('carLbImg').src = cv.toDataURL('image/png');
+    document.getElementById('carLbCounter').textContent = `${carLbIndex + 1} / ${carCanvases.length}`;
+    document.getElementById('carLbLabel').textContent = `Слайд ${carLbIndex + 1}`;
+  }
+
+  function carLbDownload() {
+    const a = document.createElement('a');
+    a.href = carCanvases[carLbIndex].toDataURL('image/png');
+    a.download = `slide_${String(carLbIndex + 1).padStart(2, '0')}.png`;
+    a.click();
   }
 
   async function carDownloadZip() {
@@ -6945,6 +6985,29 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       <video id="vLivePreviewVid" playsinline controls style="width:100%;height:100%;display:block;object-fit:contain;"></video>
     </div>
     <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:8px;text-align:center;">Натисни Play · текст змінюється автоматично</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CAROUSEL SLIDE LIGHTBOX
+     Full-screen preview when user taps a thumbnail.
+═══════════════════════════════════════════════════ -->
+<div id="carLightbox" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.96);flex-direction:column;align-items:center;justify-content:center;" onclick="if(event.target===this)carCloseLightbox()">
+  <!-- top bar -->
+  <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
+    <span id="carLbLabel" style="color:rgba(255,255,255,.6);font-size:13px;font-weight:700;"></span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="carLbDownload()" style="background:rgba(255,255,255,.12);border:none;color:#fff;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;">💾 Скачати</button>
+      <button onclick="carCloseLightbox()" style="background:rgba(255,255,255,.12);border:none;color:#fff;font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;line-height:1;">×</button>
+    </div>
+  </div>
+  <!-- slide image -->
+  <img id="carLbImg" src="" style="max-width:100%;max-height:calc(100vh - 120px);border-radius:12px;object-fit:contain;">
+  <!-- prev / next arrows -->
+  <div style="position:absolute;bottom:20px;display:flex;gap:16px;align-items:center;">
+    <button onclick="carLbNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:44px;height:44px;border-radius:50%;cursor:pointer;">‹</button>
+    <span id="carLbCounter" style="color:rgba(255,255,255,.5);font-size:13px;min-width:50px;text-align:center;"></span>
+    <button onclick="carLbNav(1)"  style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:44px;height:44px;border-radius:50%;cursor:pointer;">›</button>
   </div>
 </div>
 </body>
