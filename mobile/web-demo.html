@@ -6350,27 +6350,15 @@
           // ── Build request body ────────────────────────────────────────────
           const reqBody = { image: photoAiOrig1024, prompt };
 
-          if (removePeople && segMask) {
-            // ── HIDE-PLAYER strategy ────────────────────────────────────────
-            // Replace the player zone with blurred background before sending.
-            // AI sees only field + background people → removes them → fills
-            // the player zone with grass.
-            // Then we stamp the original player on top (natural grass edge,
-            // zero white halo, zero face/logo change).
-            // No mask needed: the player is already hidden in the image.
-            clearInterval(tick); tick = null;
-            txt.textContent = 'Готую зображення…';
-            bar.style.width = '32%';
-            reqBody.image = await photoAiHidePlayer(photoAiOrig1024, segMask);
-            // Restart animation for the API wait
-            let pct2 = 34;
-            tick = setInterval(() => {
-              pct2 = Math.min(pct2 + (pct2 < 70 ? 2 : 0.5), 90);
-              bar.style.width = pct2 + '%';
-              txt.textContent = pct2 < 55 ? '~20 секунд' : pct2 < 75 ? '~10 секунд' : 'Майже готово…';
-            }, 700);
-          } else if (segMask) {
-            // ── Other tasks: protect player with mask ───────────────────────
+          if (segMask) {
+            // ── MASK strategy (all tasks including remove-people) ───────────
+            // Send the person mask: player zone is OPAQUE (locked, AI can't touch),
+            // background is TRANSPARENT (editable).
+            // Benefits over hide-player approach:
+            //  • AI only fills tiny background-people spots, not the large player zone
+            //    → no texture patches or colour mismatches
+            //  • Fences, nets, grass remain from the ORIGINAL (not AI-generated)
+            //  • Background framing preserved → compositing causes no shift
             reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
           }
 

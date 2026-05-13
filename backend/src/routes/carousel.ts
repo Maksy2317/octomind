@@ -285,16 +285,22 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
       // Mask protects the main subject; AI only fills the transparent background.
       // Give it a crystal-clear English task so it fills correctly.
       enhancePrompt =
-        `Background people removal. ` +
-        `The opaque (white) mask covers the main foreground subject — it is LOCKED, do not alter it at all. ` +
-        `In the transparent background region: ` +
-        `1. Identify and erase any secondary people, spectators, or bystanders. ` +
-        `2. Fill their spots seamlessly using the surrounding surface: ` +
-        `   grass → extend the same grass texture; fence → extend fence; concrete → extend concrete. ` +
-        `3. ALL other background elements must stay IDENTICAL to the original: ` +
-        `   same grass color and field markings, same fences, same vehicles, same lighting and shadows. ` +
-        `4. Do NOT add new objects, people, or patterns. ` +
-        `5. Do NOT change colors, lighting, or perspective of anything.`;
+        `Task: remove ONLY human figures from the background. Nothing else changes. ` +
+        `The opaque (white/gray) mask region is the main foreground subject — it is COMPLETELY LOCKED. Do not alter it by even one pixel. ` +
+        `In the transparent (editable) background region, follow these rules EXACTLY: ` +
+        `1. Find any secondary people, spectators, or bystanders. Remove ONLY those human figures. ` +
+        `2. Fill the spot where each removed person stood using ONLY the immediately surrounding surface texture: ` +
+        `   grass patch → extend the same grass; concrete → same concrete; sand → same sand. ` +
+        `   Match the exact color, brightness, and texture already present around the removed person. ` +
+        `3. PRESERVE EVERYTHING ELSE ABSOLUTELY UNCHANGED: ` +
+        `   • Fences, nets, goal posts, corner flags, barriers — keep all of them exactly as they are. ` +
+        `   • Field markings (lines, circles, penalty area) — keep them perfectly intact. ` +
+        `   • Grass color, shade, and pattern — do not regenerate or alter. ` +
+        `   • Background buildings, stands, vehicles, lights — leave untouched. ` +
+        `   • Shadows, lighting direction, sky — no changes. ` +
+        `4. Do NOT add any new objects, patterns, or textures that were not already there. ` +
+        `5. Do NOT change colors, lighting, perspective, or composition of anything. ` +
+        `The ONLY pixels that should differ from the original are the small spots where background people stood.`;
     } else if (isRemovePeople && !maskFile) {
       // "Hide-player" path: the frontend already blurred out the main player,
       // so the image only contains the field + background people.
