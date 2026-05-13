@@ -6218,6 +6218,18 @@
     return /розм|blur|боке|bokeh|depth.of.field|дефок|dof/.test(p);
   }
 
+  /**
+   * Detect "remove background people" intent.
+   * For this task we use the AI result DIRECTLY (no compositing).
+   * Reason: gpt-image-1 slightly shifts the scene framing during processing.
+   * If we composite the original player (old coordinates) onto the AI's
+   * slightly-shifted background, the player looks misaligned.
+   * Using the AI result directly keeps player + background in perfect alignment.
+   */
+  function _isRemovePeoplePrompt(prompt) {
+    return /прибер|видал|удал|видалити.*люд|людей.*фон|фон.*люд|remove.*people|people.*back/i.test(prompt);
+  }
+
   // Store the 1024×1024 crop so we can composite without re-loading
   let photoAiOrig1024 = null;
 
@@ -6271,14 +6283,14 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+          const removePeople = _isRemovePeoplePrompt(prompt);
 
-          // ── Build request: with mask when we have segmentation ────────────
-          // Mask tells gpt-image-1 exactly where the person is:
-          //   opaque (alpha=255) = person → PROTECTED, AI won't touch
-          //   transparent (alpha=0) = background → EDITABLE, AI changes here
-          // This prevents AI from generating new people / ghost artifacts.
+          // ── Build request body ────────────────────────────────────────────
+          // For remove-people: backend ignores mask anyway (smart routing),
+          // so we skip building it — saves time.
+          // For other tasks: send person mask so AI knows what to protect.
           const reqBody = { image: photoAiOrig1024, prompt };
-          if (segMask) {
+          if (segMask && !removePeople) {
             reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
           }
 
@@ -6292,12 +6304,25 @@
           const data = await resp.json();
           if (!data.b64) throw new Error('AI не повернув зображення');
 
-          txt.textContent = 'Накладаю оригінал…';
           bar.style.width = '95%';
-
-          // Composite original person on top for pixel-perfect edges
           const aiResult = `data:image/png;base64,${data.b64}`;
-          photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+
+          if (removePeople) {
+            // ── Remove-people: use AI result DIRECTLY — no compositing ──────
+            // gpt-image-1 subtly shifts/rescales the scene during processing.
+            // If we composite the original player (old pixel coordinates) onto
+            // the AI's slightly-different background, the player looks misaligned.
+            // Using the AI result directly keeps player + background perfectly
+            // aligned because it's one internally-consistent image.
+            // The AI was instructed "STRICTLY PRESERVE main foreground athlete"
+            // so the player appearance is well-preserved by the model itself.
+            txt.textContent = 'Готово!';
+            photoAiResultDataUrl = aiResult;
+          } else {
+            // ── All other tasks: composite original player for pixel-perfection
+            txt.textContent = 'Накладаю оригінал…';
+            photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+          }
           bar.style.width = '100%';
         } finally {
           if (tick) { clearInterval(tick); tick = null; }
