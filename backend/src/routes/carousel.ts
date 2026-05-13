@@ -296,12 +296,18 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `4. Do NOT add new objects, people, or patterns. ` +
         `5. Do NOT change colors, lighting, or perspective of anything.`;
     } else if (isRemovePeople && !maskFile) {
-      // Fallback when no mask: explicit text rules to protect player
+      // "Hide-player" path: the frontend already blurred out the main player,
+      // so the image only contains the field + background people.
+      // Task: remove ALL visible people and fill their spots with matching surface.
       enhancePrompt =
-        `TASK: Remove ONLY secondary background people. ` +
-        `LOCK — do NOT change: the main foreground athlete (face, body, clothing, logos, exact position), ` +
-        `the entire field/grass (same color/markings), all fences, vehicles, buildings. ` +
-        `Fill removed-people spots with matching background surface only. No new objects. No color changes.`;
+        `Remove ALL people visible in this image completely. ` +
+        `For each removed person fill the area seamlessly with the matching surface beneath them: ` +
+        `grass → continue the same grass texture and color; ` +
+        `concrete/sand → same concrete; fence → same fence. ` +
+        `CRITICAL: keep everything else ABSOLUTELY IDENTICAL — ` +
+        `same grass shade and field markings, same fences, same parked cars, ` +
+        `same buildings, same lighting, same shadows, same perspective. ` +
+        `Zero changes to anything except the removed people.`;
     } else if (maskFile) {
       // Generic edit with mask: AI edits only transparent zone
       enhancePrompt =

@@ -6230,6 +6230,56 @@
     return /прибер|видал|удал|видалити.*люд|людей.*фон|фон.*люд|remove.*people|people.*back/i.test(prompt);
   }
 
+  /**
+   * Returns a version of the image where the main player zone is replaced
+   * by a blurred blend of the surrounding background pixels.
+   *
+   * WHY: before sending to gpt-image-1 for "remove background people",
+   * we hide the main player so the AI cannot see or modify them.
+   * The AI then fills the player zone with grass/field and removes
+   * background people. After the API call we stamp the original player back
+   * on top — clean compositing with natural grass edge, no white halo.
+   */
+  async function photoAiHidePlayer(orig1024DataUrl, segMask) {
+    const S = 1024;
+    const img = await new Promise(r => {
+      const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = orig1024DataUrl;
+    });
+    if (!img || !segMask) return orig1024DataUrl;
+
+    // Original pixels
+    const origCv = document.createElement('canvas');
+    origCv.width = S; origCv.height = S;
+    origCv.getContext('2d').drawImage(img, 0, 0, S, S);
+    const origPx = origCv.getContext('2d').getImageData(0, 0, S, S).data;
+
+    // Heavily blurred pixels — when the player zone is blurred the AI sees
+    // approximate background colours (green grass) instead of the player.
+    const blurCv = document.createElement('canvas');
+    blurCv.width = S; blurCv.height = S;
+    const blurCtx = blurCv.getContext('2d');
+    blurCtx.filter = 'blur(40px)';
+    blurCtx.drawImage(img, 0, 0, S, S);
+    blurCtx.filter = 'none';
+    const blurPx = blurCtx.getImageData(0, 0, S, S).data;
+
+    // Merge: player zone → blurred (hidden), background → original
+    const out = new Uint8ClampedArray(S * S * 4);
+    for (let i = 0; i < S * S; i++) {
+      const idx = i * 4;
+      const m = segMask[i]; // 1 = player, 0 = background
+      out[idx]   = Math.round(origPx[idx]   * (1 - m) + blurPx[idx]   * m);
+      out[idx+1] = Math.round(origPx[idx+1] * (1 - m) + blurPx[idx+1] * m);
+      out[idx+2] = Math.round(origPx[idx+2] * (1 - m) + blurPx[idx+2] * m);
+      out[idx+3] = 255;
+    }
+
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    cv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
+    return cv.toDataURL('image/jpeg', 0.93);
+  }
+
   // Store the 1024×1024 crop so we can composite without re-loading
   let photoAiOrig1024 = null;
 
@@ -6283,14 +6333,32 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+          const removePeople = _isRemovePeoplePrompt(prompt);
 
           // ── Build request body ────────────────────────────────────────────
-          // ALWAYS send the person mask when we have one.
-          // The mask (opaque = player LOCKED, transparent = background editable)
-          // is what prevents gpt-image-1 from touching the player's face/logos.
-          // Backend uses it + a task-specific English prompt.
           const reqBody = { image: photoAiOrig1024, prompt };
-          if (segMask) {
+
+          if (removePeople && segMask) {
+            // ── HIDE-PLAYER strategy ────────────────────────────────────────
+            // Replace the player zone with blurred background before sending.
+            // AI sees only field + background people → removes them → fills
+            // the player zone with grass.
+            // Then we stamp the original player on top (natural grass edge,
+            // zero white halo, zero face/logo change).
+            // No mask needed: the player is already hidden in the image.
+            clearInterval(tick); tick = null;
+            txt.textContent = 'Готую зображення…';
+            bar.style.width = '32%';
+            reqBody.image = await photoAiHidePlayer(photoAiOrig1024, segMask);
+            // Restart animation for the API wait
+            let pct2 = 34;
+            tick = setInterval(() => {
+              pct2 = Math.min(pct2 + (pct2 < 70 ? 2 : 0.5), 90);
+              bar.style.width = pct2 + '%';
+              txt.textContent = pct2 < 55 ? '~20 секунд' : pct2 < 75 ? '~10 секунд' : 'Майже готово…';
+            }, 700);
+          } else if (segMask) {
+            // ── Other tasks: protect player with mask ───────────────────────
             reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
           }
 
@@ -6304,16 +6372,13 @@
           const data = await resp.json();
           if (!data.b64) throw new Error('AI не повернув зображення');
 
+          txt.textContent = 'Накладаю оригінал…';
           bar.style.width = '95%';
           const aiResult = `data:image/png;base64,${data.b64}`;
 
-          txt.textContent = 'Накладаю оригінал…';
-          // ── ALWAYS composite original player pixels on top ────────────────
-          // With mask: the AI edits only background (people-shaped holes),
-          // so the background maintains its original framing/scale.
-          // Compositing the original player is then safe — no shift —
-          // and gives us a 100% pixel-perfect guarantee that the player's
-          // face, body, logos are absolutely unchanged.
+          // ── Composite original player on top ─────────────────────────────
+          // remove-people: AI filled player zone w/ grass → edge blends naturally
+          // other tasks:   mask kept background aligned → no shift
           photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
           bar.style.width = '100%';
         } finally {
