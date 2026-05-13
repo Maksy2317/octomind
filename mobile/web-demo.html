@@ -6307,22 +6307,14 @@
           bar.style.width = '95%';
           const aiResult = `data:image/png;base64,${data.b64}`;
 
-          if (segMask) {
-            // ── WITH MASK: use AI result DIRECTLY — no compositing ───────────
-            // When mask is sent, gpt-image-1 keeps the opaque (player) region
-            // pixel-identical to the original. The player in the AI result is
-            // already at the correct position and aligned with the background.
-            // Compositing on top of the AI output would cause a position shift
-            // because the AI may slightly rescale the scene.
-            txt.textContent = 'Готово!';
-            photoAiResultDataUrl = aiResult;
-          } else {
-            // ── NO MASK fallback: composite original player ──────────────────
-            // No segmentation → no mask → AI might modify the player.
-            // Stamp original player using rectangular zone as best-effort fix.
-            txt.textContent = 'Накладаю оригінал…';
-            photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, null);
-          }
+          txt.textContent = 'Накладаю оригінал…';
+          // ── ALWAYS composite original player pixels on top ────────────────
+          // With mask: the AI edits only background (people-shaped holes),
+          // so the background maintains its original framing/scale.
+          // Compositing the original player is then safe — no shift —
+          // and gives us a 100% pixel-perfect guarantee that the player's
+          // face, body, logos are absolutely unchanged.
+          photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
           bar.style.width = '100%';
         } finally {
           if (tick) { clearInterval(tick); tick = null; }
