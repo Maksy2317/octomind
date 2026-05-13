@@ -6079,9 +6079,12 @@
       const d = personData.data;
       for (let i = 0; i < S * S; i++) {
         const a = segMask[i];
-        d[i * 4 + 3] = a < 0.10 ? 0
-                      : a > 0.55 ? 255
-                      : Math.round(((a - 0.10) / 0.45) * 255);
+        // Tight transition 0.25 → 0.50: background pixels with segMask < 0.25
+        // become fully transparent (no blurry silhouette around arms/hands),
+        // core player pixels > 0.50 become fully opaque (100% original).
+        d[i * 4 + 3] = a < 0.25 ? 0
+                      : a > 0.50 ? 255
+                      : Math.round(((a - 0.25) / 0.25) * 255);
       }
       pCtx.putImageData(personData, 0, 0);
 
@@ -6280,17 +6283,13 @@
       out[idx+3] = 255;
     }
 
+    // Hard boundary — no blur. gpt-image-1 handles sharp inpainting edges
+    // perfectly, and blurring creates a colour-mixed zone that leaks into
+    // the compositing and produces a blurry silhouette around the player.
     const filled = document.createElement('canvas');
     filled.width = S; filled.height = S;
     filled.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-
-    // ── Small blur (5 px) only to smooth the hard boundary of the fill ───────
-    const smooth = document.createElement('canvas');
-    smooth.width = S; smooth.height = S;
-    const sCtx = smooth.getContext('2d');
-    sCtx.filter = 'blur(5px)';
-    sCtx.drawImage(filled, 0, 0);
-    return smooth.toDataURL('image/jpeg', 0.93);
+    return filled.toDataURL('image/jpeg', 0.93);
   }
 
   // Store the 1024×1024 crop so we can composite without re-loading
