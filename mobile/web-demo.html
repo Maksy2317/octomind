@@ -2301,11 +2301,11 @@
                 <!-- Side-by-side comparison -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
                   <div>
-                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;object-fit:cover;background:var(--surface3);height:140px;">
+                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);aspect-ratio:1/1;display:block;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">До</div>
                   </div>
                   <div>
-                    <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:cover;background:var(--surface3);height:140px;">
+                    <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);aspect-ratio:1/1;display:block;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨</div>
                   </div>
                 </div>
@@ -6037,80 +6037,104 @@
   /**
    * Pixel-level composite: merge AI result (background) + original (person).
    *
-   * If segMask (Float32Array) is provided → per-pixel accuracy using the segmentation.
-   * Otherwise → rectangular zone fallback.
+   * Uses canvas destination-in compositing + 20px mask dilation to:
+   *  - Completely erase any AI-generated ghost of the person
+   *  - Keep clean person edges from remove.bg alpha
+   *  - Silently fall back to rectangular zone if no segMask
    */
-  function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
-    return new Promise(resolve => {
-      const aiImg   = new Image();
-      const origImg = new Image();
-      let loaded = 0;
+  async function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
+    const S = 1024;
 
-      const onLoad = () => {
-        if (++loaded < 2) return;
-        const S = 1024;
+    // Load both images in parallel
+    const [aiImg, origImg] = await Promise.all([
+      new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = aiResultDataUrl; }),
+      new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = orig1024DataUrl; }),
+    ]);
+    if (!aiImg || !origImg) return aiResultDataUrl;
 
-        const aiCv = document.createElement('canvas');
-        aiCv.width = S; aiCv.height = S;
-        aiCv.getContext('2d').drawImage(aiImg, 0, 0, S, S);
-        const aiPx = aiCv.getContext('2d').getImageData(0, 0, S, S).data;
+    const finalCv = document.createElement('canvas');
+    finalCv.width = S; finalCv.height = S;
+    const ctx = finalCv.getContext('2d');
 
-        const orCv = document.createElement('canvas');
-        orCv.width = S; orCv.height = S;
-        orCv.getContext('2d').drawImage(origImg, 0, 0, S, S);
-        const orPx = orCv.getContext('2d').getImageData(0, 0, S, S).data;
+    if (segMask) {
+      // ── STEP 1: Draw AI result as base layer ────────────────────────────
+      ctx.drawImage(aiImg, 0, 0, S, S);
 
-        const out = new Uint8ClampedArray(S * S * 4);
+      // ── STEP 2: Build person-mask canvas (alpha = person probability) ───
+      // Using ALPHA (not RGB) so canvas blur correctly spreads the mask.
+      const rawMaskCv = document.createElement('canvas');
+      rawMaskCv.width = S; rawMaskCv.height = S;
+      const rawCtx = rawMaskCv.getContext('2d');
+      const md = rawCtx.createImageData(S, S);
+      for (let i = 0; i < S * S; i++) {
+        md.data[i * 4]     = 255; // white (colour doesn't matter for destination-in)
+        md.data[i * 4 + 1] = 255;
+        md.data[i * 4 + 2] = 255;
+        md.data[i * 4 + 3] = Math.round(segMask[i] * 255); // alpha = person mask
+      }
+      rawCtx.putImageData(md, 0, 0);
 
-        if (segMask) {
-          // ── Segmentation-based: true per-pixel person/background merge ──
-          for (let i = 0; i < S * S; i++) {
-            const idx = i * 4;
-            // Person weight: smooth transition from 0.35 to 0.65 person probability
-            const w = _smoothstep((segMask[i] - 0.35) / 0.30);
-            out[idx]   = orPx[idx]   * w + aiPx[idx]   * (1 - w);
-            out[idx+1] = orPx[idx+1] * w + aiPx[idx+1] * (1 - w);
-            out[idx+2] = orPx[idx+2] * w + aiPx[idx+2] * (1 - w);
-            out[idx+3] = 255;
-          }
-        } else {
-          // ── Rectangular zone fallback ────────────────────────────────────
-          const LF0 = S * 0.15, LF1 = S * 0.20;
-          const RF0 = S * 0.80, RF1 = S * 0.85;
-          const TF0 = S * 0.08, TF1 = S * 0.13;
-          const BF0 = S * 0.87, BF1 = S * 0.92;
-          for (let y = 0; y < S; y++) {
-            for (let x = 0; x < S; x++) {
-              const i = (y * S + x) * 4;
-              let wx = 1, wy = 1;
-              if      (x < LF0) wx = 0;
-              else if (x < LF1) wx = (x - LF0) / (LF1 - LF0);
-              else if (x > RF1) wx = 0;
-              else if (x > RF0) wx = 1 - (x - RF0) / (RF1 - RF0);
-              if      (y < TF0) wy = 0;
-              else if (y < TF1) wy = (y - TF0) / (TF1 - TF0);
-              else if (y > BF1) wy = 0;
-              else if (y > BF0) wy = 1 - (y - BF0) / (BF1 - BF0);
-              const w = wx * wy;
-              out[i]   = orPx[i]   * w + aiPx[i]   * (1 - w);
-              out[i+1] = orPx[i+1] * w + aiPx[i+1] * (1 - w);
-              out[i+2] = orPx[i+2] * w + aiPx[i+2] * (1 - w);
-              out[i+3] = 255;
-            }
-          }
+      // ── STEP 3: Blur the mask → dilates person region ~20 px ────────────
+      // This expansion covers any AI-generated ghost at person edges.
+      const dilMaskCv = document.createElement('canvas');
+      dilMaskCv.width = S; dilMaskCv.height = S;
+      const dilCtx = dilMaskCv.getContext('2d');
+      dilCtx.filter = 'blur(20px)';
+      dilCtx.drawImage(rawMaskCv, 0, 0);
+      dilCtx.filter = 'none';
+
+      // ── STEP 4: Cut person out of original using the dilated mask ───────
+      // destination-in: result_alpha = src_alpha × dst_alpha
+      //   → where mask=0 (background): person pixel disappears (transparent)
+      //   → where mask=255 (person): person pixel kept opaque
+      const personCv = document.createElement('canvas');
+      personCv.width = S; personCv.height = S;
+      const pCtx = personCv.getContext('2d');
+      pCtx.drawImage(origImg, 0, 0, S, S);
+      pCtx.globalCompositeOperation = 'destination-in';
+      pCtx.drawImage(dilMaskCv, 0, 0, S, S);
+
+      // ── STEP 5: Composite person over AI background ──────────────────────
+      ctx.drawImage(personCv, 0, 0, S, S);
+
+    } else {
+      // ── Rectangular zone fallback (no segmentation available) ───────────
+      const aiCv = document.createElement('canvas');
+      aiCv.width = S; aiCv.height = S;
+      aiCv.getContext('2d').drawImage(aiImg, 0, 0, S, S);
+      const aiPx = aiCv.getContext('2d').getImageData(0, 0, S, S).data;
+      const orCv = document.createElement('canvas');
+      orCv.width = S; orCv.height = S;
+      orCv.getContext('2d').drawImage(origImg, 0, 0, S, S);
+      const orPx = orCv.getContext('2d').getImageData(0, 0, S, S).data;
+      const out = new Uint8ClampedArray(S * S * 4);
+      const LF0 = S * 0.15, LF1 = S * 0.20;
+      const RF0 = S * 0.80, RF1 = S * 0.85;
+      const TF0 = S * 0.08, TF1 = S * 0.13;
+      const BF0 = S * 0.87, BF1 = S * 0.92;
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const i = (y * S + x) * 4;
+          let wx = 1, wy = 1;
+          if      (x < LF0) wx = 0;
+          else if (x < LF1) wx = (x - LF0) / (LF1 - LF0);
+          else if (x > RF1) wx = 0;
+          else if (x > RF0) wx = 1 - (x - RF0) / (RF1 - RF0);
+          if      (y < TF0) wy = 0;
+          else if (y < TF1) wy = (y - TF0) / (TF1 - TF0);
+          else if (y > BF1) wy = 0;
+          else if (y > BF0) wy = 1 - (y - BF0) / (BF1 - BF0);
+          const w = wx * wy;
+          out[i]   = orPx[i]   * w + aiPx[i]   * (1 - w);
+          out[i+1] = orPx[i+1] * w + aiPx[i+1] * (1 - w);
+          out[i+2] = orPx[i+2] * w + aiPx[i+2] * (1 - w);
+          out[i+3] = 255;
         }
+      }
+      ctx.putImageData(new ImageData(out, S, S), 0, 0);
+    }
 
-        const finalCv = document.createElement('canvas');
-        finalCv.width = S; finalCv.height = S;
-        finalCv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-        resolve(finalCv.toDataURL('image/png'));
-      };
-
-      aiImg.onload   = onLoad;
-      origImg.onload = onLoad;
-      aiImg.src   = aiResultDataUrl;
-      origImg.src = orig1024DataUrl;
-    });
+    return finalCv.toDataURL('image/jpeg', 0.93);
   }
 
   /**
@@ -6149,20 +6173,48 @@
     const blurPx2 = blurCtx.getImageData(PAD, PAD, S, S).data;
 
     // ── Composite: person=sharp, background=blurred ───────────────────────────
-    const out = new Uint8ClampedArray(S * S * 4);
+    const finalCv = document.createElement('canvas');
+    finalCv.width = S; finalCv.height = S;
+    const finalCtx = finalCv.getContext('2d');
 
     if (segMask) {
+      // 1. Draw blurred image as base
+      finalCtx.putImageData(new ImageData(blurPx2, S, S), 0, 0);
+
+      // 2. Build person mask (alpha = person probability)
+      const rawMaskCv = document.createElement('canvas');
+      rawMaskCv.width = S; rawMaskCv.height = S;
+      const rawCtx = rawMaskCv.getContext('2d');
+      const md = rawCtx.createImageData(S, S);
       for (let i = 0; i < S * S; i++) {
-        const idx = i * 4;
-        // Person weight (1 = fully sharp, 0 = fully blurred)
-        const w = _smoothstep((segMask[i] - 0.35) / 0.30);
-        out[idx]   = origPx[idx]   * w + blurPx2[idx]   * (1 - w);
-        out[idx+1] = origPx[idx+1] * w + blurPx2[idx+1] * (1 - w);
-        out[idx+2] = origPx[idx+2] * w + blurPx2[idx+2] * (1 - w);
-        out[idx+3] = 255;
+        md.data[i * 4]     = 255;
+        md.data[i * 4 + 1] = 255;
+        md.data[i * 4 + 2] = 255;
+        md.data[i * 4 + 3] = Math.round(segMask[i] * 255);
       }
+      rawCtx.putImageData(md, 0, 0);
+
+      // 3. Dilate mask 12px for smooth person→blur transition
+      const dilMaskCv = document.createElement('canvas');
+      dilMaskCv.width = S; dilMaskCv.height = S;
+      const dilCtx = dilMaskCv.getContext('2d');
+      dilCtx.filter = 'blur(12px)';
+      dilCtx.drawImage(rawMaskCv, 0, 0);
+      dilCtx.filter = 'none';
+
+      // 4. Cut sharp person from original
+      const personCv = document.createElement('canvas');
+      personCv.width = S; personCv.height = S;
+      const pCtx = personCv.getContext('2d');
+      pCtx.putImageData(new ImageData(origPx, S, S), 0, 0);
+      pCtx.globalCompositeOperation = 'destination-in';
+      pCtx.drawImage(dilMaskCv, 0, 0, S, S);
+
+      // 5. Paint sharp person over blurred background
+      finalCtx.drawImage(personCv, 0, 0, S, S);
     } else {
       // Fallback: rectangular zone sharp, rest blurred
+      const out = new Uint8ClampedArray(S * S * 4);
       const LF0 = S * 0.15, LF1 = S * 0.22;
       const RF0 = S * 0.78, RF1 = S * 0.85;
       const TF0 = S * 0.08, TF1 = S * 0.15;
@@ -6182,12 +6234,10 @@
           out[i+3] = 255;
         }
       }
+      finalCtx.putImageData(new ImageData(out, S, S), 0, 0);
     }
 
-    const finalCv = document.createElement('canvas');
-    finalCv.width = S; finalCv.height = S;
-    finalCv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-    return finalCv.toDataURL('image/png');
+    return finalCv.toDataURL('image/jpeg', 0.93);
   }
 
   /** Detect if the prompt is a "blur background" request (no AI API call needed). */
