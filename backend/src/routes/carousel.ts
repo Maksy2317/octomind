@@ -271,39 +271,45 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     const styleHint = prompt?.trim() || 'cinematic colour grading and dramatic lighting';
 
     // ── Detect "remove background people" intent (UA / RU / EN) ────────────────
-    // For this task the mask is counter-productive: giving the AI a large
-    // transparent background zone lets it redesign the whole scene (change the
-    // field, add new people, etc.).  Instead we skip the mask and give the model
-    // a very precise English prompt so it changes ONLY the secondary people.
     const isRemovePeople = /прибер|видал|удал|прибрати.*люд|людей.*фон|фон.*люд|заберіть|remove\s+(back|bg|people)|people.*back/i.test(styleHint);
 
-    let effectiveMask = maskFile;
+    // ── Choose prompt based on context ──────────────────────────────────────────
+    // KEY RULE: the person mask (opaque = protected, transparent = editable)
+    // is always kept when provided. The mask is what guarantees the player's
+    // face, body, logos are preserved pixel-perfect — the model CANNOT touch
+    // the opaque zone. The AI result is then used directly (no client compositing)
+    // so the player is already aligned with the background in the output.
     let enhancePrompt: string;
 
-    if (isRemovePeople) {
-      // Drop the mask — the model needs to see the FULL scene to distinguish
-      // foreground subject from background figures.
-      effectiveMask = undefined;
+    if (isRemovePeople && maskFile) {
+      // Mask protects the main subject; AI only fills the transparent background.
+      // Give it a crystal-clear English task so it fills correctly.
       enhancePrompt =
-        `You are editing a sports or portrait photo. ` +
-        `MAIN TASK: Remove ONLY the secondary/background people from the scene. ` +
-        `STRICTLY PRESERVE (do NOT change): ` +
-        `the main foreground athlete/person (exact face, body, clothing, position), ` +
-        `the entire playing field / grass surface (same color, same markings, same wear), ` +
-        `every fence, wall, building, vehicle, and all environmental elements — ` +
-        `they must look IDENTICAL to the original. ` +
-        `WHERE background people stood: fill seamlessly with whatever surface was behind them ` +
-        `(grass → grass, concrete → concrete, stands → stands). ` +
-        `Do NOT add new objects. Do NOT change colors or lighting. Do NOT add text. ` +
-        `ONLY erase the secondary background humans and fill their spots with the matching environment.`;
-    } else if (effectiveMask) {
-      // With mask: AI edits only the transparent background zone
+        `Background people removal. ` +
+        `The opaque (white) mask covers the main foreground subject — it is LOCKED, do not alter it at all. ` +
+        `In the transparent background region: ` +
+        `1. Identify and erase any secondary people, spectators, or bystanders. ` +
+        `2. Fill their spots seamlessly using the surrounding surface: ` +
+        `   grass → extend the same grass texture; fence → extend fence; concrete → extend concrete. ` +
+        `3. ALL other background elements must stay IDENTICAL to the original: ` +
+        `   same grass color and field markings, same fences, same vehicles, same lighting and shadows. ` +
+        `4. Do NOT add new objects, people, or patterns. ` +
+        `5. Do NOT change colors, lighting, or perspective of anything.`;
+    } else if (isRemovePeople && !maskFile) {
+      // Fallback when no mask: explicit text rules to protect player
+      enhancePrompt =
+        `TASK: Remove ONLY secondary background people. ` +
+        `LOCK — do NOT change: the main foreground athlete (face, body, clothing, logos, exact position), ` +
+        `the entire field/grass (same color/markings), all fences, vehicles, buildings. ` +
+        `Fill removed-people spots with matching background surface only. No new objects. No color changes.`;
+    } else if (maskFile) {
+      // Generic edit with mask: AI edits only transparent zone
       enhancePrompt =
         `Apply ONLY to the transparent/unmasked background area: ${styleHint}. ` +
-        `The masked (opaque) region is the main person — leave it 100% unchanged. ` +
-        `Do not add text, logos or watermarks. Keep the overall scene realistic.`;
+        `The masked (opaque) region is the main person — leave it 100% pixel-identical to the original. ` +
+        `Do not add text, logos, or watermarks. Keep the overall scene realistic.`;
     } else {
-      // No mask, generic edit
+      // No mask, no special intent: generic full-image edit
       enhancePrompt =
         `RULE #1 — PEOPLE: Every person, face, body, skin, clothing, hair must remain 100% unchanged. ` +
         `RULE #2 — BACKGROUND ONLY: Apply "${styleHint}" only to background and non-human elements. ` +
@@ -313,7 +319,7 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     const response = await openai.images.edit({
       model: 'gpt-image-1',
       image: imageFile,
-      ...(effectiveMask ? { mask: effectiveMask } : {}),
+      ...(maskFile ? { mask: maskFile } : {}),
       prompt: enhancePrompt,
       n: 1,
       size: '1024x1024',

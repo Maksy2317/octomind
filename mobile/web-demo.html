@@ -6283,14 +6283,14 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-          const removePeople = _isRemovePeoplePrompt(prompt);
 
           // ── Build request body ────────────────────────────────────────────
-          // For remove-people: backend ignores mask anyway (smart routing),
-          // so we skip building it — saves time.
-          // For other tasks: send person mask so AI knows what to protect.
+          // ALWAYS send the person mask when we have one.
+          // The mask (opaque = player LOCKED, transparent = background editable)
+          // is what prevents gpt-image-1 from touching the player's face/logos.
+          // Backend uses it + a task-specific English prompt.
           const reqBody = { image: photoAiOrig1024, prompt };
-          if (segMask && !removePeople) {
+          if (segMask) {
             reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
           }
 
@@ -6307,21 +6307,21 @@
           bar.style.width = '95%';
           const aiResult = `data:image/png;base64,${data.b64}`;
 
-          if (removePeople) {
-            // ── Remove-people: use AI result DIRECTLY — no compositing ──────
-            // gpt-image-1 subtly shifts/rescales the scene during processing.
-            // If we composite the original player (old pixel coordinates) onto
-            // the AI's slightly-different background, the player looks misaligned.
-            // Using the AI result directly keeps player + background perfectly
-            // aligned because it's one internally-consistent image.
-            // The AI was instructed "STRICTLY PRESERVE main foreground athlete"
-            // so the player appearance is well-preserved by the model itself.
+          if (segMask) {
+            // ── WITH MASK: use AI result DIRECTLY — no compositing ───────────
+            // When mask is sent, gpt-image-1 keeps the opaque (player) region
+            // pixel-identical to the original. The player in the AI result is
+            // already at the correct position and aligned with the background.
+            // Compositing on top of the AI output would cause a position shift
+            // because the AI may slightly rescale the scene.
             txt.textContent = 'Готово!';
             photoAiResultDataUrl = aiResult;
           } else {
-            // ── All other tasks: composite original player for pixel-perfection
+            // ── NO MASK fallback: composite original player ──────────────────
+            // No segmentation → no mask → AI might modify the player.
+            // Stamp original player using rectangular zone as best-effort fix.
             txt.textContent = 'Накладаю оригінал…';
-            photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+            photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, null);
           }
           bar.style.width = '100%';
         } finally {
