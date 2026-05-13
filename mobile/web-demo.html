@@ -5992,12 +5992,15 @@
       cv.width = S; cv.height = S;
 
       if (segMask) {
-        // ── Pixel-perfect mask from segmentation ────────────────────────────
+        // ── Pixel-perfect mask from segmentation (remove.bg alpha) ──────────
+        // opaque (alpha=255) = person → protected, AI won't touch
+        // transparent (alpha=0) = background → editable
+        // Use raw remove.bg alpha directly — it already has perfect anti-aliased
+        // edges. Lowered threshold (0.05) captures even fine hair strands.
         const d = new Uint8ClampedArray(S * S * 4);
         for (let i = 0; i < S * S; i++) {
           const idx = i * 4;
-          // Expand person zone a bit (erode bg by a couple of pixels) using smoothstep
-          const p = _smoothstep((segMask[i] - 0.35) / 0.30); // sharpen at 0.35–0.65
+          const p = _smoothstep((segMask[i] - 0.05) / 0.20); // low threshold → protect more
           d[idx]   = 0;
           d[idx+1] = 0;
           d[idx+2] = 0;
@@ -6268,13 +6271,21 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-          // ↓ NO mask — AI edits the full image coherently.
-          //   Gray sides disappear because AI generates one consistent background.
-          //   Player is restored pixel-by-pixel in the composite step below.
+
+          // ── Build request: with mask when we have segmentation ────────────
+          // Mask tells gpt-image-1 exactly where the person is:
+          //   opaque (alpha=255) = person → PROTECTED, AI won't touch
+          //   transparent (alpha=0) = background → EDITABLE, AI changes here
+          // This prevents AI from generating new people / ghost artifacts.
+          const reqBody = { image: photoAiOrig1024, prompt };
+          if (segMask) {
+            reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
+          }
+
           const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: photoAiOrig1024, prompt }),
+            body: JSON.stringify(reqBody),
           });
           clearInterval(tick); tick = null;
           if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
@@ -6284,9 +6295,7 @@
           txt.textContent = 'Накладаю оригінал…';
           bar.style.width = '95%';
 
-          // ── KEY: paste original person pixels onto the full AI result ──
-          // segMask (if available) = pixel-accurate person outline from MediaPipe
-          // fallback = rectangular center zone (still much better than before)
+          // Composite original person on top for pixel-perfect edges
           const aiResult = `data:image/png;base64,${data.b64}`;
           photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
           bar.style.width = '100%';
