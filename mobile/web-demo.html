@@ -6064,24 +6064,28 @@
       // ── STEP 1: Draw AI result as base (new background) ─────────────────
       ctx.drawImage(aiImg, 0, 0, S, S);
 
-      // ── STEP 2: Stamp original person pixels using remove.bg alpha ──────
-      // We draw origImg, then apply segMask directly as alpha channel.
-      // remove.bg already anti-aliases edges — no blur/dilation needed.
+      // ── STEP 2: Stamp original person using steeper alpha curve ────────
+      // Using raw segMask[i] * 255 can create "doubling" because semi-transparent
+      // edge pixels show both the original player AND whatever the AI drew there.
+      // We compress the transition to the 0.10–0.55 range:
+      //   segMask < 0.10  → alpha = 0   (fully AI background, no ghost)
+      //   segMask > 0.55  → alpha = 255 (fully original player, guaranteed)
+      //   0.10–0.55       → smooth ramp  (thin natural anti-alias edge)
       const personCv = document.createElement('canvas');
       personCv.width = S; personCv.height = S;
       const pCtx = personCv.getContext('2d');
       pCtx.drawImage(origImg, 0, 0, S, S);
-
-      // Write segMask values directly into alpha channel
       const personData = pCtx.getImageData(0, 0, S, S);
       const d = personData.data;
       for (let i = 0; i < S * S; i++) {
-        d[i * 4 + 3] = Math.round(segMask[i] * 255);
+        const a = segMask[i];
+        d[i * 4 + 3] = a < 0.10 ? 0
+                      : a > 0.55 ? 255
+                      : Math.round(((a - 0.10) / 0.45) * 255);
       }
       pCtx.putImageData(personData, 0, 0);
 
       // ── STEP 3: Composite person over AI background ──────────────────────
-      // source-over: where personCv is opaque → covers AI; where transparent → AI shows
       ctx.drawImage(personCv, 0, 0, S, S);
 
     } else {
@@ -6247,37 +6251,46 @@
     });
     if (!img || !segMask) return orig1024DataUrl;
 
-    // Original pixels
-    const origCv = document.createElement('canvas');
-    origCv.width = S; origCv.height = S;
-    origCv.getContext('2d').drawImage(img, 0, 0, S, S);
-    const origPx = origCv.getContext('2d').getImageData(0, 0, S, S).data;
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0, S, S);
+    const origPx = ctx.getImageData(0, 0, S, S).data;
 
-    // Heavily blurred pixels — when the player zone is blurred the AI sees
-    // approximate background colours (green grass) instead of the player.
-    const blurCv = document.createElement('canvas');
-    blurCv.width = S; blurCv.height = S;
-    const blurCtx = blurCv.getContext('2d');
-    blurCtx.filter = 'blur(40px)';
-    blurCtx.drawImage(img, 0, 0, S, S);
-    blurCtx.filter = 'none';
-    const blurPx = blurCtx.getImageData(0, 0, S, S).data;
+    // ── Compute average background colour (sampled from non-player pixels) ───
+    // This is the fill colour we paint over the player zone.
+    // A uniform flat colour looks nothing like a person to gpt-image-1 and
+    // the model fills it seamlessly with matching texture (grass, field, etc.)
+    let rS=0, gS=0, bS=0, n=0;
+    for (let i = 0; i < S * S; i += 6) {
+      if (segMask[i] < 0.05) { rS += origPx[i*4]; gS += origPx[i*4+1]; bS += origPx[i*4+2]; n++; }
+    }
+    const fillR = n ? Math.round(rS/n) : 80;
+    const fillG = n ? Math.round(gS/n) : 130;
+    const fillB = n ? Math.round(bS/n) : 60;
 
-    // Merge: player zone → blurred (hidden), background → original
+    // ── Paint player zone with the flat background colour ────────────────────
     const out = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
       const idx = i * 4;
       const m = segMask[i]; // 1 = player, 0 = background
-      out[idx]   = Math.round(origPx[idx]   * (1 - m) + blurPx[idx]   * m);
-      out[idx+1] = Math.round(origPx[idx+1] * (1 - m) + blurPx[idx+1] * m);
-      out[idx+2] = Math.round(origPx[idx+2] * (1 - m) + blurPx[idx+2] * m);
+      out[idx]   = Math.round(origPx[idx]   * (1 - m) + fillR * m);
+      out[idx+1] = Math.round(origPx[idx+1] * (1 - m) + fillG * m);
+      out[idx+2] = Math.round(origPx[idx+2] * (1 - m) + fillB * m);
       out[idx+3] = 255;
     }
 
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    cv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-    return cv.toDataURL('image/jpeg', 0.93);
+    const filled = document.createElement('canvas');
+    filled.width = S; filled.height = S;
+    filled.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
+
+    // ── Small blur (5 px) only to smooth the hard boundary of the fill ───────
+    const smooth = document.createElement('canvas');
+    smooth.width = S; smooth.height = S;
+    const sCtx = smooth.getContext('2d');
+    sCtx.filter = 'blur(5px)';
+    sCtx.drawImage(filled, 0, 0);
+    return smooth.toDataURL('image/jpeg', 0.93);
   }
 
   // Store the 1024×1024 crop so we can composite without re-loading
