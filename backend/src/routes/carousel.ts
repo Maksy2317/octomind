@@ -127,6 +127,45 @@ carouselRouter.post('/dalle', async (req: Request, res: Response, next: NextFunc
   }
 });
 
+// ── POST /api/carousel/segmask ───────────────────────────────────────────────
+// Calls remove.bg to get a pixel-perfect person mask.
+// Returns base64 PNG where alpha=255 is person, alpha=0 is background.
+carouselRouter.post('/segmask', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image } = req.body as { image: string };
+    if (!image) { res.status(400).json({ error: 'image required' }); return; }
+
+    const apiKey = process.env.REMOVEBG_API_KEY;
+    if (!apiKey) { res.status(503).json({ error: 'REMOVEBG_API_KEY not configured' }); return; }
+
+    const base64 = image.replace(/^data:image\/[^;]+;base64,/, '');
+
+    const params = new URLSearchParams();
+    params.append('image_file_b64', base64);
+    params.append('size', 'auto');
+    params.append('type', 'auto');
+
+    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(`Remove.bg ${response.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const buf = Buffer.from(await response.arrayBuffer());
+    res.json({ maskB64: `data:image/png;base64,${buf.toString('base64')}` });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── POST /api/carousel/analyze-photos ───────────────────────────────────────
 // GPT-4 Vision analyzes ALL uploaded photos together and returns:
 //   - a unified theme description

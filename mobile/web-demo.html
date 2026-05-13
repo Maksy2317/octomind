@@ -5885,11 +5885,29 @@
   }
 
   /**
-   * Run BodyPix person segmentation on a 1024×1024 data URL.
-   * Returns Float32Array[1024*1024] with person probability 0..1 per pixel,
-   * or null on failure / model unavailable.
+   * Run person segmentation on a 1024×1024 data URL.
+   * Priority: remove.bg API (server) → BodyPix (client) → null (rectangular fallback).
+   * Returns Float32Array[1024*1024] with person probability 0..1 per pixel.
    */
   async function photoAiRunSeg(imageDataUrl) {
+    // ── 1st: remove.bg API — professional quality, ~1-2 sec ─────────────────
+    try {
+      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+      const resp = await fetch(`${BACKEND}/api/carousel/segmask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageDataUrl }),
+      });
+      if (resp.ok) {
+        const { maskB64 } = await resp.json();
+        if (maskB64) {
+          const mask = await _extractAlphaMask(maskB64);
+          if (mask) return mask;
+        }
+      }
+    } catch (_) { /* fall through */ }
+
+    // ── 2nd: BodyPix (client-side, no API key needed) ────────────────────────
     const net = await photoAiGetSeg();
     if (!net) return null;
 
@@ -5904,25 +5922,51 @@
     try {
       const seg = await net.segmentPerson(img, {
         flipHorizontal: false,
-        internalResolution: 'medium', // 512px processing → 1024 mask
+        internalResolution: 'medium',
         segmentationThreshold: 0.65,
       });
-
-      // seg.data: Uint8Array[width*height], 1=person 0=background
       const S = 1024;
       const mask = new Float32Array(S * S);
       let personCount = 0;
-
       for (let i = 0; i < S * S; i++) {
-        mask[i] = seg.data[i] || 0; // 0 or 1
+        mask[i] = seg.data[i] || 0;
         if (mask[i] > 0.5) personCount++;
       }
-
-      // Sanity: if <3% or >97% person pixels → segmentation failed
       const frac = personCount / (S * S);
       if (frac < 0.03 || frac > 0.97) return null;
       return mask;
     } catch (e) { return null; }
+  }
+
+  /**
+   * Extract person mask from a remove.bg result PNG.
+   * remove.bg returns PNG with alpha=255 where person is, alpha=0 where background.
+   * We read the alpha channel → Float32Array[1024*1024] mask.
+   */
+  async function _extractAlphaMask(maskDataUrl) {
+    const S = 1024;
+    const img = await new Promise(resolve => {
+      const i = new Image();
+      i.onload  = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = maskDataUrl;
+    });
+    if (!img) return null;
+
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    cv.getContext('2d').drawImage(img, 0, 0, S, S);
+    const d = cv.getContext('2d').getImageData(0, 0, S, S).data;
+
+    const mask = new Float32Array(S * S);
+    let personCount = 0;
+    for (let i = 0; i < S * S; i++) {
+      mask[i] = d[i * 4 + 3] / 255; // alpha channel: 1=person, 0=background
+      if (mask[i] > 0.5) personCount++;
+    }
+    const frac = personCount / (S * S);
+    if (frac < 0.03 || frac > 0.97) return null;
+    return mask;
   }
 
   /**
