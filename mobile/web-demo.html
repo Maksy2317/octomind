@@ -6037,10 +6037,11 @@
   /**
    * Pixel-level composite: merge AI result (background) + original (person).
    *
-   * Uses canvas destination-in compositing + 20px mask dilation to:
-   *  - Completely erase any AI-generated ghost of the person
-   *  - Keep clean person edges from remove.bg alpha
-   *  - Silently fall back to rectangular zone if no segMask
+   * Strategy: use remove.bg alpha directly as compositing mask.
+   *  - Remove.bg already provides pixel-perfect, naturally anti-aliased edges
+   *  - No dilation needed (dilation causes blurry halos)
+   *  - In the person zone: original pixels fully cover any AI ghost
+   *  - At hair/edge zone: remove.bg smooth alpha provides natural transition
    */
   async function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
     const S = 1024;
@@ -6057,44 +6058,27 @@
     const ctx = finalCv.getContext('2d');
 
     if (segMask) {
-      // ── STEP 1: Draw AI result as base layer ────────────────────────────
+      // ── STEP 1: Draw AI result as base (new background) ─────────────────
       ctx.drawImage(aiImg, 0, 0, S, S);
 
-      // ── STEP 2: Build person-mask canvas (alpha = person probability) ───
-      // Using ALPHA (not RGB) so canvas blur correctly spreads the mask.
-      const rawMaskCv = document.createElement('canvas');
-      rawMaskCv.width = S; rawMaskCv.height = S;
-      const rawCtx = rawMaskCv.getContext('2d');
-      const md = rawCtx.createImageData(S, S);
-      for (let i = 0; i < S * S; i++) {
-        md.data[i * 4]     = 255; // white (colour doesn't matter for destination-in)
-        md.data[i * 4 + 1] = 255;
-        md.data[i * 4 + 2] = 255;
-        md.data[i * 4 + 3] = Math.round(segMask[i] * 255); // alpha = person mask
-      }
-      rawCtx.putImageData(md, 0, 0);
-
-      // ── STEP 3: Blur the mask → dilates person region ~20 px ────────────
-      // This expansion covers any AI-generated ghost at person edges.
-      const dilMaskCv = document.createElement('canvas');
-      dilMaskCv.width = S; dilMaskCv.height = S;
-      const dilCtx = dilMaskCv.getContext('2d');
-      dilCtx.filter = 'blur(20px)';
-      dilCtx.drawImage(rawMaskCv, 0, 0);
-      dilCtx.filter = 'none';
-
-      // ── STEP 4: Cut person out of original using the dilated mask ───────
-      // destination-in: result_alpha = src_alpha × dst_alpha
-      //   → where mask=0 (background): person pixel disappears (transparent)
-      //   → where mask=255 (person): person pixel kept opaque
+      // ── STEP 2: Stamp original person pixels using remove.bg alpha ──────
+      // We draw origImg, then apply segMask directly as alpha channel.
+      // remove.bg already anti-aliases edges — no blur/dilation needed.
       const personCv = document.createElement('canvas');
       personCv.width = S; personCv.height = S;
       const pCtx = personCv.getContext('2d');
       pCtx.drawImage(origImg, 0, 0, S, S);
-      pCtx.globalCompositeOperation = 'destination-in';
-      pCtx.drawImage(dilMaskCv, 0, 0, S, S);
 
-      // ── STEP 5: Composite person over AI background ──────────────────────
+      // Write segMask values directly into alpha channel
+      const personData = pCtx.getImageData(0, 0, S, S);
+      const d = personData.data;
+      for (let i = 0; i < S * S; i++) {
+        d[i * 4 + 3] = Math.round(segMask[i] * 255);
+      }
+      pCtx.putImageData(personData, 0, 0);
+
+      // ── STEP 3: Composite person over AI background ──────────────────────
+      // source-over: where personCv is opaque → covers AI; where transparent → AI shows
       ctx.drawImage(personCv, 0, 0, S, S);
 
     } else {
@@ -6181,36 +6165,21 @@
       // 1. Draw blurred image as base
       finalCtx.putImageData(new ImageData(blurPx2, S, S), 0, 0);
 
-      // 2. Build person mask (alpha = person probability)
-      const rawMaskCv = document.createElement('canvas');
-      rawMaskCv.width = S; rawMaskCv.height = S;
-      const rawCtx = rawMaskCv.getContext('2d');
-      const md = rawCtx.createImageData(S, S);
-      for (let i = 0; i < S * S; i++) {
-        md.data[i * 4]     = 255;
-        md.data[i * 4 + 1] = 255;
-        md.data[i * 4 + 2] = 255;
-        md.data[i * 4 + 3] = Math.round(segMask[i] * 255);
-      }
-      rawCtx.putImageData(md, 0, 0);
-
-      // 3. Dilate mask 12px for smooth person→blur transition
-      const dilMaskCv = document.createElement('canvas');
-      dilMaskCv.width = S; dilMaskCv.height = S;
-      const dilCtx = dilMaskCv.getContext('2d');
-      dilCtx.filter = 'blur(12px)';
-      dilCtx.drawImage(rawMaskCv, 0, 0);
-      dilCtx.filter = 'none';
-
-      // 4. Cut sharp person from original
+      // 2. Stamp sharp person using remove.bg alpha directly (no dilation)
       const personCv = document.createElement('canvas');
       personCv.width = S; personCv.height = S;
       const pCtx = personCv.getContext('2d');
       pCtx.putImageData(new ImageData(origPx, S, S), 0, 0);
-      pCtx.globalCompositeOperation = 'destination-in';
-      pCtx.drawImage(dilMaskCv, 0, 0, S, S);
 
-      // 5. Paint sharp person over blurred background
+      // Write segMask directly into alpha channel
+      const personData = pCtx.getImageData(0, 0, S, S);
+      const d = personData.data;
+      for (let i = 0; i < S * S; i++) {
+        d[i * 4 + 3] = Math.round(segMask[i] * 255);
+      }
+      pCtx.putImageData(personData, 0, 0);
+
+      // 3. Paint sharp person over blurred background
       finalCtx.drawImage(personCv, 0, 0, S, S);
     } else {
       // Fallback: rectangular zone sharp, rest blurred
