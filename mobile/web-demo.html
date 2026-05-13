@@ -13,8 +13,9 @@
   <!-- Ubuntu font for overlay preview (bold weight only) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
-  <!-- MediaPipe Selfie Segmentation — pixel-perfect person/background separation -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js" crossorigin="anonymous"></script>
+  <!-- TensorFlow.js + BodyPix — pixel-perfect person segmentation -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0/dist/body-pix.min.js" crossorigin="anonymous"></script>
   <!-- Theme restore BEFORE paint -->
   <script>
     try {
@@ -5808,8 +5809,8 @@
     document.getElementById('photoTabFilters').className  = 'vstep' + (tab === 'filters'  ? ' active' : '');
     document.getElementById('photoTabAi').className       = 'vstep' + (tab === 'ai'       ? ' active' : '');
     if (tab === 'carousel') carInit();
-    // Pre-warm MediaPipe when user opens AI Editor so WASM loads in background
-    if (tab === 'ai') setTimeout(() => photoAiGetSeg(), 300);
+    // Pre-load BodyPix model when user opens AI Editor tab (runs in background)
+    if (tab === 'ai') setTimeout(() => photoAiGetSeg(), 500);
   }
 
   // =============================================
@@ -5860,93 +5861,68 @@
     });
   }
 
-  // ── MediaPipe Selfie Segmentation ─────────────────────────────────────────
-  // Gives a true pixel-perfect person/background mask.
-  // White (1.0) = person, Black (0.0) = background.
-  let _mpSeg = null;
-  let _mpSegPromise = null; // singleton: prevents double-init if called twice before ready
+  // ── TensorFlow.js BodyPix — pixel-perfect person segmentation ────────────
+  // BodyPix is battle-tested, fully browser-native, no WASM warm-up issues.
+  // MobileNetV1-0.75: ~1MB model, ~4MB TF.js runtime, runs on WebGL.
+  let _bpNetPromise = null;
 
   /**
-   * Returns the MediaPipe SelfieSegmentation instance (initialised lazily).
-   * Singleton promise — safe to call multiple times simultaneously.
-   * Resolves with the instance or null on failure.
+   * Lazily load the BodyPix model. Singleton promise — safe to call many times.
+   * Resolves with the net or null on failure.
    */
   function photoAiGetSeg() {
-    if (_mpSegPromise) return _mpSegPromise;
-    if (!window.SelfieSegmentation) return Promise.resolve(null);
+    if (_bpNetPromise) return _bpNetPromise;
+    if (!window.bodyPix) return Promise.resolve(null);
 
-    _mpSegPromise = new Promise(resolve => {
-      try {
-        const seg = new SelfieSegmentation({
-          locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/${f}`
-        });
-        seg.setOptions({ modelSelection: 1 }); // 1 = landscape model (best quality)
-        // Warm-up: send a tiny 4×4 image so the WASM loads now, not on first real call
-        const warmCv = document.createElement('canvas');
-        warmCv.width = 4; warmCv.height = 4;
-        warmCv.getContext('2d').fillRect(0, 0, 4, 4);
-        const warmImg = new Image();
-        warmImg.onload = () => {
-          seg.onResults(() => {}); // suppress warm-up result
-          seg.send({ image: warmImg }).then(() => {
-            _mpSeg = seg;
-            resolve(_mpSeg);
-          }).catch(() => {
-            _mpSegPromise = null; // allow retry on next call
-            resolve(null);
-          });
-        };
-        warmImg.onerror = () => { _mpSegPromise = null; resolve(null); };
-        warmImg.src = warmCv.toDataURL();
-      } catch (e) {
-        _mpSegPromise = null;
-        resolve(null);
-      }
-    });
+    _bpNetPromise = window.bodyPix.load({
+      architecture: 'MobileNetV1',
+      outputStride: 16,
+      multiplier: 0.75,
+      quantBytes: 2,
+    }).catch(() => { _bpNetPromise = null; return null; });
 
-    return _mpSegPromise;
+    return _bpNetPromise;
   }
 
   /**
-   * Run MediaPipe segmentation on a 1024×1024 data URL.
+   * Run BodyPix person segmentation on a 1024×1024 data URL.
    * Returns Float32Array[1024*1024] with person probability 0..1 per pixel,
-   * or null if MediaPipe is unavailable.
+   * or null on failure / model unavailable.
    */
   async function photoAiRunSeg(imageDataUrl) {
-    const seg = await photoAiGetSeg();
-    if (!seg) return null;
+    const net = await photoAiGetSeg();
+    if (!net) return null;
 
     const img = await new Promise(resolve => {
       const i = new Image();
-      i.onload = () => resolve(i);
+      i.onload  = () => resolve(i);
       i.onerror = () => resolve(null);
       i.src = imageDataUrl;
     });
     if (!img) return null;
 
-    return new Promise(resolve => {
-      seg.onResults(results => {
-        try {
-          const S = 1024;
-          const mc = document.createElement('canvas');
-          mc.width = S; mc.height = S;
-          mc.getContext('2d').drawImage(results.segmentationMask, 0, 0, S, S);
-          const d = mc.getContext('2d').getImageData(0, 0, S, S).data;
-          // Red channel = person probability (255=person, 0=background)
-          const mask = new Float32Array(S * S);
-          let personCount = 0;
-          for (let i = 0; i < S * S; i++) {
-            mask[i] = d[i * 4] / 255;
-            if (mask[i] > 0.5) personCount++;
-          }
-          // Sanity check: if <3% or >97% of pixels are "person", segmentation failed
-          const frac = personCount / (S * S);
-          if (frac < 0.03 || frac > 0.97) { resolve(null); return; }
-          resolve(mask);
-        } catch (e) { resolve(null); }
+    try {
+      const seg = await net.segmentPerson(img, {
+        flipHorizontal: false,
+        internalResolution: 'medium', // 512px processing → 1024 mask
+        segmentationThreshold: 0.65,
       });
-      seg.send({ image: img }).catch(() => resolve(null));
-    });
+
+      // seg.data: Uint8Array[width*height], 1=person 0=background
+      const S = 1024;
+      const mask = new Float32Array(S * S);
+      let personCount = 0;
+
+      for (let i = 0; i < S * S; i++) {
+        mask[i] = seg.data[i] || 0; // 0 or 1
+        if (mask[i] > 0.5) personCount++;
+      }
+
+      // Sanity: if <3% or >97% person pixels → segmentation failed
+      const frac = personCount / (S * S);
+      if (frac < 0.03 || frac > 0.97) return null;
+      return mask;
+    } catch (e) { return null; }
   }
 
   /**
