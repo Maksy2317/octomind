@@ -304,18 +304,26 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `5. Do NOT change colors, lighting, perspective, or composition of anything. ` +
         `The ONLY pixels that should differ from the original are the small spots where background people stood.`;
     } else if (isRemovePeople && !maskFile) {
-      // "Hide-player" path: the frontend already blurred out the main player,
-      // so the image only contains the field + background people.
-      // Task: remove ALL visible people and fill their spots with matching surface.
+      // "Hide-player" path: the frontend filled the main player zone with a flat
+      // color blob, so the AI only sees background people.
+      // Task 1: fill the flat-color blob with matching field texture.
+      // Task 2: remove ALL remaining background people.
       enhancePrompt =
-        `Remove ALL people visible in this image completely. ` +
-        `For each removed person fill the area seamlessly with the matching surface beneath them: ` +
-        `grass → continue the same grass texture and color; ` +
-        `concrete/sand → same concrete; fence → same fence. ` +
-        `CRITICAL: keep everything else ABSOLUTELY IDENTICAL — ` +
-        `same grass shade and field markings, same fences, same parked cars, ` +
-        `same buildings, same lighting, same shadows, same perspective. ` +
-        `Zero changes to anything except the removed people.`;
+        `This image contains: (A) a flat-colored blob where the main subject was hidden, ` +
+        `and (B) background people (spectators, bystanders) on a sports field. ` +
+        `Your two tasks: ` +
+        `1. Fill the flat blob (A) seamlessly with the same grass/field texture from the surrounding area — ` +
+        `   copy the exact color, shade, and grain of the adjacent grass. ` +
+        `2. Remove ALL visible background people (B) completely — ` +
+        `   fill each removed person's spot with the matching surface beneath them ` +
+        `   (grass → same green grass; concrete → same concrete). ` +
+        `ABSOLUTE RULES — do NOT violate these under any circumstances: ` +
+        `• Fences, nets, goal posts, poles, corner flags, barriers: ` +
+        `  NEVER remove or alter them. They must remain exactly as in the original. ` +
+        `• Field lines, circles, penalty areas: keep 100% intact. ` +
+        `• Grass color, shade, texture: match the existing field — do NOT regenerate or lighten. ` +
+        `• Trees, buildings, vehicles, sky, stands: leave completely unchanged. ` +
+        `• Do NOT add new objects, patterns, or change colors/lighting/perspective.`;
     } else if (maskFile) {
       // Generic edit with mask: AI edits only transparent zone
       enhancePrompt =

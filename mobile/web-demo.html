@@ -6390,15 +6390,22 @@
           // ── Build request body ────────────────────────────────────────────
           const reqBody = { image: photoAiOrig1024, prompt };
 
-          if (segMask) {
-            // ── MASK strategy (all tasks including remove-people) ───────────
-            // Send the person mask: player zone is OPAQUE (locked, AI can't touch),
-            // background is TRANSPARENT (editable).
-            // Benefits over hide-player approach:
-            //  • AI only fills tiny background-people spots, not the large player zone
-            //    → no texture patches or colour mismatches
-            //  • Fences, nets, grass remain from the ORIGINAL (not AI-generated)
-            //  • Background framing preserved → compositing causes no shift
+          if (removePeople && segMask) {
+            // ── HIDE-PLAYER strategy for remove-people ──────────────────────
+            // With a player mask, gpt-image-1 becomes too conservative and
+            // refuses to remove background people near the mask boundary.
+            // Solution: hide the player with a flat fill BEFORE sending to AI.
+            // The AI sees no player → freely removes ALL background people.
+            // Backend detects no mask → uses the aggressive remove-people prompt.
+            // After API call: composite original player back (with 40px dilation
+            // so the ball at player's feet also comes from the original image).
+            txt.textContent = 'Ховаю гравця…';
+            reqBody.image = await photoAiHidePlayer(photoAiOrig1024, segMask);
+            // NO mask field → backend uses the !maskFile remove-people path
+          } else if (segMask) {
+            // ── MASK strategy for all other AI tasks (color grading, etc.) ──
+            // Player zone is OPAQUE (locked), background is TRANSPARENT (editable).
+            // AI only modifies the background, player is preserved pixel-perfect.
             reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
           }
 
