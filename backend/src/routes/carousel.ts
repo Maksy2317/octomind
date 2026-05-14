@@ -483,8 +483,10 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
     const { image } = req.body as { image: string };
     if (!image) { res.status(400).json({ error: 'image required' }); return; }
 
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) { res.status(503).json({ error: 'OPENAI_API_KEY not configured' }); return; }
+    const openaiKey    = process.env.OPENAI_API_KEY;
+    const stabilityKey = process.env.STABILITY_API_KEY;
+    if (!openaiKey)    { res.status(503).json({ error: 'OPENAI_API_KEY not configured' }); return; }
+    if (!stabilityKey) { res.status(503).json({ error: 'STABILITY_API_KEY not configured' }); return; }
 
     const openai   = new OpenAI({ apiKey: openaiKey });
     const imageUrl = image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`;
@@ -543,35 +545,39 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
 
     console.log('[remove-background-people] circles:', JSON.stringify(circles));
 
-    // ── STEP 3: gpt-image-1 inpaint — fill only the transparent person circles ─
-    // RGBA mask: transparent circles = "edit these spots", rest = preserve.
-    // gpt-image-1 only modifies the transparent areas and leaves everything else
-    // pixel-identical — so the main player and fence are guaranteed untouched.
+    // ── STEP 3: Stability AI inpaint — pixel-exact fill of person circles ───────
+    // Grayscale mask: white circles = inpaint here, black = preserve exactly.
+    // Stability only modifies masked pixels → player, fence, grass untouched.
     const imgBuf  = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
-    const maskBuf = createCircleMaskRgbaPng(S, circles);
+    const maskBuf = createCircleMaskPng(S, circles);
 
-    const imageFile = await toFile(imgBuf,  'image.png', { type: 'image/png' });
-    const maskFile  = await toFile(maskBuf, 'mask.png',  { type: 'image/png' });
+    const form = new FormData();
+    form.append('image', new Blob([imgBuf],  { type: 'image/png' }), 'image.png');
+    form.append('mask',  new Blob([maskBuf], { type: 'image/png' }), 'mask.png');
+    form.append('prompt',
+      'Fill this area by seamlessly continuing the background from surrounding pixels. ' +
+      'Extend the fence, grass, or surface visible around this spot. ' +
+      'Match the exact color, texture, and lighting of adjacent areas. No people.'
+    );
+    form.append('negative_prompt', 'person, people, human, man, woman, crowd');
+    form.append('output_format', 'png');
 
-    const editRes = await openai.images.edit({
-      model: 'gpt-image-1',
-      image: imageFile,
-      mask:  maskFile,
-      prompt:
-        'The transparent circular areas contain background spectators or bystanders. ' +
-        'Remove them completely. ' +
-        'Fill each transparent spot by seamlessly extending the fence, grass, or other ' +
-        'background surface visible in the pixels immediately surrounding that spot. ' +
-        'Match the exact color, texture, and lighting of adjacent areas. ' +
-        'Keep everything outside the transparent spots completely unchanged — ' +
-        'do not alter the main player, fence, field markings, cars, or grass.',
-      n: 1,
-      size: '1024x1024',
-    } as Parameters<typeof openai.images.edit>[0]);
+    const stability = await fetch(
+      'https://api.stability.ai/v2beta/stable-image/edit/inpaint',
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${stabilityKey}`, 'Accept': 'image/*' },
+        body: form,
+      }
+    );
 
-    const b64 = editRes.data?.[0]?.b64_json;
-    if (!b64) throw new Error('gpt-image-1 returned no image');
-    res.json({ b64 });
+    if (!stability.ok) {
+      const errText = await stability.text().catch(() => '');
+      throw new Error(`Stability AI ${stability.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const resultBuf = Buffer.from(await stability.arrayBuffer());
+    res.json({ b64: resultBuf.toString('base64') });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
