@@ -354,69 +354,80 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
   }
 });
 
-// ── Pure-Node PNG encoder: SxS grayscale mask with filled white circles ─────
-// white (255) = inpaint area for Stability AI, black (0) = preserve
+// ── Shared pure-Node PNG helpers ─────────────────────────────────────────────
+const _pngCrcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c;
+  }
+  return t;
+})();
+const _pngCrc32 = (buf: Buffer) => {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ _pngCrcTable[(c ^ buf[i]) & 0xff];
+  return (c ^ 0xffffffff) >>> 0;
+};
+const _pngU32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n, 0); return b; };
+const _pngChunk = (type: string, data: Buffer) => {
+  const tb = Buffer.from(type, 'ascii');
+  const crc = _pngU32(_pngCrc32(Buffer.concat([tb, data])));
+  return Buffer.concat([_pngU32(data.length), tb, data, crc]);
+};
+const _pngSig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+
+// ── Grayscale circle mask (for Stability AI): white circles = inpaint ────────
 function createCircleMaskPng(
   S: number,
   circles: Array<{ cx: number; cy: number; r: number }>
 ): Buffer {
-  // pixel buffer, all black (preserve everything)
-  const pixels = Buffer.alloc(S * S, 0);
-
-  // draw filled white circles for each detected person
+  const pixels = Buffer.alloc(S * S, 0); // all black = preserve
   for (const { cx, cy, r } of circles) {
-    const x0 = Math.max(0, cx - r);
-    const x1 = Math.min(S - 1, cx + r);
-    const y0 = Math.max(0, cy - r);
-    const y1 = Math.min(S - 1, cy + r);
     const r2 = r * r;
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
+    for (let y = Math.max(0, cy - r); y <= Math.min(S - 1, cy + r); y++) {
+      for (let x = Math.max(0, cx - r); x <= Math.min(S - 1, cx + r); x++) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 <= r2) pixels[y * S + x] = 255;
+      }
+    }
+  }
+  const raw = Buffer.alloc(S * (S + 1));
+  for (let y = 0; y < S; y++) {
+    raw[y * (S + 1)] = 0;
+    pixels.copy(raw, y * (S + 1) + 1, y * S, (y + 1) * S);
+  }
+  const ihdr = _pngChunk('IHDR', Buffer.concat([_pngU32(S), _pngU32(S), Buffer.from([8, 0, 0, 0, 0])]));
+  const idat = _pngChunk('IDAT', deflateSync(raw));
+  return Buffer.concat([_pngSig, ihdr, idat, _pngChunk('IEND', Buffer.alloc(0))]);
+}
+
+// ── RGBA circle mask (for gpt-image-1): transparent circles = edit area ──────
+// Opaque white (alpha=255) everywhere except inside circles (alpha=0).
+// OpenAI images.edit convention: transparent = let AI fill, opaque = preserve.
+function createCircleMaskRgbaPng(
+  S: number,
+  circles: Array<{ cx: number; cy: number; r: number }>
+): Buffer {
+  const pixels = Buffer.alloc(S * S * 4, 0xff); // all RGBA = [255,255,255,255] = opaque white = preserve
+  for (const { cx, cy, r } of circles) {
+    const r2 = r * r;
+    for (let y = Math.max(0, cy - r); y <= Math.min(S - 1, cy + r); y++) {
+      for (let x = Math.max(0, cx - r); x <= Math.min(S - 1, cx + r); x++) {
         if ((x - cx) ** 2 + (y - cy) ** 2 <= r2) {
-          pixels[y * S + x] = 255;
+          pixels[(y * S + x) * 4 + 3] = 0; // alpha = 0 = transparent = edit this spot
         }
       }
     }
   }
-
-  // Build PNG scanline data: 1 filter byte (0=None) + S pixel bytes per row
-  const raw = Buffer.alloc(S * (S + 1));
+  const rowBytes = S * 4;
+  const raw = Buffer.alloc(S * (rowBytes + 1));
   for (let y = 0; y < S; y++) {
-    raw[y * (S + 1)] = 0; // filter type None
-    pixels.copy(raw, y * (S + 1) + 1, y * S, (y + 1) * S);
+    raw[y * (rowBytes + 1)] = 0;
+    pixels.copy(raw, y * (rowBytes + 1) + 1, y * rowBytes, (y + 1) * rowBytes);
   }
-
-  const compressed = deflateSync(raw);
-
-  // CRC-32
-  const crcTable = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-    crcTable[i] = c;
-  }
-  const crc32 = (buf: Buffer) => {
-    let c = 0xffffffff;
-    for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ crcTable[(c ^ buf[i]) & 0xff];
-    return (c ^ 0xffffffff) >>> 0;
-  };
-
-  const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n, 0); return b; };
-  const chunk = (type: string, data: Buffer) => {
-    const tb = Buffer.from(type, 'ascii');
-    const crc = u32(crc32(Buffer.concat([tb, data])));
-    return Buffer.concat([u32(data.length), tb, data, crc]);
-  };
-
-  const sig  = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  const ihdr = chunk('IHDR', Buffer.concat([
-    u32(S), u32(S),
-    Buffer.from([8, 0, 0, 0, 0]), // 8-bit grayscale, deflate, adaptive, no interlace
-  ]));
-  const idat = chunk('IDAT', compressed);
-  const iend = chunk('IEND', Buffer.alloc(0));
-
-  return Buffer.concat([sig, ihdr, idat, iend]);
+  const ihdr = _pngChunk('IHDR', Buffer.concat([_pngU32(S), _pngU32(S), Buffer.from([8, 6, 0, 0, 0])])); // color type 6 = RGBA
+  const idat = _pngChunk('IDAT', deflateSync(raw));
+  return Buffer.concat([_pngSig, ihdr, idat, _pngChunk('IEND', Buffer.alloc(0))]);
 }
 
 // ── Replicate helper: create prediction + poll until done ───────────────────
@@ -472,11 +483,8 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
     const { image } = req.body as { image: string };
     if (!image) { res.status(400).json({ error: 'image required' }); return; }
 
-    const openaiKey    = process.env.OPENAI_API_KEY;
-    const stabilityKey = process.env.STABILITY_API_KEY;
-
-    if (!openaiKey)    { res.status(503).json({ error: 'OPENAI_API_KEY not configured' }); return; }
-    if (!stabilityKey) { res.status(503).json({ error: 'STABILITY_API_KEY not configured' }); return; }
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) { res.status(503).json({ error: 'OPENAI_API_KEY not configured' }); return; }
 
     const openai   = new OpenAI({ apiKey: openaiKey });
     const imageUrl = image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`;
@@ -534,38 +542,36 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
     });
 
     console.log('[remove-background-people] circles:', JSON.stringify(circles));
-    const maskBuf = createCircleMaskPng(S, circles);
 
-    // ── STEP 3: Stability AI inpaint ─────────────────────────────────────────
-    const imgBuf = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
+    // ── STEP 3: gpt-image-1 inpaint — fill only the transparent person circles ─
+    // RGBA mask: transparent circles = "edit these spots", rest = preserve.
+    // gpt-image-1 only modifies the transparent areas and leaves everything else
+    // pixel-identical — so the main player and fence are guaranteed untouched.
+    const imgBuf  = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
+    const maskBuf = createCircleMaskRgbaPng(S, circles);
 
-    const form = new FormData();
-    form.append('image', new Blob([imgBuf],   { type: 'image/png' }), 'image.png');
-    form.append('mask',  new Blob([maskBuf],  { type: 'image/png' }), 'mask.png');
-    form.append('prompt',
-      'Fill this area by seamlessly continuing the background from surrounding pixels. ' +
-      'Extend the fence, grass, or surface visible around this spot. ' +
-      'Match the exact color, texture, and lighting of adjacent areas. No people.'
-    );
-    form.append('negative_prompt', 'person, people, human, man, woman, crowd');
-    form.append('output_format', 'png');
+    const imageFile = await toFile(imgBuf,  'image.png', { type: 'image/png' });
+    const maskFile  = await toFile(maskBuf, 'mask.png',  { type: 'image/png' });
 
-    const stability = await fetch(
-      'https://api.stability.ai/v2beta/stable-image/edit/inpaint',
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${stabilityKey}`, 'Accept': 'image/*' },
-        body: form,
-      }
-    );
+    const editRes = await openai.images.edit({
+      model: 'gpt-image-1',
+      image: imageFile,
+      mask:  maskFile,
+      prompt:
+        'The transparent circular areas contain background spectators or bystanders. ' +
+        'Remove them completely. ' +
+        'Fill each transparent spot by seamlessly extending the fence, grass, or other ' +
+        'background surface visible in the pixels immediately surrounding that spot. ' +
+        'Match the exact color, texture, and lighting of adjacent areas. ' +
+        'Keep everything outside the transparent spots completely unchanged — ' +
+        'do not alter the main player, fence, field markings, cars, or grass.',
+      n: 1,
+      size: '1024x1024',
+    } as Parameters<typeof openai.images.edit>[0]);
 
-    if (!stability.ok) {
-      const errText = await stability.text().catch(() => '');
-      throw new Error(`Stability AI ${stability.status}: ${errText.slice(0, 300)}`);
-    }
-
-    const resultBuf = Buffer.from(await stability.arrayBuffer());
-    res.json({ b64: resultBuf.toString('base64') });
+    const b64 = editRes.data?.[0]?.b64_json;
+    if (!b64) throw new Error('gpt-image-1 returned no image');
+    res.json({ b64 });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
