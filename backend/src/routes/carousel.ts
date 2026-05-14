@@ -645,13 +645,18 @@ carouselRouter.post('/detect-background-people', async (req: Request, res: Respo
 });
 
 // ── POST /api/carousel/inpaint ───────────────────────────────────────────────
-// Stability AI inpainting — used specifically for removing background people.
-// Much more reliable than gpt-image-1 for precise object removal because it's
-// a dedicated inpainting model, not a generative one.
+// Stability AI ERASE — the correct tool for removing background people.
 //
-// Mask convention (Stability AI):  WHITE (255) = inpaint this area
+// WHY ERASE instead of INPAINT:
+//   /inpaint uses a prompt to GENERATE new content. Even with "copy the grass"
+//   prompts it still hallucinates wrong tiled backgrounds when the mask is large.
+//
+//   /erase does NOT generate — it fills the masked area purely from surrounding
+//   pixels (like Photoshop Content-Aware Fill). No prompt = no hallucination.
+//   Perfect for removing spectators: fills with whatever fence/grass is adjacent.
+//
+// Mask convention (Stability AI):  WHITE (255) = erase/fill this area
 //                                  BLACK (0)   = preserve this area
-// Frontend sends: original image + inverted segMask (background=white, player=black)
 carouselRouter.post('/inpaint', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { image, mask } = req.body as { image: string; mask: string };
@@ -668,23 +673,13 @@ carouselRouter.post('/inpaint', async (req: Request, res: Response, next: NextFu
     const form = new FormData();
     form.append('image',  new Blob([imgBuf],  { type: 'image/png' }), 'image.png');
     form.append('mask',   new Blob([maskBuf], { type: 'image/png' }), 'mask.png');
-    // Prompt = describe what the INPAINTED (background) area should look like
-    form.append('prompt',
-      'Fill this area by seamlessly continuing the existing background from the surrounding pixels. ' +
-      'If there is a fence or net visible around this spot, extend that same fence or net through here. ' +
-      'If there is grass, copy the exact shade, grain, and color of the adjacent grass. ' +
-      'If there is concrete or a road, match the same surface. ' +
-      'Only erase the human figure — replace it with whatever background surface would naturally be there. ' +
-      'Do not add new objects. Do not change colors or lighting. Keep perspective identical.'
-    );
-    form.append('negative_prompt',
-      'person, people, human, man, woman, child, crowd, spectator, fan, athlete, ' +
-      'body, face, legs, arms, clothing, empty field, blank space, uniform texture'
-    );
+    // grow_mask=5: slightly expand the mask to cover person edges cleanly
+    form.append('grow_mask', '5');
     form.append('output_format', 'png');
 
+    // /erase fills from surrounding pixels only — no prompt needed, no hallucination
     const stability = await fetch(
-      'https://api.stability.ai/v2beta/stable-image/edit/inpaint',
+      'https://api.stability.ai/v2beta/stable-image/edit/erase',
       {
         method: 'POST',
         headers: {
