@@ -6347,18 +6347,21 @@
    * @param {Object|null} playerBbox - {cx,cy,w,h} in % — GPT-4o player bbox
    */
   function photoAiCreateBgSpectatorMask(segMask, S, playerBbox) {
-    // Player bbox in pixels with generous padding so player edges stay safe
-    const PAD = 60;
-    let pxL = -1, pxR = -1, pxT = -1, pxB = -1;
-    if (playerBbox) {
+    // Player "safe zone" in pixels — guaranteed BLACK in mask so Stability never touches player.
+    // PAD=80: generous so extended arms/hair/feet stay protected.
+    const PAD = 80;
+    let hasBbox = false;
+    let pxL = 0, pxR = 0, pxT = 0, pxB = 0;
+    if (playerBbox && playerBbox.cx != null) {
       const pcx = (playerBbox.cx / 100) * S;
       const pcy = (playerBbox.cy / 100) * S;
-      const phw = ((playerBbox.w / 100) * S) / 2 + PAD;
-      const phh = ((playerBbox.h / 100) * S) / 2 + PAD;
+      const phw = ((playerBbox.w  / 100) * S) / 2 + PAD;
+      const phh = ((playerBbox.h  / 100) * S) / 2 + PAD;
       pxL = Math.max(0, pcx - phw);
       pxR = Math.min(S - 1, pcx + phw);
       pxT = Math.max(0, pcy - phh);
       pxB = Math.min(S - 1, pcy + phh);
+      hasBbox = true;
     }
 
     const d = new Uint8ClampedArray(S * S * 4);
@@ -6366,10 +6369,24 @@
       const idx = i * 4;
       const px = i % S;
       const py = Math.floor(i / S);
-      const isPerson     = segMask ? segMask[i] > 0.3 : false;
-      const inPlayerZone = pxL >= 0 && px >= pxL && px <= pxR && py >= pxT && py <= pxB;
-      // White only if BodyPix says "person" AND outside player bbox
-      const v = (isPerson && !inPlayerZone) ? 255 : 0;
+      const isPerson = segMask ? segMask[i] > 0.3 : false;
+
+      let v = 0; // default: preserve (BLACK)
+      if (isPerson) {
+        if (hasBbox) {
+          // Player bbox approach: white if person pixel is OUTSIDE player safe zone
+          const inPlayerZone = px >= pxL && px <= pxR && py >= pxT && py <= pxB;
+          v = inPlayerZone ? 0 : 255;
+        } else {
+          // No player bbox (GPT-4o failed) — SAFE FALLBACK:
+          // Keep ALL person pixels BLACK (preserve). This means spectators stay too,
+          // but at least the player face is NEVER erased. Better than erasing the player.
+          v = 0;
+        }
+      } else {
+        // Non-person background pixel → always BLACK (preserve fence/grass)
+        v = 0;
+      }
       d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
     }
 
