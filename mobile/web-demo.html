@@ -6331,73 +6331,52 @@
    *   BLACK (0)   = player     → preserve
    */
   /**
-   * Smart composite after "erase all people":
-   * - Stability AI erased EVERYONE (player + spectators) → clean background
-   * - We paste the ORIGINAL PLAYER back using BodyPix mask RESTRICTED to player bbox
+   * Create a mask for Stability AI Erase that covers ONLY background spectators.
    *
-   * KEY INSIGHT: We don't use "not-in-spectator-ellipse" logic (GPT-4o might miss some).
-   * Instead we use the PLAYER'S bounding box from GPT-4o (easy to get right —
-   * the main subject is always the largest/most prominent person).
-   * Only pixels that are BOTH in BodyPix mask AND inside player bbox get restored.
-   * All other BodyPix-detected people (outside player bbox) stay erased.
+   * Logic:
+   *   WHITE = erase → BodyPix detected person AND pixel is OUTSIDE player bbox
+   *   BLACK = preserve → background (fence/grass) OR player zone
    *
-   * @param {string} erasedDataUrl   - Stability AI result (all people erased)
-   * @param {string} origDataUrl     - Original 1024×1024 photo
-   * @param {Float32Array} segMask   - BodyPix mask (1=person, 0=background)
-   * @param {Object|null} playerBbox - {cx,cy,w,h} in % — GPT-4o player bounding box
+   * This way:
+   *   - Gравець НІКОЛИ не потрапляє в маску → Stability не торкається гравця
+   *   - Глядачі (BodyPix outside player bbox) → білі → Stability стирає їх
+   *   - Compositing не потрібен взагалі — гравець вже в оригінальній якості
+   *
+   * @param {Float32Array} segMask   - BodyPix mask (values 0–1, >0.3 = person)
+   * @param {number} S               - Canvas size (1024)
+   * @param {Object|null} playerBbox - {cx,cy,w,h} in % — GPT-4o player bbox
    */
-  async function photoAiCompositePlayerOnly(erasedDataUrl, origDataUrl, segMask, playerBbox) {
-    const S = 1024;
-
-    const loadImg = url => new Promise(r => {
-      const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null);
-      i.crossOrigin = 'anonymous'; i.src = url;
-    });
-    const [erasedImg, origImg] = await Promise.all([loadImg(erasedDataUrl), loadImg(origDataUrl)]);
-
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-
-    ctx.drawImage(erasedImg, 0, 0, S, S);
-    const erasedData = ctx.getImageData(0, 0, S, S).data;
-    ctx.drawImage(origImg, 0, 0, S, S);
-    const origData = ctx.getImageData(0, 0, S, S).data;
-
-    // Player bbox in pixels (with 40px padding to avoid cutting off edges)
-    const PAD_BBOX = 40;
-    let pxL = 0, pxR = S, pxT = 0, pxB = S;
+  function photoAiCreateBgSpectatorMask(segMask, S, playerBbox) {
+    // Player bbox in pixels with generous padding so player edges stay safe
+    const PAD = 60;
+    let pxL = -1, pxR = -1, pxT = -1, pxB = -1;
     if (playerBbox) {
       const pcx = (playerBbox.cx / 100) * S;
       const pcy = (playerBbox.cy / 100) * S;
-      const phw = ((playerBbox.w / 100) * S) / 2 + PAD_BBOX;
-      const phh = ((playerBbox.h / 100) * S) / 2 + PAD_BBOX;
+      const phw = ((playerBbox.w / 100) * S) / 2 + PAD;
+      const phh = ((playerBbox.h / 100) * S) / 2 + PAD;
       pxL = Math.max(0, pcx - phw);
-      pxR = Math.min(S, pcx + phw);
+      pxR = Math.min(S - 1, pcx + phw);
       pxT = Math.max(0, pcy - phh);
-      pxB = Math.min(S, pcy + phh);
+      pxB = Math.min(S - 1, pcy + phh);
     }
 
-    // Composite: restore original pixel only if BodyPix says "person" AND inside player bbox
-    const result = new Uint8ClampedArray(S * S * 4);
+    const d = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
+      const idx = i * 4;
       const px = i % S;
       const py = Math.floor(i / S);
-      const idx = i * 4;
-      const isPersonPixel  = segMask && segMask[i] > 0.3;
-      const isInPlayerBbox = px >= pxL && px <= pxR && py >= pxT && py <= pxB;
-      // Restore from original only if: BodyPix=person AND within player bounding box
-      const useOrig = isPersonPixel && isInPlayerBbox;
-      result[idx]   = useOrig ? origData[idx]   : erasedData[idx];
-      result[idx+1] = useOrig ? origData[idx+1] : erasedData[idx+1];
-      result[idx+2] = useOrig ? origData[idx+2] : erasedData[idx+2];
-      result[idx+3] = 255;
+      const isPerson     = segMask ? segMask[i] > 0.3 : false;
+      const inPlayerZone = pxL >= 0 && px >= pxL && px <= pxR && py >= pxT && py <= pxB;
+      // White only if BodyPix says "person" AND outside player bbox
+      const v = (isPerson && !inPlayerZone) ? 255 : 0;
+      d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
     }
 
-    const finalCv = document.createElement('canvas');
-    finalCv.width = S; finalCv.height = S;
-    finalCv.getContext('2d').putImageData(new ImageData(result, S, S), 0, 0);
-    return finalCv.toDataURL('image/png');
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
+    return cv.toDataURL('image/png');
   }
 
   function photoAiCreateStabilityMask(segMask, S) {
@@ -6542,17 +6521,18 @@
           //  4. "Розмити фон"  → client-side (already handled above, no API needed)
 
           let resp;
-          let detectedBgPeople = []; // background people bboxes
-          let detectedPlayerBbox = null; // main player bbox — used to restrict composite
+          let detectedPlayerBbox = null; // GPT-4o player bbox, used to exclude player from mask
 
           if (removePeople) {
-            // ── PATH 1: Full BodyPix erase → smart composite player back ──────
+            // ── PATH 1: BodyPix spectator-only mask → Stability AI Erase ─────
             //
-            // Step 1: GPT-4o returns player bbox + background spectator bboxes
-            // Step 2: BodyPix full-people mask → Stability AI ERASE removes EVERYONE
-            //         (player + spectators). BodyPix is pixel-accurate, no missed people.
-            // Step 3: photoAiCompositePlayerOnly stamps original player back
-            //         ONLY within player bbox → spectators outside bbox stay erased.
+            // Step 1: GPT-4o returns player bbox (easy — largest foreground person)
+            // Step 2: Build mask = BodyPix people pixels MINUS player bbox
+            //         → ONLY background spectators are WHITE (erase)
+            //         → Player zone stays BLACK (never touched by Stability)
+            // Step 3: Stability Erase fills spectator spots from surrounding pixels
+            //         (fence/grass adjacent → natural fill)
+            // NO compositing needed — player is preserved pixel-perfect in original.
             txt.textContent = '🔍 Шукаю людей…';
             try {
               const detectResp = await fetch(`${BACKEND}/api/carousel/detect-background-people`, {
@@ -6562,33 +6542,23 @@
               });
               if (detectResp.ok) {
                 const detectData = await detectResp.json();
-                detectedBgPeople   = detectData.people || [];
                 detectedPlayerBbox = detectData.player || null;
               }
             } catch (_) {}
 
+            txt.textContent = '🎯 Видаляю людей…';
             if (segMask) {
-              // Erase ALL people (pixel-accurate BodyPix mask) — player will be composited back
-              txt.textContent = '🎯 Видаляю людей…';
-              const allPeopleMask = photoAiCreateStabilityMask(segMask, 1024);
+              // BodyPix people pixels outside player bbox = spectators → erase only them
+              const spectatorMask = photoAiCreateBgSpectatorMask(segMask, 1024, detectedPlayerBbox);
               resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024, mask: allPeopleMask }),
-              });
-            } else if (detectedBgPeople.length > 0) {
-              // No BodyPix — fallback to ellipse mask around detected spectators only
-              txt.textContent = '🎯 Видаляю людей…';
-              const peopleMask = photoAiCreatePrecisePeopleMask(detectedBgPeople, 1024, null);
-              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024, mask: peopleMask }),
+                body: JSON.stringify({ image: photoAiOrig1024, mask: spectatorMask }),
               });
             } else {
               clearInterval(tick); tick = null;
               bar.style.width = '100%';
-              txt.textContent = 'Людей на фоні не знайдено';
+              txt.textContent = 'Не вдалось сегментувати фото';
               photoAiResultDataUrl = photoAiOrig1024;
             }
           } else {
@@ -6628,14 +6598,10 @@
               const aiResult = `data:image/png;base64,${data.b64}`;
 
               if (removePeople) {
-                // Stability AI erased EVERYONE (player + spectators via full BodyPix mask).
-                // Now composite the original player back — but SKIP spectator zones
-                // (defined by detectedBgPeople ellipses) so they stay erased.
-                txt.textContent = 'Відновлюю гравця…';
-                photoAiResultDataUrl = await photoAiCompositePlayerOnly(
-                  aiResult, photoAiOrig1024, segMask, detectedPlayerBbox
-                );
+                // Stability AI erased ONLY spectators (player bbox was BLACK in mask).
+                // Player was never touched → no compositing needed, use result directly.
                 txt.textContent = '✅ Готово';
+                photoAiResultDataUrl = aiResult;
               } else {
                 // Replace-bg / style: AI regenerated the whole background.
                 // Composite the original player back to restore pixel-perfect details.
