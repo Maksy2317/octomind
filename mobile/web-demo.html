@@ -6515,12 +6515,23 @@
               const noOp = 'Людей на фоні не знайдено';
               txt.textContent = noOp;
             } else {
-              txt.textContent = 'Накладаю оригінал…';
               bar.style.width = '95%';
               const aiResult = `data:image/png;base64,${data.b64}`;
 
-              // Composite original player on top of the inpainted background
-              photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+              if (removePeople) {
+                // People removal: Stability AI only inpainted the white-circle spots
+                // (background spectators). The player area was BLACK in the mask —
+                // Stability never touched the player. DO NOT composite: BodyPix detects
+                // ALL visible people (including background ones), so compositing would
+                // paste the original spectators back on top, undoing the removal.
+                txt.textContent = '✅ Готово';
+                photoAiResultDataUrl = aiResult;
+              } else {
+                // Replace-bg / style: AI regenerated the whole background.
+                // Composite the original player back to restore pixel-perfect details.
+                txt.textContent = 'Накладаю оригінал…';
+                photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+              }
               bar.style.width = '100%';
             }
           }
