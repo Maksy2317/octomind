@@ -6473,15 +6473,27 @@
           let resp;
 
           if (removePeople) {
-            // ── PATH 1: People removal — GPT-4o + Stability AI inpaint ────────
-            // Backend: GPT-4o finds background people → server builds circle mask
-            // → Stability AI inpaints only those spots. No SAM-2 / no Replicate.
-            txt.textContent = '🔍 Шукаю людей на фоні…';
-            resp = await fetch(`${BACKEND}/api/carousel/remove-background-people`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: photoAiOrig1024 }),
-            });
+            // ── PATH 1: BodyPix mask → Stability AI inpaint ───────────────────
+            // BodyPix gives a pixel-accurate player boundary.
+            // Invert → player=BLACK (preserve), background=WHITE (inpaint).
+            // Stability AI fills the whole background → removes ALL spectators.
+            // NO composite step so spectators don't get pasted back.
+            txt.textContent = '🎯 Видаляю людей…';
+            if (segMask) {
+              const stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
+              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
+              });
+            } else {
+              // BodyPix failed — fallback to backend pipeline
+              resp = await fetch(`${BACKEND}/api/carousel/remove-background-people`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoAiOrig1024 }),
+              });
+            }
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
