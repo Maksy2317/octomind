@@ -6295,9 +6295,9 @@
     ctx.fillRect(0, 0, S, S);
 
     // Paint each detected background person WHITE — large ellipse covers whole group
-    // PAD=70px ensures nearby grouped spectators are fully covered even if GPT-4o
-    // bounding boxes slightly underestimate the actual group extent.
-    const PAD = 70;
+    // PAD=130px: generous margin so lying/crouching people and edge cases are fully covered
+    // even when GPT-4o bounding boxes underestimate the actual person extent.
+    const PAD = 130;
     ctx.fillStyle = '#fff';
     for (const p of people) {
       const cx = (p.cx / 100) * S;

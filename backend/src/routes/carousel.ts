@@ -613,15 +613,21 @@ carouselRouter.post('/detect-background-people', async (req: Request, res: Respo
           {
             type: 'text' as const,
             text:
-              `Look at this sports photo. The MAIN SUBJECT is the largest/most prominent person ` +
-              `in the foreground (closest to camera, largest in the frame). Do NOT mark them.\n\n` +
-              `Find ALL OTHER people visible anywhere — spectators, coaches, bystanders, ` +
-              `anyone sitting or standing in the background.\n\n` +
-              `For each background person, estimate their bounding box as percentages (0–100) ` +
-              `of image width and height.\n\n` +
+              `You are analyzing a sports photo. Your job is to find EVERY background person that must be removed.\n\n` +
+              `THE MAIN SUBJECT (do NOT mark): the single largest, most prominent person in the foreground — ` +
+              `the athlete closest to the camera who is the clear focus of the photo.\n\n` +
+              `MARK ALL OF THESE (be thorough, miss nobody):\n` +
+              `- Spectators, fans, coaches, bystanders — standing, sitting, lying, crouching\n` +
+              `- Partially visible people at the image edges\n` +
+              `- People who are blurry or far away in the background\n` +
+              `- People whose only part of body is visible (head, legs, torso)\n` +
+              `- People lying on the ground or sitting low\n\n` +
+              `IMPORTANT: Make bounding boxes GENEROUS — add extra margin around each person ` +
+              `to ensure the full body including extended arms/legs is covered.\n\n` +
+              `For each background person, estimate bounding box as percentages (0–100) of image width/height.\n\n` +
               `Return ONLY this JSON (no markdown, no explanation):\n` +
-              `{"people":[{"cx":20,"cy":75,"w":10,"h":20},...]}` +
-              `\ncx/cy = center of person, w/h = size. If none found: {"people":[]}.`,
+              `{"people":[{"cx":20,"cy":75,"w":15,"h":25},...]}` +
+              `\ncx/cy = center, w/h = bounding box size (be generous). If none found: {"people":[]}.`,
           },
           {
             type: 'image_url' as const,
