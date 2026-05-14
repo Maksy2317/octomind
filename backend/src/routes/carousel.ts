@@ -524,14 +524,10 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
           {
             type: 'text' as const,
             text:
-              'Sports photo. Identify the main foreground subject (closest, largest person) — exclude them. ' +
-              'Find ALL OTHER people in the background (spectators, crowd, coaches, bystanders). ' +
-              'Group nearby people into clusters. For each cluster return a GENEROUS bounding box ' +
-              'covering every person in that group plus ~10% padding on each side. ' +
-              'Coordinates as % of image dimensions (0-100). ' +
-              'Return ONLY JSON: {"groups":[{"x1":5,"y1":45,"x2":35,"y2":72},...]}. ' +
-              'Make boxes LARGE enough to fully cover each group — do not underestimate. ' +
-              'If no background people: {"groups":[]}.',
+              'Sports photo. The MAIN SUBJECT is the largest/closest foreground person — ignore them. ' +
+              'Are there ANY OTHER people in the background (spectators, crowd, coaches, bystanders)? ' +
+              'Return ONLY JSON: {"groups":[{"x1":5,"y1":45,"x2":35,"y2":72},...]} with bounding boxes ' +
+              'as % of image. If no background people: {"groups":[]}.',
           },
           {
             type: 'image_url' as const,
@@ -544,47 +540,37 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
       temperature: 0.1,
     });
 
-    const { groups } = JSON.parse(detectRes.choices[0].message.content || '{"groups":[]}') as {
-      groups: Array<{ x1: number; y1: number; x2: number; y2: number }>;
+    // Parse detection result — just need to know if people exist at all
+    const detectJson = JSON.parse(detectRes.choices[0].message.content || '{"groups":[]}') as {
+      groups?: Array<unknown>;
     };
+    const hasPeople = (detectJson.groups?.length ?? 0) > 0;
 
-    console.log('[remove-background-people] detected groups:', JSON.stringify(groups));
+    console.log('[remove-background-people] hasPeople:', hasPeople, JSON.stringify(detectJson));
 
-    if (!groups?.length) {
+    if (!hasPeople) {
       res.json({ b64: null, message: 'no_people_detected' });
       return;
     }
 
-    // ── STEP 2: Build rectangle mask — one rect per spectator group ───────────
-    // White filled rectangles = inpaint (remove whole group at once).
-    // Black everywhere else = preserve (fence above group, player, grass).
-    const rects = groups.map(g => ({
-      x1: Math.max(0,   Math.round((g.x1 / 100) * S)),
-      y1: Math.max(0,   Math.round((g.y1 / 100) * S)),
-      x2: Math.min(S-1, Math.round((g.x2 / 100) * S)),
-      y2: Math.min(S-1, Math.round((g.y2 / 100) * S)),
-    }));
-
-    console.log('[remove-background-people] rects:', JSON.stringify(rects));
-
-    // ── STEP 3: Stability AI inpaint — pixel-exact fill of person rectangles ──
-    // Grayscale mask: white rects = inpaint here, black = preserve exactly.
-    const imgBuf  = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
-    const maskBuf = createRectMaskPng(S, rects);
+    // ── STEP 2+3: Stability AI search-and-replace — no mask needed ───────────
+    // The model finds spectators by text description and replaces them with
+    // natural background. No coordinate math, no mask generation.
+    const imgBuf = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
 
     const form = new FormData();
-    form.append('image', new Blob([imgBuf],  { type: 'image/png' }), 'image.png');
-    form.append('mask',  new Blob([maskBuf], { type: 'image/png' }), 'mask.png');
-    form.append('prompt',
-      'Fill this area by seamlessly continuing the background from surrounding pixels. ' +
-      'Extend the fence, grass, or surface visible around this spot. ' +
-      'Match the exact color, texture, and lighting of adjacent areas. No people.'
+    form.append('image', new Blob([imgBuf], { type: 'image/png' }), 'image.png');
+    form.append('search_prompt',
+      'spectators, people, crowd, audience, bystanders, persons sitting or standing in background'
     );
-    form.append('negative_prompt', 'person, people, human, man, woman, crowd');
+    form.append('prompt',
+      'empty background with fence, grass and natural field surroundings, no people'
+    );
+    form.append('negative_prompt', 'person, people, human, crowd, spectator, audience, man, woman');
     form.append('output_format', 'png');
 
     const stability = await fetch(
-      'https://api.stability.ai/v2beta/stable-image/edit/inpaint',
+      'https://api.stability.ai/v2beta/stable-image/edit/search-and-replace',
       {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${stabilityKey}`, 'Accept': 'image/*' },
