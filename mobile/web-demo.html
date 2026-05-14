@@ -6294,9 +6294,10 @@
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, S, S);
 
-    // Paint each detected background person WHITE — TIGHT ellipse, small padding
-    // Small PAD = AI has less room to "invent" → forced to continue surrounding bg
-    const PAD = 8;
+    // Paint each detected background person WHITE — large ellipse covers whole group
+    // PAD=70px ensures nearby grouped spectators are fully covered even if GPT-4o
+    // bounding boxes slightly underestimate the actual group extent.
+    const PAD = 70;
     ctx.fillStyle = '#fff';
     for (const p of people) {
       const cx = (p.cx / 100) * S;
@@ -6473,26 +6474,50 @@
           let resp;
 
           if (removePeople) {
-            // ── PATH 1: BodyPix mask → Stability AI inpaint ───────────────────
-            // BodyPix gives a pixel-accurate player boundary.
-            // Invert → player=BLACK (preserve), background=WHITE (inpaint).
-            // Stability AI fills the whole background → removes ALL spectators.
-            // NO composite step so spectators don't get pasted back.
-            txt.textContent = '🎯 Видаляю людей…';
-            if (segMask) {
-              const stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
-              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
-              });
-            } else {
-              // BodyPix failed — fallback to backend pipeline
-              resp = await fetch(`${BACKEND}/api/carousel/remove-background-people`, {
+            // ── PATH 1: detect-background-people → precise ellipse mask → Stability AI inpaint
+            // GPT-4o first identifies only background spectators (cx/cy/w/h in % coords).
+            // We draw targeted white ellipses (PAD=70px) around each detected person
+            // while forcing the player zone BLACK (preserve). Stability AI gets context
+            // from the surrounding fence/grass → natural fill, not a wrong background.
+            txt.textContent = '🔍 Шукаю людей…';
+            let people = null;
+            try {
+              const detectResp = await fetch(`${BACKEND}/api/carousel/detect-background-people`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: photoAiOrig1024 }),
               });
+              if (detectResp.ok) {
+                const detectData = await detectResp.json();
+                people = detectData.people;
+              }
+            } catch (_) {}
+
+            if (people !== null && people.length === 0) {
+              // GPT-4o confirmed: no background people — nothing to remove
+              clearInterval(tick); tick = null;
+              bar.style.width = '100%';
+              txt.textContent = 'Людей на фоні не знайдено';
+              photoAiResultDataUrl = photoAiOrig1024;
+            } else {
+              txt.textContent = '🎯 Видаляю людей…';
+              if (people && people.length > 0) {
+                // Precise targeted mask: white ellipses only around detected background people
+                const peopleMask = photoAiCreatePrecisePeopleMask(people, 1024, segMask);
+                resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ image: photoAiOrig1024, mask: peopleMask }),
+                });
+              } else if (segMask) {
+                // Detection failed — fallback: BodyPix full-background mask
+                const stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
+                resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
+                });
+              }
             }
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
