@@ -6499,14 +6499,24 @@
           // ── Handle response ───────────────────────────────────────────────
           if (resp) {
             clearInterval(tick); tick = null;
-            if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
+            if (!resp.ok) {
+              let errMsg = `Помилка сервера ${resp.status}`;
+              try {
+                const errBody = await resp.json();
+                if (errBody.error) errMsg += `: ${errBody.error}`;
+              } catch (_) {}
+              throw new Error(errMsg);
+            }
             const data = await resp.json();
 
             if (!data.b64) {
-              // No background people found — show original unchanged
+              // No background people found, or SAM-2 couldn't produce masks
               photoAiResultDataUrl = photoAiOrig1024;
               bar.style.width = '100%';
-              txt.textContent = 'Людей на фоні не знайдено';
+              const noOp = data.message === 'sam_failed_no_masks'
+                ? 'SAM-2 не зміг сегментувати людей — спробуйте ще раз'
+                : 'Людей на фоні не знайдено';
+              txt.textContent = noOp;
             } else {
               txt.textContent = 'Накладаю оригінал…';
               bar.style.width = '95%';

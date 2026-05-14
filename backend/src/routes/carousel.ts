@@ -491,7 +491,9 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
     const validMaskUrls = samMaskUrls.filter(Boolean) as string[];
 
     if (!validMaskUrls.length) {
-      res.status(500).json({ error: 'SAM-2 returned no masks' });
+      // SAM-2 failed for all people — nothing to inpaint, return original signal
+      console.warn('SAM-2 returned no valid masks for any of the detected people. Returning no-op.');
+      res.json({ b64: null, message: 'sam_failed_no_masks' });
       return;
     }
 
@@ -554,7 +556,9 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
     res.json({ b64: resultBuf.toString('base64') });
 
   } catch (err) {
-    next(err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[remove-background-people] error:', msg);
+    res.status(500).json({ error: msg });
   }
 });
 
