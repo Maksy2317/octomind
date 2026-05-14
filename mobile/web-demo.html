@@ -6076,12 +6076,15 @@
   }
 
   /**
-   * Pixel-level composite: merge AI result (background) + original (person+nearby).
+   * Pixel-level composite: merge AI result (background) + original (person only).
    *
    * Strategy:
-   *  - Dilate segMask by 40px so ball at player's feet is in the "original" zone
-   *  - Core person: tight alpha curve (0.25→0.50) — no ghosting
-   *  - Dilated zone (ball, etc.): hard binary (1.0) from original — no doubling
+   *  - AI result is the base (new background, people removed / style applied)
+   *  - Original player stamped on top using tight alpha curve (0.25→0.50)
+   *  - NO dilation — dilation causes a visible ring by pulling in mismatched
+   *    original background pixels around the player silhouette edge
+   *  - Ball naturally handled: with hide-player approach AI sees ball and keeps
+   *    it in place; no doubling issue without dilation
    */
   async function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
     const S = 1024;
@@ -6101,12 +6104,10 @@
       // ── STEP 1: Draw AI result as base (new background) ─────────────────
       ctx.drawImage(aiImg, 0, 0, S, S);
 
-      // ── STEP 2: Build compositing alpha ──────────────────────────────────
-      // Dilate segMask so nearby objects (ball at feet) come from original image.
-      // Core person edges use tight 0.25→0.50 curve (no blurry halo).
-      // Dilated zone uses binary 1.0 (fully original = no doubling).
-      const dilated = await _dilateSegMask(segMask, S, 40);
-
+      // ── STEP 2: Stamp original player with tight alpha curve ─────────────
+      // Tight transition 0.25→0.50: eliminates blurry silhouette/ghosting.
+      // Background pixels (segMask < 0.25) → fully transparent → AI background shows.
+      // Core player pixels (segMask > 0.50) → fully opaque → original player shows.
       const personCv = document.createElement('canvas');
       personCv.width = S; personCv.height = S;
       const pCtx = personCv.getContext('2d');
@@ -6115,20 +6116,13 @@
       const d = personData.data;
       for (let i = 0; i < S * S; i++) {
         const a = segMask[i];
-        const isDilated = dilated[i] > 0.5; // expanded zone (ball, etc.)
-        if (isDilated) {
-          // Dilated zone: original pixel wins (no doubling with AI-modified content)
-          d[i * 4 + 3] = 255;
-        } else {
-          // Core person edge: tight transition 0.25→0.50 (no blurry silhouette)
-          d[i * 4 + 3] = a < 0.25 ? 0
-                        : a > 0.50 ? 255
-                        : Math.round(((a - 0.25) / 0.25) * 255);
-        }
+        d[i * 4 + 3] = a < 0.25 ? 0
+                      : a > 0.50 ? 255
+                      : Math.round(((a - 0.25) / 0.25) * 255);
       }
       pCtx.putImageData(personData, 0, 0);
 
-      // ── STEP 3: Composite person+nearby-objects over AI background ───────
+      // ── STEP 3: Composite person over AI background ──────────────────────
       ctx.drawImage(personCv, 0, 0, S, S);
 
     } else {
