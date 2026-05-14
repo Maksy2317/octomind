@@ -708,3 +708,173 @@ carouselRouter.post('/inpaint', async (req: Request, res: Response, next: NextFu
     next(err);
   }
 });
+
+// ── POST /api/carousel/remove-people ────────────────────────────────────────
+// Full server-side pipeline: 2-pass detect→erase so nothing is missed.
+//
+// WHY 2 PASSES: GPT-4o sometimes misses 1-2 background people in a single call.
+// Pass 2 runs detection on the already-erased result — any lingering people are
+// now more visible (surrounding people gone) and get caught.
+//
+// WHY SERVER-SIDE: BodyPix (client) uses segmentationThreshold=0.65 and only
+// detects high-confidence foreground people (the main player). Blurry background
+// spectators score 0.1–0.4 → never appear in the mask → never erased.
+// GPT-4o Vision sees ALL people regardless of size/blur.
+//
+// Mask: white ellipses (PAD=150) around each detected spectator.
+//       Player bbox (from GPT-4o) forces a BLACK safe zone so player is never touched.
+carouselRouter.post('/remove-people', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image } = req.body as { image: string };
+    if (!image) { res.status(400).json({ error: 'image required' }); return; }
+
+    const stabilityKey = process.env.STABILITY_API_KEY;
+    const openaiKey    = process.env.OPENAI_API_KEY;
+    if (!stabilityKey) { res.status(503).json({ error: 'STABILITY_API_KEY not configured' }); return; }
+
+    const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+
+    // ── Helper: build grayscale mask PNG ─────────────────────────────────────
+    function buildSpectatorMaskPng(
+      people: Array<{ cx: number; cy: number; w: number; h: number }>,
+      playerBbox: { cx: number; cy: number; w: number; h: number } | null,
+      S: number,
+    ): Buffer {
+      const PAD = 150;
+      const PLAYER_PAD = 80;
+
+      let plL = -1, plR = -1, plT = -1, plB = -1;
+      if (playerBbox) {
+        const pcx = (playerBbox.cx / 100) * S;
+        const pcy = (playerBbox.cy / 100) * S;
+        const phw = ((playerBbox.w  / 100) * S) / 2 + PLAYER_PAD;
+        const phh = ((playerBbox.h  / 100) * S) / 2 + PLAYER_PAD;
+        plL = Math.max(0, Math.round(pcx - phw));
+        plR = Math.min(S - 1, Math.round(pcx + phw));
+        plT = Math.max(0, Math.round(pcy - phh));
+        plB = Math.min(S - 1, Math.round(pcy + phh));
+      }
+
+      const pixels = new Uint8Array(S * S);
+      for (const p of people) {
+        const cx = (p.cx / 100) * S;
+        const cy = (p.cy / 100) * S;
+        const rw = ((p.w  / 100) * S) / 2 + PAD;
+        const rh = ((p.h  / 100) * S) / 2 + PAD;
+        const x0 = Math.max(0, Math.floor(cx - rw));
+        const x1 = Math.min(S - 1, Math.ceil(cx + rw));
+        const y0 = Math.max(0, Math.floor(cy - rh));
+        const y1 = Math.min(S - 1, Math.ceil(cy + rh));
+        for (let py = y0; py <= y1; py++) {
+          for (let px = x0; px <= x1; px++) {
+            const dx = (px - cx) / rw;
+            const dy = (py - cy) / rh;
+            if (dx * dx + dy * dy > 1) continue;
+            if (plL >= 0 && px >= plL && px <= plR && py >= plT && py <= plB) continue;
+            pixels[py * S + px] = 255;
+          }
+        }
+      }
+
+      const rowSize = 1 + S;
+      const rawRows = Buffer.alloc(rowSize * S);
+      for (let y = 0; y < S; y++) {
+        rawRows[y * rowSize] = 0;
+        for (let x = 0; x < S; x++) rawRows[y * rowSize + 1 + x] = pixels[y * S + x];
+      }
+      const compressed = deflateSync(rawRows);
+      const ihdr = Buffer.alloc(13);
+      ihdr.writeUInt32BE(S, 0); ihdr.writeUInt32BE(S, 4);
+      ihdr[8] = 8; ihdr[9] = 0; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+      return Buffer.concat([_pngSig, _pngChunk('IHDR', ihdr), _pngChunk('IDAT', compressed), _pngChunk('IEND', Buffer.alloc(0))]);
+    }
+
+    // ── Helper: GPT-4o detection ──────────────────────────────────────────────
+    async function detectSpectators(imgDataUrl: string) {
+      if (!openai) return { player: null as any, people: [] as any[] };
+      try {
+        const r = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'text' as const,
+                text:
+                  `Sports photo. Find ALL background people to remove.\n\n` +
+                  `MAIN SUBJECT (skip): most prominent athlete in foreground.\n\n` +
+                  `MARK EVERYONE ELSE: spectators, coaches, bystanders — standing, sitting,\n` +
+                  `lying, crouching, blurry, at edges, partially visible.\n\n` +
+                  `Return ONLY JSON:\n` +
+                  `{"player":{"cx":50,"cy":60,"w":30,"h":70},"people":[{"cx":15,"cy":80,"w":12,"h":20},...]}` +
+                  `\nplayer = main subject bbox (required). people = all others with GENEROUS bboxes. Empty [] if none.` +
+                  `\ncx/cy=center%, w/h=size% of image.`,
+              },
+              {
+                type: 'image_url' as const,
+                image_url: {
+                  url: imgDataUrl.startsWith('data:') ? imgDataUrl : `data:image/png;base64,${imgDataUrl}`,
+                  detail: 'high' as const,
+                },
+              },
+            ],
+          }],
+          response_format: { type: 'json_object' },
+          max_tokens: 800,
+          temperature: 0.1,
+        });
+        const parsed = JSON.parse(r.choices[0].message.content || '{}');
+        return { player: parsed.player || null, people: Array.isArray(parsed.people) ? parsed.people : [] as any[] };
+      } catch (e) {
+        console.error('[remove-people] detect error:', e);
+        return { player: null as any, people: [] as any[] };
+      }
+    }
+
+    // ── Helper: Stability Erase ───────────────────────────────────────────────
+    async function stabilityErase(imgBuf: Buffer, maskBuf: Buffer): Promise<Buffer> {
+      const form = new FormData();
+      form.append('image', new Blob([imgBuf],  { type: 'image/png' }), 'image.png');
+      form.append('mask',  new Blob([maskBuf], { type: 'image/png' }), 'mask.png');
+      form.append('grow_mask', '8');
+      form.append('output_format', 'png');
+      const resp = await fetch('https://api.stability.ai/v2beta/stable-image/edit/erase', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${stabilityKey}`, 'Accept': 'image/*' },
+        body: form,
+      });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        throw new Error(`Stability erase ${resp.status}: ${txt.slice(0, 200)}`);
+      }
+      return Buffer.from(await resp.arrayBuffer());
+    }
+
+    // ── Pipeline ──────────────────────────────────────────────────────────────
+    const imgBase64 = image.replace(/^data:image\/[^;]+;base64,/, '');
+    let currentBuf = Buffer.from(imgBase64, 'base64');
+    const S = 1024;
+
+    // Pass 1
+    const pass1 = await detectSpectators(image);
+    console.log(`[remove-people] pass1: ${pass1.people.length} spectators detected`);
+
+    if (pass1.people.length === 0) {
+      res.json({ b64: currentBuf.toString('base64'), message: 'no background people detected' });
+      return;
+    }
+    currentBuf = await stabilityErase(currentBuf, buildSpectatorMaskPng(pass1.people, pass1.player, S));
+
+    // Pass 2 — catch anyone GPT-4o missed in pass 1
+    const pass2DataUrl = `data:image/png;base64,${currentBuf.toString('base64')}`;
+    const pass2 = await detectSpectators(pass2DataUrl);
+    console.log(`[remove-people] pass2: ${pass2.people.length} remaining spectators`);
+    if (pass2.people.length > 0) {
+      currentBuf = await stabilityErase(currentBuf, buildSpectatorMaskPng(pass2.people, pass1.player, S));
+    }
+
+    res.json({ b64: currentBuf.toString('base64') });
+  } catch (err) {
+    next(err);
+  }
+});

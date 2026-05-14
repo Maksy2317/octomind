@@ -6538,46 +6538,18 @@
           //  4. "Розмити фон"  → client-side (already handled above, no API needed)
 
           let resp;
-          let detectedPlayerBbox = null; // GPT-4o player bbox, used to exclude player from mask
 
           if (removePeople) {
-            // ── PATH 1: BodyPix spectator-only mask → Stability AI Erase ─────
-            //
-            // Step 1: GPT-4o returns player bbox (easy — largest foreground person)
-            // Step 2: Build mask = BodyPix people pixels MINUS player bbox
-            //         → ONLY background spectators are WHITE (erase)
-            //         → Player zone stays BLACK (never touched by Stability)
-            // Step 3: Stability Erase fills spectator spots from surrounding pixels
-            //         (fence/grass adjacent → natural fill)
-            // NO compositing needed — player is preserved pixel-perfect in original.
-            txt.textContent = '🔍 Шукаю людей…';
-            try {
-              const detectResp = await fetch(`${BACKEND}/api/carousel/detect-background-people`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024 }),
-              });
-              if (detectResp.ok) {
-                const detectData = await detectResp.json();
-                detectedPlayerBbox = detectData.player || null;
-              }
-            } catch (_) {}
-
-            txt.textContent = '🎯 Видаляю людей…';
-            if (segMask) {
-              // BodyPix people pixels outside player bbox = spectators → erase only them
-              const spectatorMask = photoAiCreateBgSpectatorMask(segMask, 1024, detectedPlayerBbox);
-              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024, mask: spectatorMask }),
-              });
-            } else {
-              clearInterval(tick); tick = null;
-              bar.style.width = '100%';
-              txt.textContent = 'Не вдалось сегментувати фото';
-              photoAiResultDataUrl = photoAiOrig1024;
-            }
+            // ── PATH 1: Server-side 2-pass remove-people ──────────────────────
+            // All logic on the backend: GPT-4o detects spectators → Stability Erase
+            // → GPT-4o re-detects on result → Stability Erase again if needed.
+            // BodyPix is NOT used here — it can't detect blurry background people.
+            txt.textContent = '🔍 Шукаю та видаляю людей…';
+            resp = await fetch(`${BACKEND}/api/carousel/remove-people`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: photoAiOrig1024 }),
+            });
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
@@ -6615,8 +6587,8 @@
               const aiResult = `data:image/png;base64,${data.b64}`;
 
               if (removePeople) {
-                // Stability AI erased ONLY spectators (player bbox was BLACK in mask).
-                // Player was never touched → no compositing needed, use result directly.
+                // Server handled everything: 2-pass GPT-4o detect + Stability Erase.
+                // Player was protected by player bbox (BLACK in mask) → never touched.
                 txt.textContent = '✅ Готово';
                 photoAiResultDataUrl = aiResult;
               } else {
