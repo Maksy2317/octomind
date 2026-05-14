@@ -352,3 +352,64 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     next(err);
   }
 });
+
+// ── POST /api/carousel/inpaint ───────────────────────────────────────────────
+// Stability AI inpainting — used specifically for removing background people.
+// Much more reliable than gpt-image-1 for precise object removal because it's
+// a dedicated inpainting model, not a generative one.
+//
+// Mask convention (Stability AI):  WHITE (255) = inpaint this area
+//                                  BLACK (0)   = preserve this area
+// Frontend sends: original image + inverted segMask (background=white, player=black)
+carouselRouter.post('/inpaint', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image, mask } = req.body as { image: string; mask: string };
+
+    if (!image || !mask) { res.status(400).json({ error: 'image and mask required' }); return; }
+
+    const apiKey = process.env.STABILITY_API_KEY;
+    if (!apiKey) { res.status(503).json({ error: 'STABILITY_API_KEY not configured' }); return; }
+
+    // Convert base64 → Buffer → Blob
+    const imgBuf  = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
+    const maskBuf = Buffer.from(mask.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
+
+    const form = new FormData();
+    form.append('image',  new Blob([imgBuf],  { type: 'image/png' }), 'image.png');
+    form.append('mask',   new Blob([maskBuf], { type: 'image/png' }), 'mask.png');
+    // Prompt = describe what the INPAINTED (background) area should look like
+    form.append('prompt',
+      'Empty sports field. Natural grass surface with same color and texture as surrounding area. ' +
+      'No people. No spectators. No athletes. Clean field with fence and goal posts intact. ' +
+      'Same lighting and perspective as the rest of the photo.'
+    );
+    form.append('negative_prompt',
+      'person, people, human, man, woman, child, crowd, spectator, fan, athlete, player, ' +
+      'body, face, legs, arms, clothing'
+    );
+    form.append('output_format', 'png');
+    form.append('grow_mask', '8');   // grow mask 8px inward to help edge blending
+
+    const stability = await fetch(
+      'https://api.stability.ai/v2beta/stable-image/edit/inpaint',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'image/*',
+        },
+        body: form,
+      }
+    );
+
+    if (!stability.ok) {
+      const errText = await stability.text().catch(() => '');
+      throw new Error(`Stability AI ${stability.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const buf = Buffer.from(await stability.arrayBuffer());
+    res.json({ b64: buf.toString('base64') });
+  } catch (err) {
+    next(err);
+  }
+});

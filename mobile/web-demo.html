@@ -6260,15 +6260,41 @@
   }
 
   /**
-   * Detect "remove background people" intent.
-   * For this task we use the AI result DIRECTLY (no compositing).
-   * Reason: gpt-image-1 slightly shifts the scene framing during processing.
-   * If we composite the original player (old coordinates) onto the AI's
-   * slightly-shifted background, the player looks misaligned.
-   * Using the AI result directly keeps player + background in perfect alignment.
+   * Detect "remove background people / objects" intent.
+   * → routes to Stability AI inpainting (dedicated removal model, not generative).
    */
   function _isRemovePeoplePrompt(prompt) {
     return /прибер|видал|удал|видалити.*люд|людей.*фон|фон.*люд|remove.*people|people.*back/i.test(prompt);
+  }
+
+  /**
+   * Detect "change / replace background" intent.
+   * → routes to gpt-image-1 (generative — creates a brand new background).
+   */
+  function _isReplaceBackgroundPrompt(prompt) {
+    return /зміни.*фон|замін.*фон|новий.*фон|інший.*фон|стадіон|ліс|місто|replace.*back|change.*back|new.*back|background.*stadium|city|forest/i.test(prompt);
+  }
+
+  /**
+   * Create a mask for Stability AI inpainting:
+   *   WHITE (255) = background → inpaint here (remove people)
+   *   BLACK (0)   = player     → preserve (do not touch)
+   *
+   * This is the INVERSE of the OpenAI mask convention.
+   */
+  function photoAiCreateStabilityMask(segMask, S) {
+    const d = new Uint8ClampedArray(S * S * 4);
+    for (let i = 0; i < S * S; i++) {
+      const idx = i * 4;
+      // Invert: player (segMask≈1) → black (0), background (segMask≈0) → white (255)
+      const p = 1 - _smoothstep((segMask[i] - 0.05) / 0.20);
+      const v = Math.round(p * 255);
+      d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
+    }
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
+    return cv.toDataURL('image/png');
   }
 
   /**
@@ -6379,35 +6405,49 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-          const removePeople = _isRemovePeoplePrompt(prompt);
+          const removePeople       = _isRemovePeoplePrompt(prompt);
+          const replaceBackground  = _isReplaceBackgroundPrompt(prompt);
 
-          // ── Build request body ────────────────────────────────────────────
-          const reqBody = { image: photoAiOrig1024, prompt };
+          // ── SMART ROUTING ─────────────────────────────────────────────────
+          // Different tasks need different AI tools:
+          //
+          //  1. "Прибрати людей"  → Stability AI inpainting
+          //     Dedicated removal model — doesn't generate new content, just fills
+          //     the exact spot where people stood. Preserves fence/field perfectly.
+          //
+          //  2. "Змінити фон на стадіон / ліс / місто"  → gpt-image-1 generative
+          //     Needs to CREATE a new background — generative model is right here.
+          //     Player protected by mask.
+          //
+          //  3. "Освітлення / стиль / ефекти"  → gpt-image-1 + player mask
+          //     Style changes on the background while keeping player pixel-perfect.
+          //
+          //  4. "Розмити фон"  → client-side (already handled above, no API needed)
+
+          let resp;
 
           if (removePeople && segMask) {
-            // ── HIDE-PLAYER strategy for remove-people ──────────────────────
-            // With a player mask, gpt-image-1 becomes too conservative and
-            // refuses to remove background people near the mask boundary.
-            // Solution: hide the player with a flat fill BEFORE sending to AI.
-            // The AI sees no player → freely removes ALL background people.
-            // Backend detects no mask → uses the aggressive remove-people prompt.
-            // After API call: composite original player back (with 40px dilation
-            // so the ball at player's feet also comes from the original image).
-            txt.textContent = 'Ховаю гравця…';
-            reqBody.image = await photoAiHidePlayer(photoAiOrig1024, segMask);
-            // NO mask field → backend uses the !maskFile remove-people path
-          } else if (segMask) {
-            // ── MASK strategy for all other AI tasks (color grading, etc.) ──
-            // Player zone is OPAQUE (locked), background is TRANSPARENT (editable).
-            // AI only modifies the background, player is preserved pixel-perfect.
-            reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
+            // ── PATH 1: Stability AI inpainting ──────────────────────────────
+            txt.textContent = '🎯 Видаляю людей (Stability AI)…';
+            const stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
+            resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
+            });
+          } else {
+            // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
+            const reqBody = { image: photoAiOrig1024, prompt };
+            if (segMask) {
+              // Add player mask so gpt-image-1 never touches the player
+              reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
+            }
+            resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(reqBody),
+            });
           }
-
-          const resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reqBody),
-          });
           clearInterval(tick); tick = null;
           if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
           const data = await resp.json();
