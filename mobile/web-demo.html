@@ -6018,11 +6018,12 @@
 
   /**
    * Create the API mask to send to OpenAI images.edit:
-   *   Transparent (alpha=0)   = background → AI may edit here
+   *   Transparent (alpha=0)   = background → AI may edit here (removes people!)
    *   Opaque (alpha=255)      = person     → AI must NOT touch
    *
-   * Uses segMask (Float32Array) if available, else falls back to rectangular strip.
-   * Dilates the person zone by ~40px so nearby objects (ball, etc.) are also protected.
+   * IMPORTANT: NO dilation here — we want AI to be able to edit background
+   * people even if they are close to the player. The ball is in the editable zone
+   * (AI may touch it), but photoAiComposite will stamp the original ball back.
    */
   async function photoAiCreateMask(dataUrl, segMask) {
     const S = 1024;
@@ -6030,17 +6031,14 @@
     cv.width = S; cv.height = S;
 
     if (segMask) {
-      // ── Pixel-perfect mask with dilation ────────────────────────────────
-      // Dilate by 40px so ball at player's feet is included in protected zone.
-      // opaque (alpha=255) = person+nearby objects → AI won't touch
-      // transparent (alpha=0) = background → editable
-      const dilated = await _dilateSegMask(segMask, S, 40);
+      // ── Pixel-perfect mask (no dilation) ──────────────────────────────────
+      // opaque (alpha=255) = player body only → protected
+      // transparent (alpha=0) = background (people, ball, field) → AI edits here
+      // Low threshold (0.05) captures fine hair strands without overdilating.
       const d = new Uint8ClampedArray(S * S * 4);
       for (let i = 0; i < S * S; i++) {
         const idx = i * 4;
-        // Use max of original (with smooth edges) and dilated (hard binary)
-        const orig = _smoothstep((segMask[i] - 0.05) / 0.20);
-        const p = Math.max(orig, dilated[i]);
+        const p = _smoothstep((segMask[i] - 0.05) / 0.20);
         d[idx]   = 0;
         d[idx+1] = 0;
         d[idx+2] = 0;
