@@ -6276,17 +6276,70 @@
   }
 
   /**
-   * Create a mask for Stability AI inpainting:
-   *   WHITE (255) = background → inpaint here (remove people)
-   *   BLACK (0)   = player     → preserve (do not touch)
+   * Create a PRECISE Stability AI inpaint mask from GPT-4o bounding boxes.
    *
-   * This is the INVERSE of the OpenAI mask convention.
+   * Only the detected background people spots are WHITE (inpaint).
+   * Everything else — fence, cars, grass, field lines — stays BLACK (preserve).
+   *
+   * @param {Array} people  [{cx,cy,w,h}] — percentages 0–100
+   * @param {number} S      canvas size (1024)
+   * @param {Float32Array} segMask  player mask — ensure player zone stays black too
+   */
+  function photoAiCreatePrecisePeopleMask(people, S, segMask) {
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    const ctx = cv.getContext('2d');
+
+    // Start all black = preserve everything
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, S, S);
+
+    // Paint each detected background person WHITE with soft ellipse + padding
+    const PAD = 25; // px padding around each bounding box
+    ctx.fillStyle = '#fff';
+    for (const p of people) {
+      const cx = (p.cx / 100) * S;
+      const cy = (p.cy / 100) * S;
+      const rw = ((p.w  / 100) * S) / 2 + PAD;
+      const rh = ((p.h  / 100) * S) / 2 + PAD;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Blur the mask slightly for soft edges → better blending
+    const tempCv = document.createElement('canvas');
+    tempCv.width = S; tempCv.height = S;
+    const tCtx = tempCv.getContext('2d');
+    tCtx.filter = 'blur(8px)';
+    tCtx.drawImage(cv, 0, 0);
+    tCtx.filter = 'none';
+
+    // Re-threshold after blur so it stays binary (not grayscale)
+    const blurred = tCtx.getImageData(0, 0, S, S).data;
+    const finalData = new Uint8ClampedArray(S * S * 4);
+    for (let i = 0; i < S * S; i++) {
+      const idx = i * 4;
+      // Keep player zone BLACK even if it falls inside a people ellipse
+      const isPlayer = segMask && segMask[i] > 0.3;
+      const v = (!isPlayer && blurred[idx] > 20) ? 255 : 0;
+      finalData[idx] = v; finalData[idx+1] = v; finalData[idx+2] = v; finalData[idx+3] = 255;
+    }
+    const finalCv = document.createElement('canvas');
+    finalCv.width = S; finalCv.height = S;
+    finalCv.getContext('2d').putImageData(new ImageData(finalData, S, S), 0, 0);
+    return finalCv.toDataURL('image/png');
+  }
+
+  /**
+   * Create a FULL-BACKGROUND Stability AI mask (fallback when no people detected).
+   *   WHITE (255) = background → inpaint here
+   *   BLACK (0)   = player     → preserve
    */
   function photoAiCreateStabilityMask(segMask, S) {
     const d = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
       const idx = i * 4;
-      // Invert: player (segMask≈1) → black (0), background (segMask≈0) → white (255)
       const p = 1 - _smoothstep((segMask[i] - 0.05) / 0.20);
       const v = Math.round(p * 255);
       d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
@@ -6427,14 +6480,43 @@
           let resp;
 
           if (removePeople && segMask) {
-            // ── PATH 1: Stability AI inpainting ──────────────────────────────
-            txt.textContent = '🎯 Видаляю людей (Stability AI)…';
-            const stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
-            resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
-            });
+            // ── PATH 1: GPT-4o detects people → Stability AI inpaints ONLY those spots ─
+            // Step A: GPT-4o Vision finds background people bounding boxes
+            txt.textContent = '🔍 Шукаю людей на фоні…';
+            let stabilityMask;
+            try {
+              const detectResp = await fetch(`${BACKEND}/api/carousel/detect-background-people`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoAiOrig1024 }),
+              });
+              const { people } = await detectResp.json();
+
+              if (people && people.length > 0) {
+                // Precise mask: only background people spots → fence/cars preserved!
+                stabilityMask = photoAiCreatePrecisePeopleMask(people, 1024, segMask);
+              } else {
+                // No background people found — nothing to remove
+                photoAiResultDataUrl = photoAiOrig1024;
+                bar.style.width = '100%';
+                txt.textContent = 'Людей на фоні не знайдено';
+                clearInterval(tick); tick = null;
+              }
+            } catch (_) {
+              // Detection failed — fallback to full background mask
+              stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
+            }
+
+            if (!stabilityMask) { clearInterval(tick); tick = null; }
+            else {
+              // Step B: Stability AI inpaints only the detected people areas
+              txt.textContent = '🎯 Видаляю людей (Stability AI)…';
+              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
+              });
+            }
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
@@ -6448,20 +6530,21 @@
               body: JSON.stringify(reqBody),
             });
           }
-          clearInterval(tick); tick = null;
-          if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
-          const data = await resp.json();
-          if (!data.b64) throw new Error('AI не повернув зображення');
+          // ── Handle response (resp may be null if no people were found) ──────
+          if (resp) {
+            clearInterval(tick); tick = null;
+            if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
+            const data = await resp.json();
+            if (!data.b64) throw new Error('AI не повернув зображення');
 
-          txt.textContent = 'Накладаю оригінал…';
-          bar.style.width = '95%';
-          const aiResult = `data:image/png;base64,${data.b64}`;
+            txt.textContent = 'Накладаю оригінал…';
+            bar.style.width = '95%';
+            const aiResult = `data:image/png;base64,${data.b64}`;
 
-          // ── Composite original player on top ─────────────────────────────
-          // remove-people: AI filled player zone w/ grass → edge blends naturally
-          // other tasks:   mask kept background aligned → no shift
-          photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
-          bar.style.width = '100%';
+            // Composite original player on top of the inpainted background
+            photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+            bar.style.width = '100%';
+          }
         } finally {
           if (tick) { clearInterval(tick); tick = null; }
         }

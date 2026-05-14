@@ -353,6 +353,57 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
   }
 });
 
+// ── POST /api/carousel/detect-background-people ─────────────────────────────
+// GPT-4o Vision locates background people (bounding boxes as % of image size).
+// Used BEFORE inpainting so we only mask the exact spots where people stand —
+// preserving fence, cars, grass, and all other background elements.
+carouselRouter.post('/detect-background-people', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image } = req.body as { image: string };
+    if (!image) { res.status(400).json({ error: 'image required' }); return; }
+    if (!process.env.OPENAI_API_KEY) { res.status(500).json({ error: 'OPENAI_API_KEY not configured' }); return; }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Look at this sports photo. The MAIN SUBJECT is the largest/most prominent person ` +
+              `in the foreground (closest to camera, largest in the frame). Do NOT mark them.\n\n` +
+              `Find ALL OTHER people visible anywhere — spectators, coaches, bystanders, ` +
+              `anyone sitting or standing in the background.\n\n` +
+              `For each background person, estimate their bounding box as percentages (0–100) ` +
+              `of image width and height.\n\n` +
+              `Return ONLY this JSON (no markdown, no explanation):\n` +
+              `{"people":[{"cx":20,"cy":75,"w":10,"h":20},...]}` +
+              `\ncx/cy = center of person, w/h = size. If none found: {"people":[]}.`,
+          },
+          {
+            type: 'image_url' as const,
+            image_url: {
+              url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`,
+              detail: 'high' as const,
+            },
+          },
+        ],
+      }],
+      response_format: { type: 'json_object' },
+      max_tokens: 500,
+      temperature: 0.1,
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{"people":[]}');
+    res.json({ people: Array.isArray(result.people) ? result.people : [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── POST /api/carousel/inpaint ───────────────────────────────────────────────
 // Stability AI inpainting — used specifically for removing background people.
 // Much more reliable than gpt-image-1 for precise object removal because it's
