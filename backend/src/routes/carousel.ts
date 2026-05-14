@@ -430,6 +430,29 @@ function createCircleMaskRgbaPng(
   return Buffer.concat([_pngSig, ihdr, idat, _pngChunk('IEND', Buffer.alloc(0))]);
 }
 
+// ── Grayscale rectangle mask (for Stability AI): white rects = inpaint ───────
+function createRectMaskPng(
+  S: number,
+  rects: Array<{ x1: number; y1: number; x2: number; y2: number }>
+): Buffer {
+  const pixels = Buffer.alloc(S * S, 0); // black = preserve
+  for (const { x1, y1, x2, y2 } of rects) {
+    for (let y = y1; y <= y2; y++) {
+      for (let x = x1; x <= x2; x++) {
+        pixels[y * S + x] = 255; // white = inpaint
+      }
+    }
+  }
+  const raw = Buffer.alloc(S * (S + 1));
+  for (let y = 0; y < S; y++) {
+    raw[y * (S + 1)] = 0;
+    pixels.copy(raw, y * (S + 1) + 1, y * S, (y + 1) * S);
+  }
+  const ihdr = _pngChunk('IHDR', Buffer.concat([_pngU32(S), _pngU32(S), Buffer.from([8, 0, 0, 0, 0])]));
+  const idat = _pngChunk('IDAT', deflateSync(raw));
+  return Buffer.concat([_pngSig, ihdr, idat, _pngChunk('IEND', Buffer.alloc(0))]);
+}
+
 // ── Replicate helper: create prediction + poll until done ───────────────────
 async function replicateRun(
   model: string,
@@ -501,11 +524,14 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
           {
             type: 'text' as const,
             text:
-              'Sports photo. The MAIN SUBJECT is the largest/closest foreground person — DO NOT include them. ' +
-              'Find ALL OTHER people (spectators, coaches, bystanders) in the background. ' +
-              'For each person give center and approximate size as % of image dimensions (0-100). ' +
-              'Return ONLY JSON: {"people":[{"cx":20,"cy":75,"w":8,"h":12},...]}. ' +
-              'If no background people found: {"people":[]}.',
+              'Sports photo. Identify the main foreground subject (closest, largest person) — exclude them. ' +
+              'Find ALL OTHER people in the background (spectators, crowd, coaches, bystanders). ' +
+              'Group nearby people into clusters. For each cluster return a GENEROUS bounding box ' +
+              'covering every person in that group plus ~10% padding on each side. ' +
+              'Coordinates as % of image dimensions (0-100). ' +
+              'Return ONLY JSON: {"groups":[{"x1":5,"y1":45,"x2":35,"y2":72},...]}. ' +
+              'Make boxes LARGE enough to fully cover each group — do not underestimate. ' +
+              'If no background people: {"groups":[]}.',
           },
           {
             type: 'image_url' as const,
@@ -518,38 +544,33 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
       temperature: 0.1,
     });
 
-    const { people } = JSON.parse(detectRes.choices[0].message.content || '{"people":[]}') as {
-      people: Array<{ cx: number; cy: number; w?: number; h?: number }>;
+    const { groups } = JSON.parse(detectRes.choices[0].message.content || '{"groups":[]}') as {
+      groups: Array<{ x1: number; y1: number; x2: number; y2: number }>;
     };
 
-    console.log('[remove-background-people] detected people:', JSON.stringify(people));
+    console.log('[remove-background-people] detected groups:', JSON.stringify(groups));
 
-    if (!people?.length) {
+    if (!groups?.length) {
       res.json({ b64: null, message: 'no_people_detected' });
       return;
     }
 
-    // ── STEP 2: Build circle mask in pure Node.js (no external libs) ─────────
-    // Each detected person → white filled circle; radius from GPT-4o size estimate.
-    // White = inpaint (remove person), Black = preserve (fence, grass, player).
-    const circles = people.map(p => {
-      const cx = Math.round((p.cx / 100) * S);
-      const cy = Math.round((p.cy / 100) * S);
-      // Use the larger of w/h to set radius; clamp to [45, 130]px
-      const fromBox = (p.w || 0) > 0 || (p.h || 0) > 0
-        ? Math.round((Math.max(p.w ?? 0, p.h ?? 0) / 100) * S * 0.55)
-        : 65;
-      const r = Math.max(45, Math.min(130, fromBox));
-      return { cx, cy, r };
-    });
+    // ── STEP 2: Build rectangle mask — one rect per spectator group ───────────
+    // White filled rectangles = inpaint (remove whole group at once).
+    // Black everywhere else = preserve (fence above group, player, grass).
+    const rects = groups.map(g => ({
+      x1: Math.max(0,   Math.round((g.x1 / 100) * S)),
+      y1: Math.max(0,   Math.round((g.y1 / 100) * S)),
+      x2: Math.min(S-1, Math.round((g.x2 / 100) * S)),
+      y2: Math.min(S-1, Math.round((g.y2 / 100) * S)),
+    }));
 
-    console.log('[remove-background-people] circles:', JSON.stringify(circles));
+    console.log('[remove-background-people] rects:', JSON.stringify(rects));
 
-    // ── STEP 3: Stability AI inpaint — pixel-exact fill of person circles ───────
-    // Grayscale mask: white circles = inpaint here, black = preserve exactly.
-    // Stability only modifies masked pixels → player, fence, grass untouched.
+    // ── STEP 3: Stability AI inpaint — pixel-exact fill of person rectangles ──
+    // Grayscale mask: white rects = inpaint here, black = preserve exactly.
     const imgBuf  = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
-    const maskBuf = createCircleMaskPng(S, circles);
+    const maskBuf = createRectMaskPng(S, rects);
 
     const form = new FormData();
     form.append('image', new Blob([imgBuf],  { type: 'image/png' }), 'image.png');
