@@ -6294,8 +6294,9 @@
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, S, S);
 
-    // Paint each detected background person WHITE with soft ellipse + padding
-    const PAD = 25; // px padding around each bounding box
+    // Paint each detected background person WHITE — TIGHT ellipse, small padding
+    // Small PAD = AI has less room to "invent" → forced to continue surrounding bg
+    const PAD = 8;
     ctx.fillStyle = '#fff';
     for (const p of people) {
       const cx = (p.cx / 100) * S;
@@ -6307,22 +6308,14 @@
       ctx.fill();
     }
 
-    // Blur the mask slightly for soft edges → better blending
-    const tempCv = document.createElement('canvas');
-    tempCv.width = S; tempCv.height = S;
-    const tCtx = tempCv.getContext('2d');
-    tCtx.filter = 'blur(8px)';
-    tCtx.drawImage(cv, 0, 0);
-    tCtx.filter = 'none';
-
-    // Re-threshold after blur so it stays binary (not grayscale)
-    const blurred = tCtx.getImageData(0, 0, S, S).data;
+    // NO blur — keep mask crisp so AI doesn't touch fence/grass outside person area
+    const raw = ctx.getImageData(0, 0, S, S).data;
     const finalData = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
       const idx = i * 4;
       // Keep player zone BLACK even if it falls inside a people ellipse
       const isPlayer = segMask && segMask[i] > 0.3;
-      const v = (!isPlayer && blurred[idx] > 20) ? 255 : 0;
+      const v = (!isPlayer && raw[idx] > 128) ? 255 : 0;
       finalData[idx] = v; finalData[idx+1] = v; finalData[idx+2] = v; finalData[idx+3] = 255;
     }
     const finalCv = document.createElement('canvas');

@@ -430,16 +430,18 @@ carouselRouter.post('/inpaint', async (req: Request, res: Response, next: NextFu
     form.append('mask',   new Blob([maskBuf], { type: 'image/png' }), 'mask.png');
     // Prompt = describe what the INPAINTED (background) area should look like
     form.append('prompt',
-      'Empty sports field. Natural grass surface with same color and texture as surrounding area. ' +
-      'No people. No spectators. No athletes. Clean field with fence and goal posts intact. ' +
-      'Same lighting and perspective as the rest of the photo.'
+      'Fill this area by seamlessly continuing the existing background from the surrounding pixels. ' +
+      'If there is a fence or net visible around this spot, extend that same fence or net through here. ' +
+      'If there is grass, copy the exact shade, grain, and color of the adjacent grass. ' +
+      'If there is concrete or a road, match the same surface. ' +
+      'Only erase the human figure — replace it with whatever background surface would naturally be there. ' +
+      'Do not add new objects. Do not change colors or lighting. Keep perspective identical.'
     );
     form.append('negative_prompt',
-      'person, people, human, man, woman, child, crowd, spectator, fan, athlete, player, ' +
-      'body, face, legs, arms, clothing'
+      'person, people, human, man, woman, child, crowd, spectator, fan, athlete, ' +
+      'body, face, legs, arms, clothing, empty field, blank space, uniform texture'
     );
     form.append('output_format', 'png');
-    form.append('grow_mask', '8');   // grow mask 8px inward to help edge blending
 
     const stability = await fetch(
       'https://api.stability.ai/v2beta/stable-image/edit/inpaint',
