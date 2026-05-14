@@ -6473,11 +6473,10 @@
           let resp;
 
           if (removePeople) {
-            // ── PATH 1: SAM-2 pixel-perfect people removal ────────────────────
-            // Backend pipeline: GPT-4o detects people → SAM-2 pixel masks per person
-            // → Stability AI inpaints only those exact pixel-shape spots.
-            // Fence, cars, grass and all other background elements are untouched.
-            txt.textContent = '🔍 Аналізую фото (SAM-2)…';
+            // ── PATH 1: People removal — GPT-4o + Stability AI inpaint ────────
+            // Backend: GPT-4o finds background people → server builds circle mask
+            // → Stability AI inpaints only those spots. No SAM-2 / no Replicate.
+            txt.textContent = '🔍 Шукаю людей на фоні…';
             resp = await fetch(`${BACKEND}/api/carousel/remove-background-people`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -6513,9 +6512,7 @@
               // No background people found, or SAM-2 couldn't produce masks
               photoAiResultDataUrl = photoAiOrig1024;
               bar.style.width = '100%';
-              const noOp = data.message === 'sam_failed_no_masks'
-                ? 'SAM-2 не зміг сегментувати людей — спробуйте ще раз'
-                : 'Людей на фоні не знайдено';
+              const noOp = 'Людей на фоні не знайдено';
               txt.textContent = noOp;
             } else {
               txt.textContent = 'Накладаю оригінал…';

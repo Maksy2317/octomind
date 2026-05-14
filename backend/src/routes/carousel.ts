@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import OpenAI, { toFile } from 'openai';
+import { deflateSync } from 'zlib';
 
 export const carouselRouter = Router();
 
@@ -353,6 +354,71 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
   }
 });
 
+// ── Pure-Node PNG encoder: SxS grayscale mask with filled white circles ─────
+// white (255) = inpaint area for Stability AI, black (0) = preserve
+function createCircleMaskPng(
+  S: number,
+  circles: Array<{ cx: number; cy: number; r: number }>
+): Buffer {
+  // pixel buffer, all black (preserve everything)
+  const pixels = Buffer.alloc(S * S, 0);
+
+  // draw filled white circles for each detected person
+  for (const { cx, cy, r } of circles) {
+    const x0 = Math.max(0, cx - r);
+    const x1 = Math.min(S - 1, cx + r);
+    const y0 = Math.max(0, cy - r);
+    const y1 = Math.min(S - 1, cy + r);
+    const r2 = r * r;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 <= r2) {
+          pixels[y * S + x] = 255;
+        }
+      }
+    }
+  }
+
+  // Build PNG scanline data: 1 filter byte (0=None) + S pixel bytes per row
+  const raw = Buffer.alloc(S * (S + 1));
+  for (let y = 0; y < S; y++) {
+    raw[y * (S + 1)] = 0; // filter type None
+    pixels.copy(raw, y * (S + 1) + 1, y * S, (y + 1) * S);
+  }
+
+  const compressed = deflateSync(raw);
+
+  // CRC-32
+  const crcTable = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    crcTable[i] = c;
+  }
+  const crc32 = (buf: Buffer) => {
+    let c = 0xffffffff;
+    for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ crcTable[(c ^ buf[i]) & 0xff];
+    return (c ^ 0xffffffff) >>> 0;
+  };
+
+  const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n, 0); return b; };
+  const chunk = (type: string, data: Buffer) => {
+    const tb = Buffer.from(type, 'ascii');
+    const crc = u32(crc32(Buffer.concat([tb, data])));
+    return Buffer.concat([u32(data.length), tb, data, crc]);
+  };
+
+  const sig  = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = chunk('IHDR', Buffer.concat([
+    u32(S), u32(S),
+    Buffer.from([8, 0, 0, 0, 0]), // 8-bit grayscale, deflate, adaptive, no interlace
+  ]));
+  const idat = chunk('IDAT', compressed);
+  const iend = chunk('IEND', Buffer.alloc(0));
+
+  return Buffer.concat([sig, ihdr, idat, iend]);
+}
+
 // ── Replicate helper: create prediction + poll until done ───────────────────
 async function replicateRun(
   model: string,
@@ -401,24 +467,22 @@ async function replicateRun(
 // ── POST /api/carousel/remove-background-people ──────────────────────────────
 // Full pipeline: GPT-4o detects people → SAM-2 pixel masks → Stability AI inpaint
 // This preserves fence, cars, grass — only removes person-shaped pixel groups.
-carouselRouter.post('/remove-background-people', async (req: Request, res: Response, next: NextFunction) => {
+carouselRouter.post('/remove-background-people', async (req: Request, res: Response) => {
   try {
     const { image } = req.body as { image: string };
     if (!image) { res.status(400).json({ error: 'image required' }); return; }
 
     const openaiKey    = process.env.OPENAI_API_KEY;
-    const replicateKey = process.env.REPLICATE_API_KEY;
     const stabilityKey = process.env.STABILITY_API_KEY;
 
     if (!openaiKey)    { res.status(503).json({ error: 'OPENAI_API_KEY not configured' }); return; }
-    if (!replicateKey) { res.status(503).json({ error: 'REPLICATE_API_KEY not configured' }); return; }
     if (!stabilityKey) { res.status(503).json({ error: 'STABILITY_API_KEY not configured' }); return; }
 
-    const openai      = new OpenAI({ apiKey: openaiKey });
-    const imageUrl    = image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`;
-    const S           = 1024;
+    const openai   = new OpenAI({ apiKey: openaiKey });
+    const imageUrl = image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`;
+    const S        = 1024;
 
-    // ── STEP 1: GPT-4o Vision — find background people centers ──────────────
+    // ── STEP 1: GPT-4o — detect background people with bounding boxes ────────
     const detectRes = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [{
@@ -427,10 +491,10 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
           {
             type: 'text' as const,
             text:
-              'This is a sports photo. The MAIN SUBJECT is the largest, closest person in the foreground. ' +
-              'Find ALL OTHER people in the background: spectators, coaches, bystanders. ' +
-              'For each background person give their center as a percentage (0-100) of image width/height. ' +
-              'Return ONLY JSON (no markdown): {"people":[{"cx":20,"cy":75},...]}. ' +
+              'Sports photo. The MAIN SUBJECT is the largest/closest foreground person — DO NOT include them. ' +
+              'Find ALL OTHER people (spectators, coaches, bystanders) in the background. ' +
+              'For each person give center and approximate size as % of image dimensions (0-100). ' +
+              'Return ONLY JSON: {"people":[{"cx":20,"cy":75,"w":8,"h":12},...]}. ' +
               'If no background people found: {"people":[]}.',
           },
           {
@@ -445,97 +509,45 @@ carouselRouter.post('/remove-background-people', async (req: Request, res: Respo
     });
 
     const { people } = JSON.parse(detectRes.choices[0].message.content || '{"people":[]}') as {
-      people: Array<{ cx: number; cy: number }>;
+      people: Array<{ cx: number; cy: number; w?: number; h?: number }>;
     };
 
+    console.log('[remove-background-people] detected people:', JSON.stringify(people));
+
     if (!people?.length) {
-      // Nothing to remove — return signal so frontend shows original
       res.json({ b64: null, message: 'no_people_detected' });
       return;
     }
 
-    // ── STEP 2: SAM-2 via Replicate — pixel-perfect masks ───────────────────
-    // Run one SAM call per detected person (parallel) → individual pixel masks.
-    // SAM accepts ONE set of click points per call and returns a precise outline.
-    const samMaskUrls = await Promise.all(
-      people.map(async (p) => {
-        const px = Math.round((p.cx / 100) * S);
-        const py = Math.round((p.cy / 100) * S);
+    // ── STEP 2: Build circle mask in pure Node.js (no external libs) ─────────
+    // Each detected person → white filled circle; radius from GPT-4o size estimate.
+    // White = inpaint (remove person), Black = preserve (fence, grass, player).
+    const circles = people.map(p => {
+      const cx = Math.round((p.cx / 100) * S);
+      const cy = Math.round((p.cy / 100) * S);
+      // Use the larger of w/h to set radius; clamp to [45, 130]px
+      const fromBox = (p.w || 0) > 0 || (p.h || 0) > 0
+        ? Math.round((Math.max(p.w ?? 0, p.h ?? 0) / 100) * S * 0.55)
+        : 65;
+      const r = Math.max(45, Math.min(130, fromBox));
+      return { cx, cy, r };
+    });
 
-        try {
-          const output = await replicateRun(
-            'meta/sam-2',
-            {
-              image: imageUrl,
-              input_points: JSON.stringify([[px, py]]),
-              input_labels: JSON.stringify([1]),
-              multimask_output: false,
-              use_m2m: true,
-            },
-            replicateKey
-          );
+    console.log('[remove-background-people] circles:', JSON.stringify(circles));
+    const maskBuf = createCircleMaskPng(S, circles);
 
-          // SAM-2 output: array of mask image URLs
-          const masks = output as string[];
-          return masks?.[0] ?? null;
-        } catch (e) {
-          console.warn(`SAM-2 failed for person at (${px},${py}):`, e);
-          return null;
-        }
-      })
-    );
-
-    // ── STEP 3: Combine individual masks with bitwise OR (pure Buffer) ───────
-    // Each SAM mask is an RGBA/Greyscale PNG where bright = person.
-    // We combine them so ALL background people are covered in one mask.
-    const validMaskUrls = samMaskUrls.filter(Boolean) as string[];
-
-    if (!validMaskUrls.length) {
-      // SAM-2 failed for all people — nothing to inpaint, return original signal
-      console.warn('SAM-2 returned no valid masks for any of the detected people. Returning no-op.');
-      res.json({ b64: null, message: 'sam_failed_no_masks' });
-      return;
-    }
-
-    // Download all masks as buffers
-    const maskBuffers = await Promise.all(
-      validMaskUrls.map(async (url) => {
-        if (url.startsWith('data:')) {
-          return Buffer.from(url.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
-        }
-        const r = await fetch(url);
-        return Buffer.from(await r.arrayBuffer());
-      })
-    );
-
-    // Build combined mask using raw bytes scan (look for bright pixels in any mask).
-    // PNG files have an 8-byte signature + IHDR chunk before IDAT data.
-    // Instead of parsing PNG, we use a canvas-free approach: call Stability AI
-    // once per person mask OR build a simple combined mask from raw pixel values.
-    //
-    // Simple approach: create a combined mask image by overlaying all SAM masks
-    // via repeated Stability API calls is expensive; instead, send the FIRST
-    // (and usually dominant) mask. For multiple people, combine by re-encoding.
-    //
-    // Production note: for >1 person, we use the first mask for simplicity.
-    // Full per-person combination requires pngjs or sharp — add to package.json if needed.
-    const finalMaskBuf = maskBuffers[0]; // primary mask; good for 1-2 people
-
-    // ── STEP 4: Stability AI inpaint with SAM pixel mask ─────────────────────
+    // ── STEP 3: Stability AI inpaint ─────────────────────────────────────────
     const imgBuf = Buffer.from(image.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
 
     const form = new FormData();
-    form.append('image', new Blob([imgBuf],       { type: 'image/png' }), 'image.png');
-    form.append('mask',  new Blob([finalMaskBuf], { type: 'image/png' }), 'mask.png');
+    form.append('image', new Blob([imgBuf],   { type: 'image/png' }), 'image.png');
+    form.append('mask',  new Blob([maskBuf],  { type: 'image/png' }), 'mask.png');
     form.append('prompt',
-      'Fill this exact area by continuing the background visible in the surrounding pixels. ' +
-      'Extend the fence, grass, or surface that exists around this spot. ' +
-      'Keep the color, texture, and lighting identical to the adjacent area. ' +
-      'Remove only the person silhouette and fill naturally.'
+      'Fill this area by seamlessly continuing the background from surrounding pixels. ' +
+      'Extend the fence, grass, or surface visible around this spot. ' +
+      'Match the exact color, texture, and lighting of adjacent areas. No people.'
     );
-    form.append('negative_prompt',
-      'person, people, human, man, woman, crowd, different background, new objects'
-    );
+    form.append('negative_prompt', 'person, people, human, man, woman, crowd');
     form.append('output_format', 'png');
 
     const stability = await fetch(
