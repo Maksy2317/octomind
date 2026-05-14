@@ -5979,39 +5979,79 @@
   }
 
   /**
+   * Spatial dilation of a Float32Array segMask using canvas Gaussian blur.
+   * Expands the "person" zone outward by ~dilPx pixels so nearby objects
+   * (e.g. ball at the player's feet) get included in the protected region.
+   *
+   * Returns a new Float32Array where dilated pixels are 1.0.
+   */
+  function _dilateSegMask(segMask, S, dilPx) {
+    return new Promise(resolve => {
+      // Draw person=white, background=black
+      const srcCv = document.createElement('canvas');
+      srcCv.width = S; srcCv.height = S;
+      const dd = new Uint8ClampedArray(S * S * 4);
+      for (let i = 0; i < S * S; i++) {
+        const v = segMask[i] > 0.30 ? 255 : 0;
+        dd[i*4] = v; dd[i*4+1] = v; dd[i*4+2] = v; dd[i*4+3] = 255;
+      }
+      srcCv.getContext('2d').putImageData(new ImageData(dd, S, S), 0, 0);
+
+      // Blur simulates dilation: white bleeds outward by ~dilPx pixels
+      // CSS blur(r) ≈ Gaussian σ = r/3. At 6% threshold, dilation ≈ 1.56σ ≈ 0.52r
+      const dilCv = document.createElement('canvas');
+      dilCv.width = S; dilCv.height = S;
+      const dilCtx = dilCv.getContext('2d');
+      dilCtx.filter = `blur(${dilPx * 2}px)`; // ×2 so ~dilPx effective radius at 6% threshold
+      dilCtx.drawImage(srcCv, 0, 0);
+      dilCtx.filter = 'none';
+
+      const blurred = dilCtx.getImageData(0, 0, S, S).data;
+      const result = new Float32Array(S * S);
+      for (let i = 0; i < S * S; i++) {
+        // threshold 6% → dilated zone extends ~dilPx pixels from person edge
+        result[i] = blurred[i * 4] > 15 ? 1.0 : 0.0;
+      }
+      resolve(result);
+    });
+  }
+
+  /**
    * Create the API mask to send to OpenAI images.edit:
    *   Transparent (alpha=0)   = background → AI may edit here
    *   Opaque (alpha=255)      = person     → AI must NOT touch
    *
    * Uses segMask (Float32Array) if available, else falls back to rectangular strip.
+   * Dilates the person zone by ~40px so nearby objects (ball, etc.) are also protected.
    */
-  function photoAiCreateMask(dataUrl, segMask) {
-    return new Promise(resolve => {
-      const S = 1024;
-      const cv = document.createElement('canvas');
-      cv.width = S; cv.height = S;
+  async function photoAiCreateMask(dataUrl, segMask) {
+    const S = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
 
-      if (segMask) {
-        // ── Pixel-perfect mask from segmentation (remove.bg alpha) ──────────
-        // opaque (alpha=255) = person → protected, AI won't touch
-        // transparent (alpha=0) = background → editable
-        // Use raw remove.bg alpha directly — it already has perfect anti-aliased
-        // edges. Lowered threshold (0.05) captures even fine hair strands.
-        const d = new Uint8ClampedArray(S * S * 4);
-        for (let i = 0; i < S * S; i++) {
-          const idx = i * 4;
-          const p = _smoothstep((segMask[i] - 0.05) / 0.20); // low threshold → protect more
-          d[idx]   = 0;
-          d[idx+1] = 0;
-          d[idx+2] = 0;
-          d[idx+3] = Math.round(p * 255); // opaque=protect, transparent=edit
-        }
-        cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
-        resolve(cv.toDataURL('image/png'));
-        return;
+    if (segMask) {
+      // ── Pixel-perfect mask with dilation ────────────────────────────────
+      // Dilate by 40px so ball at player's feet is included in protected zone.
+      // opaque (alpha=255) = person+nearby objects → AI won't touch
+      // transparent (alpha=0) = background → editable
+      const dilated = await _dilateSegMask(segMask, S, 40);
+      const d = new Uint8ClampedArray(S * S * 4);
+      for (let i = 0; i < S * S; i++) {
+        const idx = i * 4;
+        // Use max of original (with smooth edges) and dilated (hard binary)
+        const orig = _smoothstep((segMask[i] - 0.05) / 0.20);
+        const p = Math.max(orig, dilated[i]);
+        d[idx]   = 0;
+        d[idx+1] = 0;
+        d[idx+2] = 0;
+        d[idx+3] = Math.round(p * 255); // opaque=protect, transparent=edit
       }
+      cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
+      return cv.toDataURL('image/png');
+    }
 
-      // ── Fallback: rectangular strip (center protected, edges editable) ───
+    // ── Fallback: rectangular strip (center protected, edges editable) ──────
+    return new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
         const ctx = cv.getContext('2d');
@@ -6038,13 +6078,12 @@
   }
 
   /**
-   * Pixel-level composite: merge AI result (background) + original (person).
+   * Pixel-level composite: merge AI result (background) + original (person+nearby).
    *
-   * Strategy: use remove.bg alpha directly as compositing mask.
-   *  - Remove.bg already provides pixel-perfect, naturally anti-aliased edges
-   *  - No dilation needed (dilation causes blurry halos)
-   *  - In the person zone: original pixels fully cover any AI ghost
-   *  - At hair/edge zone: remove.bg smooth alpha provides natural transition
+   * Strategy:
+   *  - Dilate segMask by 40px so ball at player's feet is in the "original" zone
+   *  - Core person: tight alpha curve (0.25→0.50) — no ghosting
+   *  - Dilated zone (ball, etc.): hard binary (1.0) from original — no doubling
    */
   async function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
     const S = 1024;
@@ -6064,13 +6103,12 @@
       // ── STEP 1: Draw AI result as base (new background) ─────────────────
       ctx.drawImage(aiImg, 0, 0, S, S);
 
-      // ── STEP 2: Stamp original person using steeper alpha curve ────────
-      // Using raw segMask[i] * 255 can create "doubling" because semi-transparent
-      // edge pixels show both the original player AND whatever the AI drew there.
-      // We compress the transition to the 0.10–0.55 range:
-      //   segMask < 0.10  → alpha = 0   (fully AI background, no ghost)
-      //   segMask > 0.55  → alpha = 255 (fully original player, guaranteed)
-      //   0.10–0.55       → smooth ramp  (thin natural anti-alias edge)
+      // ── STEP 2: Build compositing alpha ──────────────────────────────────
+      // Dilate segMask so nearby objects (ball at feet) come from original image.
+      // Core person edges use tight 0.25→0.50 curve (no blurry halo).
+      // Dilated zone uses binary 1.0 (fully original = no doubling).
+      const dilated = await _dilateSegMask(segMask, S, 40);
+
       const personCv = document.createElement('canvas');
       personCv.width = S; personCv.height = S;
       const pCtx = personCv.getContext('2d');
@@ -6079,16 +6117,20 @@
       const d = personData.data;
       for (let i = 0; i < S * S; i++) {
         const a = segMask[i];
-        // Tight transition 0.25 → 0.50: background pixels with segMask < 0.25
-        // become fully transparent (no blurry silhouette around arms/hands),
-        // core player pixels > 0.50 become fully opaque (100% original).
-        d[i * 4 + 3] = a < 0.25 ? 0
-                      : a > 0.50 ? 255
-                      : Math.round(((a - 0.25) / 0.25) * 255);
+        const isDilated = dilated[i] > 0.5; // expanded zone (ball, etc.)
+        if (isDilated) {
+          // Dilated zone: original pixel wins (no doubling with AI-modified content)
+          d[i * 4 + 3] = 255;
+        } else {
+          // Core person edge: tight transition 0.25→0.50 (no blurry silhouette)
+          d[i * 4 + 3] = a < 0.25 ? 0
+                        : a > 0.50 ? 255
+                        : Math.round(((a - 0.25) / 0.25) * 255);
+        }
       }
       pCtx.putImageData(personData, 0, 0);
 
-      // ── STEP 3: Composite person over AI background ──────────────────────
+      // ── STEP 3: Composite person+nearby-objects over AI background ───────
       ctx.drawImage(personCv, 0, 0, S, S);
 
     } else {

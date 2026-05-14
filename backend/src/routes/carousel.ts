@@ -290,8 +290,10 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `In the transparent (editable) background region, follow these rules EXACTLY: ` +
         `1. Find any secondary people, spectators, or bystanders. Remove ONLY those human figures. ` +
         `2. Fill the spot where each removed person stood using ONLY the immediately surrounding surface texture: ` +
-        `   grass patch → extend the same grass; concrete → same concrete; sand → same sand. ` +
-        `   Match the exact color, brightness, and texture already present around the removed person. ` +
+        `   grass patch → clone the exact same grass blades, color, and shade from the adjacent area; ` +
+        `   concrete → copy same concrete; sand → copy same sand. ` +
+        `   The fill MUST be indistinguishable from the surrounding surface — same brightness, hue, saturation. ` +
+        `   Do NOT darken or lighten the filled patch. Do NOT generate a smooth/blurred texture — match the actual grain. ` +
         `3. PRESERVE EVERYTHING ELSE ABSOLUTELY UNCHANGED: ` +
         `   • Fences, nets, goal posts, corner flags, barriers — keep all of them exactly as they are. ` +
         `   • Field markings (lines, circles, penalty area) — keep them perfectly intact. ` +
