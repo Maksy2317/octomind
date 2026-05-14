@@ -613,21 +613,19 @@ carouselRouter.post('/detect-background-people', async (req: Request, res: Respo
           {
             type: 'text' as const,
             text:
-              `You are analyzing a sports photo. Your job is to find EVERY background person that must be removed.\n\n` +
-              `THE MAIN SUBJECT (do NOT mark): the single largest, most prominent person in the foreground — ` +
-              `the athlete closest to the camera who is the clear focus of the photo.\n\n` +
-              `MARK ALL OF THESE (be thorough, miss nobody):\n` +
+              `You are analyzing a sports photo. Identify people and return JSON.\n\n` +
+              `THE MAIN SUBJECT: the single most prominent person in the foreground — ` +
+              `the athlete closest to camera, largest in frame, clear focus of photo.\n\n` +
+              `BACKGROUND PEOPLE (find every single one, miss nobody):\n` +
               `- Spectators, fans, coaches, bystanders — standing, sitting, lying, crouching\n` +
-              `- Partially visible people at the image edges\n` +
-              `- People who are blurry or far away in the background\n` +
-              `- People whose only part of body is visible (head, legs, torso)\n` +
-              `- People lying on the ground or sitting low\n\n` +
-              `IMPORTANT: Make bounding boxes GENEROUS — add extra margin around each person ` +
-              `to ensure the full body including extended arms/legs is covered.\n\n` +
-              `For each background person, estimate bounding box as percentages (0–100) of image width/height.\n\n` +
-              `Return ONLY this JSON (no markdown, no explanation):\n` +
-              `{"people":[{"cx":20,"cy":75,"w":15,"h":25},...]}` +
-              `\ncx/cy = center, w/h = bounding box size (be generous). If none found: {"people":[]}.`,
+              `- Partially visible at edges, blurry or far in background\n` +
+              `- Only a head, legs, or torso visible\n` +
+              `- People lying low on ground\n\n` +
+              `Return ONLY this JSON (no markdown):\n` +
+              `{"player":{"cx":50,"cy":55,"w":35,"h":80},"people":[{"cx":15,"cy":80,"w":12,"h":20},...]}` +
+              `\n- player: bounding box of the MAIN SUBJECT (required, even if alone in photo)` +
+              `\n- people: ALL background people — make bboxes GENEROUS (extra margin). Empty array if none.` +
+              `\ncx/cy = center %, w/h = size % of image dimensions.`,
           },
           {
             type: 'image_url' as const,
@@ -644,7 +642,10 @@ carouselRouter.post('/detect-background-people', async (req: Request, res: Respo
     });
 
     const result = JSON.parse(response.choices[0].message.content || '{"people":[]}');
-    res.json({ people: Array.isArray(result.people) ? result.people : [] });
+    res.json({
+      people: Array.isArray(result.people) ? result.people : [],
+      player: result.player || null,
+    });
   } catch (err) {
     next(err);
   }

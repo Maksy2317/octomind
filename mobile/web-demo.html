@@ -6333,17 +6333,22 @@
   /**
    * Smart composite after "erase all people":
    * - Stability AI erased EVERYONE (player + spectators) → clean background
-   * - We paste the ORIGINAL PLAYER back using BodyPix mask
-   * - BUT skip pixels that fall inside background-people ellipses
-   *   (so spectators don't get pasted back)
+   * - We paste the ORIGINAL PLAYER back using BodyPix mask RESTRICTED to player bbox
    *
-   * Result: player pixel-perfect, spectators gone, fence/grass from erase.
+   * KEY INSIGHT: We don't use "not-in-spectator-ellipse" logic (GPT-4o might miss some).
+   * Instead we use the PLAYER'S bounding box from GPT-4o (easy to get right —
+   * the main subject is always the largest/most prominent person).
+   * Only pixels that are BOTH in BodyPix mask AND inside player bbox get restored.
+   * All other BodyPix-detected people (outside player bbox) stay erased.
+   *
+   * @param {string} erasedDataUrl   - Stability AI result (all people erased)
+   * @param {string} origDataUrl     - Original 1024×1024 photo
+   * @param {Float32Array} segMask   - BodyPix mask (1=person, 0=background)
+   * @param {Object|null} playerBbox - {cx,cy,w,h} in % — GPT-4o player bounding box
    */
-  async function photoAiCompositePlayerOnly(erasedDataUrl, origDataUrl, segMask, bgPeople) {
+  async function photoAiCompositePlayerOnly(erasedDataUrl, origDataUrl, segMask, playerBbox) {
     const S = 1024;
-    const PAD = 130;
 
-    // Load both images into pixel arrays
     const loadImg = url => new Promise(r => {
       const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null);
       i.crossOrigin = 'anonymous'; i.src = url;
@@ -6356,40 +6361,33 @@
 
     ctx.drawImage(erasedImg, 0, 0, S, S);
     const erasedData = ctx.getImageData(0, 0, S, S).data;
-
     ctx.drawImage(origImg, 0, 0, S, S);
     const origData = ctx.getImageData(0, 0, S, S).data;
 
-    // Build a per-pixel lookup: is this pixel inside any background-people ellipse?
-    const bgMaskBuf = new Uint8Array(S * S);
-    if (bgPeople && bgPeople.length > 0) {
-      const tmpCv = document.createElement('canvas');
-      tmpCv.width = S; tmpCv.height = S;
-      const tmpCtx = tmpCv.getContext('2d');
-      tmpCtx.fillStyle = '#000';
-      tmpCtx.fillRect(0, 0, S, S);
-      tmpCtx.fillStyle = '#fff';
-      for (const p of bgPeople) {
-        const cx = (p.cx / 100) * S;
-        const cy = (p.cy / 100) * S;
-        const rw = ((p.w / 100) * S) / 2 + PAD;
-        const rh = ((p.h / 100) * S) / 2 + PAD;
-        tmpCtx.beginPath();
-        tmpCtx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2);
-        tmpCtx.fill();
-      }
-      const raw = tmpCtx.getImageData(0, 0, S, S).data;
-      for (let i = 0; i < S * S; i++) bgMaskBuf[i] = raw[i * 4] > 128 ? 1 : 0;
+    // Player bbox in pixels (with 40px padding to avoid cutting off edges)
+    const PAD_BBOX = 40;
+    let pxL = 0, pxR = S, pxT = 0, pxB = S;
+    if (playerBbox) {
+      const pcx = (playerBbox.cx / 100) * S;
+      const pcy = (playerBbox.cy / 100) * S;
+      const phw = ((playerBbox.w / 100) * S) / 2 + PAD_BBOX;
+      const phh = ((playerBbox.h / 100) * S) / 2 + PAD_BBOX;
+      pxL = Math.max(0, pcx - phw);
+      pxR = Math.min(S, pcx + phw);
+      pxT = Math.max(0, pcy - phh);
+      pxB = Math.min(S, pcy + phh);
     }
 
-    // Composite: player pixels from original, everything else from erased
+    // Composite: restore original pixel only if BodyPix says "person" AND inside player bbox
     const result = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
+      const px = i % S;
+      const py = Math.floor(i / S);
       const idx = i * 4;
-      const isPlayerPixel = segMask && segMask[i] > 0.3;
-      const isInBgEllipse  = bgMaskBuf[i] === 1;
-      // Keep original pixel only if BodyPix says "person" AND it's NOT a spectator zone
-      const useOrig = isPlayerPixel && !isInBgEllipse;
+      const isPersonPixel  = segMask && segMask[i] > 0.3;
+      const isInPlayerBbox = px >= pxL && px <= pxR && py >= pxT && py <= pxB;
+      // Restore from original only if: BodyPix=person AND within player bounding box
+      const useOrig = isPersonPixel && isInPlayerBbox;
       result[idx]   = useOrig ? origData[idx]   : erasedData[idx];
       result[idx+1] = useOrig ? origData[idx+1] : erasedData[idx+1];
       result[idx+2] = useOrig ? origData[idx+2] : erasedData[idx+2];
@@ -6544,18 +6542,17 @@
           //  4. "Розмити фон"  → client-side (already handled above, no API needed)
 
           let resp;
-          let detectedBgPeople = []; // background people bboxes, used in composite step
+          let detectedBgPeople = []; // background people bboxes
+          let detectedPlayerBbox = null; // main player bbox — used to restrict composite
 
           if (removePeople) {
             // ── PATH 1: Full BodyPix erase → smart composite player back ──────
             //
-            // Step 1: GPT-4o detects which people are background spectators
-            //         (so we know which zones to SKIP when compositing player back)
+            // Step 1: GPT-4o returns player bbox + background spectator bboxes
             // Step 2: BodyPix full-people mask → Stability AI ERASE removes EVERYONE
             //         (player + spectators). BodyPix is pixel-accurate, no missed people.
             // Step 3: photoAiCompositePlayerOnly stamps original player back
-            //         but skips pixels inside background-people ellipses
-            //         → spectators stay erased, player is pixel-perfect.
+            //         ONLY within player bbox → spectators outside bbox stay erased.
             txt.textContent = '🔍 Шукаю людей…';
             try {
               const detectResp = await fetch(`${BACKEND}/api/carousel/detect-background-people`, {
@@ -6565,7 +6562,8 @@
               });
               if (detectResp.ok) {
                 const detectData = await detectResp.json();
-                detectedBgPeople = detectData.people || [];
+                detectedBgPeople   = detectData.people || [];
+                detectedPlayerBbox = detectData.player || null;
               }
             } catch (_) {}
 
@@ -6635,7 +6633,7 @@
                 // (defined by detectedBgPeople ellipses) so they stay erased.
                 txt.textContent = 'Відновлюю гравця…';
                 photoAiResultDataUrl = await photoAiCompositePlayerOnly(
-                  aiResult, photoAiOrig1024, segMask, detectedBgPeople
+                  aiResult, photoAiOrig1024, segMask, detectedPlayerBbox
                 );
                 txt.textContent = '✅ Готово';
               } else {
