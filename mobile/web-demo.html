@@ -6472,44 +6472,17 @@
 
           let resp;
 
-          if (removePeople && segMask) {
-            // ── PATH 1: GPT-4o detects people → Stability AI inpaints ONLY those spots ─
-            // Step A: GPT-4o Vision finds background people bounding boxes
-            txt.textContent = '🔍 Шукаю людей на фоні…';
-            let stabilityMask;
-            try {
-              const detectResp = await fetch(`${BACKEND}/api/carousel/detect-background-people`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024 }),
-              });
-              const { people } = await detectResp.json();
-
-              if (people && people.length > 0) {
-                // Precise mask: only background people spots → fence/cars preserved!
-                stabilityMask = photoAiCreatePrecisePeopleMask(people, 1024, segMask);
-              } else {
-                // No background people found — nothing to remove
-                photoAiResultDataUrl = photoAiOrig1024;
-                bar.style.width = '100%';
-                txt.textContent = 'Людей на фоні не знайдено';
-                clearInterval(tick); tick = null;
-              }
-            } catch (_) {
-              // Detection failed — fallback to full background mask
-              stabilityMask = photoAiCreateStabilityMask(segMask, 1024);
-            }
-
-            if (!stabilityMask) { clearInterval(tick); tick = null; }
-            else {
-              // Step B: Stability AI inpaints only the detected people areas
-              txt.textContent = '🎯 Видаляю людей (Stability AI)…';
-              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024, mask: stabilityMask }),
-              });
-            }
+          if (removePeople) {
+            // ── PATH 1: SAM-2 pixel-perfect people removal ────────────────────
+            // Backend pipeline: GPT-4o detects people → SAM-2 pixel masks per person
+            // → Stability AI inpaints only those exact pixel-shape spots.
+            // Fence, cars, grass and all other background elements are untouched.
+            txt.textContent = '🔍 Аналізую фото (SAM-2)…';
+            resp = await fetch(`${BACKEND}/api/carousel/remove-background-people`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: photoAiOrig1024 }),
+            });
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
@@ -6523,20 +6496,26 @@
               body: JSON.stringify(reqBody),
             });
           }
-          // ── Handle response (resp may be null if no people were found) ──────
+          // ── Handle response ───────────────────────────────────────────────
           if (resp) {
             clearInterval(tick); tick = null;
             if (!resp.ok) throw new Error(`Помилка сервера ${resp.status}`);
             const data = await resp.json();
-            if (!data.b64) throw new Error('AI не повернув зображення');
 
-            txt.textContent = 'Накладаю оригінал…';
-            bar.style.width = '95%';
-            const aiResult = `data:image/png;base64,${data.b64}`;
+            if (!data.b64) {
+              // No background people found — show original unchanged
+              photoAiResultDataUrl = photoAiOrig1024;
+              bar.style.width = '100%';
+              txt.textContent = 'Людей на фоні не знайдено';
+            } else {
+              txt.textContent = 'Накладаю оригінал…';
+              bar.style.width = '95%';
+              const aiResult = `data:image/png;base64,${data.b64}`;
 
-            // Composite original player on top of the inpainted background
-            photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
-            bar.style.width = '100%';
+              // Composite original player on top of the inpainted background
+              photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
+              bar.style.width = '100%';
+            }
           }
         } finally {
           if (tick) { clearInterval(tick); tick = null; }
