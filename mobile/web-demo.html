@@ -5991,25 +5991,55 @@
    */
   /**
    * Build spectator-only erase mask.
-   * Dilates playerMask by 25px before subtracting so that BodyPix 0.15 edge
-   * detection around the player (false positives) are safely excluded.
    *
-   *   WHITE = erase: allPeopleMask AND NOT dilated_playerMask
-   *   BLACK = preserve: player (+ generous border) + fence/grass
+   *   WHITE = erase:    pixel is a person AND NOT in player zone
+   *   BLACK = preserve: player + generous border + fence/grass
+   *
+   * Double protection for the player:
+   *   1. Direct check: playerMask[i] > 0.20  (any direct player pixel → black)
+   *   2. Dilated check: dilatedPlayer[i] > 0.5 (+50px halo around player → black)
+   *   Both must be false for a pixel to be white (i.e. erased).
+   *
+   * If playerMask is null (segmentation failed), falls back to a hard-coded
+   * center safe zone that covers the typical foreground athlete position, so
+   * the player is never accidentally included even when seg fails.
    */
   async function photoAiCreateSpectatorOnlyMask(allPeopleMask, playerMask, S) {
-    // Dilate player mask 25px → protects player edges from being erased
+    // Dilate player mask 50px → protects player edges + slight uncertainty buffer
     const dilatedPlayer = playerMask
-      ? await _dilateSegMask(playerMask, S, 25)
+      ? await _dilateSegMask(playerMask, S, 50)
       : null;
+
+    // Fallback safe zone (pixels): centre of image, ~50% wide, ~90% tall
+    // Used when playerMask is null so the main subject is still protected.
+    const fallbackCX = Math.round(S * 0.50);
+    const fallbackCY = Math.round(S * 0.55);
+    const fallbackHW = Math.round(S * 0.30); // ±30% from centre
+    const fallbackHH = Math.round(S * 0.46); // ±46% from centre
 
     const d = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
       const idx = i * 4;
-      const isAnyPerson  = allPeopleMask && allPeopleMask[i] > 0.5;
-      // Use dilated mask with very low threshold → any nearby player pixel = protect
-      const isPlayerZone = dilatedPlayer  && dilatedPlayer[i]  > 0.5;
-      const v = (isAnyPerson && !isPlayerZone) ? 255 : 0;
+      const isAnyPerson = allPeopleMask && allPeopleMask[i] > 0.5;
+
+      // Layer 1: direct player pixel (low threshold to catch all player pixels)
+      const isDirectPlayer = playerMask && playerMask[i] > 0.20;
+
+      // Layer 2: dilated player halo (protects edges + nearby false-positives)
+      const isDilatedPlayer = dilatedPlayer && dilatedPlayer[i] > 0.5;
+
+      // Layer 3: fallback centre safe zone when segmentation is unavailable
+      let isFallbackSafe = false;
+      if (!playerMask) {
+        const px = i % S, py = Math.floor(i / S);
+        isFallbackSafe = (
+          px >= (fallbackCX - fallbackHW) && px <= (fallbackCX + fallbackHW) &&
+          py >= (fallbackCY - fallbackHH) && py <= (fallbackCY + fallbackHH)
+        );
+      }
+
+      const isProtected = isDirectPlayer || isDilatedPlayer || isFallbackSafe;
+      const v = (isAnyPerson && !isProtected) ? 255 : 0;
       d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
     }
     const cv = document.createElement('canvas');

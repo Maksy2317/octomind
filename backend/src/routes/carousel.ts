@@ -734,32 +734,66 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
 
     const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
-    // ── Helper: build grayscale mask PNG (filled rectangles + merge + generous pad) ─
-    // Rectangles cover groups better than ellipses; merging joins nearby bboxes into
-    // one big rect so the whole sitting cluster is masked, not just individual spots.
+    // ── Helper: build grayscale mask PNG ──────────────────────────────────────
+    // Uses filled rectangles (better coverage for groups than ellipses).
+    // PAD is kept moderate (90px) so rectangles don't balloon into the player zone.
+    // Overlapping rectangles are merged so sitting clusters become one rect.
+    //
+    // PLAYER PROTECTION (two layers):
+    //  1. playerBbox safe zone (PLAYER_PAD=160 extra margin) — hard veto
+    //  2. If playerBbox is null, fall back to image-center safe zone so the
+    //     main subject is never accidentally included when GPT-4o misses the bbox.
     function buildSpectatorMaskPng(
       people: Array<{ cx: number; cy: number; w: number; h: number }>,
       playerBbox: { cx: number; cy: number; w: number; h: number } | null,
       S: number,
     ): Buffer {
-      const PAD = 280;        // much more generous than before (was 150)
-      const PLAYER_PAD = 110; // safe zone around main player
+      const PAD        = 90;   // moderate — covers person edges without ballooning
+      const PLAYER_PAD = 160;  // generous safe zone around detected player bbox
+      // Fallback safe zone used when playerBbox is null (protects center of image)
+      const FALLBACK_PLAYER = { cx: 50, cy: 55, w: 45, h: 90 };
 
-      let plL = -1, plR = -1, plT = -1, plB = -1;
-      if (playerBbox) {
-        const pcx = (playerBbox.cx / 100) * S;
-        const pcy = (playerBbox.cy / 100) * S;
-        const phw = ((playerBbox.w  / 100) * S) / 2 + PLAYER_PAD;
-        const phh = ((playerBbox.h  / 100) * S) / 2 + PLAYER_PAD;
-        plL = Math.max(0, Math.round(pcx - phw));
-        plR = Math.min(S - 1, Math.round(pcx + phw));
-        plT = Math.max(0, Math.round(pcy - phh));
-        plB = Math.min(S - 1, Math.round(pcy + phh));
-      }
+      const pb = playerBbox ?? FALLBACK_PLAYER;
+      const pcx = (pb.cx / 100) * S;
+      const pcy = (pb.cy / 100) * S;
+      const phw = ((pb.w  / 100) * S) / 2 + PLAYER_PAD;
+      const phh = ((pb.h  / 100) * S) / 2 + PLAYER_PAD;
+      const plL = Math.max(0, Math.round(pcx - phw));
+      const plR = Math.min(S - 1, Math.round(pcx + phw));
+      const plT = Math.max(0, Math.round(pcy - phh));
+      const plB = Math.min(S - 1, Math.round(pcy + phh));
 
-      // Convert each person bbox to a padded pixel rectangle
+      // ── Filter: remove any person whose bbox overlaps heavily with the player ─
+      // This catches the case where GPT-4o accidentally includes the player in the
+      // "people" list. We remove any person with >40% overlap with playerBbox.
+      const playerArea = (plR - plL) * (plB - plT);
+      const filteredPeople = people.filter(p => {
+        const cx = (p.cx / 100) * S;
+        const cy = (p.cy / 100) * S;
+        const hw = ((p.w  / 100) * S) / 2 + PAD;
+        const hh = ((p.h  / 100) * S) / 2 + PAD;
+        const px1 = Math.max(0, Math.floor(cx - hw));
+        const py1 = Math.max(0, Math.floor(cy - hh));
+        const px2 = Math.min(S - 1, Math.ceil(cx + hw));
+        const py2 = Math.min(S - 1, Math.ceil(cy + hh));
+        // Intersection with player safe zone
+        const ix1 = Math.max(px1, plL), iy1 = Math.max(py1, plT);
+        const ix2 = Math.min(px2, plR), iy2 = Math.min(py2, plB);
+        if (ix2 <= ix1 || iy2 <= iy1) return true; // no overlap → keep
+        const overlapArea = (ix2 - ix1) * (iy2 - iy1);
+        const personArea  = (px2 - px1) * (py2 - py1);
+        // Drop if person covers >50% of the player safe zone OR player covers >60% of the person
+        const overlapFraction = overlapArea / Math.min(personArea, playerArea);
+        if (overlapFraction > 0.50) {
+          console.log(`[remove-people] filtering out person cx=${p.cx} cy=${p.cy} — overlaps player ${(overlapFraction*100).toFixed(0)}%`);
+          return false;
+        }
+        return true;
+      });
+
+      // Convert each surviving person bbox to a padded pixel rectangle
       type R = { x1: number; y1: number; x2: number; y2: number };
-      let rects: R[] = people.map(p => {
+      let rects: R[] = filteredPeople.map(p => {
         const cx = (p.cx / 100) * S;
         const cy = (p.cy / 100) * S;
         const hw = ((p.w / 100) * S) / 2 + PAD;
@@ -772,7 +806,7 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
         };
       });
 
-      // Iteratively merge any overlapping rectangles so nearby groups become one big rect
+      // Merge overlapping/touching rectangles → sitting clusters become one rect
       let changed = true;
       while (changed) {
         changed = false;
@@ -796,12 +830,13 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
         rects = out;
       }
 
-      // Fill rectangles WHITE (erase zone), skip player safe zone
+      // Fill rectangles WHITE (erase zone), ALWAYS skip player safe zone
       const pixels = new Uint8Array(S * S);
       for (const { x1, y1, x2, y2 } of rects) {
         for (let py = y1; py <= y2; py++) {
           for (let px = x1; px <= x2; px++) {
-            if (plL >= 0 && px >= plL && px <= plR && py >= plT && py <= plB) continue;
+            // Hard veto: player safe zone is NEVER erased
+            if (px >= plL && px <= plR && py >= plT && py <= plB) continue;
             pixels[py * S + px] = 255;
           }
         }
@@ -832,22 +867,22 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
               {
                 type: 'text' as const,
                 text:
-                  `You are analyzing a sports action photo. Goal: find EVERY background person so I can erase them.\n\n` +
-                  `MAIN SUBJECT — skip completely: the single foreground athlete who is the LARGEST and CLOSEST to camera.\n\n` +
-                  `FIND EVERY BACKGROUND PERSON — include ALL of these:\n` +
-                  `• Spectators, fans, coaches, referees standing on sidelines or visible behind fences\n` +
-                  `• People SITTING on the ground, on grass, on bleachers or benches (even if low or crouching)\n` +
-                  `• Entire groups / clusters of seated/standing people — give ONE large bbox per cluster\n` +
-                  `• People partially hidden: only a head, shoulders, legs, or torso visible at image edge\n` +
-                  `• Blurry, small, or distant people in the background\n\n` +
-                  `GROUPING RULE (CRITICAL): if multiple people are within ~15% of each other in the image,\n` +
-                  `merge them into ONE SINGLE bbox that covers the ENTIRE GROUP. Do NOT list them individually.\n\n` +
-                  `MARGIN RULE: each bbox must be at least 25% LARGER than the tightest fit — err on the side of bigger.\n\n` +
-                  `Return ONLY this JSON (no markdown, no explanation):\n` +
-                  `{"player":{"cx":50,"cy":60,"w":30,"h":70},"people":[{"cx":20,"cy":85,"w":45,"h":22}]}\n` +
-                  `player: main athlete bbox (always required, even if alone).\n` +
-                  `people: all background persons/groups. Use [] only if there are ZERO background people.\n` +
-                  `cx/cy = bbox center as % of image size. w/h = bbox width/height as % of image size.`,
+                  `Sports action photo analysis. Find EVERY background person to remove.\n\n` +
+                  `MAIN SUBJECT — NEVER include in people list:\n` +
+                  `The foreground athlete: largest person in frame, closest to camera, has the ball.\n` +
+                  `This person must appear as "player" in the output, NOT in "people".\n\n` +
+                  `FIND every other person:\n` +
+                  `• Spectators/fans STANDING on sidelines or behind the fence\n` +
+                  `• People SITTING on the ground, grass, bleachers — even if small/blurry/crouching\n` +
+                  `• Partially visible people (only head, legs, torso showing)\n` +
+                  `• Small distant people in background\n\n` +
+                  `GROUPING: if 2-3 people form a tight cluster (touching bboxes), use ONE bbox for the group.\n` +
+                  `WARNING: never merge background people with the main player into one bbox.\n\n` +
+                  `MARGIN: add ~15% extra margin to every background person bbox.\n\n` +
+                  `Return ONLY JSON (no markdown):\n` +
+                  `{"player":{"cx":50,"cy":60,"w":30,"h":70},"people":[{"cx":20,"cy":85,"w":25,"h":20}]}\n` +
+                  `player = main athlete (cx/cy=center%, w/h=size%). Always required.\n` +
+                  `people = all background persons. [] if none exist.`,
               },
               {
                 type: 'image_url' as const,
