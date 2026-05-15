@@ -2273,6 +2273,21 @@
                   <button class="ss-opt-btn" onclick="photoAiPreset('Збільш контраст і насиченість кольорів')">🎨 Кольори</button>
                 </div>
                 <button onclick="photoAiGenerate()" id="photoAiBtn" class="btn btn-primary btn-full" style="margin-top:12px;">✨ Редагувати →</button>
+
+                <!-- Inline player-edit question — shown before AI processes a style prompt -->
+                <div id="photoAiPlayerQ" style="display:none;margin-top:12px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:12px;padding:14px 16px;text-align:center;">
+                  <div style="font-size:22px;margin-bottom:6px;">🎭</div>
+                  <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;">Змінити також головного гравця?</div>
+                  <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5;">
+                    <b>Так</b> → AI трансформує і гравця (стиль супергероя, арт, тощо)<br>
+                    <b>Ні</b> → гравець залишиться 100% оригінальним
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button id="photoAiPlayerYes" class="btn btn-primary" style="flex:1;font-size:13px;padding:10px 8px;">✨ Так, змінити</button>
+                    <button id="photoAiPlayerNo"  class="btn btn-secondary" style="flex:1;font-size:13px;padding:10px 8px;">🛡 Ні, зберегти</button>
+                  </div>
+                </div>
+
                 <button onclick="photoAiReset()" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;">↩ Інше фото</button>
               </div>
             </div>
@@ -6578,10 +6593,44 @@
   // Store the 1024×1024 crop so we can composite without re-loading
   let photoAiOrig1024 = null;
 
+  /**
+   * Promise-based inline dialog: asks user if they want to edit the main player.
+   * Shows the #photoAiPlayerQ panel, waits for a button click, then hides it.
+   * Returns true = "yes, transform player too", false = "no, keep original".
+   */
+  function _photoAiAskEditPlayer() {
+    return new Promise(resolve => {
+      const q   = document.getElementById('photoAiPlayerQ');
+      const btn = document.getElementById('photoAiBtn');
+      btn.style.display = 'none';
+      q.style.display   = 'block';
+
+      function onYes() { cleanup(); resolve(true);  }
+      function onNo()  { cleanup(); resolve(false); }
+      function cleanup() {
+        q.style.display   = 'none';
+        btn.style.display = '';
+        document.getElementById('photoAiPlayerYes').removeEventListener('click', onYes);
+        document.getElementById('photoAiPlayerNo' ).removeEventListener('click', onNo);
+      }
+      document.getElementById('photoAiPlayerYes').addEventListener('click', onYes);
+      document.getElementById('photoAiPlayerNo' ).addEventListener('click', onNo);
+    });
+  }
+
   async function photoAiGenerate() {
     const prompt = document.getElementById('photoAiPrompt').value.trim();
     if (!prompt) { alert('Напиши що змінити!'); return; }
     if (!photoAiOrigDataUrl) return;
+
+    const removePeople = _isRemovePeoplePrompt(prompt);
+    const isBlur       = _isBlurPrompt(prompt);
+
+    // Ask "edit player too?" only for style / background prompts (not remove-people, not blur)
+    let editPlayerToo = false;
+    if (!removePeople && !isBlur) {
+      editPlayerToo = await _photoAiAskEditPlayer();
+    }
 
     // Show progress
     document.getElementById('photoAiStep2').style.display = 'none';
@@ -6603,7 +6652,7 @@
       bar.style.width = '30%';
 
       // ── Step 2: Choose path based on prompt type ─────────────────────────
-      if (_isBlurPrompt(prompt)) {
+      if (isBlur) {
         // ── CLIENT-SIDE BLUR PATH — no API call needed ───────────────────
         txt.textContent = 'Розмиваю фон…';
         bar.style.width = '55%';
@@ -6611,10 +6660,6 @@
         bar.style.width = '100%';
       } else {
         // ── AI EDIT PATH ─────────────────────────────────────────────────
-        // Strategy: send FULL image with NO mask so AI generates a fully
-        // coherent new background (not just rectangular edge patches).
-        // After AI responds, we paste the original person back using the
-        // segmentation mask — this eliminates gray-side artifacts completely.
         bar.style.width = '40%';
         txt.textContent = segMask ? '🎯 Сегментація готова…' : 'Підготовка…';
 
@@ -6628,7 +6673,6 @@
 
         try {
           const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-          const removePeople       = _isRemovePeoplePrompt(prompt);
           const replaceBackground  = _isReplaceBackgroundPrompt(prompt);
 
           // ── SMART ROUTING ─────────────────────────────────────────────────
@@ -6710,9 +6754,10 @@
 
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
+            // editPlayerToo=true  → no mask → AI transforms player + background
+            // editPlayerToo=false → mask protects player → only background changes
             const reqBody = { image: photoAiOrig1024, prompt };
-            if (segMask) {
-              // Add player mask so gpt-image-1 never touches the player
+            if (segMask && !editPlayerToo) {
               reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
             }
             resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
@@ -6745,13 +6790,18 @@
               const aiResult = `data:image/png;base64,${data.b64}`;
 
               if (removePeople) {
-                // Server handled everything: 2-pass GPT-4o detect + Stability Erase.
+                // Server handled everything: 3-pass GPT-4o detect + Stability Erase.
                 // Player was protected by player bbox (BLACK in mask) → never touched.
                 txt.textContent = '✅ Готово';
                 photoAiResultDataUrl = aiResult;
+              } else if (editPlayerToo) {
+                // User chose "yes, transform the player too" → AI result is final.
+                // No compositing: we WANT the AI-generated version of the player.
+                txt.textContent = '✅ Готово';
+                photoAiResultDataUrl = aiResult;
               } else {
-                // Replace-bg / style: AI regenerated the whole background.
-                // Composite the original player back to restore pixel-perfect details.
+                // User chose "no, keep original player" → composite original player back.
+                // Restores pixel-perfect player details over the AI-generated background.
                 txt.textContent = 'Накладаю оригінал…';
                 photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
               }
