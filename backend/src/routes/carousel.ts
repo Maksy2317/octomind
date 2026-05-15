@@ -602,6 +602,72 @@ carouselRouter.post('/sam-click', async (req: Request, res: Response, next: Next
   }
 });
 
+// ── POST /api/carousel/detect-persons ────────────────────────────────────────
+// Uses GPT-4o vision to locate ALL visible people (main player + background).
+// Returns normalized 0–1 bounding boxes used by the manual mask mode to
+// constrain flood-fill so clicks select exactly ONE person, not the whole crowd.
+carouselRouter.post('/detect-persons', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image } = req.body as { image: string };
+    if (!image) { res.status(400).json({ error: 'image required' }); return; }
+    if (!process.env.OPENAI_API_KEY) { res.status(500).json({ error: 'OPENAI_API_KEY not configured' }); return; }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const resp = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      max_tokens: 700,
+      response_format: { type: 'json_object' },
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: image, detail: 'high' } },
+          {
+            type: 'text',
+            text: `Locate ALL visible people in this sports photo. Include:
+- main athlete/player
+- standing spectators
+- sitting or lying spectators
+- people partially hidden by fence, player, or other objects
+- people at the edge of frame
+- small/distant background people
+
+Return JSON object with a "persons" array. Each person has a bounding box in NORMALIZED 0..1 coordinates (0,0 = top-left, 1,1 = bottom-right):
+{"persons":[{"id":1,"x1":0.35,"y1":0.10,"x2":0.72,"y2":0.95,"label":"main player"},{"id":2,"x1":0.05,"y1":0.38,"x2":0.28,"y2":0.62,"label":"spectator sitting"}]}
+
+Rules:
+- Always include the main player
+- Never skip partially visible people — use the visible area as the box
+- Small distant people: include if their height > 1% of image height
+- Do NOT merge two people into one box`,
+          },
+        ],
+      }],
+    });
+
+    let persons: Array<{ id: number; x1: number; y1: number; x2: number; y2: number; label: string }> = [];
+    try {
+      const parsed = JSON.parse(resp.choices[0].message.content || '{}');
+      const arr = parsed.persons || parsed.people || parsed.detections || [];
+      if (Array.isArray(arr)) persons = arr;
+    } catch { /* return empty */ }
+
+    // Clamp to [0,1] in case model hallucinated out-of-bounds values
+    persons = persons.map(p => ({
+      ...p,
+      x1: Math.max(0, Math.min(1, p.x1)),
+      y1: Math.max(0, Math.min(1, p.y1)),
+      x2: Math.max(0, Math.min(1, p.x2)),
+      y2: Math.max(0, Math.min(1, p.y2)),
+    })).filter(p => p.x2 > p.x1 && p.y2 > p.y1);  // drop degenerate boxes
+
+    console.log(`[detect-persons] found ${persons.length} people`);
+    res.json({ persons });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── POST /api/carousel/remove-background-people ──────────────────────────────
 // Full pipeline: GPT-4o detects people → SAM-2 pixel masks → Stability AI inpaint
 // This preserves fence, cars, grass — only removes person-shaped pixel groups.

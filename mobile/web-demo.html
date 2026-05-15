@@ -8289,6 +8289,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     <button onclick="mmClose()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;">✕</button>
     <span style="font-weight:700;font-size:13px;">🖱️ Ручний режим</span>
     <div style="flex:1;"></div>
+    <button id="mmBtnDebug"   onclick="mmToggleDebug()" style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);font-size:11px;cursor:pointer;">🐛</button>
     <button id="mmBtnProtect" onclick="mmSetMode('protect')" class="active">🛡 Захист</button>
     <button id="mmBtnRemove"  onclick="mmSetMode('remove')">🗑 Видалити</button>
   </div>
@@ -8333,98 +8334,253 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   let _busy      = false;
   let _segCache  = null;       // cached {personMap, segs} from BodyPix for this photo
 
-  // ── BodyPix helpers (client-side, no API key, no credits) ────────────────
+  // ── Person bbox detection (GPT-4o via backend) ───────────────────────────
+  let _personBoxes    = null;  // [{x1,y1,x2,y2,label}] normalized 0-1, or []
+  let _boxesPromise   = null;  // pending fetch
+  let _debugMode      = false; // show detected person boxes on canvas
 
-  // High-quality BodyPix model for manual mode.
-  // outputStride 8 → 129×129 internal maps (vs shared model's 65×65 at stride 16)
-  // → 2× sharper person edges. Loaded lazily, separate from the shared model.
+  async function _mmGetPersonBoxes() {
+    if (_personBoxes !== null) return _personBoxes;
+    if (_boxesPromise)         return _boxesPromise;
+    _boxesPromise = (async () => {
+      try {
+        const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+        const r = await fetch(`${BACKEND}/api/carousel/detect-persons`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ image: photoAiOrig1024 }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const { persons } = await r.json();
+        _personBoxes = Array.isArray(persons) ? persons : [];
+      } catch (e) {
+        console.warn('[mm] detect-persons failed:', e);
+        _personBoxes = [];
+      }
+      return _personBoxes;
+    })();
+    return _boxesPromise;
+  }
+
+  // ── BodyPix helpers ───────────────────────────────────────────────────────
+  // outputStride 8 → 129×129 internal maps (2× sharper than shared stride-16 model)
   let _mmNetPromise = null;
   function _mmGetNet() {
     if (_mmNetPromise) return _mmNetPromise;
     if (!window.bodyPix) return Promise.resolve(null);
     _mmNetPromise = window.bodyPix.load({
-      architecture:  'MobileNetV1',
-      outputStride:  8,     // 2× finer edges than shared model (stride 16)
-      multiplier:    0.50,  // smaller network = fast to load, still accurate
-      quantBytes:    2,
-    }).catch(() => {
-      _mmNetPromise = null;
-      return photoAiGetSeg(); // fall back to shared model
-    });
+      architecture: 'MobileNetV1',
+      outputStride: 8,
+      multiplier:   0.50,
+      quantBytes:   2,
+    }).catch(() => { _mmNetPromise = null; return photoAiGetSeg(); });
     return _mmNetPromise;
   }
 
-  /**
-   * Build TWO combined person masks and cache both.
-   *  tight  (threshold 0.22): clear separation between people, good for close-ups
-   *  loose  (threshold 0.07): catches small/occluded/partial background people
-   * Both are built from one segmentMultiPerson run at the lowest threshold.
-   */
+  /** Build TWO combined person masks (tight 0.22 + loose 0.07) and cache. */
   async function _mmGetCombinedMask() {
     if (_segCache) return _segCache;
-
     const net = await _mmGetNet();
     if (!net) throw new Error('BodyPix не завантажено — оновіть сторінку');
-
     const img = await new Promise((res, rej) => {
       const im = new Image();
       im.onload  = () => res(im);
-      im.onerror = () => rej(new Error('Не вдалося завантажити зображення'));
+      im.onerror = () => rej(new Error('Зображення не завантажено'));
       im.src = photoAiOrig1024;
     });
-
-    // Run TWICE: tight mask for normal people, loose mask for small/occluded
+    const opts = { flipHorizontal: false, internalResolution: 'full', maxDetections: 20 };
     const [segsT, segsL] = await Promise.all([
-      net.segmentMultiPerson(img, {
-        flipHorizontal:        false,
-        internalResolution:    'full',
-        segmentationThreshold: 0.22,
-        maxDetections:         20,
-      }),
-      net.segmentMultiPerson(img, {
-        flipHorizontal:        false,
-        internalResolution:    'full',
-        segmentationThreshold: 0.07,  // catches small/partial background people
-        maxDetections:         20,
-      }),
+      net.segmentMultiPerson(img, { ...opts, segmentationThreshold: 0.22 }),
+      net.segmentMultiPerson(img, { ...opts, segmentationThreshold: 0.07 }),
     ]);
-
     const tight = new Uint8Array(S * S);
     const loose = new Uint8Array(S * S);
     for (const seg of (segsT || [])) for (let i = 0; i < S * S; i++) if (seg.data[i]) tight[i] = 1;
     for (const seg of (segsL || [])) for (let i = 0; i < S * S; i++) if (seg.data[i]) loose[i] = 1;
-
     _segCache = { tight, loose };
     return _segCache;
   }
 
-  /**
-   * Flood-fill (4-connected) through `src` mask starting from pixel `startIdx`.
-   * Returns a new Uint8Array with 1 = filled pixel.
-   * Optional `maxRadius` (in pixels) limits the fill to a circle around the start.
-   */
-  function _mmFloodFill(src, startIdx, maxRadius) {
-    const mask = new Uint8Array(S * S);
-    const vis  = new Uint8Array(S * S);
-    const q    = [startIdx];
-    let head   = 0;
-    vis[startIdx]  = 1;
-    mask[startIdx] = 1;
-    const sx = startIdx % S, sy = (startIdx - sx) / S;
+  // ── Mask post-processing ──────────────────────────────────────────────────
+
+  /** Fill internal holes: flood-fill background from image border, holes = unreachable bg */
+  function _mmFillHoles(mask) {
+    const bg = new Uint8Array(S * S);
+    const q  = [];
+    function seed(i) { if (!mask[i] && !bg[i]) { bg[i] = 1; q.push(i); } }
+    for (let x = 0; x < S; x++) { seed(x); seed((S-1)*S + x); }
+    for (let y = 1; y < S-1; y++) { seed(y*S); seed(y*S + S-1); }
+    let head = 0;
     while (head < q.length) {
       const cur = q[head++];
-      const cx  = cur % S, cy = (cur - cx) / S;
+      const cx = cur % S, cy = (cur - cx) / S;
       for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx2 = cx + dx, ny2 = cy + dy;
-        if (nx2 < 0 || nx2 >= S || ny2 < 0 || ny2 >= S) continue;
-        const ni = ny2 * S + nx2;
-        if (vis[ni] || !src[ni]) continue;
-        if (maxRadius !== undefined) {
-          const ddx = nx2 - sx, ddy = ny2 - sy;
-          if (ddx * ddx + ddy * ddy > maxRadius * maxRadius) continue;
+        const nx = cx+dx, ny = cy+dy;
+        if (nx<0||nx>=S||ny<0||ny>=S) continue;
+        const ni = ny*S+nx;
+        if (!bg[ni] && !mask[ni]) { bg[ni] = 1; q.push(ni); }
+      }
+    }
+    const out = new Uint8Array(S * S);
+    for (let i = 0; i < S*S; i++) out[i] = mask[i] || (bg[i] ? 0 : 1);
+    return out;
+  }
+
+  /** Circular dilation using precomputed kernel offsets (fast, true circle) */
+  function _mmDilate(mask, r) {
+    const kernel = [];
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++)
+        if (dx*dx + dy*dy <= r*r) kernel.push([dx, dy]);
+    const out = new Uint8Array(S * S);
+    for (let i = 0; i < S*S; i++) {
+      if (!mask[i]) continue;
+      const x = i % S, y = (i-x)/S;
+      for (const [dx, dy] of kernel) {
+        const nx = x+dx, ny = y+dy;
+        if (nx>=0 && nx<S && ny>=0 && ny<S) out[ny*S+nx] = 1;
+      }
+    }
+    return out;
+  }
+
+  /** Remove connected components smaller than minPx pixels */
+  function _mmRemoveFragments(mask, minPx) {
+    const labeled = new Int32Array(S * S).fill(-1);
+    const sizes = [];
+    let next = 0;
+    for (let s = 0; s < S*S; s++) {
+      if (!mask[s] || labeled[s] >= 0) continue;
+      const lbl = next++;  sizes.push(0);
+      labeled[s] = lbl;
+      const q = [s];  let head = 0;
+      while (head < q.length) {
+        const cur = q[head++];  sizes[lbl]++;
+        const cx = cur%S, cy = (cur-cx)/S;
+        for (const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nx=cx+dx, ny=cy+dy;
+          if (nx<0||nx>=S||ny<0||ny>=S) continue;
+          const ni = ny*S+nx;
+          if (mask[ni] && labeled[ni]<0) { labeled[ni]=lbl; q.push(ni); }
         }
-        vis[ni]  = 1;
-        mask[ni] = 1;
+      }
+    }
+    const out = new Uint8Array(S * S);
+    for (let i = 0; i < S*S; i++)
+      if (labeled[i]>=0 && sizes[labeled[i]]>=minPx) out[i] = 1;
+    return out;
+  }
+
+  /** Full post-processing pipeline: fill holes → remove fragments → dilate */
+  function _mmPostProcess(raw) {
+    let m = _mmFillHoles(raw);
+    m = _mmRemoveFragments(m, 200);   // drop blobs < 200px
+    m = _mmDilate(m, 5);              // expand edge by 5px for clean coverage
+    return m;
+  }
+
+  /** Filled circle at normalised (nx,ny) with pixel radius r */
+  function _mmBrushMask(nx, ny, r) {
+    const px = Math.round(nx * (S-1));
+    const py = Math.round(ny * (S-1));
+    const mask = new Uint8Array(S * S);
+    const r2 = r * r;
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx*dx + dy*dy > r2) continue;
+        const x=px+dx, y=py+dy;
+        if (x>=0&&x<S&&y>=0&&y<S) mask[y*S+x] = 1;
+      }
+    return mask;
+  }
+
+  // ── BFS helpers ───────────────────────────────────────────────────────────
+
+  /** BFS from `start` to find nearest pixel where src[i]=1; constrained to bbox. */
+  function _mmNearestInBox(src, startX, startY, bx1, by1, bx2, by2) {
+    const startIdx = startY*S + startX;
+    if (src[startIdx]) return startIdx;
+    const vis = new Uint8Array(S * S);
+    const q   = [startIdx];
+    let head  = 0;
+    vis[startIdx] = 1;
+    while (head < q.length) {
+      if (head > 120000) return -1;
+      const cur = q[head++];
+      const cx = cur%S, cy = (cur-cx)/S;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx=cx+dx, ny=cy+dy;
+        if (nx<bx1||nx>bx2||ny<by1||ny>by2) continue;
+        const ni = ny*S+nx;
+        if (vis[ni]) continue;
+        vis[ni] = 1;
+        if (src[ni]) return ni;
+        q.push(ni);
+      }
+    }
+    return -1;
+  }
+
+  /** Flood-fill (4-conn) through `src`, constrained to [bx1..bx2, by1..by2] */
+  function _mmFloodFillBox(src, startIdx, bx1, by1, bx2, by2) {
+    const mask = new Uint8Array(S * S);
+    const vis  = new Uint8Array(S * S);
+    if (!src[startIdx]) return mask;
+    const q = [startIdx];  let head = 0;
+    vis[startIdx] = mask[startIdx] = 1;
+    while (head < q.length) {
+      const cur = q[head++];
+      const cx = cur%S, cy = (cur-cx)/S;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx=cx+dx, ny=cy+dy;
+        if (nx<bx1||nx>bx2||ny<by1||ny>by2) continue;
+        const ni = ny*S+nx;
+        if (vis[ni]||!src[ni]) continue;
+        vis[ni] = mask[ni] = 1;
+        q.push(ni);
+      }
+    }
+    return mask;
+  }
+
+  /** Unconstrained BFS nearest + flood-fill for when no bbox is available */
+  function _mmNearestGlobal(src, start, maxVisit) {
+    const vis = new Uint8Array(S * S);
+    const q   = [start];  let head = 0;
+    vis[start] = 1;
+    while (head < q.length) {
+      if (head >= maxVisit) return -1;
+      const cur = q[head++];
+      if (src[cur]) return cur;
+      const cx = cur%S, cy = (cur-cx)/S;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx=cx+dx, ny=cy+dy;
+        if (nx<0||nx>=S||ny<0||ny>=S) continue;
+        const ni = ny*S+nx;
+        if (!vis[ni]) { vis[ni]=1; q.push(ni); }
+      }
+    }
+    return -1;
+  }
+
+  function _mmFloodFillRadius(src, startIdx, maxR) {
+    const mask = new Uint8Array(S * S);
+    const vis  = new Uint8Array(S * S);
+    if (!src[startIdx]) return mask;
+    const sx=startIdx%S, sy=(startIdx-sx)/S;
+    const q = [startIdx];  let head = 0;
+    vis[startIdx] = mask[startIdx] = 1;
+    while (head < q.length) {
+      const cur = q[head++];
+      const cx=cur%S, cy=(cur-cx)/S;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx=cx+dx, ny=cy+dy;
+        if (nx<0||nx>=S||ny<0||ny>=S) continue;
+        const ni = ny*S+nx;
+        if (vis[ni]||!src[ni]) continue;
+        const ddx=nx-sx, ddy=ny-sy;
+        if (ddx*ddx+ddy*ddy > maxR*maxR) continue;
+        vis[ni] = mask[ni] = 1;
         q.push(ni);
       }
     }
@@ -8432,75 +8588,85 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   }
 
   /**
-   * Create a filled circle mask at normalised (nx,ny) with radius `r` (in 1024px pixels).
-   * Used as brush fallback when BodyPix finds nothing near the click.
-   */
-  function _mmBrushMask(nx, ny, r) {
-    const px = Math.round(nx * (S - 1));
-    const py = Math.round(ny * (S - 1));
-    const mask = new Uint8Array(S * S);
-    const r2   = r * r;
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (dx * dx + dy * dy > r2) continue;
-        const x = px + dx, y = py + dy;
-        if (x < 0 || x >= S || y < 0 || y >= S) continue;
-        mask[y * S + x] = 1;
-      }
-    }
-    return mask;
-  }
-
-  /**
-   * Given a normalised click point (0..1), segment the person touched.
-   * Strategy (in order):
-   *  1. Flood-fill in TIGHT mask (precise, separates adjacent people well)
-   *  2. Flood-fill in LOOSE mask within local 120px radius (catches small people)
-   *  3. Brush circle (50px) — last resort when BodyPix missed the person entirely
-   * Returns {mask, method} where method is 'tight'|'loose'|'brush'.
+   * Main segmentation function.
+   * 1. Get GPT-4o person boxes → find which box the user clicked
+   * 2. Constrain BodyPix flood-fill to that box (tight mask → loose mask)
+   * 3. Post-process: fill holes, dilate 5px, remove tiny fragments
+   * 4. Brush fallback if BodyPix completely misses the person
    */
   async function _mmSegmentAtPoint(nx, ny) {
-    const px = Math.round(nx * (S - 1));
-    const py = Math.round(ny * (S - 1));
-    const clickIdx = py * S + px;
+    const px = Math.round(nx * (S-1));
+    const py = Math.round(ny * (S-1));
 
-    const { tight, loose } = await _mmGetCombinedMask();
+    // Fetch boxes and BodyPix masks in parallel
+    const [{ tight, loose }, boxes] = await Promise.all([
+      _mmGetCombinedMask(),
+      _mmGetPersonBoxes(),
+    ]);
 
-    // ── Helper: BFS to nearest person in a given mask within maxVisit pixels ──
-    function nearestInMask(src, start, maxVisit) {
-      const vis = new Uint8Array(S * S);
-      const q   = [start];
-      let head  = 0;
-      vis[start] = 1;
-      while (head < q.length) {
-        if (head >= maxVisit) return -1;
-        const cur = q[head++];
-        if (src[cur]) return cur;
-        const cx = cur % S, cy = (cur - cx) / S;
-        for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-          const nx2 = cx + dx, ny2 = cy + dy;
-          if (nx2 < 0 || nx2 >= S || ny2 < 0 || ny2 >= S) continue;
-          const ni = ny2 * S + nx2;
-          if (!vis[ni]) { vis[ni] = 1; q.push(ni); }
+    let rawMask, method;
+
+    // ── Find which person box the click belongs to ─────────────────────────
+    let bestBox = null, bestDist = Infinity;
+    for (const b of boxes) {
+      const bx1=b.x1*S, by1=b.y1*S, bx2=b.x2*S, by2=b.y2*S;
+      if (px>=bx1 && px<=bx2 && py>=by1 && py<=by2) {
+        bestBox = b; bestDist = 0; break;  // direct hit
+      }
+      // Distance to box center (for nearest-box fallback)
+      const cx=(bx1+bx2)/2, cy=(by1+by2)/2;
+      const d = (px-cx)**2 + (py-cy)**2;
+      if (d < bestDist) { bestDist = d; bestBox = b; }
+    }
+
+    if (bestBox) {
+      // ── Bbox-constrained segmentation (preferred path) ───────────────────
+      const bw = (bestBox.x2 - bestBox.x1) * S;
+      const bh = (bestBox.y2 - bestBox.y1) * S;
+      const PAD = 0.18;
+      const bx1 = Math.max(0,   Math.round(bestBox.x1*S - bw*PAD));
+      const by1 = Math.max(0,   Math.round(bestBox.y1*S - bh*PAD));
+      const bx2 = Math.min(S-1, Math.round(bestBox.x2*S + bw*PAD));
+      const by2 = Math.min(S-1, Math.round(bestBox.y2*S + bh*PAD));
+
+      let start = _mmNearestInBox(tight, px, py, bx1, by1, bx2, by2);
+      if (start >= 0) {
+        rawMask = _mmFloodFillBox(tight, start, bx1, by1, bx2, by2);
+        method  = 'tight+box';
+      } else {
+        start = _mmNearestInBox(loose, px, py, bx1, by1, bx2, by2);
+        if (start >= 0) {
+          rawMask = _mmFloodFillBox(loose, start, bx1, by1, bx2, by2);
+          method  = 'loose+box';
+        } else {
+          // BodyPix missed this person — fill the bbox itself as a rectangle
+          rawMask = new Uint8Array(S * S);
+          for (let y=by1; y<=by2; y++)
+            for (let x=bx1; x<=bx2; x++) rawMask[y*S+x] = 1;
+          method = 'bbox-rect';
         }
       }
-      return -1;
+    } else {
+      // ── No boxes (API failed / model still loading) — unconstrained fill ──
+      const clickIdx = py*S + px;
+      const tS = _mmNearestGlobal(tight, clickIdx, 7500);
+      if (tS >= 0) {
+        rawMask = _mmFloodFillRadius(tight, tS, S);
+        method  = 'tight';
+      } else {
+        const lS = _mmNearestGlobal(loose, clickIdx, 20000);
+        if (lS >= 0) {
+          rawMask = _mmFloodFillRadius(loose, lS, 130);
+          method  = 'loose';
+        } else {
+          rawMask = _mmBrushMask(nx, ny, 55);
+          method  = 'brush';
+        }
+      }
     }
 
-    // 1️⃣ Try TIGHT mask (search up to ~50px away)
-    const tightStart = nearestInMask(tight, clickIdx, 7500);
-    if (tightStart >= 0) {
-      return { mask: _mmFloodFill(tight, tightStart), method: 'tight' };
-    }
-
-    // 2️⃣ Try LOOSE mask (search up to ~80px, fill limited to 120px radius)
-    const looseStart = nearestInMask(loose, clickIdx, 20000);
-    if (looseStart >= 0) {
-      return { mask: _mmFloodFill(loose, looseStart, 120), method: 'loose' };
-    }
-
-    // 3️⃣ Brush fallback — BodyPix missed this person entirely
-    return { mask: _mmBrushMask(nx, ny, 50), method: 'brush' };
+    const mask = _mmPostProcess(rawMask);
+    return { mask, method };
   }
 
   // ── Open ──────────────────────────────────────────────────────────────────
@@ -8513,12 +8679,24 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     }
     if (!photoAiOrig1024) { alert('Спочатку завантаж фото!'); return; }
 
-    _mode     = 'protect';
-    _protect  = new Uint8Array(S * S);
-    _remove   = new Uint8Array(S * S);
-    _history  = [];
-    _busy     = false;
-    _segCache = null;  // invalidate cache for the new photo
+    _mode         = 'protect';
+    _protect      = new Uint8Array(S * S);
+    _remove       = new Uint8Array(S * S);
+    _history      = [];
+    _busy         = false;
+    _segCache     = null;   // invalidate BodyPix cache for new photo
+    _personBoxes  = null;   // reset GPT-4o person boxes
+    _boxesPromise = null;
+
+    // Kick off both in parallel: BodyPix model warm-up + GPT-4o person detection
+    Promise.all([_mmGetNet(), _mmGetPersonBoxes()]).then(([, boxes]) => {
+      if (boxes && boxes.length) {
+        document.getElementById('mmStatus').textContent =
+          `✅ ${boxes.length} людин${boxes.length === 1 ? 'у' : 'и'} знайдено — клікай для виділення`;
+        _mmRedraw();  // redraw to show debug boxes if enabled
+        setTimeout(() => { if (!_busy) mmSetMode(_mode); }, 2000);
+      }
+    }).catch(() => {});  // silent fail, detection is optional
 
     const modal = document.getElementById('mmModal');
     const img   = document.getElementById('mmBaseImg');
@@ -8662,7 +8840,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
   // ── Redraw canvas overlay ──────────────────────────────────────────────────
   // Green = protected player   Red = area to remove (only where NOT protected)
-  // Rendering: semi-transparent fill (35%) + solid bright outline (100%)
+  // Border pixels rendered at 100% opacity, fill at 35% for visual clarity.
   function _mmRedraw() {
     const canvas = document.getElementById('mmCanvas');
     if (!canvas.width) return;
@@ -8670,42 +8848,63 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     const imgd = ctx.createImageData(S, S);
 
     for (let i = 0; i < S * S; i++) {
-      const idx = i * 4;
       if (!_protect[i] && !_remove[i]) continue;
-
+      const idx = i * 4;
       const x = i % S, y = (i - x) / S;
       const isProtect = !!_protect[i];
-
-      // Is this pixel on the border of the mask?
       const isBorder = (
-        x === 0 || x === S - 1 || y === 0 || y === S - 1 ||
-        (isProtect ? (
-          !_protect[i - 1] || !_protect[i + 1] ||
-          !_protect[i - S] || !_protect[i + S]
-        ) : (
-          !_remove[i - 1] || !_remove[i + 1] ||
-          !_remove[i - S]  || !_remove[i + S]
-        ))
+        x===0||x===S-1||y===0||y===S-1 ||
+        (isProtect
+          ? (!_protect[i-1]||!_protect[i+1]||!_protect[i-S]||!_protect[i+S])
+          : (!_remove[i-1] ||!_remove[i+1] ||!_remove[i-S] ||!_remove[i+S]))
       );
-
       if (isProtect) {
-        // Green: border = 100% opacity, fill = 35%
-        imgd.data[idx]   = 34;  imgd.data[idx+1] = 197;
-        imgd.data[idx+2] = 94;  imgd.data[idx+3] = isBorder ? 255 : 90;
+        imgd.data[idx]=34; imgd.data[idx+1]=197; imgd.data[idx+2]=94;
+        imgd.data[idx+3] = isBorder ? 255 : 90;
       } else {
-        // Red: border = 100% opacity, fill = 35%
-        imgd.data[idx]   = 239; imgd.data[idx+1] = 68;
-        imgd.data[idx+2] = 68;  imgd.data[idx+3] = isBorder ? 255 : 90;
+        imgd.data[idx]=239; imgd.data[idx+1]=68; imgd.data[idx+2]=68;
+        imgd.data[idx+3] = isBorder ? 255 : 90;
       }
     }
 
-    // Render at 1024×1024 then CSS scales it to display size
     const tmp = document.createElement('canvas');
     tmp.width = S; tmp.height = S;
     tmp.getContext('2d').putImageData(imgd, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+
+    // ── Debug mode: draw GPT-4o person bounding boxes ─────────────────────
+    if (_debugMode && _personBoxes && _personBoxes.length) {
+      const scaleX = canvas.width  / S;
+      const scaleY = canvas.height / S;
+      const colors = ['#FF6B6B','#4ECDC4','#FFE66D','#A8E6CF','#FF8B94','#C7CEEA'];
+      ctx.save();
+      _personBoxes.forEach((b, i) => {
+        const x1 = b.x1 * S * scaleX, y1 = b.y1 * S * scaleY;
+        const w  = (b.x2 - b.x1) * S * scaleX;
+        const h  = (b.y2 - b.y1) * S * scaleY;
+        const c  = colors[i % colors.length];
+        ctx.strokeStyle = c;  ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.fillStyle = c;    ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(`#${i+1} ${(b.label||'').slice(0,14)}`, x1+3, y1+13);
+      });
+      ctx.restore();
+    }
   }
+
+  // ── Debug toggle ───────────────────────────────────────────────────────────
+  window.mmToggleDebug = function () {
+    _debugMode = !_debugMode;
+    const btn = document.getElementById('mmBtnDebug');
+    btn.style.background    = _debugMode ? '#6C63FF33' : 'var(--surface2)';
+    btn.style.borderColor   = _debugMode ? '#6C63FF'   : 'var(--border)';
+    btn.style.color         = _debugMode ? '#6C63FF'   : 'var(--text3)';
+    _mmRedraw();
+    if (_debugMode && !_personBoxes) {
+      _mmGetPersonBoxes();  // trigger detection if not yet done
+    }
+  };
 
   // ── Sync undo button label ─────────────────────────────────────────────────
   function _mmSyncUndoBtn() {
