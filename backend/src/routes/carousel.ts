@@ -852,7 +852,7 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
 
     // ── Pipeline ──────────────────────────────────────────────────────────────
     const imgBase64 = image.replace(/^data:image\/[^;]+;base64,/, '');
-    let currentBuf = Buffer.from(imgBase64, 'base64');
+    let currentBuf: Buffer = Buffer.from(imgBase64, 'base64') as Buffer;
     const S = 1024;
 
     // Pass 1
@@ -863,14 +863,14 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
       res.json({ b64: currentBuf.toString('base64'), message: 'no background people detected' });
       return;
     }
-    currentBuf = await stabilityErase(currentBuf, buildSpectatorMaskPng(pass1.people, pass1.player, S));
+    currentBuf = (await stabilityErase(currentBuf, buildSpectatorMaskPng(pass1.people, pass1.player, S))) as Buffer;
 
     // Pass 2 — catch anyone GPT-4o missed in pass 1
     const pass2DataUrl = `data:image/png;base64,${currentBuf.toString('base64')}`;
     const pass2 = await detectSpectators(pass2DataUrl);
     console.log(`[remove-people] pass2: ${pass2.people.length} remaining spectators`);
     if (pass2.people.length > 0) {
-      currentBuf = await stabilityErase(currentBuf, buildSpectatorMaskPng(pass2.people, pass1.player, S));
+      currentBuf = (await stabilityErase(currentBuf, buildSpectatorMaskPng(pass2.people, pass1.player, S))) as Buffer;
     }
 
     res.json({ b64: currentBuf.toString('base64') });
