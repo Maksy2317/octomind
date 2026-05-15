@@ -8268,7 +8268,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 <!-- ═══════════════════════════════════════════════════════════════════
      MANUAL MASK MODE — full-screen click-to-segment overlay
      User clicks player (🛡 green) then background people (🗑 red).
-     SAM-2 segments on each click. Final mask = red AND NOT green.
+     BodyPix segments on each click (client-side, free). Final mask = red AND NOT green.
      ═══════════════════════════════════════════════════════════════════ -->
 <style>
   #mmModal { display:none; position:fixed; top:0; left:0; right:0; bottom:0;
@@ -8304,8 +8304,8 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       <!-- Loading overlay -->
       <div id="mmLoader" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:10px;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
         <div style="width:30px;height:30px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;" class="mm-spin"></div>
-        <div style="font-size:12px;color:#fff;font-weight:600;">SAM-2 сегментує…</div>
-        <div style="font-size:10px;color:rgba(255,255,255,.6);">~5-15 сек</div>
+        <div style="font-size:12px;color:#fff;font-weight:600;">Сегментую…</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6);">~1-3 сек</div>
       </div>
     </div>
   </div>
@@ -8321,11 +8321,100 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 'use strict';
 (function () {
   const S = 1024;
-  let _mode    = 'protect';  // 'protect' | 'remove'
-  let _protect = null;       // Uint8Array[S*S]
-  let _remove  = null;       // Uint8Array[S*S]
-  let _history = [];         // [{mode, mask}]
-  let _busy    = false;
+  let _mode      = 'protect';  // 'protect' | 'remove'
+  let _protect   = null;       // Uint8Array[S*S]
+  let _remove    = null;       // Uint8Array[S*S]
+  let _history   = [];         // [{mode, mask}]
+  let _busy      = false;
+  let _segCache  = null;       // cached {personMap, segs} from BodyPix for this photo
+
+  // ── BodyPix helpers (client-side, no API key, no credits) ────────────────
+
+  /**
+   * Run segmentMultiPerson once and cache the result.
+   * personMap[i] = 0 (background) | 1..N (1-based person index)
+   */
+  async function _mmGetSegs() {
+    if (_segCache) return _segCache;
+
+    const net = await photoAiGetSeg();
+    if (!net) throw new Error('BodyPix не завантажено — оновіть сторінку');
+
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload  = () => res(im);
+      im.onerror = () => rej(new Error('Не вдалося завантажити зображення'));
+      im.src = photoAiOrig1024;
+    });
+
+    const segs = await net.segmentMultiPerson(img, {
+      flipHorizontal:       false,
+      internalResolution:   'medium',
+      segmentationThreshold: 0.15,
+      maxDetections:        20,
+    });
+
+    if (!segs || !segs.length) throw new Error('BodyPix не знайшов жодної людини на фото');
+
+    // Build person-ID map: first segment wins (keeps individual identity)
+    const personMap = new Int16Array(S * S); // 0=bg, 1..N = person index
+    for (let p = 0; p < segs.length; p++) {
+      for (let i = 0; i < S * S; i++) {
+        if (segs[p].data[i] > 0 && !personMap[i]) personMap[i] = p + 1;
+      }
+    }
+
+    _segCache = { segs, personMap };
+    return _segCache;
+  }
+
+  /**
+   * Given a normalised click point (0..1 each), find the nearest person pixel
+   * and return a Uint8Array mask of that whole person.
+   * Uses BFS up to MAX_SEARCH_RADIUS if click misses a person.
+   */
+  async function _mmSegmentAtPoint(nx, ny) {
+    const px = Math.round(nx * (S - 1));
+    const py = Math.round(ny * (S - 1));
+
+    const { segs, personMap } = await _mmGetSegs();
+
+    let personIdx = personMap[py * S + px];
+
+    // If click missed a person pixel, BFS outward to find nearest person
+    if (!personIdx) {
+      const MAX_VISIT = 60000; // ~radius 130px equivalent
+      const visited = new Uint8Array(S * S);
+      const queue   = [py * S + px];
+      let head      = 0;
+      visited[py * S + px] = 1;
+
+      while (head < queue.length && !personIdx) {
+        if (head >= MAX_VISIT) break;
+        const cur = queue[head++];
+        const cx  = cur % S;
+        const cy  = (cur - cx) / S;
+        for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nx2 = cx + dx, ny2 = cy + dy;
+          if (nx2 < 0 || nx2 >= S || ny2 < 0 || ny2 >= S) continue;
+          const ni = ny2 * S + nx2;
+          if (visited[ni]) continue;
+          visited[ni] = 1;
+          if (personMap[ni]) { personIdx = personMap[ni]; break; }
+          queue.push(ni);
+        }
+      }
+    }
+
+    if (!personIdx) throw new Error('Людину не знайдено поблизу кліку — натисніть ближче до силуету');
+
+    const seg  = segs[personIdx - 1];
+    const mask = new Uint8Array(S * S);
+    for (let i = 0; i < S * S; i++) {
+      if (seg.data[i] > 0) mask[i] = 1;
+    }
+    return mask;
+  }
 
   // ── Open ──────────────────────────────────────────────────────────────────
   window.photoAiManualMode = async function () {
@@ -8337,11 +8426,12 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     }
     if (!photoAiOrig1024) { alert('Спочатку завантаж фото!'); return; }
 
-    _mode    = 'protect';
-    _protect = new Uint8Array(S * S);
-    _remove  = new Uint8Array(S * S);
-    _history = [];
-    _busy    = false;
+    _mode     = 'protect';
+    _protect  = new Uint8Array(S * S);
+    _remove   = new Uint8Array(S * S);
+    _history  = [];
+    _busy     = false;
+    _segCache = null;  // invalidate cache for the new photo
 
     const modal = document.getElementById('mmModal');
     const img   = document.getElementById('mmBaseImg');
@@ -8401,31 +8491,18 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
     const canvas = e.currentTarget;
     const rect   = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left)  / rect.width;   // 0–1 normalised
-    const y = (e.clientY - rect.top)   / rect.height;
+    const x = (e.clientX - rect.left) / rect.width;   // 0–1 normalised
+    const y = (e.clientY - rect.top)  / rect.height;
 
     _busy = true;
     const loader = document.getElementById('mmLoader');
     loader.style.display = 'flex';
-    document.getElementById('mmStatus').textContent = '⏳ SAM-2 сегментує об\'єкт…';
+    document.getElementById('mmStatus').textContent =
+      _segCache ? '⏳ Сегментую…' : '⏳ Завантажую BodyPix (перший раз ~3 с)…';
 
     try {
-      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-      const resp = await fetch(`${BACKEND}/api/carousel/sam-click`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: photoAiOrig1024, x, y }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || `Server ${resp.status}`);
-      }
-
-      const { maskB64 } = await resp.json();
-      if (!maskB64) throw new Error('Маска не повернута');
-
-      const mask = await _mmDecodeMask(maskB64);
+      // Client-side segmentation via BodyPix — no Replicate credits needed
+      const mask = await _mmSegmentAtPoint(x, y);
 
       // Save to history for undo
       _history.push({ mode: _mode, mask: new Uint8Array(mask) });
@@ -8440,30 +8517,12 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       mmSetMode(_mode);  // restore status text
 
     } catch (err) {
-      alert('Помилка SAM-2: ' + (err.message || err));
+      alert('Помилка сегментації: ' + (err.message || err));
       mmSetMode(_mode);
     } finally {
       _busy = false;
       loader.style.display = 'none';
     }
-  }
-
-  // ── Decode SAM mask PNG → Uint8Array[S*S] ─────────────────────────────────
-  async function _mmDecodeMask(dataUrl) {
-    const img = await new Promise((res, rej) => {
-      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl;
-    });
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    cv.getContext('2d').drawImage(img, 0, 0, S, S);
-    const d    = cv.getContext('2d').getImageData(0, 0, S, S).data;
-    const mask = new Uint8Array(S * S);
-    for (let i = 0; i < S * S; i++) {
-      // SAM-2 mask: white (R>64) = segmented object
-      // Also handle RGBA format where alpha indicates the mask
-      mask[i] = (d[i*4] > 64 || (d[i*4+3] > 64 && d[i*4+3] < 250 && d[i*4] > 64)) ? 1 : 0;
-    }
-    return mask;
   }
 
   // ── Redraw canvas overlay ──────────────────────────────────────────────────
