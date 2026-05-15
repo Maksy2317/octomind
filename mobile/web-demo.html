@@ -6620,37 +6620,64 @@
           let resp;
 
           if (removePeople) {
-            // ── PATH 1: BodyPix dual-threshold → spectator-only mask → Stability Erase
+            // ── 2-PHASE PEOPLE REMOVAL ─────────────────────────────────────
             //
-            // The key insight: BodyPix with threshold 0.65 only detects the main player
-            // (high confidence). Blurry background spectators score 0.2–0.4 confidence.
+            // Phase 1 — BodyPix dual-threshold (client-side, no API key):
+            //   segmentMultiPerson @ 0.15 catches standing/prominent spectators.
+            //   Dilated playerMask (25px) ensures player edges never get erased.
             //
-            // Solution: run BodyPix TWICE:
-            //   1. segMask (already computed above): remove.bg or BodyPix 0.65 → player only
-            //   2. allPeopleMask: BodyPix segmentMultiPerson 0.15 → ALL people including spectators
-            //   spectatorMask = allPeopleMask AND NOT segMask → only background people → white
+            // Phase 2 — GPT-4o + Stability Erase (server-side, 2-pass):
+            //   GPT-4o Vision SEES sitting, crouching, partial, behind-fence people
+            //   that BodyPix misses. 2 passes catch anyone missed in the first scan.
             //
-            // No GPT-4o needed. No API key issues. Entirely client-side detection.
-            txt.textContent = '🔍 Шукаю глядачів…';
-            const allPeopleMask = await photoAiRunAllPeopleSeg(photoAiOrig1024);
+            // Running both gives comprehensive coverage for all photo types.
+            // Each phase feeds the next: Phase 2 runs on Phase 1 output.
+            //
+            // Self-contained: sets photoAiResultDataUrl directly, no resp needed.
 
-            if (allPeopleMask) {
-              txt.textContent = '🎯 Видаляю людей…';
-              const spectatorMask = await photoAiCreateSpectatorOnlyMask(allPeopleMask, segMask, 1024);
-              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+            txt.textContent = '🔍 Шукаю людей…';
+            let currentImage = photoAiOrig1024;
+
+            // ── Phase 1: BodyPix → standing spectators ─────────────────────
+            try {
+              const allPeopleMask = await photoAiRunAllPeopleSeg(photoAiOrig1024);
+              if (allPeopleMask) {
+                txt.textContent = '🎯 Крок 1/2: стоячі глядачі…';
+                bar.style.width = '50%';
+                const spectatorMask = await photoAiCreateSpectatorOnlyMask(allPeopleMask, segMask, 1024);
+                const r1 = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ image: photoAiOrig1024, mask: spectatorMask }),
+                });
+                if (r1.ok) {
+                  const d1 = await r1.json();
+                  if (d1.b64) currentImage = `data:image/png;base64,${d1.b64}`;
+                }
+              }
+            } catch (_) { /* Phase 1 failure → still try Phase 2 */ }
+
+            // ── Phase 2: GPT-4o server-side → sitting/partial/remaining ───
+            try {
+              txt.textContent = '🎯 Крок 2/2: сидячі та решта…';
+              bar.style.width = '75%';
+              const r2 = await fetch(`${BACKEND}/api/carousel/remove-people`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024, mask: spectatorMask }),
+                body: JSON.stringify({ image: currentImage }),
               });
-            } else {
-              // BodyPix failed entirely → try server-side 2-pass as fallback
-              txt.textContent = '🔍 Шукаю та видаляю людей…';
-              resp = await fetch(`${BACKEND}/api/carousel/remove-people`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: photoAiOrig1024 }),
-              });
-            }
+              if (r2.ok) {
+                const d2 = await r2.json();
+                if (d2.b64) currentImage = `data:image/png;base64,${d2.b64}`;
+              }
+            } catch (_) { /* Phase 2 failure → use Phase 1 result */ }
+
+            // ── Done ───────────────────────────────────────────────────────
+            clearInterval(tick); tick = null;
+            bar.style.width = '100%';
+            txt.textContent = '✅ Готово';
+            photoAiResultDataUrl = currentImage;
+
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
