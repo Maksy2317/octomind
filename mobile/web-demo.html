@@ -8311,7 +8311,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   </div>
   <!-- Footer -->
   <div style="padding:10px 14px;background:var(--surface);display:flex;gap:8px;flex-shrink:0;border-top:1px solid var(--border);">
-    <button onclick="mmUndo()" id="mmUndo" class="btn btn-secondary" style="flex:1;font-size:12px;padding:10px;" disabled>↩ Відмінити</button>
+    <button onclick="mmUndo()" id="mmUndo" class="btn btn-secondary" style="flex:1;font-size:12px;padding:10px;">✕ Закрити</button>
     <button onclick="mmApply()" id="mmApply" class="btn btn-primary" style="flex:2;font-size:12px;padding:10px;" disabled>✅ Видалити вибраних</button>
   </div>
 </div>
@@ -8453,7 +8453,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     canvas.addEventListener('touchstart', _mmTouch, { passive: false });
 
     document.getElementById('mmApply').disabled = true;
-    document.getElementById('mmUndo' ).disabled = true;
+    _mmSyncUndoBtn();
     mmSetMode('protect');
   };
 
@@ -8513,7 +8513,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
       _mmRedraw();
       document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
-      document.getElementById('mmUndo' ).disabled = _history.length === 0;
+      _mmSyncUndoBtn();
       mmSetMode(_mode);  // restore status text
 
     } catch (err) {
@@ -8552,9 +8552,23 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
   }
 
-  // ── Undo ──────────────────────────────────────────────────────────────────
+  // ── Sync undo button label ─────────────────────────────────────────────────
+  function _mmSyncUndoBtn() {
+    const btn = document.getElementById('mmUndo');
+    if (_history.length > 0) {
+      btn.textContent = '↩ Відмінити';
+    } else {
+      btn.textContent = '✕ Закрити';
+    }
+  }
+
+  // ── Undo (or close if nothing to undo) ────────────────────────────────────
   window.mmUndo = function () {
-    if (!_history.length) return;
+    if (!_history.length) {
+      // Nothing to undo → act as "Close"
+      mmClose();
+      return;
+    }
     _history.pop();
     _protect = new Uint8Array(S * S);
     _remove  = new Uint8Array(S * S);
@@ -8564,7 +8578,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     }
     _mmRedraw();
     document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
-    document.getElementById('mmUndo' ).disabled = _history.length === 0;
+    _mmSyncUndoBtn();
   };
 
   // ── Apply: build final mask and call /inpaint ──────────────────────────────
