@@ -8639,11 +8639,10 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
           rawMask = _mmFloodFillBox(loose, start, bx1, by1, bx2, by2);
           method  = 'loose+box';
         } else {
-          // BodyPix missed this person — fill the bbox itself as a rectangle
-          rawMask = new Uint8Array(S * S);
-          for (let y=by1; y<=by2; y++)
-            for (let x=bx1; x<=bx2; x++) rawMask[y*S+x] = 1;
-          method = 'bbox-rect';
+          // BodyPix missed this person — conservative brush at click point
+          // (do NOT fill the whole bbox — it would include background grass)
+          rawMask = _mmBrushMask(nx, ny, 45);
+          method  = 'brush';
         }
       }
     } else {
