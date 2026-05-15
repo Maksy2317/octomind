@@ -47,9 +47,21 @@ app.get('/health', (_req, res) => {
 });
 
 // Serve frontend (mobile folder)
+// HTML files must never be cached — always fetch fresh from server
 const frontendDir = path.resolve(__dirname, '../../mobile');
-app.use(express.static(frontendDir));
+app.use(express.static(frontendDir, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 app.get('*', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(frontendDir, 'web-demo.html'));
 });
 
