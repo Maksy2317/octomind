@@ -5939,6 +5939,73 @@
   }
 
   /**
+   * Detect ALL people in the image including small/blurry background spectators.
+   * Uses BodyPix segmentMultiPerson with a very low threshold (0.15) to catch
+   * background people who score 0.2–0.4 confidence (too low for regular segmentPerson).
+   *
+   * Returns a Float32Array where 1 = any person pixel, 0 = background.
+   * Used together with the main segMask (player only) to build a spectator-only mask.
+   */
+  async function photoAiRunAllPeopleSeg(imageDataUrl) {
+    const net = await photoAiGetSeg();
+    if (!net) return null;
+
+    const img = await new Promise(resolve => {
+      const i = new Image();
+      i.onload  = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = imageDataUrl;
+    });
+    if (!img) return null;
+
+    try {
+      // segmentMultiPerson detects EACH person separately → catches background people
+      // threshold 0.15: background spectators score 0.2–0.4, so we catch them
+      const segs = await net.segmentMultiPerson(img, {
+        flipHorizontal: false,
+        internalResolution: 'medium',
+        segmentationThreshold: 0.15,
+        maxDetections: 20,
+      });
+      const S = 1024;
+      const mask = new Float32Array(S * S);
+      for (const seg of segs) {
+        for (let i = 0; i < S * S; i++) {
+          if (seg.data[i] > 0) mask[i] = 1.0;
+        }
+      }
+      return mask;
+    } catch (e) { return null; }
+  }
+
+  /**
+   * Build a Stability AI Erase mask that covers ONLY background spectators.
+   *
+   *   WHITE = erase → allPeopleMask pixel AND NOT in playerMask AND NOT in player bbox
+   *   BLACK = preserve → fence / grass / player
+   *
+   * Using two masks together:
+   *   - playerMask (remove.bg or BodyPix 0.65): pixel-accurate player silhouette
+   *   - allPeopleMask (BodyPix 0.15): all people including blurry background ones
+   *   Spectators = allPeopleMask minus playerMask
+   */
+  function photoAiCreateSpectatorOnlyMask(allPeopleMask, playerMask, S) {
+    const d = new Uint8ClampedArray(S * S * 4);
+    for (let i = 0; i < S * S; i++) {
+      const idx = i * 4;
+      const isAnyPerson   = allPeopleMask && allPeopleMask[i] > 0.5;
+      const isMainPlayer  = playerMask    && playerMask[i]    > 0.3;
+      // WHITE only if detected as person AND not the main player
+      const v = (isAnyPerson && !isMainPlayer) ? 255 : 0;
+      d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
+    }
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
+    return cv.toDataURL('image/png');
+  }
+
+  /**
    * Extract person mask from a remove.bg result PNG.
    * remove.bg returns PNG with alpha=255 where person is, alpha=0 where background.
    * We read the alpha channel → Float32Array[1024*1024] mask.
@@ -6540,16 +6607,37 @@
           let resp;
 
           if (removePeople) {
-            // ── PATH 1: Server-side 2-pass remove-people ──────────────────────
-            // All logic on the backend: GPT-4o detects spectators → Stability Erase
-            // → GPT-4o re-detects on result → Stability Erase again if needed.
-            // BodyPix is NOT used here — it can't detect blurry background people.
-            txt.textContent = '🔍 Шукаю та видаляю людей…';
-            resp = await fetch(`${BACKEND}/api/carousel/remove-people`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: photoAiOrig1024 }),
-            });
+            // ── PATH 1: BodyPix dual-threshold → spectator-only mask → Stability Erase
+            //
+            // The key insight: BodyPix with threshold 0.65 only detects the main player
+            // (high confidence). Blurry background spectators score 0.2–0.4 confidence.
+            //
+            // Solution: run BodyPix TWICE:
+            //   1. segMask (already computed above): remove.bg or BodyPix 0.65 → player only
+            //   2. allPeopleMask: BodyPix segmentMultiPerson 0.15 → ALL people including spectators
+            //   spectatorMask = allPeopleMask AND NOT segMask → only background people → white
+            //
+            // No GPT-4o needed. No API key issues. Entirely client-side detection.
+            txt.textContent = '🔍 Шукаю глядачів…';
+            const allPeopleMask = await photoAiRunAllPeopleSeg(photoAiOrig1024);
+
+            if (allPeopleMask) {
+              txt.textContent = '🎯 Видаляю людей…';
+              const spectatorMask = photoAiCreateSpectatorOnlyMask(allPeopleMask, segMask, 1024);
+              resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoAiOrig1024, mask: spectatorMask }),
+              });
+            } else {
+              // BodyPix failed entirely → try server-side 2-pass as fallback
+              txt.textContent = '🔍 Шукаю та видаляю людей…';
+              resp = await fetch(`${BACKEND}/api/carousel/remove-people`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoAiOrig1024 }),
+              });
+            }
           } else {
             // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
