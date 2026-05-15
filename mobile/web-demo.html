@@ -5989,14 +5989,27 @@
    *   - allPeopleMask (BodyPix 0.15): all people including blurry background ones
    *   Spectators = allPeopleMask minus playerMask
    */
-  function photoAiCreateSpectatorOnlyMask(allPeopleMask, playerMask, S) {
+  /**
+   * Build spectator-only erase mask.
+   * Dilates playerMask by 25px before subtracting so that BodyPix 0.15 edge
+   * detection around the player (false positives) are safely excluded.
+   *
+   *   WHITE = erase: allPeopleMask AND NOT dilated_playerMask
+   *   BLACK = preserve: player (+ generous border) + fence/grass
+   */
+  async function photoAiCreateSpectatorOnlyMask(allPeopleMask, playerMask, S) {
+    // Dilate player mask 25px → protects player edges from being erased
+    const dilatedPlayer = playerMask
+      ? await _dilateSegMask(playerMask, S, 25)
+      : null;
+
     const d = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
       const idx = i * 4;
-      const isAnyPerson   = allPeopleMask && allPeopleMask[i] > 0.5;
-      const isMainPlayer  = playerMask    && playerMask[i]    > 0.3;
-      // WHITE only if detected as person AND not the main player
-      const v = (isAnyPerson && !isMainPlayer) ? 255 : 0;
+      const isAnyPerson  = allPeopleMask && allPeopleMask[i] > 0.5;
+      // Use dilated mask with very low threshold → any nearby player pixel = protect
+      const isPlayerZone = dilatedPlayer  && dilatedPlayer[i]  > 0.5;
+      const v = (isAnyPerson && !isPlayerZone) ? 255 : 0;
       d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
     }
     const cv = document.createElement('canvas');
@@ -6623,7 +6636,7 @@
 
             if (allPeopleMask) {
               txt.textContent = '🎯 Видаляю людей…';
-              const spectatorMask = photoAiCreateSpectatorOnlyMask(allPeopleMask, segMask, 1024);
+              const spectatorMask = await photoAiCreateSpectatorOnlyMask(allPeopleMask, segMask, 1024);
               resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
