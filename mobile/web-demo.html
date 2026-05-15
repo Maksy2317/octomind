@@ -8350,10 +8350,11 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   }
 
   /**
-   * Run segmentMultiPerson once and cache the result.
-   * personMap[i] = 0 (background) | 1..N (1-based person index)
+   * Build a combined "any person" mask and cache it.
+   * Uses segmentMultiPerson OR-ed → single Uint8Array where 1 = person pixel.
+   * Threshold 0.25 keeps masks tight so adjacent people stay as separate islands.
    */
-  async function _mmGetSegs() {
+  async function _mmGetCombinedMask() {
     if (_segCache) return _segCache;
 
     const net = await _mmGetNet();
@@ -8368,69 +8369,83 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
     const segs = await net.segmentMultiPerson(img, {
       flipHorizontal:        false,
-      internalResolution:    'full',   // process at full 1024px → crisp edges
-      segmentationThreshold: 0.15,
+      internalResolution:    'full',
+      segmentationThreshold: 0.25,  // tighter than 0.15 → more gap between people
       maxDetections:         20,
     });
 
     if (!segs || !segs.length) throw new Error('BodyPix не знайшов жодної людини на фото');
 
-    // Build person-ID map: first segment wins (keeps individual identity)
-    const personMap = new Int16Array(S * S); // 0=bg, 1..N = person index
-    for (let p = 0; p < segs.length; p++) {
+    // OR all per-person masks into one combined binary mask
+    const combined = new Uint8Array(S * S);
+    for (const seg of segs) {
       for (let i = 0; i < S * S; i++) {
-        if (segs[p].data[i] > 0 && !personMap[i]) personMap[i] = p + 1;
+        if (seg.data[i] > 0) combined[i] = 1;
       }
     }
 
-    _segCache = { segs, personMap };
+    _segCache = combined;
     return _segCache;
   }
 
   /**
-   * Given a normalised click point (0..1 each), find the nearest person pixel
-   * and return a Uint8Array mask of that whole person.
-   * Uses BFS up to MAX_SEARCH_RADIUS if click misses a person.
+   * Given a normalised click point (0..1 each), FLOOD-FILL from that pixel
+   * through connected person pixels → selects only the one person touched.
+   * Adjacent people separated by even a few background pixels stay independent.
    */
   async function _mmSegmentAtPoint(nx, ny) {
     const px = Math.round(nx * (S - 1));
     const py = Math.round(ny * (S - 1));
 
-    const { segs, personMap } = await _mmGetSegs();
+    const combined = await _mmGetCombinedMask();
 
-    let personIdx = personMap[py * S + px];
-
-    // If click missed a person pixel, BFS outward to find nearest person
-    if (!personIdx) {
-      const MAX_VISIT = 60000; // ~radius 130px equivalent
-      const visited = new Uint8Array(S * S);
-      const queue   = [py * S + px];
-      let head      = 0;
-      visited[py * S + px] = 1;
-
-      while (head < queue.length && !personIdx) {
-        if (head >= MAX_VISIT) break;
-        const cur = queue[head++];
-        const cx  = cur % S;
-        const cy  = (cur - cx) / S;
+    // Find the start pixel — direct hit or nearest person via BFS
+    let startIdx = py * S + px;
+    if (!combined[startIdx]) {
+      const vis  = new Uint8Array(S * S);
+      const q    = [startIdx];
+      let head   = 0;
+      vis[startIdx] = 1;
+      let found  = -1;
+      while (head < q.length) {
+        if (head >= 60000) break;
+        const cur = q[head++];
+        const cx  = cur % S, cy = (cur - cx) / S;
         for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
           const nx2 = cx + dx, ny2 = cy + dy;
           if (nx2 < 0 || nx2 >= S || ny2 < 0 || ny2 >= S) continue;
           const ni = ny2 * S + nx2;
-          if (visited[ni]) continue;
-          visited[ni] = 1;
-          if (personMap[ni]) { personIdx = personMap[ni]; break; }
-          queue.push(ni);
+          if (vis[ni]) continue;
+          vis[ni] = 1;
+          if (combined[ni]) { found = ni; break; }
+          q.push(ni);
         }
+        if (found >= 0) break;
       }
+      if (found < 0) throw new Error('Людину не знайдено поблизу кліку — натисніть ближче до силуету');
+      startIdx = found;
     }
 
-    if (!personIdx) throw new Error('Людину не знайдено поблизу кліку — натисніть ближче до силуету');
-
-    const seg  = segs[personIdx - 1];
+    // Flood-fill (4-connected) through combined person mask from startIdx
+    // → selects only the ONE connected island clicked on
     const mask = new Uint8Array(S * S);
-    for (let i = 0; i < S * S; i++) {
-      if (seg.data[i] > 0) mask[i] = 1;
+    const vis  = new Uint8Array(S * S);
+    const q    = [startIdx];
+    let head   = 0;
+    vis[startIdx]  = 1;
+    mask[startIdx] = 1;
+    while (head < q.length) {
+      const cur = q[head++];
+      const cx  = cur % S, cy = (cur - cx) / S;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx2 = cx + dx, ny2 = cy + dy;
+        if (nx2 < 0 || nx2 >= S || ny2 < 0 || ny2 >= S) continue;
+        const ni = ny2 * S + nx2;
+        if (vis[ni] || !combined[ni]) continue;
+        vis[ni]  = 1;
+        mask[ni] = 1;
+        q.push(ni);
+      }
     }
     return mask;
   }
