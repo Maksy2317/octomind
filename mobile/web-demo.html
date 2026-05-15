@@ -8330,6 +8330,25 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
   // ── BodyPix helpers (client-side, no API key, no credits) ────────────────
 
+  // High-quality BodyPix model for manual mode.
+  // outputStride 8 → 129×129 internal maps (vs shared model's 65×65 at stride 16)
+  // → 2× sharper person edges. Loaded lazily, separate from the shared model.
+  let _mmNetPromise = null;
+  function _mmGetNet() {
+    if (_mmNetPromise) return _mmNetPromise;
+    if (!window.bodyPix) return Promise.resolve(null);
+    _mmNetPromise = window.bodyPix.load({
+      architecture:  'MobileNetV1',
+      outputStride:  8,     // 2× finer edges than shared model (stride 16)
+      multiplier:    0.50,  // smaller network = fast to load, still accurate
+      quantBytes:    2,
+    }).catch(() => {
+      _mmNetPromise = null;
+      return photoAiGetSeg(); // fall back to shared model
+    });
+    return _mmNetPromise;
+  }
+
   /**
    * Run segmentMultiPerson once and cache the result.
    * personMap[i] = 0 (background) | 1..N (1-based person index)
@@ -8337,7 +8356,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   async function _mmGetSegs() {
     if (_segCache) return _segCache;
 
-    const net = await photoAiGetSeg();
+    const net = await _mmGetNet();
     if (!net) throw new Error('BodyPix не завантажено — оновіть сторінку');
 
     const img = await new Promise((res, rej) => {
@@ -8348,10 +8367,10 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     });
 
     const segs = await net.segmentMultiPerson(img, {
-      flipHorizontal:       false,
-      internalResolution:   'medium',
+      flipHorizontal:        false,
+      internalResolution:    'full',   // process at full 1024px → crisp edges
       segmentationThreshold: 0.15,
-      maxDetections:        20,
+      maxDetections:         20,
     });
 
     if (!segs || !segs.length) throw new Error('BodyPix не знайшов жодної людини на фото');
@@ -8527,6 +8546,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
   // ── Redraw canvas overlay ──────────────────────────────────────────────────
   // Green = protected player   Red = area to remove (only where NOT protected)
+  // Rendering: semi-transparent fill (35%) + solid bright outline (100%)
   function _mmRedraw() {
     const canvas = document.getElementById('mmCanvas');
     if (!canvas.width) return;
@@ -8535,12 +8555,31 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
     for (let i = 0; i < S * S; i++) {
       const idx = i * 4;
-      if (_protect[i]) {
+      if (!_protect[i] && !_remove[i]) continue;
+
+      const x = i % S, y = (i - x) / S;
+      const isProtect = !!_protect[i];
+
+      // Is this pixel on the border of the mask?
+      const isBorder = (
+        x === 0 || x === S - 1 || y === 0 || y === S - 1 ||
+        (isProtect ? (
+          !_protect[i - 1] || !_protect[i + 1] ||
+          !_protect[i - S] || !_protect[i + S]
+        ) : (
+          !_remove[i - 1] || !_remove[i + 1] ||
+          !_remove[i - S]  || !_remove[i + S]
+        ))
+      );
+
+      if (isProtect) {
+        // Green: border = 100% opacity, fill = 35%
         imgd.data[idx]   = 34;  imgd.data[idx+1] = 197;
-        imgd.data[idx+2] = 94;  imgd.data[idx+3] = 150;  // green 60%
-      } else if (_remove[i]) {
+        imgd.data[idx+2] = 94;  imgd.data[idx+3] = isBorder ? 255 : 90;
+      } else {
+        // Red: border = 100% opacity, fill = 35%
         imgd.data[idx]   = 239; imgd.data[idx+1] = 68;
-        imgd.data[idx+2] = 68;  imgd.data[idx+3] = 150;  // red 60%
+        imgd.data[idx+2] = 68;  imgd.data[idx+3] = isBorder ? 255 : 90;
       }
     }
 
