@@ -8328,8 +8328,14 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
   let _busy    = false;
 
   // ── Open ──────────────────────────────────────────────────────────────────
-  window.photoAiManualMode = function () {
-    if (!window.photoAiOrig1024) return;
+  window.photoAiManualMode = async function () {
+    // photoAiOrig1024 is only set after photoAiGenerate() runs.
+    // If user opens manual mode directly (before clicking "Редагувати"),
+    // compute the 1024px version now from the raw upload.
+    if (!photoAiOrig1024 && typeof photoAiOrigDataUrl !== 'undefined' && photoAiOrigDataUrl) {
+      try { photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl); } catch (_) {}
+    }
+    if (!photoAiOrig1024) { alert('Спочатку завантаж фото!'); return; }
 
     _mode    = 'protect';
     _protect = new Uint8Array(S * S);
@@ -8341,7 +8347,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     const img   = document.getElementById('mmBaseImg');
     const canvas= document.getElementById('mmCanvas');
 
-    img.src = window.photoAiOrig1024;
+    img.src = photoAiOrig1024;
     modal.style.display = 'flex';
 
     // Set canvas resolution to match image natural size (1024×1024)
@@ -8408,7 +8414,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       const resp = await fetch(`${BACKEND}/api/carousel/sam-click`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: window.photoAiOrig1024, x, y }),
+        body: JSON.stringify({ image: photoAiOrig1024, x, y }),
       });
 
       if (!resp.ok) {
@@ -8548,7 +8554,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       const resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ image: window.photoAiOrig1024, mask: maskDataUrl }),
+        body:    JSON.stringify({ image: photoAiOrig1024, mask: maskDataUrl }),
       });
 
       clearInterval(tick);
@@ -8562,13 +8568,13 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
       const data = await resp.json();
       if (!data.b64) throw new Error('Сервер не повернув зображення');
 
-      window.photoAiResultDataUrl = `data:image/png;base64,${data.b64}`;
+      photoAiResultDataUrl = `data:image/png;base64,${data.b64}`;
       bar.style.width = '100%';
       txt.textContent = '✅ Готово!';
 
-      document.getElementById('photoAiBeforeSmall').src = window.photoAiOrig1024;
-      document.getElementById('photoAiAfterSmall').src  = window.photoAiResultDataUrl;
-      document.getElementById('photoAiAfterImg').src    = window.photoAiResultDataUrl;
+      document.getElementById('photoAiBeforeSmall').src = photoAiOrig1024;
+      document.getElementById('photoAiAfterSmall').src  = photoAiResultDataUrl;
+      document.getElementById('photoAiAfterImg').src    = photoAiResultDataUrl;
       document.getElementById('photoAiStep3').style.display = 'none';
       document.getElementById('photoAiStep4').style.display = 'block';
 
