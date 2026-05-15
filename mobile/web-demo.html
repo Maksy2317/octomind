@@ -8310,16 +8310,17 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     <span id="mmBrushLabel" style="font-size:11px;color:var(--text3);min-width:34px;text-align:right;">30px</span>
   </div>
   <!-- Canvas area -->
-  <div style="flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px;min-height:0;">
-    <div style="position:relative;display:inline-flex;max-width:100%;max-height:100%;">
+  <div style="flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px;min-height:0;position:relative;">
+    <!-- zoom/pan wrapper — JS applies CSS transform here -->
+    <div id="mmZoomWrap" style="position:relative;display:inline-flex;max-width:100%;max-height:100%;transform-origin:center center;">
       <img id="mmBaseImg" style="max-width:min(100vw - 20px, 560px);max-height:calc(100dvh - 210px);border-radius:10px;display:block;">
-      <canvas id="mmCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;cursor:crosshair;touch-action:none;"></canvas>
-      <!-- Loading overlay -->
-      <div id="mmLoader" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:10px;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
-        <div style="width:30px;height:30px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;" class="mm-spin"></div>
-        <div style="font-size:12px;color:#fff;font-weight:600;">Сегментую…</div>
-        <div style="font-size:10px;color:rgba(255,255,255,.6);">~1-3 сек</div>
-      </div>
+      <canvas id="mmCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;cursor:crosshair;touch-action:none;user-select:none;"></canvas>
+    </div>
+    <!-- Floating zoom controls (bottom-right of canvas area) -->
+    <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:4px;z-index:2;">
+      <button onclick="mmZoomIn()"    style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+      <button onclick="mmZoomReset()" id="mmZoomLabel" style="height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text3);font-size:10px;cursor:pointer;min-width:36px;">1×</button>
+      <button onclick="mmZoomOut()"   style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
     </div>
   </div>
   <!-- Footer -->
@@ -8335,25 +8336,33 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 // ── Manual Mask Mode — Photoshop-like brush editor ────────────────────────────
 'use strict';
 (function () {
-  // ── State ───────────────────────────────────────────────────────────────
+  // ── State ────────────────────────────────────────────────────────────────
   const S = 1024;
-  let _mode      = 'protect';  // 'protect' | 'remove' | 'erase'
+  let _mode      = 'protect';   // 'protect' | 'remove' | 'erase'
   let _brushSize = 30;
   let _painting  = false;
+  let _lastX     = 0;
+  let _lastY     = 0;
   let _cursorX   = -1;
   let _cursorY   = -1;
+  let _zoom      = 1;
+  let _panX      = 0;
+  let _panY      = 0;
+  let _lastPinchDist = 0;
 
-  // Offscreen canvas for permanent paint accumulation
+  // Offscreen canvas — stores OPAQUE paint (no transparency artifacts)
   let _off    = null;
   let _offCtx = null;
 
-  // Undo / redo stacks — each entry is a full ImageData snapshot (1 per drag)
+  // Undo/redo stacks (ImageData snapshots, max 30)
   let _undoStack = [];
   let _redoStack = [];
 
-  // ── Paint colours ────────────────────────────────────────────────────────
-  const C_PROTECT = 'rgba(34,197,94,0.72)';
-  const C_REMOVE  = 'rgba(239,68,68,0.72)';
+  // ── Paint colours: FULLY OPAQUE so overlapping stamps don't compound alpha ──
+  // We apply OVERLAY_ALPHA when drawing onto the visible canvas in _render().
+  const C_PROTECT    = 'rgb(34,197,94)';
+  const C_REMOVE     = 'rgb(239,68,68)';
+  const OVERLAY_ALPHA = 0.72;
 
   // ── Init offscreen canvas ─────────────────────────────────────────────────
   function _initOff() {
@@ -8363,73 +8372,76 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     _offCtx.clearRect(0, 0, S, S);
   }
 
-  // ── Snapshots (one per drag-start) ────────────────────────────────────────
+  // ── Snapshots ─────────────────────────────────────────────────────────────
   function _snap()     { return _offCtx.getImageData(0, 0, S, S); }
-  function _restore(d) { _offCtx.putImageData(d, 0, 0); }
+  function _restore(d) { _offCtx.clearRect(0, 0, S, S); _offCtx.putImageData(d, 0, 0); }
 
   function _pushUndo() {
-    if (_undoStack.length >= 20) _undoStack.shift();
+    if (_undoStack.length >= 30) _undoStack.shift();
     _undoStack.push(_snap());
     _redoStack = [];
-    _syncUI();
   }
 
-  // ── Stroke helpers ────────────────────────────────────────────────────────
-  function _strokeBegin(cx, cy) {
+  // ── CORE: stamp a filled circle at canvas coords (cx, cy) ────────────────
+  // No path continuity needed — each stamp is an independent arc+fill.
+  function _stamp(cx, cy) {
     if (_mode === 'erase') {
       _offCtx.globalCompositeOperation = 'destination-out';
-      _offCtx.strokeStyle = 'rgba(0,0,0,1)';
+      _offCtx.fillStyle = 'rgba(0,0,0,1)';
     } else {
       _offCtx.globalCompositeOperation = 'source-over';
-      _offCtx.strokeStyle = _mode === 'protect' ? C_PROTECT : C_REMOVE;
+      _offCtx.fillStyle = _mode === 'protect' ? C_PROTECT : C_REMOVE;
     }
-    _offCtx.lineWidth  = _brushSize * 2;
-    _offCtx.lineCap    = 'round';
-    _offCtx.lineJoin   = 'round';
-    // Paint a dot at the start: a near-zero line with round caps = circle of radius brushSize
     _offCtx.beginPath();
-    _offCtx.moveTo(cx, cy);
-    _offCtx.lineTo(cx + 0.01, cy);
-    _offCtx.stroke();
-    // Begin the continuing line path from this point
-    _offCtx.beginPath();
-    _offCtx.moveTo(cx, cy);
-  }
-
-  function _strokeMove(cx, cy) {
-    _offCtx.lineTo(cx, cy);
-    _offCtx.stroke();
-    _offCtx.beginPath();
-    _offCtx.moveTo(cx, cy);
-  }
-
-  function _strokeEnd() {
+    _offCtx.arc(cx, cy, _brushSize, 0, Math.PI * 2);
+    _offCtx.fill();
     _offCtx.globalCompositeOperation = 'source-over';
   }
 
-  // ── Render overlay on mmCanvas ────────────────────────────────────────────
+  // ── Interpolate stamps from (_lastX,_lastY) to (x2,y2) ────────────────────
+  // Stamps every (brushSize × 0.3) pixels — guarantees zero gaps at any drag speed.
+  function _paintTo(x2, y2) {
+    const dx   = x2 - _lastX;
+    const dy   = y2 - _lastY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const step = Math.max(0.5, _brushSize * 0.3);
+    const n    = Math.max(1, Math.ceil(dist / step));
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      _stamp(_lastX + dx * t, _lastY + dy * t);
+    }
+    _lastX = x2;
+    _lastY = y2;
+  }
+
+  // ── Render overlay onto mmCanvas ──────────────────────────────────────────
   function _render() {
     const cv = document.getElementById('mmCanvas');
     if (!cv || !_off) return;
     const ctx = cv.getContext('2d');
     ctx.clearRect(0, 0, cv.width, cv.height);
+    // Paint layer at OVERLAY_ALPHA — opaque in _off, semi-transparent when displayed
+    ctx.globalAlpha = OVERLAY_ALPHA;
     ctx.drawImage(_off, 0, 0);
-    // Cursor preview circle (dashed ring matching current mode colour)
+    ctx.globalAlpha = 1;
+    // Cursor preview: dashed ring in mode colour
     if (_cursorX >= 0) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(_cursorX, _cursorY, _brushSize, 0, Math.PI * 2);
-      ctx.strokeStyle = _mode === 'erase'   ? 'rgba(255,255,255,0.85)' :
-                        _mode === 'protect' ? 'rgba(34,197,94,0.9)'    :
-                                              'rgba(239,68,68,0.9)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = _mode === 'erase'   ? 'rgba(255,255,255,0.9)'  :
+                        _mode === 'protect' ? 'rgba(34,197,94,0.95)'   :
+                                              'rgba(239,68,68,0.95)';
+      ctx.lineWidth = Math.max(1, _brushSize > 20 ? 2 : 1.5);
       ctx.setLineDash([4, 3]);
       ctx.stroke();
       ctx.restore();
     }
   }
 
-  // ── Coordinate helper (PointerEvent → canvas pixels) ─────────────────────
+  // ── Coordinate helper: pointer → offscreen canvas pixels ─────────────────
+  // getBoundingClientRect() already reflects the CSS scale() transform,
+  // so this works correctly at any zoom level without extra math.
   function _coords(e) {
     const cv   = document.getElementById('mmCanvas');
     const rect = cv.getBoundingClientRect();
@@ -8439,30 +8451,39 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     };
   }
 
-  // ── Pointer event handlers ────────────────────────────────────────────────
+  // ── Zoom helpers ───────────────────────────────────────────────────────────
+  function _applyZoom() {
+    const wrap  = document.getElementById('mmZoomWrap');
+    const label = document.getElementById('mmZoomLabel');
+    if (wrap)  wrap.style.transform = `scale(${_zoom}) translate(${_panX}px,${_panY}px)`;
+    if (label) label.textContent    = Math.round(_zoom * 100) + '\xd7';
+  }
+
+  // ── Pointer events ─────────────────────────────────────────────────────────
   function _onDown(e) {
     e.preventDefault();
-    try { e.target.setPointerCapture(e.pointerId); } catch (_e) {}
+    try { e.target.setPointerCapture(e.pointerId); } catch (_e2) {}
+    const { x, y } = _coords(e);
+    _lastX = x; _lastY = y;
+    _cursorX = x; _cursorY = y;
     _painting = true;
     _pushUndo();
-    const { x, y } = _coords(e);
-    _cursorX = x; _cursorY = y;
-    _strokeBegin(x, y);
+    _stamp(x, y);     // immediate dot on click/tap
     _render();
+    _syncUI();
   }
 
   function _onMove(e) {
     e.preventDefault();
     const { x, y } = _coords(e);
     _cursorX = x; _cursorY = y;
-    if (_painting) _strokeMove(x, y);
+    if (_painting) _paintTo(x, y);   // interpolated stamps — no gaps
     _render();
   }
 
-  function _onUp(e) {
+  function _onUp() {
     if (!_painting) return;
     _painting = false;
-    _strokeEnd();
     _render();
     _syncUI();
   }
@@ -8472,7 +8493,32 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     _render();
   }
 
-  // ── UI sync ───────────────────────────────────────────────────────────────
+  // ── Mouse-wheel zoom ───────────────────────────────────────────────────────
+  function _onWheel(e) {
+    e.preventDefault();
+    const f = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    _zoom = Math.max(0.5, Math.min(6, _zoom * f));
+    _applyZoom();
+  }
+
+  // ── Pinch-zoom (touch) ─────────────────────────────────────────────────────
+  function _pinchDist(t) {
+    const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function _onTouchStart(e) {
+    if (e.touches.length === 2) { e.preventDefault(); _lastPinchDist = _pinchDist(e.touches); }
+  }
+  function _onTouchMove(e) {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    const d = _pinchDist(e.touches);
+    if (_lastPinchDist > 0) { _zoom = Math.max(0.5, Math.min(6, _zoom * (d / _lastPinchDist))); _applyZoom(); }
+    _lastPinchDist = d;
+    _painting = false;
+  }
+
+  // ── UI sync ────────────────────────────────────────────────────────────────
   function _hasPaint() {
     if (!_offCtx) return false;
     const d = _offCtx.getImageData(0, 0, S, S).data;
@@ -8484,7 +8530,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     if (!_offCtx) return false;
     const d = _offCtx.getImageData(0, 0, S, S).data;
     for (let i = 0; i < d.length; i += 4)
-      if (d[i] > 150 && d[i+1] < 120 && d[i+3] > 8) return true;
+      if (d[i] > 150 && d[i+1] < 100 && d[i+3] > 8) return true;
     return false;
   }
 
@@ -8499,8 +8545,8 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     if (btnA) btnA.disabled = !_hasRemovePaint();
   }
 
-  // ── Extract protect / remove masks from painted canvas ────────────────────
-  // Green pixels (G dominates) → protect.  Red pixels (R dominates) → remove.
+  // ── Extract protect / remove masks ────────────────────────────────────────
+  // Opaque green (G > R+40) → protect.  Opaque red (R > G+40) → remove.
   function _extractMasks() {
     const d       = _offCtx.getImageData(0, 0, S, S).data;
     const protect = new Uint8Array(S * S);
@@ -8508,8 +8554,8 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     for (let i = 0; i < S * S; i++) {
       const r = d[i*4], g = d[i*4+1], a = d[i*4+3];
       if (a < 8) continue;
-      if (g > r + 30) protect[i] = 1;
-      if (r > g + 30) remove[i]  = 1;
+      if (g > r + 40) protect[i] = 1;
+      if (r > g + 40) remove[i]  = 1;
     }
     return { protect, remove };
   }
@@ -8526,6 +8572,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     _undoStack = [];
     _redoStack = [];
     _cursorX   = -1; _cursorY = -1;
+    _zoom      = 1;  _panX   = 0; _panY = 0;
     _initOff();
 
     const modal  = document.getElementById('mmModal');
@@ -8534,6 +8581,7 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
     img.src = photoAiOrig1024;
     modal.style.display = 'flex';
+    _applyZoom();
 
     function _setupCanvas() {
       canvas.width  = img.naturalWidth  || S;
@@ -8543,11 +8591,14 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     if (img.complete && img.naturalWidth) _setupCanvas();
     else img.onload = _setupCanvas;
 
-    canvas.addEventListener('pointerdown',  _onDown,  { passive: false });
-    canvas.addEventListener('pointermove',  _onMove,  { passive: false });
-    canvas.addEventListener('pointerup',    _onUp,    { passive: false });
-    canvas.addEventListener('pointercancel',_onUp,    { passive: false });
-    canvas.addEventListener('pointerleave', _onLeave, { passive: false });
+    canvas.addEventListener('pointerdown',  _onDown,      { passive: false });
+    canvas.addEventListener('pointermove',  _onMove,      { passive: false });
+    canvas.addEventListener('pointerup',    _onUp,        { passive: false });
+    canvas.addEventListener('pointercancel',_onUp,        { passive: false });
+    canvas.addEventListener('pointerleave', _onLeave,     { passive: false });
+    canvas.addEventListener('wheel',        _onWheel,     { passive: false });
+    canvas.addEventListener('touchstart',   _onTouchStart,{ passive: false });
+    canvas.addEventListener('touchmove',    _onTouchMove, { passive: false });
 
     mmSetMode('protect');
     _syncUI();
@@ -8563,6 +8614,9 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     canvas.removeEventListener('pointerup',    _onUp);
     canvas.removeEventListener('pointercancel',_onUp);
     canvas.removeEventListener('pointerleave', _onLeave);
+    canvas.removeEventListener('wheel',        _onWheel);
+    canvas.removeEventListener('touchstart',   _onTouchStart);
+    canvas.removeEventListener('touchmove',    _onTouchMove);
     _painting = false;
     document.getElementById('mmModal').style.display = 'none';
   };
@@ -8589,6 +8643,11 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 
   // ── Debug toggle (no-op in brush mode, kept for HTML onclick) ────────────
   window.mmToggleDebug = function () {};
+
+  // ── Zoom buttons (called by floating +/−/reset buttons) ──────────────────
+  window.mmZoomIn    = function () { _zoom = Math.min(6, _zoom * 1.4); _applyZoom(); };
+  window.mmZoomOut   = function () { _zoom = Math.max(0.5, _zoom / 1.4); _applyZoom(); };
+  window.mmZoomReset = function () { _zoom = 1; _panX = 0; _panY = 0; _applyZoom(); };
 
   // ── Undo / Redo ───────────────────────────────────────────────────────────
   window.mmUndo = function () {
