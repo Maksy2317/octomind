@@ -8275,13 +8275,15 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     background:#000; z-index:9999; flex-direction:column; }
   @keyframes mmSpin { to { transform: rotate(360deg); } }
   .mm-spin { animation: mmSpin .8s linear infinite; }
-  #mmBtnProtect, #mmBtnRemove {
+  #mmBtnProtect, #mmBtnRemove, #mmBtnErase {
     padding:6px 14px; border-radius:20px; border:1.5px solid; font-size:12px;
     cursor:pointer; transition: all .15s; font-weight:600; }
-  #mmBtnProtect { border-color:#22c55e; background:#22c55e22; color:#22c55e; }
+  #mmBtnProtect { border-color:var(--border); background:var(--surface2); color:var(--text3); }
   #mmBtnRemove  { border-color:var(--border); background:var(--surface2); color:var(--text3); }
-  #mmBtnRemove.active  { border-color:#ef4444; background:#ef444422; color:#ef4444; }
+  #mmBtnErase   { border-color:var(--border); background:var(--surface2); color:var(--text3); }
   #mmBtnProtect.active { border-color:#22c55e; background:#22c55e33; color:#22c55e; }
+  #mmBtnRemove.active  { border-color:#ef4444; background:#ef444422; color:#ef4444; }
+  #mmBtnErase.active   { border-color:#f59e0b; background:#f59e0b22; color:#f59e0b; }
 </style>
 <div id="mmModal">
   <!-- Header bar -->
@@ -8289,17 +8291,23 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     <button onclick="mmClose()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;">✕</button>
     <span style="font-weight:700;font-size:13px;">🖱️ Ручний режим</span>
     <div style="flex:1;"></div>
-    <button id="mmBtnDebug"   onclick="mmToggleDebug()" style="padding:4px 10px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);font-size:11px;cursor:pointer;">🐛</button>
+    <button id="mmBtnDebug"   onclick="mmToggleDebug()" style="padding:4px 8px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);font-size:11px;cursor:pointer;">🐛</button>
     <button id="mmBtnProtect" onclick="mmSetMode('protect')" class="active">🛡 Захист</button>
     <button id="mmBtnRemove"  onclick="mmSetMode('remove')">🗑 Видалити</button>
+    <button id="mmBtnErase"   onclick="mmSetMode('erase')">⌫ Стерти</button>
   </div>
   <!-- Status -->
-  <div id="mmStatus" style="padding:6px 14px;background:var(--surface2);text-align:center;font-size:11px;color:var(--text3);flex-shrink:0;border-bottom:1px solid var(--border);">
-    Крок 1 — 🛡 клікни на гравця щоб захистити його
+  <div id="mmStatus" style="padding:5px 14px;background:var(--surface2);text-align:center;font-size:11px;color:var(--text3);flex-shrink:0;border-bottom:1px solid var(--border);">
+    🛡 Малюй пензлем по гравцю (зелений захист)
   </div>
-  <!-- Modifier hints -->
-  <div style="padding:4px 14px;background:var(--surface2);text-align:center;font-size:10px;color:var(--text4);flex-shrink:0;border-bottom:1px solid var(--border);">
-    <b>Shift+клік</b> = малювати пензлем &nbsp;·&nbsp; <b>Alt+клік</b> = стерти пензлем &nbsp;·&nbsp; <b>Звич. клік</b> = авто-силует
+  <!-- Brush size row -->
+  <div style="padding:6px 14px;background:var(--surface2);display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid var(--border);">
+    <span style="font-size:9px;color:var(--text4);">○</span>
+    <input type="range" id="mmBrushSlider" min="5" max="160" value="30"
+      oninput="mmSetBrush(this.value)"
+      style="flex:1;accent-color:var(--accent);height:4px;cursor:pointer;">
+    <span style="font-size:14px;color:var(--text4);">●</span>
+    <span id="mmBrushLabel" style="font-size:11px;color:var(--text3);min-width:34px;text-align:right;">30px</span>
   </div>
   <!-- Canvas area -->
   <div style="flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px;min-height:0;">
@@ -8315,677 +8323,330 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     </div>
   </div>
   <!-- Footer -->
-  <div style="padding:10px 14px;background:var(--surface);display:flex;gap:8px;flex-shrink:0;border-top:1px solid var(--border);">
-    <button onclick="mmUndo()"  id="mmUndo"  class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;">✕ Закрити</button>
-    <button onclick="mmClear()" id="mmClear" class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" disabled>🗑 Очистити</button>
-    <button onclick="mmApply()" id="mmApply" class="btn btn-primary"   style="flex:2;font-size:12px;padding:8px;" disabled>✅ Видалити</button>
+  <div style="padding:8px 12px;background:var(--surface);display:flex;gap:6px;flex-shrink:0;border-top:1px solid var(--border);">
+    <button onclick="mmUndo()"  id="mmUndo"  class="btn btn-secondary" style="flex:1;font-size:11px;padding:7px;">✕ Закрити</button>
+    <button onclick="mmRedo()"  id="mmRedo"  class="btn btn-secondary" style="flex:1;font-size:11px;padding:7px;" disabled>↪ Повтор</button>
+    <button onclick="mmClear()" id="mmClear" class="btn btn-secondary" style="flex:1;font-size:11px;padding:7px;" disabled>🗑 Очистити</button>
+    <button onclick="mmApply()" id="mmApply" class="btn btn-primary"   style="flex:2;font-size:11px;padding:7px;" disabled>✅ Видалити</button>
   </div>
 </div>
 
 <script>
-// ── Manual Mask Mode ──────────────────────────────────────────────────────────
+// ── Manual Mask Mode — Photoshop-like brush editor ────────────────────────────
 'use strict';
 (function () {
+  // ── State ───────────────────────────────────────────────────────────────
   const S = 1024;
-  let _mode      = 'protect';  // 'protect' | 'remove'
-  let _protect   = null;       // Uint8Array[S*S]
-  let _remove    = null;       // Uint8Array[S*S]
-  let _history   = [];         // [{mode, mask}]
-  let _busy      = false;
-  let _segCache  = null;       // cached {personMap, segs} from BodyPix for this photo
+  let _mode      = 'protect';  // 'protect' | 'remove' | 'erase'
+  let _brushSize = 30;
+  let _painting  = false;
+  let _cursorX   = -1;
+  let _cursorY   = -1;
 
-  // ── Person bbox detection (GPT-4o via backend) ───────────────────────────
-  let _personBoxes    = null;  // [{x1,y1,x2,y2,label}] normalized 0-1, or []
-  let _boxesPromise   = null;  // pending fetch
-  let _debugMode      = false; // show detected person boxes on canvas
+  // Offscreen canvas for permanent paint accumulation
+  let _off    = null;
+  let _offCtx = null;
 
-  async function _mmGetPersonBoxes() {
-    if (_personBoxes !== null) return _personBoxes;
-    if (_boxesPromise)         return _boxesPromise;
-    _boxesPromise = (async () => {
-      try {
-        const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-        const r = await fetch(`${BACKEND}/api/carousel/detect-persons`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ image: photoAiOrig1024 }),
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const { persons } = await r.json();
-        _personBoxes = Array.isArray(persons) ? persons : [];
-      } catch (e) {
-        console.warn('[mm] detect-persons failed:', e);
-        _personBoxes = [];
-      }
-      return _personBoxes;
-    })();
-    return _boxesPromise;
+  // Undo / redo stacks — each entry is a full ImageData snapshot (1 per drag)
+  let _undoStack = [];
+  let _redoStack = [];
+
+  // ── Paint colours ────────────────────────────────────────────────────────
+  const C_PROTECT = 'rgba(34,197,94,0.72)';
+  const C_REMOVE  = 'rgba(239,68,68,0.72)';
+
+  // ── Init offscreen canvas ─────────────────────────────────────────────────
+  function _initOff() {
+    try { _off = new OffscreenCanvas(S, S); }
+    catch (_e) { _off = document.createElement('canvas'); _off.width = S; _off.height = S; }
+    _offCtx = _off.getContext('2d');
+    _offCtx.clearRect(0, 0, S, S);
   }
 
-  // ── BodyPix helpers ───────────────────────────────────────────────────────
-  // outputStride 8 → 129×129 internal maps (2× sharper than shared stride-16 model)
-  let _mmNetPromise = null;
-  function _mmGetNet() {
-    if (_mmNetPromise) return _mmNetPromise;
-    if (!window.bodyPix) return Promise.resolve(null);
-    _mmNetPromise = window.bodyPix.load({
-      architecture: 'MobileNetV1',
-      outputStride: 8,
-      multiplier:   0.50,
-      quantBytes:   2,
-    }).catch(() => { _mmNetPromise = null; return photoAiGetSeg(); });
-    return _mmNetPromise;
+  // ── Snapshots (one per drag-start) ────────────────────────────────────────
+  function _snap()     { return _offCtx.getImageData(0, 0, S, S); }
+  function _restore(d) { _offCtx.putImageData(d, 0, 0); }
+
+  function _pushUndo() {
+    if (_undoStack.length >= 20) _undoStack.shift();
+    _undoStack.push(_snap());
+    _redoStack = [];
+    _syncUI();
   }
 
-  /** Build TWO combined person masks (tight 0.22 + loose 0.07) and cache. */
-  async function _mmGetCombinedMask() {
-    if (_segCache) return _segCache;
-    const net = await _mmGetNet();
-    if (!net) throw new Error('BodyPix не завантажено — оновіть сторінку');
-    const img = await new Promise((res, rej) => {
-      const im = new Image();
-      im.onload  = () => res(im);
-      im.onerror = () => rej(new Error('Зображення не завантажено'));
-      im.src = photoAiOrig1024;
-    });
-    const opts = { flipHorizontal: false, internalResolution: 'full', maxDetections: 20 };
-    const [segsT, segsL] = await Promise.all([
-      net.segmentMultiPerson(img, { ...opts, segmentationThreshold: 0.22 }),
-      net.segmentMultiPerson(img, { ...opts, segmentationThreshold: 0.07 }),
-    ]);
-    const tight = new Uint8Array(S * S);
-    const loose = new Uint8Array(S * S);
-    for (const seg of (segsT || [])) for (let i = 0; i < S * S; i++) if (seg.data[i]) tight[i] = 1;
-    for (const seg of (segsL || [])) for (let i = 0; i < S * S; i++) if (seg.data[i]) loose[i] = 1;
-    _segCache = { tight, loose };
-    return _segCache;
-  }
-
-  // ── Mask post-processing ──────────────────────────────────────────────────
-
-  /** Fill internal holes: flood-fill background from image border, holes = unreachable bg */
-  function _mmFillHoles(mask) {
-    const bg = new Uint8Array(S * S);
-    const q  = [];
-    function seed(i) { if (!mask[i] && !bg[i]) { bg[i] = 1; q.push(i); } }
-    for (let x = 0; x < S; x++) { seed(x); seed((S-1)*S + x); }
-    for (let y = 1; y < S-1; y++) { seed(y*S); seed(y*S + S-1); }
-    let head = 0;
-    while (head < q.length) {
-      const cur = q[head++];
-      const cx = cur % S, cy = (cur - cx) / S;
-      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx = cx+dx, ny = cy+dy;
-        if (nx<0||nx>=S||ny<0||ny>=S) continue;
-        const ni = ny*S+nx;
-        if (!bg[ni] && !mask[ni]) { bg[ni] = 1; q.push(ni); }
-      }
-    }
-    const out = new Uint8Array(S * S);
-    for (let i = 0; i < S*S; i++) out[i] = mask[i] || (bg[i] ? 0 : 1);
-    return out;
-  }
-
-  /** Circular dilation using precomputed kernel offsets (fast, true circle) */
-  function _mmDilate(mask, r) {
-    const kernel = [];
-    for (let dy = -r; dy <= r; dy++)
-      for (let dx = -r; dx <= r; dx++)
-        if (dx*dx + dy*dy <= r*r) kernel.push([dx, dy]);
-    const out = new Uint8Array(S * S);
-    for (let i = 0; i < S*S; i++) {
-      if (!mask[i]) continue;
-      const x = i % S, y = (i-x)/S;
-      for (const [dx, dy] of kernel) {
-        const nx = x+dx, ny = y+dy;
-        if (nx>=0 && nx<S && ny>=0 && ny<S) out[ny*S+nx] = 1;
-      }
-    }
-    return out;
-  }
-
-  /** Remove connected components smaller than minPx pixels */
-  function _mmRemoveFragments(mask, minPx) {
-    const labeled = new Int32Array(S * S).fill(-1);
-    const sizes = [];
-    let next = 0;
-    for (let s = 0; s < S*S; s++) {
-      if (!mask[s] || labeled[s] >= 0) continue;
-      const lbl = next++;  sizes.push(0);
-      labeled[s] = lbl;
-      const q = [s];  let head = 0;
-      while (head < q.length) {
-        const cur = q[head++];  sizes[lbl]++;
-        const cx = cur%S, cy = (cur-cx)/S;
-        for (const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-          const nx=cx+dx, ny=cy+dy;
-          if (nx<0||nx>=S||ny<0||ny>=S) continue;
-          const ni = ny*S+nx;
-          if (mask[ni] && labeled[ni]<0) { labeled[ni]=lbl; q.push(ni); }
-        }
-      }
-    }
-    const out = new Uint8Array(S * S);
-    for (let i = 0; i < S*S; i++)
-      if (labeled[i]>=0 && sizes[labeled[i]]>=minPx) out[i] = 1;
-    return out;
-  }
-
-  /** Full post-processing pipeline: fill holes → remove fragments → dilate */
-  function _mmPostProcess(raw) {
-    let m = _mmFillHoles(raw);
-    m = _mmRemoveFragments(m, 200);   // drop blobs < 200px
-    m = _mmDilate(m, 5);              // expand edge by 5px for clean coverage
-    return m;
-  }
-
-  /** Filled circle at normalised (nx,ny) with pixel radius r */
-  function _mmBrushMask(nx, ny, r) {
-    const px = Math.round(nx * (S-1));
-    const py = Math.round(ny * (S-1));
-    const mask = new Uint8Array(S * S);
-    const r2 = r * r;
-    for (let dy = -r; dy <= r; dy++)
-      for (let dx = -r; dx <= r; dx++) {
-        if (dx*dx + dy*dy > r2) continue;
-        const x=px+dx, y=py+dy;
-        if (x>=0&&x<S&&y>=0&&y<S) mask[y*S+x] = 1;
-      }
-    return mask;
-  }
-
-  // ── BFS helpers ───────────────────────────────────────────────────────────
-
-  /** BFS from `start` to find nearest pixel where src[i]=1; constrained to bbox. */
-  function _mmNearestInBox(src, startX, startY, bx1, by1, bx2, by2) {
-    const startIdx = startY*S + startX;
-    if (src[startIdx]) return startIdx;
-    const vis = new Uint8Array(S * S);
-    const q   = [startIdx];
-    let head  = 0;
-    vis[startIdx] = 1;
-    while (head < q.length) {
-      if (head > 120000) return -1;
-      const cur = q[head++];
-      const cx = cur%S, cy = (cur-cx)/S;
-      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx=cx+dx, ny=cy+dy;
-        if (nx<bx1||nx>bx2||ny<by1||ny>by2) continue;
-        const ni = ny*S+nx;
-        if (vis[ni]) continue;
-        vis[ni] = 1;
-        if (src[ni]) return ni;
-        q.push(ni);
-      }
-    }
-    return -1;
-  }
-
-  /** Flood-fill (4-conn) through `src`, constrained to [bx1..bx2, by1..by2] */
-  function _mmFloodFillBox(src, startIdx, bx1, by1, bx2, by2) {
-    const mask = new Uint8Array(S * S);
-    const vis  = new Uint8Array(S * S);
-    if (!src[startIdx]) return mask;
-    const q = [startIdx];  let head = 0;
-    vis[startIdx] = mask[startIdx] = 1;
-    while (head < q.length) {
-      const cur = q[head++];
-      const cx = cur%S, cy = (cur-cx)/S;
-      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx=cx+dx, ny=cy+dy;
-        if (nx<bx1||nx>bx2||ny<by1||ny>by2) continue;
-        const ni = ny*S+nx;
-        if (vis[ni]||!src[ni]) continue;
-        vis[ni] = mask[ni] = 1;
-        q.push(ni);
-      }
-    }
-    return mask;
-  }
-
-  /** Unconstrained BFS nearest + flood-fill for when no bbox is available */
-  function _mmNearestGlobal(src, start, maxVisit) {
-    const vis = new Uint8Array(S * S);
-    const q   = [start];  let head = 0;
-    vis[start] = 1;
-    while (head < q.length) {
-      if (head >= maxVisit) return -1;
-      const cur = q[head++];
-      if (src[cur]) return cur;
-      const cx = cur%S, cy = (cur-cx)/S;
-      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx=cx+dx, ny=cy+dy;
-        if (nx<0||nx>=S||ny<0||ny>=S) continue;
-        const ni = ny*S+nx;
-        if (!vis[ni]) { vis[ni]=1; q.push(ni); }
-      }
-    }
-    return -1;
-  }
-
-  function _mmFloodFillRadius(src, startIdx, maxR) {
-    const mask = new Uint8Array(S * S);
-    const vis  = new Uint8Array(S * S);
-    if (!src[startIdx]) return mask;
-    const sx=startIdx%S, sy=(startIdx-sx)/S;
-    const q = [startIdx];  let head = 0;
-    vis[startIdx] = mask[startIdx] = 1;
-    while (head < q.length) {
-      const cur = q[head++];
-      const cx=cur%S, cy=(cur-cx)/S;
-      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx=cx+dx, ny=cy+dy;
-        if (nx<0||nx>=S||ny<0||ny>=S) continue;
-        const ni = ny*S+nx;
-        if (vis[ni]||!src[ni]) continue;
-        const ddx=nx-sx, ddy=ny-sy;
-        if (ddx*ddx+ddy*ddy > maxR*maxR) continue;
-        vis[ni] = mask[ni] = 1;
-        q.push(ni);
-      }
-    }
-    return mask;
-  }
-
-  /**
-   * Main segmentation function.
-   * 1. Get GPT-4o person boxes → find which box the user clicked
-   * 2. Constrain BodyPix flood-fill to that box (tight mask → loose mask)
-   * 3. Post-process: fill holes, dilate 5px, remove tiny fragments
-   * 4. Brush fallback if BodyPix completely misses the person
-   */
-  async function _mmSegmentAtPoint(nx, ny) {
-    const px = Math.round(nx * (S-1));
-    const py = Math.round(ny * (S-1));
-
-    // Fetch boxes and BodyPix masks in parallel
-    const [{ tight, loose }, boxes] = await Promise.all([
-      _mmGetCombinedMask(),
-      _mmGetPersonBoxes(),
-    ]);
-
-    let rawMask, method;
-
-    // ── Find which person box the click belongs to ─────────────────────────
-    let bestBox = null, bestDist = Infinity;
-    for (const b of boxes) {
-      const bx1=b.x1*S, by1=b.y1*S, bx2=b.x2*S, by2=b.y2*S;
-      if (px>=bx1 && px<=bx2 && py>=by1 && py<=by2) {
-        bestBox = b; bestDist = 0; break;  // direct hit
-      }
-      // Distance to box center (for nearest-box fallback)
-      const cx=(bx1+bx2)/2, cy=(by1+by2)/2;
-      const d = (px-cx)**2 + (py-cy)**2;
-      if (d < bestDist) { bestDist = d; bestBox = b; }
-    }
-
-    if (bestBox) {
-      // ── Bbox-constrained segmentation (preferred path) ───────────────────
-      const bw = (bestBox.x2 - bestBox.x1) * S;
-      const bh = (bestBox.y2 - bestBox.y1) * S;
-      const PAD = 0.18;
-      const bx1 = Math.max(0,   Math.round(bestBox.x1*S - bw*PAD));
-      const by1 = Math.max(0,   Math.round(bestBox.y1*S - bh*PAD));
-      const bx2 = Math.min(S-1, Math.round(bestBox.x2*S + bw*PAD));
-      const by2 = Math.min(S-1, Math.round(bestBox.y2*S + bh*PAD));
-
-      let start = _mmNearestInBox(tight, px, py, bx1, by1, bx2, by2);
-      if (start >= 0) {
-        rawMask = _mmFloodFillBox(tight, start, bx1, by1, bx2, by2);
-        method  = 'tight+box';
-      } else {
-        start = _mmNearestInBox(loose, px, py, bx1, by1, bx2, by2);
-        if (start >= 0) {
-          rawMask = _mmFloodFillBox(loose, start, bx1, by1, bx2, by2);
-          method  = 'loose+box';
-        } else {
-          // BodyPix missed this person — conservative brush at click point
-          // (do NOT fill the whole bbox — it would include background grass)
-          rawMask = _mmBrushMask(nx, ny, 45);
-          method  = 'brush';
-        }
-      }
+  // ── Stroke helpers ────────────────────────────────────────────────────────
+  function _strokeBegin(cx, cy) {
+    if (_mode === 'erase') {
+      _offCtx.globalCompositeOperation = 'destination-out';
+      _offCtx.strokeStyle = 'rgba(0,0,0,1)';
     } else {
-      // ── No boxes (API failed / model still loading) — unconstrained fill ──
-      const clickIdx = py*S + px;
-      const tS = _mmNearestGlobal(tight, clickIdx, 7500);
-      if (tS >= 0) {
-        rawMask = _mmFloodFillRadius(tight, tS, S);
-        method  = 'tight';
-      } else {
-        const lS = _mmNearestGlobal(loose, clickIdx, 20000);
-        if (lS >= 0) {
-          rawMask = _mmFloodFillRadius(loose, lS, 130);
-          method  = 'loose';
-        } else {
-          rawMask = _mmBrushMask(nx, ny, 55);
-          method  = 'brush';
-        }
-      }
+      _offCtx.globalCompositeOperation = 'source-over';
+      _offCtx.strokeStyle = _mode === 'protect' ? C_PROTECT : C_REMOVE;
     }
+    _offCtx.lineWidth  = _brushSize * 2;
+    _offCtx.lineCap    = 'round';
+    _offCtx.lineJoin   = 'round';
+    // Paint a dot at the start: a near-zero line with round caps = circle of radius brushSize
+    _offCtx.beginPath();
+    _offCtx.moveTo(cx, cy);
+    _offCtx.lineTo(cx + 0.01, cy);
+    _offCtx.stroke();
+    // Begin the continuing line path from this point
+    _offCtx.beginPath();
+    _offCtx.moveTo(cx, cy);
+  }
 
-    const mask = _mmPostProcess(rawMask);
-    return { mask, method };
+  function _strokeMove(cx, cy) {
+    _offCtx.lineTo(cx, cy);
+    _offCtx.stroke();
+    _offCtx.beginPath();
+    _offCtx.moveTo(cx, cy);
+  }
+
+  function _strokeEnd() {
+    _offCtx.globalCompositeOperation = 'source-over';
+  }
+
+  // ── Render overlay on mmCanvas ────────────────────────────────────────────
+  function _render() {
+    const cv = document.getElementById('mmCanvas');
+    if (!cv || !_off) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(_off, 0, 0);
+    // Cursor preview circle (dashed ring matching current mode colour)
+    if (_cursorX >= 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(_cursorX, _cursorY, _brushSize, 0, Math.PI * 2);
+      ctx.strokeStyle = _mode === 'erase'   ? 'rgba(255,255,255,0.85)' :
+                        _mode === 'protect' ? 'rgba(34,197,94,0.9)'    :
+                                              'rgba(239,68,68,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // ── Coordinate helper (PointerEvent → canvas pixels) ─────────────────────
+  function _coords(e) {
+    const cv   = document.getElementById('mmCanvas');
+    const rect = cv.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (cv.width  / rect.width),
+      y: (e.clientY - rect.top)  * (cv.height / rect.height),
+    };
+  }
+
+  // ── Pointer event handlers ────────────────────────────────────────────────
+  function _onDown(e) {
+    e.preventDefault();
+    try { e.target.setPointerCapture(e.pointerId); } catch (_e) {}
+    _painting = true;
+    _pushUndo();
+    const { x, y } = _coords(e);
+    _cursorX = x; _cursorY = y;
+    _strokeBegin(x, y);
+    _render();
+  }
+
+  function _onMove(e) {
+    e.preventDefault();
+    const { x, y } = _coords(e);
+    _cursorX = x; _cursorY = y;
+    if (_painting) _strokeMove(x, y);
+    _render();
+  }
+
+  function _onUp(e) {
+    if (!_painting) return;
+    _painting = false;
+    _strokeEnd();
+    _render();
+    _syncUI();
+  }
+
+  function _onLeave() {
+    _cursorX = -1; _cursorY = -1;
+    _render();
+  }
+
+  // ── UI sync ───────────────────────────────────────────────────────────────
+  function _hasPaint() {
+    if (!_offCtx) return false;
+    const d = _offCtx.getImageData(0, 0, S, S).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 8) return true;
+    return false;
+  }
+
+  function _hasRemovePaint() {
+    if (!_offCtx) return false;
+    const d = _offCtx.getImageData(0, 0, S, S).data;
+    for (let i = 0; i < d.length; i += 4)
+      if (d[i] > 150 && d[i+1] < 120 && d[i+3] > 8) return true;
+    return false;
+  }
+
+  function _syncUI() {
+    const btnU = document.getElementById('mmUndo');
+    const btnR = document.getElementById('mmRedo');
+    const btnC = document.getElementById('mmClear');
+    const btnA = document.getElementById('mmApply');
+    if (btnU) btnU.textContent = _undoStack.length ? '↩ Відмінити' : '✕ Закрити';
+    if (btnR) btnR.disabled = !_redoStack.length;
+    if (btnC) btnC.disabled = !_hasPaint();
+    if (btnA) btnA.disabled = !_hasRemovePaint();
+  }
+
+  // ── Extract protect / remove masks from painted canvas ────────────────────
+  // Green pixels (G dominates) → protect.  Red pixels (R dominates) → remove.
+  function _extractMasks() {
+    const d       = _offCtx.getImageData(0, 0, S, S).data;
+    const protect = new Uint8Array(S * S);
+    const remove  = new Uint8Array(S * S);
+    for (let i = 0; i < S * S; i++) {
+      const r = d[i*4], g = d[i*4+1], a = d[i*4+3];
+      if (a < 8) continue;
+      if (g > r + 30) protect[i] = 1;
+      if (r > g + 30) remove[i]  = 1;
+    }
+    return { protect, remove };
   }
 
   // ── Open ──────────────────────────────────────────────────────────────────
   window.photoAiManualMode = async function () {
-    // photoAiOrig1024 is only set after photoAiGenerate() runs.
-    // If user opens manual mode directly (before clicking "Редагувати"),
-    // compute the 1024px version now from the raw upload.
     if (!photoAiOrig1024 && typeof photoAiOrigDataUrl !== 'undefined' && photoAiOrigDataUrl) {
-      try { photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl); } catch (_) {}
+      try { photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl); } catch (_e) {}
     }
     if (!photoAiOrig1024) { alert('Спочатку завантаж фото!'); return; }
 
-    _mode         = 'protect';
-    _protect      = new Uint8Array(S * S);
-    _remove       = new Uint8Array(S * S);
-    _history      = [];
-    _busy         = false;
-    _segCache     = null;   // invalidate BodyPix cache for new photo
-    _personBoxes  = null;   // reset GPT-4o person boxes
-    _boxesPromise = null;
+    _mode      = 'protect';
+    _painting  = false;
+    _undoStack = [];
+    _redoStack = [];
+    _cursorX   = -1; _cursorY = -1;
+    _initOff();
 
-    // Kick off both in parallel: BodyPix model warm-up + GPT-4o person detection
-    Promise.all([_mmGetNet(), _mmGetPersonBoxes()]).then(([, boxes]) => {
-      if (boxes && boxes.length) {
-        document.getElementById('mmStatus').textContent =
-          `✅ ${boxes.length} людин${boxes.length === 1 ? 'у' : 'и'} знайдено — клікай для виділення`;
-        _mmRedraw();  // redraw to show debug boxes if enabled
-        setTimeout(() => { if (!_busy) mmSetMode(_mode); }, 2000);
-      }
-    }).catch(() => {});  // silent fail, detection is optional
-
-    const modal = document.getElementById('mmModal');
-    const img   = document.getElementById('mmBaseImg');
-    const canvas= document.getElementById('mmCanvas');
+    const modal  = document.getElementById('mmModal');
+    const img    = document.getElementById('mmBaseImg');
+    const canvas = document.getElementById('mmCanvas');
 
     img.src = photoAiOrig1024;
     modal.style.display = 'flex';
 
-    // Set canvas resolution to match image natural size (1024×1024)
-    function setupCanvas() {
+    function _setupCanvas() {
       canvas.width  = img.naturalWidth  || S;
       canvas.height = img.naturalHeight || S;
-      _mmRedraw();
+      _render();
     }
-    if (img.complete && img.naturalWidth) { setupCanvas(); }
-    else { img.onload = setupCanvas; }
+    if (img.complete && img.naturalWidth) _setupCanvas();
+    else img.onload = _setupCanvas;
 
-    canvas.addEventListener('click',     _mmClick);
-    canvas.addEventListener('touchstart', _mmTouch, { passive: false });
+    canvas.addEventListener('pointerdown',  _onDown,  { passive: false });
+    canvas.addEventListener('pointermove',  _onMove,  { passive: false });
+    canvas.addEventListener('pointerup',    _onUp,    { passive: false });
+    canvas.addEventListener('pointercancel',_onUp,    { passive: false });
+    canvas.addEventListener('pointerleave', _onLeave, { passive: false });
 
-    document.getElementById('mmApply').disabled = true;
-    document.getElementById('mmClear').disabled = true;
-    _mmSyncUndoBtn();
     mmSetMode('protect');
+    _syncUI();
+    document.getElementById('mmStatus').textContent =
+      '🛡 Зеленим — захисти гравця. Потім червоним — вибери кого видалити';
   };
 
   // ── Close ─────────────────────────────────────────────────────────────────
   window.mmClose = function () {
     const canvas = document.getElementById('mmCanvas');
-    canvas.removeEventListener('click',     _mmClick);
-    canvas.removeEventListener('touchstart', _mmTouch);
+    canvas.removeEventListener('pointerdown',  _onDown);
+    canvas.removeEventListener('pointermove',  _onMove);
+    canvas.removeEventListener('pointerup',    _onUp);
+    canvas.removeEventListener('pointercancel',_onUp);
+    canvas.removeEventListener('pointerleave', _onLeave);
+    _painting = false;
     document.getElementById('mmModal').style.display = 'none';
   };
 
   // ── Mode toggle ────────────────────────────────────────────────────────────
-  window.mmSetMode = function (mode) {
-    _mode = mode;
-    const bp = document.getElementById('mmBtnProtect');
-    const br = document.getElementById('mmBtnRemove');
-    bp.classList.toggle('active', mode === 'protect');
-    br.classList.toggle('active', mode === 'remove');
+  window.mmSetMode = function (m) {
+    _mode = m;
+    [['protect','mmBtnProtect'],['remove','mmBtnRemove'],['erase','mmBtnErase']].forEach(([n, id]) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('active', n === m);
+    });
     document.getElementById('mmStatus').textContent =
-      mode === 'protect'
-        ? 'Крок 1 — 🛡 клікни на гравця щоб захистити'
-        : 'Крок 2 — 🗑 клікни на кожну людину яку видалити';
+      m === 'protect' ? '🛡 Зафарбовуй зеленим гравця / команду (захист від видалення)' :
+      m === 'remove'  ? '🗑 Зафарбовуй червоним усіх, кого потрібно видалити' :
+                        '⌫ Стирай помилково зафарбовані ділянки';
+    _render();  // update cursor ring colour immediately
   };
 
-  // ── Touch handler (mobile) ─────────────────────────────────────────────────
-  function _mmTouch(e) {
-    e.preventDefault();
-    const t = e.touches[0];
-    _mmClick({ currentTarget: e.currentTarget, clientX: t.clientX, clientY: t.clientY });
-  }
-
-  // ── Click handler ──────────────────────────────────────────────────────────
-  // Normal click  → auto-segment (BodyPix flood-fill or brush fallback)
-  // Shift + click → paint brush (60px circle) onto current mode mask
-  // Alt  + click  → erase brush (60px circle) from current mode mask
-  async function _mmClick(e) {
-    if (_busy) return;
-
-    const canvas  = e.currentTarget;
-    const rect    = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top)  / rect.height;
-
-    const isShift = e.shiftKey;
-    const isAlt   = e.altKey;
-
-    _busy = true;
-    const loader = document.getElementById('mmLoader');
-
-    if (isAlt) {
-      // ── Alt+click: erase brush from current mode mask (no loader needed) ──
-      const brushR = 60;
-      const bm = _mmBrushMask(x, y, brushR);
-      const target = _mode === 'protect' ? _protect : _remove;
-      _history.push({ op: 'erase', mode: _mode, brush: bm });
-      for (let i = 0; i < S * S; i++) { if (bm[i]) target[i] = 0; }
-      _mmRedraw();
-      document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
-      document.getElementById('mmClear').disabled = !_remove.some(v => v > 0);
-      _mmSyncUndoBtn();
-      mmSetMode(_mode);
-      _busy = false;
-      return;
-    }
-
-    if (isShift) {
-      // ── Shift+click: paint brush onto current mode mask ────────────────────
-      const brushR = 60;
-      const bm = _mmBrushMask(x, y, brushR);
-      const target = _mode === 'protect' ? _protect : _remove;
-      _history.push({ op: 'paint', mode: _mode, mask: new Uint8Array(bm) });
-      for (let i = 0; i < S * S; i++) { if (bm[i]) target[i] = 1; }
-      _mmRedraw();
-      document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
-      document.getElementById('mmClear').disabled = !_remove.some(v => v > 0);
-      _mmSyncUndoBtn();
-      mmSetMode(_mode);
-      _busy = false;
-      return;
-    }
-
-    // ── Normal click: BodyPix auto-segment ─────────────────────────────────
-    loader.style.display = 'flex';
-    document.getElementById('mmStatus').textContent =
-      _segCache ? '⏳ Сегментую…' : '⏳ Завантажую модель (перший раз ~5 с)…';
-
-    try {
-      const { mask, method } = await _mmSegmentAtPoint(x, y);
-
-      // Save to history
-      _history.push({ op: 'segment', mode: _mode, mask: new Uint8Array(mask), method });
-
-      // OR into accumulated mask
-      const target = _mode === 'protect' ? _protect : _remove;
-      for (let i = 0; i < S * S; i++) { if (mask[i]) target[i] = 1; }
-
-      _mmRedraw();
-      document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
-      document.getElementById('mmClear').disabled = !_remove.some(v => v > 0);
-      _mmSyncUndoBtn();
-
-      // Show which method was used
-      const methodHint = method === 'brush'
-        ? ' (пензель — людину не знайдено, намалював коло)'
-        : method === 'loose' ? ' (нечіткий контур — маленька людина)' : '';
-      document.getElementById('mmStatus').textContent =
-        (method === 'brush' ? '✏️ Намалював пензлем' : '✅ Виділено') + methodHint;
-      setTimeout(() => { if (!_busy) mmSetMode(_mode); }, 2500);
-
-    } catch (err) {
-      alert('Помилка: ' + (err.message || err));
-      mmSetMode(_mode);
-    } finally {
-      _busy = false;
-      loader.style.display = 'none';
-    }
-  }
-
-  // ── Redraw canvas overlay ──────────────────────────────────────────────────
-  // Green = protected player   Red = area to remove (only where NOT protected)
-  // Border pixels rendered at 100% opacity, fill at 35% for visual clarity.
-  function _mmRedraw() {
-    const canvas = document.getElementById('mmCanvas');
-    if (!canvas.width) return;
-    const ctx  = canvas.getContext('2d');
-    const imgd = ctx.createImageData(S, S);
-
-    for (let i = 0; i < S * S; i++) {
-      if (!_protect[i] && !_remove[i]) continue;
-      const idx = i * 4;
-      const x = i % S, y = (i - x) / S;
-      const isProtect = !!_protect[i];
-      const isBorder = (
-        x===0||x===S-1||y===0||y===S-1 ||
-        (isProtect
-          ? (!_protect[i-1]||!_protect[i+1]||!_protect[i-S]||!_protect[i+S])
-          : (!_remove[i-1] ||!_remove[i+1] ||!_remove[i-S] ||!_remove[i+S]))
-      );
-      if (isProtect) {
-        imgd.data[idx]=34; imgd.data[idx+1]=197; imgd.data[idx+2]=94;
-        imgd.data[idx+3] = isBorder ? 255 : 90;
-      } else {
-        imgd.data[idx]=239; imgd.data[idx+1]=68; imgd.data[idx+2]=68;
-        imgd.data[idx+3] = isBorder ? 255 : 90;
-      }
-    }
-
-    const tmp = document.createElement('canvas');
-    tmp.width = S; tmp.height = S;
-    tmp.getContext('2d').putImageData(imgd, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
-
-    // ── Debug mode: draw GPT-4o person bounding boxes ─────────────────────
-    if (_debugMode && _personBoxes && _personBoxes.length) {
-      const scaleX = canvas.width  / S;
-      const scaleY = canvas.height / S;
-      const colors = ['#FF6B6B','#4ECDC4','#FFE66D','#A8E6CF','#FF8B94','#C7CEEA'];
-      ctx.save();
-      _personBoxes.forEach((b, i) => {
-        const x1 = b.x1 * S * scaleX, y1 = b.y1 * S * scaleY;
-        const w  = (b.x2 - b.x1) * S * scaleX;
-        const h  = (b.y2 - b.y1) * S * scaleY;
-        const c  = colors[i % colors.length];
-        ctx.strokeStyle = c;  ctx.lineWidth = 2;
-        ctx.strokeRect(x1, y1, w, h);
-        ctx.fillStyle = c;    ctx.font = 'bold 11px sans-serif';
-        ctx.fillText(`#${i+1} ${(b.label||'').slice(0,14)}`, x1+3, y1+13);
-      });
-      ctx.restore();
-    }
-  }
-
-  // ── Debug toggle ───────────────────────────────────────────────────────────
-  window.mmToggleDebug = function () {
-    _debugMode = !_debugMode;
-    const btn = document.getElementById('mmBtnDebug');
-    btn.style.background    = _debugMode ? '#6C63FF33' : 'var(--surface2)';
-    btn.style.borderColor   = _debugMode ? '#6C63FF'   : 'var(--border)';
-    btn.style.color         = _debugMode ? '#6C63FF'   : 'var(--text3)';
-    _mmRedraw();
-    if (_debugMode && !_personBoxes) {
-      _mmGetPersonBoxes();  // trigger detection if not yet done
-    }
+  // ── Brush size (called by slider oninput) ─────────────────────────────────
+  window.mmSetBrush = function (v) {
+    _brushSize = Number(v);
+    document.getElementById('mmBrushLabel').textContent = v + 'px';
   };
 
-  // ── Sync undo button label ─────────────────────────────────────────────────
-  function _mmSyncUndoBtn() {
-    const btn = document.getElementById('mmUndo');
-    if (_history.length > 0) {
-      btn.textContent = '↩ Відмінити';
-    } else {
-      btn.textContent = '✕ Закрити';
-    }
-  }
+  // ── Debug toggle (no-op in brush mode, kept for HTML onclick) ────────────
+  window.mmToggleDebug = function () {};
 
-  // ── Undo (or close if nothing to undo) ────────────────────────────────────
+  // ── Undo / Redo ───────────────────────────────────────────────────────────
   window.mmUndo = function () {
-    if (!_history.length) { mmClose(); return; }
-    _history.pop();
-    // Replay remaining history to rebuild masks
-    _protect = new Uint8Array(S * S);
-    _remove  = new Uint8Array(S * S);
-    for (const entry of _history) {
-      const t = entry.mode === 'protect' ? _protect : _remove;
-      if (entry.op === 'erase') {
-        // Re-apply the erase (clear brush pixels)
-        for (let i = 0; i < S * S; i++) { if (entry.brush[i]) t[i] = 0; }
-      } else {
-        // 'segment' or 'paint' — OR mask in
-        for (let i = 0; i < S * S; i++) { if (entry.mask[i]) t[i] = 1; }
-      }
-    }
-    _mmRedraw();
-    const hasRemove = _remove.some(v => v > 0);
-    document.getElementById('mmApply').disabled = !hasRemove;
-    document.getElementById('mmClear').disabled = !hasRemove;
-    _mmSyncUndoBtn();
+    if (!_undoStack.length) { mmClose(); return; }
+    _redoStack.push(_snap());
+    _restore(_undoStack.pop());
+    _render();
+    _syncUI();
   };
 
-  // ── Clear the remove mask ──────────────────────────────────────────────────
+  window.mmRedo = function () {
+    if (!_redoStack.length) return;
+    _undoStack.push(_snap());
+    _restore(_redoStack.pop());
+    _render();
+    _syncUI();
+  };
+
+  // ── Clear all paint ───────────────────────────────────────────────────────
   window.mmClear = function () {
-    // Remove only 'remove' entries from history (keep protect ones)
-    _history = _history.filter(e => e.mode !== 'remove');
-    _remove  = new Uint8Array(S * S);
-    _mmRedraw();
-    document.getElementById('mmApply').disabled = true;
-    document.getElementById('mmClear').disabled = true;
-    _mmSyncUndoBtn();
+    _pushUndo();  // allow undoing the clear
+    _offCtx.clearRect(0, 0, S, S);
+    _render();
+    _syncUI();
   };
 
-  // ── Apply: build final mask and call /inpaint ──────────────────────────────
+  // ── Apply: build final mask and send to /inpaint ──────────────────────────
   window.mmApply = async function () {
-    if (_busy) return;
+    const { protect, remove } = _extractMasks();
 
     // finalMask = REMOVE AND NOT PROTECT
     const finalPixels = new Uint8ClampedArray(S * S * 4);
     let anyWhite = false;
     for (let i = 0; i < S * S; i++) {
-      const v = (_remove[i] && !_protect[i]) ? 255 : 0;
+      const v = (remove[i] && !protect[i]) ? 255 : 0;
       if (v) anyWhite = true;
       finalPixels[i*4] = finalPixels[i*4+1] = finalPixels[i*4+2] = v;
       finalPixels[i*4+3] = 255;
     }
 
-    if (!anyWhite) { alert('Маска порожня — немає пікселів для видалення!'); return; }
+    if (!anyWhite) { alert('Намалюй червоним область для видалення!'); return; }
 
-    // Build mask PNG
     const maskCv = document.createElement('canvas');
     maskCv.width = S; maskCv.height = S;
     maskCv.getContext('2d').putImageData(new ImageData(finalPixels, S, S), 0, 0);
     const maskDataUrl = maskCv.toDataURL('image/png');
 
-    // Close modal and switch to progress screen
     mmClose();
     document.getElementById('photoAiStep2').style.display = 'none';
     document.getElementById('photoAiStep3').style.display = 'block';
 
     const bar = document.getElementById('photoAiProgBar');
     const txt = document.getElementById('photoAiProgText');
-    bar.style.width  = '20%';
-    txt.textContent  = '🎭 Застосовую ручну маску…';
+    bar.style.width = '20%';
+    txt.textContent = '🎭 Застосовую ручну маску…';
 
     try {
       const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-
-      // Animate progress bar
       let pct = 22;
       const tick = setInterval(() => {
         pct = Math.min(pct + (pct < 70 ? 3 : 0.5), 88);
