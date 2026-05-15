@@ -2288,6 +2288,14 @@
                   </div>
                 </div>
 
+                <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;height:1px;background:var(--border);"></div>
+                  <span style="font-size:10px;color:var(--text4);">або</span>
+                  <div style="flex:1;height:1px;background:var(--border);"></div>
+                </div>
+                <button onclick="photoAiManualMode()" class="btn btn-secondary btn-full" style="margin-top:8px;font-size:12px;">
+                  🖱️ Ручний режим — клікай де видалити
+                </button>
                 <button onclick="photoAiReset()" class="btn btn-secondary btn-sm" style="margin-top:8px;width:100%;">↩ Інше фото</button>
               </div>
             </div>
@@ -8256,5 +8264,322 @@ ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
     <button onclick="carLbNav(1)"  style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:44px;height:44px;border-radius:50%;cursor:pointer;">›</button>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MANUAL MASK MODE — full-screen click-to-segment overlay
+     User clicks player (🛡 green) then background people (🗑 red).
+     SAM-2 segments on each click. Final mask = red AND NOT green.
+     ═══════════════════════════════════════════════════════════════════ -->
+<style>
+  #mmModal { display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+    background:#000; z-index:9999; flex-direction:column; }
+  @keyframes mmSpin { to { transform: rotate(360deg); } }
+  .mm-spin { animation: mmSpin .8s linear infinite; }
+  #mmBtnProtect, #mmBtnRemove {
+    padding:6px 14px; border-radius:20px; border:1.5px solid; font-size:12px;
+    cursor:pointer; transition: all .15s; font-weight:600; }
+  #mmBtnProtect { border-color:#22c55e; background:#22c55e22; color:#22c55e; }
+  #mmBtnRemove  { border-color:var(--border); background:var(--surface2); color:var(--text3); }
+  #mmBtnRemove.active  { border-color:#ef4444; background:#ef444422; color:#ef4444; }
+  #mmBtnProtect.active { border-color:#22c55e; background:#22c55e33; color:#22c55e; }
+</style>
+<div id="mmModal">
+  <!-- Header bar -->
+  <div style="padding:10px 14px;background:var(--surface);display:flex;align-items:center;gap:10px;flex-shrink:0;border-bottom:1px solid var(--border);">
+    <button onclick="mmClose()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;">✕</button>
+    <span style="font-weight:700;font-size:13px;">🖱️ Ручний режим</span>
+    <div style="flex:1;"></div>
+    <button id="mmBtnProtect" onclick="mmSetMode('protect')" class="active">🛡 Захист</button>
+    <button id="mmBtnRemove"  onclick="mmSetMode('remove')">🗑 Видалити</button>
+  </div>
+  <!-- Status -->
+  <div id="mmStatus" style="padding:7px 14px;background:var(--surface2);text-align:center;font-size:11px;color:var(--text3);flex-shrink:0;border-bottom:1px solid var(--border);">
+    Крок 1 — 🛡 клікни на гравця щоб захистити його
+  </div>
+  <!-- Canvas area -->
+  <div style="flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px;min-height:0;">
+    <div style="position:relative;display:inline-flex;max-width:100%;max-height:100%;">
+      <img id="mmBaseImg" style="max-width:min(100vw - 20px, 560px);max-height:calc(100dvh - 210px);border-radius:10px;display:block;">
+      <canvas id="mmCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;cursor:crosshair;touch-action:none;"></canvas>
+      <!-- Loading overlay -->
+      <div id="mmLoader" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:10px;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
+        <div style="width:30px;height:30px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;" class="mm-spin"></div>
+        <div style="font-size:12px;color:#fff;font-weight:600;">SAM-2 сегментує…</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6);">~5-15 сек</div>
+      </div>
+    </div>
+  </div>
+  <!-- Footer -->
+  <div style="padding:10px 14px;background:var(--surface);display:flex;gap:8px;flex-shrink:0;border-top:1px solid var(--border);">
+    <button onclick="mmUndo()" id="mmUndo" class="btn btn-secondary" style="flex:1;font-size:12px;padding:10px;" disabled>↩ Відмінити</button>
+    <button onclick="mmApply()" id="mmApply" class="btn btn-primary" style="flex:2;font-size:12px;padding:10px;" disabled>✅ Видалити вибраних</button>
+  </div>
+</div>
+
+<script>
+// ── Manual Mask Mode ──────────────────────────────────────────────────────────
+'use strict';
+(function () {
+  const S = 1024;
+  let _mode    = 'protect';  // 'protect' | 'remove'
+  let _protect = null;       // Uint8Array[S*S]
+  let _remove  = null;       // Uint8Array[S*S]
+  let _history = [];         // [{mode, mask}]
+  let _busy    = false;
+
+  // ── Open ──────────────────────────────────────────────────────────────────
+  window.photoAiManualMode = function () {
+    if (!window.photoAiOrig1024) return;
+
+    _mode    = 'protect';
+    _protect = new Uint8Array(S * S);
+    _remove  = new Uint8Array(S * S);
+    _history = [];
+    _busy    = false;
+
+    const modal = document.getElementById('mmModal');
+    const img   = document.getElementById('mmBaseImg');
+    const canvas= document.getElementById('mmCanvas');
+
+    img.src = window.photoAiOrig1024;
+    modal.style.display = 'flex';
+
+    // Set canvas resolution to match image natural size (1024×1024)
+    function setupCanvas() {
+      canvas.width  = img.naturalWidth  || S;
+      canvas.height = img.naturalHeight || S;
+      _mmRedraw();
+    }
+    if (img.complete && img.naturalWidth) { setupCanvas(); }
+    else { img.onload = setupCanvas; }
+
+    canvas.addEventListener('click',     _mmClick);
+    canvas.addEventListener('touchstart', _mmTouch, { passive: false });
+
+    document.getElementById('mmApply').disabled = true;
+    document.getElementById('mmUndo' ).disabled = true;
+    mmSetMode('protect');
+  };
+
+  // ── Close ─────────────────────────────────────────────────────────────────
+  window.mmClose = function () {
+    const canvas = document.getElementById('mmCanvas');
+    canvas.removeEventListener('click',     _mmClick);
+    canvas.removeEventListener('touchstart', _mmTouch);
+    document.getElementById('mmModal').style.display = 'none';
+  };
+
+  // ── Mode toggle ────────────────────────────────────────────────────────────
+  window.mmSetMode = function (mode) {
+    _mode = mode;
+    const bp = document.getElementById('mmBtnProtect');
+    const br = document.getElementById('mmBtnRemove');
+    bp.classList.toggle('active', mode === 'protect');
+    br.classList.toggle('active', mode === 'remove');
+    document.getElementById('mmStatus').textContent =
+      mode === 'protect'
+        ? 'Крок 1 — 🛡 клікни на гравця щоб захистити'
+        : 'Крок 2 — 🗑 клікни на кожну людину яку видалити';
+  };
+
+  // ── Touch handler (mobile) ─────────────────────────────────────────────────
+  function _mmTouch(e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    _mmClick({ currentTarget: e.currentTarget, clientX: t.clientX, clientY: t.clientY });
+  }
+
+  // ── Click handler ──────────────────────────────────────────────────────────
+  async function _mmClick(e) {
+    if (_busy) return;
+
+    const canvas = e.currentTarget;
+    const rect   = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left)  / rect.width;   // 0–1 normalised
+    const y = (e.clientY - rect.top)   / rect.height;
+
+    _busy = true;
+    const loader = document.getElementById('mmLoader');
+    loader.style.display = 'flex';
+    document.getElementById('mmStatus').textContent = '⏳ SAM-2 сегментує об\'єкт…';
+
+    try {
+      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+      const resp = await fetch(`${BACKEND}/api/carousel/sam-click`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: window.photoAiOrig1024, x, y }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `Server ${resp.status}`);
+      }
+
+      const { maskB64 } = await resp.json();
+      if (!maskB64) throw new Error('Маска не повернута');
+
+      const mask = await _mmDecodeMask(maskB64);
+
+      // Save to history for undo
+      _history.push({ mode: _mode, mask: new Uint8Array(mask) });
+
+      // OR into accumulated mask
+      const target = _mode === 'protect' ? _protect : _remove;
+      for (let i = 0; i < S * S; i++) { if (mask[i]) target[i] = 1; }
+
+      _mmRedraw();
+      document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
+      document.getElementById('mmUndo' ).disabled = _history.length === 0;
+      mmSetMode(_mode);  // restore status text
+
+    } catch (err) {
+      alert('Помилка SAM-2: ' + (err.message || err));
+      mmSetMode(_mode);
+    } finally {
+      _busy = false;
+      loader.style.display = 'none';
+    }
+  }
+
+  // ── Decode SAM mask PNG → Uint8Array[S*S] ─────────────────────────────────
+  async function _mmDecodeMask(dataUrl) {
+    const img = await new Promise((res, rej) => {
+      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl;
+    });
+    const cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    cv.getContext('2d').drawImage(img, 0, 0, S, S);
+    const d    = cv.getContext('2d').getImageData(0, 0, S, S).data;
+    const mask = new Uint8Array(S * S);
+    for (let i = 0; i < S * S; i++) {
+      // SAM-2 mask: white (R>64) = segmented object
+      // Also handle RGBA format where alpha indicates the mask
+      mask[i] = (d[i*4] > 64 || (d[i*4+3] > 64 && d[i*4+3] < 250 && d[i*4] > 64)) ? 1 : 0;
+    }
+    return mask;
+  }
+
+  // ── Redraw canvas overlay ──────────────────────────────────────────────────
+  // Green = protected player   Red = area to remove (only where NOT protected)
+  function _mmRedraw() {
+    const canvas = document.getElementById('mmCanvas');
+    if (!canvas.width) return;
+    const ctx  = canvas.getContext('2d');
+    const imgd = ctx.createImageData(S, S);
+
+    for (let i = 0; i < S * S; i++) {
+      const idx = i * 4;
+      if (_protect[i]) {
+        imgd.data[idx]   = 34;  imgd.data[idx+1] = 197;
+        imgd.data[idx+2] = 94;  imgd.data[idx+3] = 150;  // green 60%
+      } else if (_remove[i]) {
+        imgd.data[idx]   = 239; imgd.data[idx+1] = 68;
+        imgd.data[idx+2] = 68;  imgd.data[idx+3] = 150;  // red 60%
+      }
+    }
+
+    // Render at 1024×1024 then CSS scales it to display size
+    const tmp = document.createElement('canvas');
+    tmp.width = S; tmp.height = S;
+    tmp.getContext('2d').putImageData(imgd, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+  }
+
+  // ── Undo ──────────────────────────────────────────────────────────────────
+  window.mmUndo = function () {
+    if (!_history.length) return;
+    _history.pop();
+    _protect = new Uint8Array(S * S);
+    _remove  = new Uint8Array(S * S);
+    for (const { mode, mask } of _history) {
+      const t = mode === 'protect' ? _protect : _remove;
+      for (let i = 0; i < S * S; i++) { if (mask[i]) t[i] = 1; }
+    }
+    _mmRedraw();
+    document.getElementById('mmApply').disabled = !_remove.some(v => v > 0);
+    document.getElementById('mmUndo' ).disabled = _history.length === 0;
+  };
+
+  // ── Apply: build final mask and call /inpaint ──────────────────────────────
+  window.mmApply = async function () {
+    if (_busy) return;
+
+    // finalMask = REMOVE AND NOT PROTECT
+    const finalPixels = new Uint8ClampedArray(S * S * 4);
+    let anyWhite = false;
+    for (let i = 0; i < S * S; i++) {
+      const v = (_remove[i] && !_protect[i]) ? 255 : 0;
+      if (v) anyWhite = true;
+      finalPixels[i*4] = finalPixels[i*4+1] = finalPixels[i*4+2] = v;
+      finalPixels[i*4+3] = 255;
+    }
+
+    if (!anyWhite) { alert('Маска порожня — немає пікселів для видалення!'); return; }
+
+    // Build mask PNG
+    const maskCv = document.createElement('canvas');
+    maskCv.width = S; maskCv.height = S;
+    maskCv.getContext('2d').putImageData(new ImageData(finalPixels, S, S), 0, 0);
+    const maskDataUrl = maskCv.toDataURL('image/png');
+
+    // Close modal and switch to progress screen
+    mmClose();
+    document.getElementById('photoAiStep2').style.display = 'none';
+    document.getElementById('photoAiStep3').style.display = 'block';
+
+    const bar = document.getElementById('photoAiProgBar');
+    const txt = document.getElementById('photoAiProgText');
+    bar.style.width  = '20%';
+    txt.textContent  = '🎭 Застосовую ручну маску…';
+
+    try {
+      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+
+      // Animate progress bar
+      let pct = 22;
+      const tick = setInterval(() => {
+        pct = Math.min(pct + (pct < 70 ? 3 : 0.5), 88);
+        bar.style.width = pct + '%';
+        txt.textContent = pct < 50 ? '~15 секунд' : pct < 75 ? '~8 секунд' : 'Майже готово…';
+      }, 600);
+
+      const resp = await fetch(`${BACKEND}/api/carousel/inpaint`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image: window.photoAiOrig1024, mask: maskDataUrl }),
+      });
+
+      clearInterval(tick);
+      bar.style.width = '95%';
+
+      if (!resp.ok) {
+        const e = await resp.json().catch(() => ({}));
+        throw new Error(e.error || `Server ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      if (!data.b64) throw new Error('Сервер не повернув зображення');
+
+      window.photoAiResultDataUrl = `data:image/png;base64,${data.b64}`;
+      bar.style.width = '100%';
+      txt.textContent = '✅ Готово!';
+
+      document.getElementById('photoAiBeforeSmall').src = window.photoAiOrig1024;
+      document.getElementById('photoAiAfterSmall').src  = window.photoAiResultDataUrl;
+      document.getElementById('photoAiAfterImg').src    = window.photoAiResultDataUrl;
+      document.getElementById('photoAiStep3').style.display = 'none';
+      document.getElementById('photoAiStep4').style.display = 'block';
+
+    } catch (err) {
+      document.getElementById('photoAiStep3').style.display = 'none';
+      document.getElementById('photoAiStep2').style.display = 'block';
+      alert('Помилка: ' + (err.message || err));
+    }
+  };
+})();
+</script>
+
 </body>
 </html>

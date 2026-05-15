@@ -498,6 +498,69 @@ async function replicateRun(
   return pred.output;
 }
 
+// ── POST /api/carousel/sam-click ─────────────────────────────────────────────
+// Runs SAM-2 (Segment Anything) on a user click point and returns a binary mask.
+// x/y are normalised [0,1] relative to the image dimensions.
+// The mask PNG is returned base64: white = segmented object, black = background.
+//
+// Used by the frontend "Manual Mask Mode" where the user explicitly clicks
+// which people to protect (green) and which to erase (red).
+carouselRouter.post('/sam-click', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { image, x, y } = req.body as { image: string; x: number; y: number };
+    if (!image || x == null || y == null) {
+      res.status(400).json({ error: 'image, x, y required' }); return;
+    }
+
+    const apiKey = process.env.REPLICATE_API_KEY;
+    if (!apiKey) { res.status(503).json({ error: 'REPLICATE_API_KEY not configured' }); return; }
+
+    const imgBase64 = image.replace(/^data:image\/[^;]+;base64,/, '');
+    const S = 1024;
+    const px = Math.max(1, Math.min(S - 2, Math.round(x * S)));
+    const py = Math.max(1, Math.min(S - 2, Math.round(y * S)));
+
+    console.log(`[sam-click] click at x=${x.toFixed(3)} y=${y.toFixed(3)} → px=${px} py=${py}`);
+
+    // Call SAM-2 — Replicate accepts data URIs directly
+    const output = await replicateRun(
+      'meta/sam-2',
+      {
+        image: `data:image/png;base64,${imgBase64}`,
+        point_coords:    [[px, py]],
+        point_labels:    [1],           // 1 = foreground (include this object)
+        multimask_output: false,
+      },
+      apiKey,
+      120_000,
+    );
+
+    console.log('[sam-click] SAM-2 output:', JSON.stringify(output));
+
+    // Output is an array of mask URLs (or a single URL / object with masks key)
+    let maskUrl: string;
+    if (Array.isArray(output) && typeof output[0] === 'string') {
+      maskUrl = output[0];
+    } else if (typeof output === 'string') {
+      maskUrl = output;
+    } else if (output && typeof (output as Record<string, unknown>).masks !== 'undefined') {
+      const masks = (output as Record<string, unknown>).masks;
+      maskUrl = Array.isArray(masks) ? masks[0] : String(masks);
+    } else {
+      throw new Error(`Unexpected SAM-2 output format: ${JSON.stringify(output)?.slice(0, 200)}`);
+    }
+
+    // Fetch the mask PNG from Replicate's CDN and return it as base64
+    const maskRes = await fetch(maskUrl);
+    if (!maskRes.ok) throw new Error(`Mask fetch ${maskRes.status}`);
+    const maskBuf = Buffer.from(await maskRes.arrayBuffer());
+
+    res.json({ maskB64: `data:image/png;base64,${maskBuf.toString('base64')}` });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── POST /api/carousel/remove-background-people ──────────────────────────────
 // Full pipeline: GPT-4o detects people → SAM-2 pixel masks → Stability AI inpaint
 // This preserves fence, cars, grass — only removes person-shaped pixel groups.
