@@ -734,14 +734,16 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
 
     const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
-    // ── Helper: build grayscale mask PNG ─────────────────────────────────────
+    // ── Helper: build grayscale mask PNG (filled rectangles + merge + generous pad) ─
+    // Rectangles cover groups better than ellipses; merging joins nearby bboxes into
+    // one big rect so the whole sitting cluster is masked, not just individual spots.
     function buildSpectatorMaskPng(
       people: Array<{ cx: number; cy: number; w: number; h: number }>,
       playerBbox: { cx: number; cy: number; w: number; h: number } | null,
       S: number,
     ): Buffer {
-      const PAD = 150;
-      const PLAYER_PAD = 80;
+      const PAD = 280;        // much more generous than before (was 150)
+      const PLAYER_PAD = 110; // safe zone around main player
 
       let plL = -1, plR = -1, plT = -1, plB = -1;
       if (playerBbox) {
@@ -755,21 +757,50 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
         plB = Math.min(S - 1, Math.round(pcy + phh));
       }
 
-      const pixels = new Uint8Array(S * S);
-      for (const p of people) {
+      // Convert each person bbox to a padded pixel rectangle
+      type R = { x1: number; y1: number; x2: number; y2: number };
+      let rects: R[] = people.map(p => {
         const cx = (p.cx / 100) * S;
         const cy = (p.cy / 100) * S;
-        const rw = ((p.w  / 100) * S) / 2 + PAD;
-        const rh = ((p.h  / 100) * S) / 2 + PAD;
-        const x0 = Math.max(0, Math.floor(cx - rw));
-        const x1 = Math.min(S - 1, Math.ceil(cx + rw));
-        const y0 = Math.max(0, Math.floor(cy - rh));
-        const y1 = Math.min(S - 1, Math.ceil(cy + rh));
-        for (let py = y0; py <= y1; py++) {
-          for (let px = x0; px <= x1; px++) {
-            const dx = (px - cx) / rw;
-            const dy = (py - cy) / rh;
-            if (dx * dx + dy * dy > 1) continue;
+        const hw = ((p.w / 100) * S) / 2 + PAD;
+        const hh = ((p.h / 100) * S) / 2 + PAD;
+        return {
+          x1: Math.max(0, Math.floor(cx - hw)),
+          y1: Math.max(0, Math.floor(cy - hh)),
+          x2: Math.min(S - 1, Math.ceil(cx + hw)),
+          y2: Math.min(S - 1, Math.ceil(cy + hh)),
+        };
+      });
+
+      // Iteratively merge any overlapping rectangles so nearby groups become one big rect
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const out: R[] = [];
+        const used = new Set<number>();
+        for (let i = 0; i < rects.length; i++) {
+          if (used.has(i)) continue;
+          let r = { ...rects[i] };
+          for (let j = i + 1; j < rects.length; j++) {
+            if (used.has(j)) continue;
+            const s = rects[j];
+            if (r.x1 <= s.x2 && r.x2 >= s.x1 && r.y1 <= s.y2 && r.y2 >= s.y1) {
+              r = { x1: Math.min(r.x1, s.x1), y1: Math.min(r.y1, s.y1), x2: Math.max(r.x2, s.x2), y2: Math.max(r.y2, s.y2) };
+              used.add(j);
+              changed = true;
+            }
+          }
+          out.push(r);
+          used.add(i);
+        }
+        rects = out;
+      }
+
+      // Fill rectangles WHITE (erase zone), skip player safe zone
+      const pixels = new Uint8Array(S * S);
+      for (const { x1, y1, x2, y2 } of rects) {
+        for (let py = y1; py <= y2; py++) {
+          for (let px = x1; px <= x2; px++) {
             if (plL >= 0 && px >= plL && px <= plR && py >= plT && py <= plB) continue;
             pixels[py * S + px] = 255;
           }
@@ -801,14 +832,22 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
               {
                 type: 'text' as const,
                 text:
-                  `Sports photo. Find ALL background people to remove.\n\n` +
-                  `MAIN SUBJECT (skip): most prominent athlete in foreground.\n\n` +
-                  `MARK EVERYONE ELSE: spectators, coaches, bystanders — standing, sitting,\n` +
-                  `lying, crouching, blurry, at edges, partially visible.\n\n` +
-                  `Return ONLY JSON:\n` +
-                  `{"player":{"cx":50,"cy":60,"w":30,"h":70},"people":[{"cx":15,"cy":80,"w":12,"h":20},...]}` +
-                  `\nplayer = main subject bbox (required). people = all others with GENEROUS bboxes. Empty [] if none.` +
-                  `\ncx/cy=center%, w/h=size% of image.`,
+                  `You are analyzing a sports action photo. Goal: find EVERY background person so I can erase them.\n\n` +
+                  `MAIN SUBJECT — skip completely: the single foreground athlete who is the LARGEST and CLOSEST to camera.\n\n` +
+                  `FIND EVERY BACKGROUND PERSON — include ALL of these:\n` +
+                  `• Spectators, fans, coaches, referees standing on sidelines or visible behind fences\n` +
+                  `• People SITTING on the ground, on grass, on bleachers or benches (even if low or crouching)\n` +
+                  `• Entire groups / clusters of seated/standing people — give ONE large bbox per cluster\n` +
+                  `• People partially hidden: only a head, shoulders, legs, or torso visible at image edge\n` +
+                  `• Blurry, small, or distant people in the background\n\n` +
+                  `GROUPING RULE (CRITICAL): if multiple people are within ~15% of each other in the image,\n` +
+                  `merge them into ONE SINGLE bbox that covers the ENTIRE GROUP. Do NOT list them individually.\n\n` +
+                  `MARGIN RULE: each bbox must be at least 25% LARGER than the tightest fit — err on the side of bigger.\n\n` +
+                  `Return ONLY this JSON (no markdown, no explanation):\n` +
+                  `{"player":{"cx":50,"cy":60,"w":30,"h":70},"people":[{"cx":20,"cy":85,"w":45,"h":22}]}\n` +
+                  `player: main athlete bbox (always required, even if alone).\n` +
+                  `people: all background persons/groups. Use [] only if there are ZERO background people.\n` +
+                  `cx/cy = bbox center as % of image size. w/h = bbox width/height as % of image size.`,
               },
               {
                 type: 'image_url' as const,
@@ -820,10 +859,11 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
             ],
           }],
           response_format: { type: 'json_object' },
-          max_tokens: 800,
+          max_tokens: 1000,
           temperature: 0.1,
         });
         const parsed = JSON.parse(r.choices[0].message.content || '{}');
+        console.log('[remove-people] detection result:', JSON.stringify(parsed));
         return { player: parsed.player || null, people: Array.isArray(parsed.people) ? parsed.people : [] as any[] };
       } catch (e) {
         console.error('[remove-people] detect error:', e);
@@ -855,7 +895,7 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
     let currentBuf: Buffer = Buffer.from(imgBase64, 'base64') as Buffer;
     const S = 1024;
 
-    // Pass 1
+    // Pass 1 — initial detection + erase
     const pass1 = await detectSpectators(image);
     console.log(`[remove-people] pass1: ${pass1.people.length} spectators detected`);
 
@@ -865,12 +905,56 @@ carouselRouter.post('/remove-people', async (req: Request, res: Response, next: 
     }
     currentBuf = (await stabilityErase(currentBuf, buildSpectatorMaskPng(pass1.people, pass1.player, S))) as Buffer;
 
-    // Pass 2 — catch anyone GPT-4o missed in pass 1
+    // Pass 2 — re-detect on cleaned result; previously-hidden people now more visible
     const pass2DataUrl = `data:image/png;base64,${currentBuf.toString('base64')}`;
     const pass2 = await detectSpectators(pass2DataUrl);
     console.log(`[remove-people] pass2: ${pass2.people.length} remaining spectators`);
     if (pass2.people.length > 0) {
       currentBuf = (await stabilityErase(currentBuf, buildSpectatorMaskPng(pass2.people, pass1.player, S))) as Buffer;
+    }
+
+    // Pass 3 — final mop-up: catch anyone still lingering (sitting groups, partials)
+    const pass3DataUrl = `data:image/png;base64,${currentBuf.toString('base64')}`;
+    const pass3 = await detectSpectators(pass3DataUrl);
+    console.log(`[remove-people] pass3: ${pass3.people.length} remaining spectators`);
+    if (pass3.people.length > 0) {
+      currentBuf = (await stabilityErase(currentBuf, buildSpectatorMaskPng(pass3.people, pass1.player, S))) as Buffer;
+
+      // Pass 4 — search-and-replace semantic sweep for any last remnants
+      // Only runs if people are STILL detected after 3 precise erase passes.
+      // Uses Stability AI's object-detection-based replacement: finds "spectators"
+      // by text description and fills with natural background. Risk: may slightly
+      // affect main player if they're near remaining people — acceptable trade-off
+      // since passes 1-3 already confirmed people are still present.
+      try {
+        const sweepForm = new FormData();
+        sweepForm.append('image', new Blob([currentBuf], { type: 'image/png' }), 'image.png');
+        sweepForm.append('search_prompt',
+          'spectators fans audience people sitting standing on sidelines bleachers crowd background'
+        );
+        sweepForm.append('prompt',
+          'clean empty sports field background: natural grass, fence, no people, matching surroundings'
+        );
+        sweepForm.append('negative_prompt', 'person human crowd spectator audience man woman child');
+        sweepForm.append('output_format', 'png');
+
+        const sweepRes = await fetch('https://api.stability.ai/v2beta/stable-image/edit/search-and-replace', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${stabilityKey}`, 'Accept': 'image/*' },
+          body: sweepForm,
+        });
+
+        if (sweepRes.ok) {
+          const sweepBuf = Buffer.from(await sweepRes.arrayBuffer()) as Buffer;
+          currentBuf = sweepBuf;
+          console.log('[remove-people] pass4 search-and-replace sweep applied');
+        } else {
+          const errTxt = await sweepRes.text().catch(() => '');
+          console.warn(`[remove-people] pass4 sweep failed ${sweepRes.status}: ${errTxt.slice(0, 100)}`);
+        }
+      } catch (sweepErr) {
+        console.warn('[remove-people] pass4 sweep exception:', sweepErr);
+      }
     }
 
     res.json({ b64: currentBuf.toString('base64') });
