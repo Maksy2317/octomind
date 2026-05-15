@@ -499,12 +499,13 @@ async function replicateRun(
 }
 
 // ── POST /api/carousel/sam-click ─────────────────────────────────────────────
-// Runs SAM-2 (Segment Anything) on a user click point and returns a binary mask.
-// x/y are normalised [0,1] relative to the image dimensions.
-// The mask PNG is returned base64: white = segmented object, black = background.
+// Runs SAM-2 on a user click point and returns a binary mask PNG (base64).
+// x/y are normalised [0,1]. White pixels = segmented object, black = background.
 //
-// Used by the frontend "Manual Mask Mode" where the user explicitly clicks
-// which people to protect (green) and which to erase (red).
+// WHY VERSIONED API: Replicate's /v1/models/{owner}/{name}/predictions returns
+// 404 for models without "deployment" mode enabled (meta/sam-2 is one such case).
+// Solution: use /v1/models/{owner}/{name}/versions to get the latest version ID,
+// then call /v1/predictions with that version — this always works for public models.
 carouselRouter.post('/sam-click', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { image, x, y } = req.body as { image: string; x: number; y: number };
@@ -520,37 +521,77 @@ carouselRouter.post('/sam-click', async (req: Request, res: Response, next: Next
     const px = Math.max(1, Math.min(S - 2, Math.round(x * S)));
     const py = Math.max(1, Math.min(S - 2, Math.round(y * S)));
 
-    console.log(`[sam-click] click at x=${x.toFixed(3)} y=${y.toFixed(3)} → px=${px} py=${py}`);
+    console.log(`[sam-click] click → px=${px} py=${py}`);
 
-    // Call SAM-2 — Replicate accepts data URIs directly
-    const output = await replicateRun(
-      'meta/sam-2',
-      {
-        image: `data:image/png;base64,${imgBase64}`,
-        point_coords:    [[px, py]],
-        point_labels:    [1],           // 1 = foreground (include this object)
-        multimask_output: false,
-      },
-      apiKey,
-      120_000,
+    // ── Step 1: resolve the latest version ID of meta/sam-2 ─────────────────
+    const versionsRes = await fetch(
+      'https://api.replicate.com/v1/models/meta/sam-2/versions',
+      { headers: { 'Authorization': `Bearer ${apiKey}` } }
     );
+    if (!versionsRes.ok) {
+      const errTxt = await versionsRes.text().catch(() => '');
+      throw new Error(`SAM-2 versions fetch ${versionsRes.status}: ${errTxt.slice(0, 200)}`);
+    }
+    const versionsData = await versionsRes.json() as { results?: Array<{ id: string }> };
+    const versionId = versionsData.results?.[0]?.id;
+    if (!versionId) throw new Error('No versions found for meta/sam-2 on Replicate');
+    console.log(`[sam-click] using version: ${versionId}`);
 
-    console.log('[sam-click] SAM-2 output:', JSON.stringify(output));
+    // ── Step 2: create prediction with the resolved version ──────────────────
+    const createRes = await fetch('https://api.replicate.com/v1/predictions', {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type':  'application/json',
+        'Prefer':        'wait=60',        // wait up to 60 s for synchronous result
+      },
+      body: JSON.stringify({
+        version: versionId,
+        input: {
+          image:            `data:image/png;base64,${imgBase64}`,
+          point_coords:     [[px, py]],
+          point_labels:     [1],           // 1 = foreground
+          multimask_output: false,
+        },
+      }),
+    });
 
-    // Output is an array of mask URLs (or a single URL / object with masks key)
+    if (!createRes.ok) {
+      const errTxt = await createRes.text().catch(() => '');
+      throw new Error(`Prediction create ${createRes.status}: ${errTxt.slice(0, 200)}`);
+    }
+
+    // ── Step 3: poll if not yet succeeded ────────────────────────────────────
+    let pred = await createRes.json() as { id: string; status: string; output: unknown; error?: string };
+    const deadline = Date.now() + 120_000;
+    while (!['succeeded', 'failed', 'canceled'].includes(pred.status)) {
+      if (Date.now() > deadline) throw new Error('SAM-2 prediction timed out');
+      await new Promise(r => setTimeout(r, 1500));
+      const pollRes = await fetch(
+        `https://api.replicate.com/v1/predictions/${pred.id}`,
+        { headers: { 'Authorization': `Bearer ${apiKey}` } }
+      );
+      pred = await pollRes.json() as typeof pred;
+    }
+    if (pred.status !== 'succeeded') throw new Error(`SAM-2 ${pred.status}: ${pred.error ?? ''}`);
+
+    console.log('[sam-click] output:', JSON.stringify(pred.output)?.slice(0, 200));
+
+    // ── Step 4: extract mask URL from output ─────────────────────────────────
+    const output = pred.output;
     let maskUrl: string;
     if (Array.isArray(output) && typeof output[0] === 'string') {
       maskUrl = output[0];
     } else if (typeof output === 'string') {
       maskUrl = output;
-    } else if (output && typeof (output as Record<string, unknown>).masks !== 'undefined') {
-      const masks = (output as Record<string, unknown>).masks;
-      maskUrl = Array.isArray(masks) ? masks[0] : String(masks);
+    } else if (output && (output as Record<string, unknown>).masks) {
+      const m = (output as Record<string, unknown>).masks;
+      maskUrl = Array.isArray(m) ? m[0] as string : String(m);
     } else {
-      throw new Error(`Unexpected SAM-2 output format: ${JSON.stringify(output)?.slice(0, 200)}`);
+      throw new Error(`Unexpected SAM-2 output: ${JSON.stringify(output)?.slice(0, 200)}`);
     }
 
-    // Fetch the mask PNG from Replicate's CDN and return it as base64
+    // ── Step 5: fetch mask PNG and return as base64 ───────────────────────────
     const maskRes = await fetch(maskUrl);
     if (!maskRes.ok) throw new Error(`Mask fetch ${maskRes.status}`);
     const maskBuf = Buffer.from(await maskRes.arrayBuffer());
