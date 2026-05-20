@@ -6488,60 +6488,100 @@
    *  3. Pixels above horizon that aren't the player → sky → transparent.
    *  4. Everything else → opaque.
    */
-  async function photoAiCreateSkyMask(dataUrl, segMask) {
+  // Detect sky horizon Y coordinate from image pixels.
+  // Scans top-down: stops at first row where <35% of pixels look like sky.
+  async function photoAiDetectSkyHorizon(dataUrl) {
     const S = 1024;
-    // Load image pixels
-    const tmpCv = document.createElement('canvas');
-    tmpCv.width = S; tmpCv.height = S;
-    const tmpCtx = tmpCv.getContext('2d');
+    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+    const ctx = cv.getContext('2d');
     const img = await new Promise(resolve => {
-      const im = new Image();
-      im.onload  = () => resolve(im);
-      im.onerror = () => resolve(null);
-      im.src = dataUrl;
+      const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = dataUrl;
     });
-    if (!img) return null;
-    tmpCtx.drawImage(img, 0, 0, S, S);
-    const px = tmpCtx.getImageData(0, 0, S, S).data;
-
-    // Find horizon by scanning TOP-DOWN for sky-colored pixels.
-    // Sky = bright (light blue, white, gray, orange/pink sunset).
-    // Non-sky = green grass, dark clothing, saturated colors, faces.
-    // We stop as soon as a row has too few sky-looking pixels.
-    function _isSkyPixel(r, g, b) {
-      const brightness = (r + g + b) / 3;
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      const saturation = max > 0 ? (max - min) / max : 0;
-      if (g > r * 1.08 && g > b * 1.05 && g > 60) return false; // grass green
-      if (brightness < 70) return false;                          // too dark
-      if (brightness > 100 && saturation < 0.55) return true;    // bright/pastel
-      if (b > r + 15 && brightness > 80) return true;            // blue sky
-      if (r > 160 && g > 80 && b < 140 && r > g) return true;   // orange/red sunset
+    if (!img) return Math.round(S * 0.30);
+    ctx.drawImage(img, 0, 0, S, S);
+    const px = ctx.getImageData(0, 0, S, S).data;
+    function _isSkyPx(r, g, b) {
+      // Exclude: grass green, skin tones, dark pixels
+      if (g > r * 1.08 && g > b * 1.05 && g > 60) return false; // green
+      if (r > 150 && r > b + 50 && g > b + 10 && g < r + 30) return false; // skin/warm
+      const br = (r + g + b) / 3;
+      if (br < 80) return false; // too dark
+      const mx = Math.max(r,g,b), mn = Math.min(r,g,b), sat = mx > 0 ? (mx-mn)/mx : 0;
+      if (br > 150 && sat < 0.30) return true;  // white/gray overcast sky
+      if (b > r + 20 && br > 90) return true;   // blue sky
+      if (r > 190 && g < 130 && b < 100) return true; // deep orange/red sunset
       return false;
     }
-    let horizonY = Math.round(S * 0.38); // conservative default (top 38%)
-    for (let y = 3; y < Math.round(S * 0.70); y++) {
+    let horizonY = Math.round(S * 0.30); // conservative default
+    for (let y = 3; y < Math.round(S * 0.65); y++) {
       let skyCount = 0;
       for (let x = 0; x < S; x++) {
-        const base = (y * S + x) * 4;
-        if (_isSkyPixel(px[base], px[base+1], px[base+2])) skyCount++;
+        const b = (y * S + x) * 4;
+        if (_isSkyPx(px[b], px[b+1], px[b+2])) skyCount++;
       }
-      // Once less than 35% of a row looks like sky → horizon found
       if (skyCount / S < 0.35) { horizonY = y; break; }
     }
+    return horizonY;
+  }
 
-    // Build mask (gpt-image-1 convention: alpha=0=edit, alpha=255=preserve)
+  // Build gpt-image-1 alpha mask: transparent (alpha=0) = sky editable, opaque = protected.
+  async function photoAiCreateSkyMask(dataUrl, segMask) {
+    const S = 1024;
+    const horizonY = await photoAiDetectSkyHorizon(dataUrl);
     const out = new Uint8ClampedArray(S * S * 4);
     for (let i = 0; i < S * S; i++) {
       const y = Math.floor(i / S);
       const isPlayer = segMask && segMask[i] > 0.15;
-      const isSky    = y < horizonY && !isPlayer;
-      out[i*4+3] = isSky ? 0 : 255; // transparent=edit sky, opaque=preserve ground
+      out[i*4+3] = (y < horizonY && !isPlayer) ? 0 : 255;
     }
-    const maskCv = document.createElement('canvas');
-    maskCv.width = S; maskCv.height = S;
-    maskCv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-    return maskCv.toDataURL('image/png');
+    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+    cv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
+    return { maskDataUrl: cv.toDataURL('image/png'), horizonY };
+  }
+
+  /**
+   * Composite sky from AI result with original ground/player.
+   * This guarantees player & field are pixel-perfect from the original —
+   * gpt-image-1 tends to recompose the whole scene even with a mask,
+   * so we take its sky and discard everything else.
+   */
+  async function photoAiSkyComposite(aiDataUrl, origDataUrl, horizonY, segMask) {
+    const S = 1024;
+    const loadImg = url => new Promise(resolve => {
+      const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = url;
+    });
+    const [aiImg, origImg] = await Promise.all([loadImg(aiDataUrl), loadImg(origDataUrl)]);
+    if (!aiImg || !origImg) return aiDataUrl;
+
+    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+    const ctx = cv.getContext('2d');
+
+    ctx.drawImage(aiImg, 0, 0, S, S);
+    const aiPx = ctx.getImageData(0, 0, S, S).data;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(origImg, 0, 0, S, S);
+    const origPx = ctx.getImageData(0, 0, S, S).data;
+
+    const out = new Uint8ClampedArray(S * S * 4);
+    const feather = 18; // soft blend pixels at horizon
+    for (let i = 0; i < S * S; i++) {
+      const y = Math.floor(i / S);
+      const isPlayer = segMask && segMask[i] > 0.15;
+      let t; // 1 = use AI sky, 0 = use original
+      if (isPlayer || y > horizonY + feather) {
+        t = 0;
+      } else if (y < horizonY - feather) {
+        t = 1;
+      } else {
+        t = 1 - (y - (horizonY - feather)) / (feather * 2);
+      }
+      out[i*4]   = aiPx[i*4]   * t + origPx[i*4]   * (1-t) | 0;
+      out[i*4+1] = aiPx[i*4+1] * t + origPx[i*4+1] * (1-t) | 0;
+      out[i*4+2] = aiPx[i*4+2] * t + origPx[i*4+2] * (1-t) | 0;
+      out[i*4+3] = 255;
+    }
+    ctx.putImageData(new ImageData(out, S, S), 0, 0);
+    return cv.toDataURL('image/png');
   }
 
   /**
@@ -6904,12 +6944,14 @@
             // editPlayerToo=true  → no mask → AI transforms player + background
             // editPlayerToo=false → mask protects player → only background changes
             const reqBody = { image: photoAiOrig1024, prompt };
+            // For sky prompts store horizonY so we can composite after API call
+            let _skyHorizonY = null;
             if (segMask && !editPlayerToo) {
               if (_isSkyPrompt(prompt)) {
-                // Sky prompt: expose only sky pixels to AI, protect everything below horizon
-                reqBody.mask = await photoAiCreateSkyMask(photoAiOrig1024, segMask);
+                const skyResult = await photoAiCreateSkyMask(photoAiOrig1024, segMask);
+                reqBody.mask = skyResult.maskDataUrl;
+                _skyHorizonY = skyResult.horizonY;
               } else {
-                // Generic background edit: expose background, protect player
                 reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
               }
             }
@@ -6947,11 +6989,12 @@
                 txt.textContent = '✅ Готово';
                 photoAiResultDataUrl = aiResult;
               } else if (isSky) {
-                // Sky mask already protects the player pixel-by-pixel.
-                // Do NOT composite — it creates a ghost/double-player artifact
-                // because the AI blends new sky lighting into the scene.
-                txt.textContent = '✅ Готово';
-                photoAiResultDataUrl = aiResult;
+                // gpt-image-1 tends to recompose the whole scene even with a mask.
+                // Solution: take AI-generated sky pixels only, paste original ground/player
+                // on top — pixel-perfect, no ghosting, no repositioning.
+                txt.textContent = 'Накладаю небо…';
+                const hy = _skyHorizonY ?? Math.round(1024 * 0.30);
+                photoAiResultDataUrl = await photoAiSkyComposite(aiResult, photoAiOrig1024, hy, segMask);
               } else if (editPlayerToo) {
                 // User chose "yes, transform the player too" → AI result is final.
                 txt.textContent = '✅ Готово';
