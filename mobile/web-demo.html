@@ -6468,6 +6468,69 @@
   }
 
   /**
+   * Detect "sky / clouds / sunset / sunrise" intent.
+   * → uses a sky-only mask so only the sky region is edited.
+   */
+  function _isSkyPrompt(prompt) {
+    return /небо|хмар|sky|cloud|sunset|sunrise|захід\s*сонц|схід\s*сонц|зорі|stars|зоряне/i.test(prompt);
+  }
+
+  /**
+   * Build a sky-only mask for gpt-image-1:
+   *   transparent (alpha=0)   = sky region → AI may edit here
+   *   opaque     (alpha=255)  = ground / player / objects → AI must NOT touch
+   *
+   * Algorithm:
+   *  1. Scan pixel rows from the top; find the first row where ≥18% of
+   *     pixels are "grass green" (G strongly dominant, not too dark).
+   *     That row is treated as the visible horizon.
+   *  2. Cap horizon at 55% of image height (safety for wide-angle shots).
+   *  3. Pixels above horizon that aren't the player → sky → transparent.
+   *  4. Everything else → opaque.
+   */
+  async function photoAiCreateSkyMask(dataUrl, segMask) {
+    const S = 1024;
+    // Load image pixels
+    const tmpCv = document.createElement('canvas');
+    tmpCv.width = S; tmpCv.height = S;
+    const tmpCtx = tmpCv.getContext('2d');
+    const img = await new Promise(resolve => {
+      const im = new Image();
+      im.onload  = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = dataUrl;
+    });
+    if (!img) return null;
+    tmpCtx.drawImage(img, 0, 0, S, S);
+    const px = tmpCtx.getImageData(0, 0, S, S).data;
+
+    // Find horizon: first row with ≥18% grass-green pixels
+    let horizonY = Math.round(S * 0.55); // default cap
+    for (let y = 0; y < Math.round(S * 0.55); y++) {
+      let grassCount = 0;
+      for (let x = 0; x < S; x++) {
+        const base = (y * S + x) * 4;
+        const r = px[base], g = px[base+1], b = px[base+2];
+        if (g > r * 1.12 && g > b * 1.05 && g > 55) grassCount++;
+      }
+      if (grassCount / S >= 0.18) { horizonY = y; break; }
+    }
+
+    // Build mask (gpt-image-1 convention: alpha=0=edit, alpha=255=preserve)
+    const out = new Uint8ClampedArray(S * S * 4);
+    for (let i = 0; i < S * S; i++) {
+      const y = Math.floor(i / S);
+      const isPlayer = segMask && segMask[i] > 0.15;
+      const isSky    = y < horizonY && !isPlayer;
+      out[i*4+3] = isSky ? 0 : 255; // transparent=edit sky, opaque=preserve ground
+    }
+    const maskCv = document.createElement('canvas');
+    maskCv.width = S; maskCv.height = S;
+    maskCv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
+    return maskCv.toDataURL('image/png');
+  }
+
+  /**
    * Create a PRECISE Stability AI inpaint mask from GPT-4o bounding boxes.
    *
    * Only the detected background people spots are WHITE (inpaint).
@@ -6692,10 +6755,13 @@
 
     const removePeople = _isRemovePeoplePrompt(prompt);
     const isBlur       = _isBlurPrompt(prompt);
+    const isSky        = _isSkyPrompt(prompt);
 
-    // Ask "edit player too?" only for style / background prompts (not remove-people, not blur)
+    // Ask "edit player too?" only for generic style/background prompts.
+    // Skip for: remove-people (mask already handles it), blur (client-side),
+    // sky (sky mask keeps player protected by definition).
     let editPlayerToo = false;
-    if (!removePeople && !isBlur) {
+    if (!removePeople && !isBlur && !isSky) {
       editPlayerToo = await _photoAiAskEditPlayer();
     }
 
@@ -6825,7 +6891,13 @@
             // editPlayerToo=false → mask protects player → only background changes
             const reqBody = { image: photoAiOrig1024, prompt };
             if (segMask && !editPlayerToo) {
-              reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
+              if (_isSkyPrompt(prompt)) {
+                // Sky prompt: expose only sky pixels to AI, protect everything below horizon
+                reqBody.mask = await photoAiCreateSkyMask(photoAiOrig1024, segMask);
+              } else {
+                // Generic background edit: expose background, protect player
+                reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
+              }
             }
             resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
               method: 'POST',

@@ -274,6 +274,9 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     // ── Detect "remove background people" intent (UA / RU / EN) ────────────────
     const isRemovePeople = /прибер|видал|удал|прибрати.*люд|людей.*фон|фон.*люд|заберіть|remove\s+(back|bg|people)|people.*back/i.test(styleHint);
 
+    // ── Detect sky / weather edit intent ────────────────────────────────────────
+    const isSky = /небо|хмар|sky|cloud|sunset|sunrise|захід\s*сонц|схід\s*сонц|зорі|stars|зоряне|golden\s*hour|дощ|rain|storm/i.test(styleHint);
+
     // ── Choose prompt based on context ──────────────────────────────────────────
     // KEY RULE: the person mask (opaque = protected, transparent = editable)
     // is always kept when provided. The mask is what guarantees the player's
@@ -325,6 +328,19 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `• Grass color, shade, texture: match the existing field — do NOT regenerate or lighten. ` +
         `• Trees, buildings, vehicles, sky, stands: leave completely unchanged. ` +
         `• Do NOT add new objects, patterns, or change colors/lighting/perspective.`;
+    } else if (isSky && maskFile) {
+      // Sky edit: the transparent zone is ONLY the sky above the horizon.
+      // Everything below (grass, field, players, stands) is opaque/protected.
+      enhancePrompt =
+        `The transparent (editable) region in the mask is ONLY the sky area above the horizon. ` +
+        `Task: apply "${styleHint}" to the sky ONLY — change clouds, sky color, lighting, atmosphere as requested. ` +
+        `ABSOLUTE RULES — do NOT violate under any circumstances: ` +
+        `• The opaque (protected) region — grass, field, players, spectators, stands, fences, buildings — ` +
+        `  must remain 100% pixel-identical to the original. Do not alter it by even one pixel. ` +
+        `• Do NOT change the lighting, shadows, or colors of anything in the protected (lower) zone. ` +
+        `• Do NOT add any text, logos, watermarks, or new objects. ` +
+        `• The horizon line where sky meets ground must blend naturally — no harsh seam. ` +
+        `Keep the transition between sky and ground seamless and photorealistic.`;
     } else if (maskFile) {
       // Generic edit with mask: AI edits only transparent zone
       enhancePrompt =
