@@ -7016,6 +7016,7 @@
           //  4. "Розмити фон"  → client-side (already handled above, no API needed)
 
           let resp;
+          let _skyHorizonY = null; // set in sky path, used in result composite
 
           if (removePeople) {
             // ── 2-PHASE PEOPLE REMOVAL ─────────────────────────────────────
@@ -7079,7 +7080,6 @@
           } else {
             // ── PATH 2: gpt-image-1 ───────────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
-            let _skyHorizonY = null;
 
             if (isSkinRetouch && segMask) {
               // SKIN RETOUCH: expose the player (transparent = edit skin),
