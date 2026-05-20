@@ -286,73 +286,38 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     let enhancePrompt: string;
 
     if (isRemovePeople && maskFile) {
-      // Mask protects the main subject; AI only fills the transparent background.
-      // Give it a crystal-clear English task so it fills correctly.
+      // Mask protects the main subject; transparent zone = background only.
       enhancePrompt =
-        `Task: remove ONLY human figures from the background. Nothing else changes. ` +
-        `The opaque (white/gray) mask region is the main foreground subject — it is COMPLETELY LOCKED. Do not alter it by even one pixel. ` +
-        `In the transparent (editable) background region, follow these rules EXACTLY: ` +
-        `1. Find any secondary people, spectators, or bystanders. Remove ONLY those human figures. ` +
-        `2. Fill the spot where each removed person stood using ONLY the immediately surrounding surface texture: ` +
-        `   grass patch → clone the exact same grass blades, color, and shade from the adjacent area; ` +
-        `   concrete → copy same concrete; sand → copy same sand. ` +
-        `   The fill MUST be indistinguishable from the surrounding surface — same brightness, hue, saturation. ` +
-        `   Do NOT darken or lighten the filled patch. Do NOT generate a smooth/blurred texture — match the actual grain. ` +
-        `3. PRESERVE EVERYTHING ELSE ABSOLUTELY UNCHANGED: ` +
-        `   • Fences, nets, goal posts, corner flags, barriers — keep all of them exactly as they are. ` +
-        `   • Field markings (lines, circles, penalty area) — keep them perfectly intact. ` +
-        `   • Grass color, shade, and pattern — do not regenerate or alter. ` +
-        `   • Background buildings, stands, vehicles, lights — leave untouched. ` +
-        `   • Shadows, lighting direction, sky — no changes. ` +
-        `4. Do NOT add any new objects, patterns, or textures that were not already there. ` +
-        `5. Do NOT change colors, lighting, perspective, or composition of anything. ` +
-        `The ONLY pixels that should differ from the original are the small spots where background people stood.`;
+        `Remove all background people (spectators, bystanders) from the photo and fill their spots ` +
+        `with the same grass or ground texture that surrounds them, so it looks like they were never there. ` +
+        `The masked foreground subject must stay completely untouched. ` +
+        `Keep all fences, goal posts, field lines, buildings, and the sky exactly as in the original.`;
     } else if (isRemovePeople && !maskFile) {
-      // "Hide-player" path: the frontend filled the main player zone with a flat
-      // color blob, so the AI only sees background people.
-      // Task 1: fill the flat-color blob with matching field texture.
-      // Task 2: remove ALL remaining background people.
+      // "Hide-player" path: flat-color blob covers the main player.
       enhancePrompt =
-        `This image contains: (A) a flat-colored blob where the main subject was hidden, ` +
-        `and (B) background people (spectators, bystanders) on a sports field. ` +
-        `Your two tasks: ` +
-        `1. Fill the flat blob (A) seamlessly with the same grass/field texture from the surrounding area — ` +
-        `   copy the exact color, shade, and grain of the adjacent grass. ` +
-        `2. Remove ALL visible background people (B) completely — ` +
-        `   fill each removed person's spot with the matching surface beneath them ` +
-        `   (grass → same green grass; concrete → same concrete). ` +
-        `ABSOLUTE RULES — do NOT violate these under any circumstances: ` +
-        `• Fences, nets, goal posts, poles, corner flags, barriers: ` +
-        `  NEVER remove or alter them. They must remain exactly as in the original. ` +
-        `• Field lines, circles, penalty areas: keep 100% intact. ` +
-        `• Grass color, shade, texture: match the existing field — do NOT regenerate or lighten. ` +
-        `• Trees, buildings, vehicles, sky, stands: leave completely unchanged. ` +
-        `• Do NOT add new objects, patterns, or change colors/lighting/perspective.`;
+        `There is a flat-colored blob covering part of the image where a person was hidden. ` +
+        `Fill that blob seamlessly with the same grass or field texture from the surrounding area. ` +
+        `Also remove any other people visible in the background by filling their spots with matching ground texture. ` +
+        `Keep all fences, goal posts, field markings, buildings, and the sky exactly as in the original.`;
     } else if (isSky && maskFile) {
-      // Sky edit: the transparent zone is ONLY the sky above the horizon.
-      // Everything below (grass, field, players, stands) is opaque/protected.
+      // Transparent zone = sky only (above detected horizon).
       enhancePrompt =
-        `The transparent (editable) region in the mask is ONLY the sky area above the horizon. ` +
-        `Task: apply "${styleHint}" to the sky ONLY — change clouds, sky color, lighting, atmosphere as requested. ` +
-        `ABSOLUTE RULES — do NOT violate under any circumstances: ` +
-        `• The opaque (protected) region — grass, field, players, spectators, stands, fences, buildings — ` +
-        `  must remain 100% pixel-identical to the original. Do not alter it by even one pixel. ` +
-        `• Do NOT change the lighting, shadows, or colors of anything in the protected (lower) zone. ` +
-        `• Do NOT add any text, logos, watermarks, or new objects. ` +
-        `• The horizon line where sky meets ground must blend naturally — no harsh seam. ` +
-        `Keep the transition between sky and ground seamless and photorealistic.`;
+        `Transform the sky in this photo: ${styleHint}. ` +
+        `Only change the sky area — everything below (grass, field, players, stands, buildings) ` +
+        `must remain exactly as it is in the original photo. ` +
+        `Make sure the horizon blends naturally between the new sky and the unchanged ground.`;
     } else if (maskFile) {
-      // Generic edit with mask: AI edits only transparent zone
+      // Generic edit with mask: transparent zone = background around the player.
       enhancePrompt =
-        `Apply ONLY to the transparent/unmasked background area: ${styleHint}. ` +
-        `The masked (opaque) region is the main person — leave it 100% pixel-identical to the original. ` +
-        `Do not add text, logos, or watermarks. Keep the overall scene realistic.`;
+        `${styleHint}. ` +
+        `The person in the foreground should remain completely unchanged — ` +
+        `same face, clothing, body position, and expression. Only edit the background.`;
     } else {
-      // No mask, no special intent: generic full-image edit
+      // No mask: full-image edit, instruct model to preserve people naturally.
       enhancePrompt =
-        `RULE #1 — PEOPLE: Every person, face, body, skin, clothing, hair must remain 100% unchanged. ` +
-        `RULE #2 — BACKGROUND ONLY: Apply "${styleHint}" only to background and non-human elements. ` +
-        `RULE #3 — NO TEXT anywhere.`;
+        `${styleHint}. ` +
+        `Keep all people in the photo exactly as they are — do not change faces, ` +
+        `bodies, skin, hair, or clothing. Only modify the background and environment.`;
     }
 
     const response = await openai.images.edit({
@@ -362,6 +327,7 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
       prompt: enhancePrompt,
       n: 1,
       size: '1024x1024',
+      quality: 'high',
     } as Parameters<typeof openai.images.edit>[0]);
 
     res.json({ b64: response.data?.[0]?.b64_json ?? null });

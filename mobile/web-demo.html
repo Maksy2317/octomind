@@ -5958,9 +5958,9 @@
 
     _bpNetPromise = window.bodyPix.load({
       architecture: 'MobileNetV1',
-      outputStride: 16,
-      multiplier: 0.75,
-      quantBytes: 2,
+      outputStride: 8,    // finer stride → sharper edges (was 16)
+      multiplier: 1.0,    // largest model → best accuracy (was 0.75)
+      quantBytes: 4,      // full float precision (was 2)
     }).catch(() => { _bpNetPromise = null; return null; });
 
     return _bpNetPromise;
@@ -6004,8 +6004,8 @@
     try {
       const seg = await net.segmentPerson(img, {
         flipHorizontal: false,
-        internalResolution: 'medium',
-        segmentationThreshold: 0.65,
+        internalResolution: 'full',  // highest quality (was 'medium')
+        segmentationThreshold: 0.5,  // more inclusive → catches edges better (was 0.65)
       });
       const S = 1024;
       const mask = new Float32Array(S * S);
