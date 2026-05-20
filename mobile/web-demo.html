@@ -6452,6 +6452,82 @@
   }
 
   /**
+   * Detect contrast / saturation / brightness / color-tone adjustments.
+   * These are pure pixel operations — no AI needed, done client-side.
+   */
+  function _isFilterPrompt(prompt) {
+    return /контраст|насиченість|насич|яскравість|різкість|sharpen|saturat|contrast|brightness|vibranc|вібранс|теплий тон|warm|холодний тон|cold|тон|tone|filter|фільтр|vivid|чіткіш|color.?grad|colour.?grad|hdr|підвищ|підкрут|збільш.*(колір|насич|яскрав|контраст)/i.test(prompt);
+  }
+
+  /**
+   * Apply client-side photo adjustments: contrast, saturation, brightness, warmth.
+   * Parses the prompt to determine what to boost.
+   */
+  async function photoAiApplyFilter(dataUrl, prompt) {
+    const S = 1024;
+    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+    const ctx = cv.getContext('2d');
+    const img = await new Promise(r => {
+      const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = dataUrl;
+    });
+    if (!img) return dataUrl;
+    ctx.drawImage(img, 0, 0, S, S);
+    const id = ctx.getImageData(0, 0, S, S);
+    const d = id.data;
+    const p = prompt.toLowerCase();
+
+    const doContrast  = /контраст|contrast|hdr/.test(p);
+    const doSat       = /насиченість|насич|saturat|vibranc|вібранс|vivid|color/.test(p);
+    const doBright    = /яскравість|яскрав|brightness|bright/.test(p);
+    const doWarm      = /теплий|warm|золот|golden/.test(p);
+    const doCold      = /холодний|cold|прохолод/.test(p);
+    const doSharpen   = /різкість|чіткість|sharpen/.test(p);
+    // Intensity: "сильно / дуже / more" → stronger boost
+    const k = /сильн|дуже|more|strong|high|більш/.test(p) ? 1.6 : 1.3;
+
+    const clamp = v => Math.max(0, Math.min(255, v));
+
+    for (let i = 0; i < d.length; i += 4) {
+      let r = d[i], g = d[i+1], b = d[i+2];
+
+      if (doContrast) {
+        r = (r - 128) * k + 128;
+        g = (g - 128) * k + 128;
+        b = (b - 128) * k + 128;
+      }
+      if (doSat) {
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = gray + (r - gray) * k;
+        g = gray + (g - gray) * k;
+        b = gray + (b - gray) * k;
+      }
+      if (doBright) { const f = k > 1.4 ? 30 : 20; r += f; g += f; b += f; }
+      if (doWarm)   { r += 18; g += 6; b -= 14; }
+      if (doCold)   { r -= 14; g -= 4; b += 18; }
+
+      d[i] = clamp(r); d[i+1] = clamp(g); d[i+2] = clamp(b);
+    }
+
+    // Simple unsharp mask (sharpen)
+    if (doSharpen) {
+      const src = new Uint8ClampedArray(d);
+      const w = S;
+      for (let y = 1; y < S-1; y++) {
+        for (let x = 1; x < w-1; x++) {
+          const idx = (y * w + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            const blur = (src[idx-4+c] + src[idx+4+c] + src[(idx-w*4)+c] + src[(idx+w*4)+c]) / 4;
+            d[idx+c] = clamp(src[idx+c] + (src[idx+c] - blur) * 0.8);
+          }
+        }
+      }
+    }
+
+    ctx.putImageData(id, 0, 0);
+    return cv.toDataURL('image/png');
+  }
+
+  /**
    * Detect "remove background people / objects" intent.
    * → routes to Stability AI inpainting (dedicated removal model, not generative).
    */
@@ -6810,12 +6886,12 @@
     const removePeople = _isRemovePeoplePrompt(prompt);
     const isBlur       = _isBlurPrompt(prompt);
     const isSky        = _isSkyPrompt(prompt);
+    const isFilter     = _isFilterPrompt(prompt);
 
-    // Ask "edit player too?" only for generic style/background prompts.
-    // Skip for: remove-people (mask already handles it), blur (client-side),
-    // sky (sky mask keeps player protected by definition).
+    // Ask "edit player too?" only for generic AI edits.
+    // Client-side ops (blur, filter) and sky don't need this dialog.
     let editPlayerToo = false;
-    if (!removePeople && !isBlur && !isSky) {
+    if (!removePeople && !isBlur && !isSky && !isFilter) {
       editPlayerToo = await _photoAiAskEditPlayer();
     }
 
@@ -6840,10 +6916,18 @@
 
       // ── Step 2: Choose path based on prompt type ─────────────────────────
       if (isBlur) {
-        // ── CLIENT-SIDE BLUR PATH — no API call needed ───────────────────
+        // ── CLIENT-SIDE BLUR PATH ─────────────────────────────────────────
         txt.textContent = 'Розмиваю фон…';
         bar.style.width = '55%';
         photoAiResultDataUrl = await photoAiBlurBg(photoAiOrig1024, segMask);
+        bar.style.width = '100%';
+      } else if (isFilter) {
+        // ── CLIENT-SIDE FILTER PATH — contrast / saturation / brightness ──
+        // gpt-image-1 can't do "increase contrast" — it regenerates the whole
+        // scene. Canvas pixel manipulation is faster, cheaper, and correct.
+        txt.textContent = 'Застосовую фільтр…';
+        bar.style.width = '60%';
+        photoAiResultDataUrl = await photoAiApplyFilter(photoAiOrig1024, prompt);
         bar.style.width = '100%';
       } else {
         // ── AI EDIT PATH ─────────────────────────────────────────────────
