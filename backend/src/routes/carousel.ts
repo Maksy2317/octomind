@@ -312,6 +312,13 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `${styleHint}. ` +
         `The person in the foreground should remain completely unchanged — ` +
         `same face, clothing, body position, and expression. Only edit the background.`;
+    } else if (isSky) {
+      // Sky intent but no mask provided — prompt-only sky change.
+      enhancePrompt =
+        `Change only the sky in this photo: ${styleHint}. ` +
+        `The sky is the region above the horizon line. ` +
+        `Everything below the horizon — grass, field, players, spectators, fences, buildings — ` +
+        `must remain 100% identical to the original. Do not move, clone, or alter any person.`;
     } else {
       // No mask: full-image edit, instruct model to preserve people naturally.
       enhancePrompt =

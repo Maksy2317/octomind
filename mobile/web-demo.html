@@ -6504,16 +6504,30 @@
     tmpCtx.drawImage(img, 0, 0, S, S);
     const px = tmpCtx.getImageData(0, 0, S, S).data;
 
-    // Find horizon: first row with ≥18% grass-green pixels
-    let horizonY = Math.round(S * 0.55); // default cap
-    for (let y = 0; y < Math.round(S * 0.55); y++) {
-      let grassCount = 0;
+    // Find horizon by scanning TOP-DOWN for sky-colored pixels.
+    // Sky = bright (light blue, white, gray, orange/pink sunset).
+    // Non-sky = green grass, dark clothing, saturated colors, faces.
+    // We stop as soon as a row has too few sky-looking pixels.
+    function _isSkyPixel(r, g, b) {
+      const brightness = (r + g + b) / 3;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const saturation = max > 0 ? (max - min) / max : 0;
+      if (g > r * 1.08 && g > b * 1.05 && g > 60) return false; // grass green
+      if (brightness < 70) return false;                          // too dark
+      if (brightness > 100 && saturation < 0.55) return true;    // bright/pastel
+      if (b > r + 15 && brightness > 80) return true;            // blue sky
+      if (r > 160 && g > 80 && b < 140 && r > g) return true;   // orange/red sunset
+      return false;
+    }
+    let horizonY = Math.round(S * 0.38); // conservative default (top 38%)
+    for (let y = 3; y < Math.round(S * 0.70); y++) {
+      let skyCount = 0;
       for (let x = 0; x < S; x++) {
         const base = (y * S + x) * 4;
-        const r = px[base], g = px[base+1], b = px[base+2];
-        if (g > r * 1.12 && g > b * 1.05 && g > 55) grassCount++;
+        if (_isSkyPixel(px[base], px[base+1], px[base+2])) skyCount++;
       }
-      if (grassCount / S >= 0.18) { horizonY = y; break; }
+      // Once less than 35% of a row looks like sky → horizon found
+      if (skyCount / S < 0.35) { horizonY = y; break; }
     }
 
     // Build mask (gpt-image-1 convention: alpha=0=edit, alpha=255=preserve)
@@ -6930,17 +6944,20 @@
 
               if (removePeople) {
                 // Server handled everything: 3-pass GPT-4o detect + Stability Erase.
-                // Player was protected by player bbox (BLACK in mask) → never touched.
+                txt.textContent = '✅ Готово';
+                photoAiResultDataUrl = aiResult;
+              } else if (isSky) {
+                // Sky mask already protects the player pixel-by-pixel.
+                // Do NOT composite — it creates a ghost/double-player artifact
+                // because the AI blends new sky lighting into the scene.
                 txt.textContent = '✅ Готово';
                 photoAiResultDataUrl = aiResult;
               } else if (editPlayerToo) {
                 // User chose "yes, transform the player too" → AI result is final.
-                // No compositing: we WANT the AI-generated version of the player.
                 txt.textContent = '✅ Готово';
                 photoAiResultDataUrl = aiResult;
               } else {
-                // User chose "no, keep original player" → composite original player back.
-                // Restores pixel-perfect player details over the AI-generated background.
+                // Generic edit: composite original player back over AI background.
                 txt.textContent = 'Накладаю оригінал…';
                 photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
               }
