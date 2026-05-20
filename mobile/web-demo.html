@@ -6217,6 +6217,24 @@
    * people even if they are close to the player. The ball is in the editable zone
    * (AI may touch it), but photoAiComposite will stamp the original ball back.
    */
+  /**
+   * INVERSE mask: transparent (alpha=0) = player body → AI edits here.
+   * Opaque (alpha=255) = background → protected.
+   * Used for skin/face retouching where the AI must touch the PERSON, not background.
+   */
+  async function photoAiCreatePlayerExposedMask(segMask) {
+    const S = 1024;
+    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+    if (!segMask) return null;
+    const d = new Uint8ClampedArray(S * S * 4);
+    for (let i = 0; i < S * S; i++) {
+      const p = _smoothstep((segMask[i] - 0.05) / 0.20);
+      d[i*4+3] = Math.round((1 - p) * 255); // player → transparent, bg → opaque
+    }
+    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
+    return cv.toDataURL('image/png');
+  }
+
   async function photoAiCreateMask(dataUrl, segMask) {
     const S = 1024;
     const cv = document.createElement('canvas');
@@ -6452,11 +6470,19 @@
   }
 
   /**
-   * Detect contrast / saturation / brightness / color-tone adjustments.
+   * Detect contrast / saturation / brightness / color-tone / cinematic adjustments.
    * These are pure pixel operations — no AI needed, done client-side.
    */
   function _isFilterPrompt(prompt) {
-    return /контраст|насиченість|насич|яскравість|різкість|sharpen|saturat|contrast|brightness|vibranc|вібранс|теплий тон|warm|холодний тон|cold|тон|tone|filter|фільтр|vivid|чіткіш|color.?grad|colour.?grad|hdr|підвищ|підкрут|збільш.*(колір|насич|яскрав|контраст)/i.test(prompt);
+    return /контраст|насиченість|насич|яскравість|різкість|sharpen|saturat|contrast|brightness|vibranc|вібранс|теплий тон|warm|холодний тон|cold|тон|tone|filter|фільтр|vivid|чіткіш|color.?grad|colour.?grad|hdr|підвищ|підкрут|збільш.*(колір|насич|яскрав|контраст)|кіно|cinematic|film|кінематограф|moody|dramatic.*light|lut/i.test(prompt);
+  }
+
+  /**
+   * Detect skin / face retouching intent.
+   * These prompts must EXPOSE the player (not protect!) so AI can edit the skin.
+   */
+  function _isSkinRetouchPrompt(prompt) {
+    return /прищ|шкір|недол.*шкір|blemish|acne|skin\s*(retouch|fix|clean|clear)|retouch|ретуш|зморшк|розгладь|обличч|pimple|шрам|scar/i.test(prompt);
   }
 
   /**
@@ -6476,8 +6502,9 @@
     const d = id.data;
     const p = prompt.toLowerCase();
 
-    const doContrast  = /контраст|contrast|hdr/.test(p);
-    const doSat       = /насиченість|насич|saturat|vibranc|вібранс|vivid|color/.test(p);
+    const doCinematic = /кіно|cinematic|film|кінематограф|moody|dramatic.*light|lut/.test(p);
+    const doContrast  = !doCinematic && /контраст|contrast|hdr/.test(p);
+    const doSat       = !doCinematic && /насиченість|насич|saturat|vibranc|вібранс|vivid|color/.test(p);
     const doBright    = /яскравість|яскрав|brightness|bright/.test(p);
     const doWarm      = /теплий|warm|золот|golden/.test(p);
     const doCold      = /холодний|cold|прохолод/.test(p);
@@ -6490,6 +6517,20 @@
     for (let i = 0; i < d.length; i += 4) {
       let r = d[i], g = d[i+1], b = d[i+2];
 
+      if (doCinematic) {
+        // Step 1: contrast S-curve
+        r = (r - 128) * 1.38 + 128;
+        g = (g - 128) * 1.38 + 128;
+        b = (b - 128) * 1.38 + 128;
+        // Step 2: slight desaturation (film look)
+        const gr = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = gr + (r - gr) * 0.88; g = gr + (g - gr) * 0.88; b = gr + (b - gr) * 0.88;
+        // Step 3: warm mid-tone tint (orange-teal grade)
+        r += 10; g += 2; b -= 8;
+        // Step 4: crush blacks (cinematic deep shadows)
+        const br = (r + g + b) / 3;
+        if (br < 55) { r *= 0.78; g *= 0.78; b *= 0.78; }
+      }
       if (doContrast) {
         r = (r - 128) * k + 128;
         g = (g - 128) * k + 128;
@@ -6506,6 +6547,20 @@
       if (doCold)   { r -= 14; g -= 4; b += 18; }
 
       d[i] = clamp(r); d[i+1] = clamp(g); d[i+2] = clamp(b);
+    }
+
+    // Vignette for cinematic look (dark corners)
+    if (doCinematic) {
+      const origPx = new Uint8ClampedArray(d);
+      const cx = S / 2, cy = S / 2, maxR = Math.sqrt(cx*cx + cy*cy);
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const idx = (y * S + x) * 4;
+        const dist = Math.sqrt((x-cx)**2 + (y-cy)**2) / maxR;
+        const vig = dist > 0.55 ? 1 - (dist - 0.55) / 0.45 * 0.55 : 1;
+        d[idx]   = clamp(d[idx]   * vig);
+        d[idx+1] = clamp(d[idx+1] * vig);
+        d[idx+2] = clamp(d[idx+2] * vig);
+      }
     }
 
     // Simple unsharp mask (sharpen)
@@ -6883,17 +6938,15 @@
     if (!prompt) { alert('Напиши що змінити!'); return; }
     if (!photoAiOrigDataUrl) return;
 
-    const removePeople = _isRemovePeoplePrompt(prompt);
-    const isBlur       = _isBlurPrompt(prompt);
-    const isSky        = _isSkyPrompt(prompt);
-    const isFilter     = _isFilterPrompt(prompt);
+    const removePeople  = _isRemovePeoplePrompt(prompt);
+    const isBlur        = _isBlurPrompt(prompt);
+    const isSky         = _isSkyPrompt(prompt);
+    const isFilter      = _isFilterPrompt(prompt);  // includes cinematic
+    const isSkinRetouch = _isSkinRetouchPrompt(prompt);
 
-    // Ask "edit player too?" only for generic AI edits.
-    // Client-side ops (blur, filter) and sky don't need this dialog.
-    let editPlayerToo = false;
-    if (!removePeople && !isBlur && !isSky && !isFilter) {
-      editPlayerToo = await _photoAiAskEditPlayer();
-    }
+    // No dialog needed — routing is smart:
+    // skin → expose player; background → protect player; filters → canvas.
+    // (Dialog was confusing users and led to bad results regardless of answer.)
 
     // Show progress
     document.getElementById('photoAiStep2').style.display = 'none';
@@ -7024,21 +7077,27 @@
             photoAiResultDataUrl = currentImage;
 
           } else {
-            // ── PATH 2 & 3: gpt-image-1 ──────────────────────────────────────
-            // editPlayerToo=true  → no mask → AI transforms player + background
-            // editPlayerToo=false → mask protects player → only background changes
+            // ── PATH 2: gpt-image-1 ───────────────────────────────────────────
             const reqBody = { image: photoAiOrig1024, prompt };
-            // For sky prompts store horizonY so we can composite after API call
             let _skyHorizonY = null;
-            if (segMask && !editPlayerToo) {
-              if (_isSkyPrompt(prompt)) {
-                const skyResult = await photoAiCreateSkyMask(photoAiOrig1024, segMask);
-                reqBody.mask = skyResult.maskDataUrl;
-                _skyHorizonY = skyResult.horizonY;
-              } else {
-                reqBody.mask = await photoAiCreateMask(photoAiOrig1024, segMask);
-              }
+
+            if (isSkinRetouch && segMask) {
+              // SKIN RETOUCH: expose the player (transparent = edit skin),
+              // protect the background (opaque). AI edits only the person's skin.
+              reqBody.mask = await photoAiCreatePlayerExposedMask(segMask);
+            } else if (isSky && segMask) {
+              // SKY: sky-only mask + client-side composite after
+              const skyResult = await photoAiCreateSkyMask(photoAiOrig1024, segMask);
+              reqBody.mask = skyResult.maskDataUrl;
+              _skyHorizonY = skyResult.horizonY;
+            } else if (segMask) {
+              // GENERIC BACKGROUND EDIT: protect player, AI edits background.
+              // Send WITHOUT mask — AI generates a clean background, then we
+              // composite the original player back client-side (pixel-perfect).
+              // This avoids gpt-image-1 recomposing the scene due to large mask area.
+              // (No reqBody.mask = no mask sent)
             }
+
             resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -7069,23 +7128,23 @@
               const aiResult = `data:image/png;base64,${data.b64}`;
 
               if (removePeople) {
-                // Server handled everything: 3-pass GPT-4o detect + Stability Erase.
+                // Stability AI handled removal — result is final.
+                txt.textContent = '✅ Готово';
+                photoAiResultDataUrl = aiResult;
+              } else if (isSkinRetouch) {
+                // AI edited only the player's skin (player-exposed mask).
+                // Result is final — no composite needed.
                 txt.textContent = '✅ Готово';
                 photoAiResultDataUrl = aiResult;
               } else if (isSky) {
-                // gpt-image-1 tends to recompose the whole scene even with a mask.
-                // Solution: take AI-generated sky pixels only, paste original ground/player
-                // on top — pixel-perfect, no ghosting, no repositioning.
+                // Take AI sky pixels only; paste original ground + player client-side.
                 txt.textContent = 'Накладаю небо…';
                 const hy = _skyHorizonY ?? Math.round(1024 * 0.30);
                 photoAiResultDataUrl = await photoAiSkyComposite(aiResult, photoAiOrig1024, hy, segMask);
-              } else if (editPlayerToo) {
-                // User chose "yes, transform the player too" → AI result is final.
-                txt.textContent = '✅ Готово';
-                photoAiResultDataUrl = aiResult;
               } else {
-                // Generic edit: composite original player back over AI background.
-                txt.textContent = 'Накладаю оригінал…';
+                // Generic background edit: AI generated a stylized background.
+                // Composite original player back on top — pixel-perfect preservation.
+                txt.textContent = 'Зберігаю гравця…';
                 photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
               }
               bar.style.width = '100%';

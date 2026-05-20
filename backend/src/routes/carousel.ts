@@ -277,6 +277,9 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     // ── Detect sky / weather edit intent ────────────────────────────────────────
     const isSky = /небо|хмар|sky|cloud|sunset|sunrise|захід\s*сонц|схід\s*сонц|зорі|stars|зоряне|golden\s*hour|дощ|rain|storm/i.test(styleHint);
 
+    // ── Detect skin / face retouching intent ────────────────────────────────────
+    const isSkinRetouch = /прищ|шкір|blemish|acne|skin|retouch|ретуш|зморшк|розгладь|pimple|scar/i.test(styleHint);
+
     // ── Choose prompt based on context ──────────────────────────────────────────
     // KEY RULE: the person mask (opaque = protected, transparent = editable)
     // is always kept when provided. The mask is what guarantees the player's
@@ -285,7 +288,16 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     // so the player is already aligned with the background in the output.
     let enhancePrompt: string;
 
-    if (isRemovePeople && maskFile) {
+    if (isSkinRetouch && maskFile) {
+      // Skin retouch: the transparent zone is the person's body (player-exposed mask).
+      // AI edits ONLY the skin — fix blemishes, acne, imperfections.
+      // The background is fully protected (opaque in mask).
+      enhancePrompt =
+        `Retouch the skin of the person in this photo: ${styleHint}. ` +
+        `Smoothly remove acne, blemishes, dark spots, and skin imperfections from the face and body. ` +
+        `Preserve the person's natural skin tone, face shape, expression, eye color, hair, and all clothing exactly as they are. ` +
+        `The background must remain 100% unchanged.`;
+    } else if (isRemovePeople && maskFile) {
       // Mask protects the main subject; transparent zone = background only.
       enhancePrompt =
         `Remove all background people (spectators, bystanders) from the photo and fill their spots ` +
