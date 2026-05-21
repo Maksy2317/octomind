@@ -9708,10 +9708,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
 // ── ACCOUNT SETUP WIZARD ─────────────────────────────────────────────────────
 (function() {
-  const TOTAL_STEPS = 6;
   let _wizStep = 0;
   let _wizWsId = 'default';
   let _wizData = {};
+  let _wizTovResult = null; // set after successful URL analysis
 
   const WIZ_STEPS = [
     {
@@ -9782,6 +9782,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       multi: false,
       options: ['🇺🇦 Українська', '🇷🇺 Русский', '🇬🇧 English'],
     },
+    {
+      icon: '✍️',
+      title: 'Tone of Voice',
+      sub: 'Скинь 2–3 посилання на свої пости з Instagram або TikTok — AI вивчить твій стиль письма і буде підписи точно під тебе.',
+      key: 'tovUrls',
+      type: 'urls',
+    },
   ];
 
   function _getWsProfileInternal(wsId) {
@@ -9795,6 +9802,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   window.openAcctWizard = function(wsId) {
     _wizWsId = wsId || getActiveWsId();
     _wizStep = 0;
+    _wizTovResult = null;
     const existing = _getWsProfileInternal(_wizWsId);
     _wizData = existing ? Object.assign({}, existing) : {};
     const el = document.getElementById('acctWizard');
@@ -9831,6 +9839,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       if (d.style && d.style.length) lines.push('<b>Стиль:</b> ' + d.style.join(', '));
       if (d.platforms && d.platforms.length) lines.push('<b>Платформи:</b> ' + d.platforms.join(', '));
       if (d.lang) lines.push('<b>Мова:</b> ' + d.lang);
+      if (_wizTovResult) lines.push('<b>Tone of Voice:</b> <span style="color:#4ade80">✅ навчено</span>');
 
       body.innerHTML = '<div class="' + anim + '">'
         + '<span class="wiz-icon">🎉</span>'
@@ -9854,6 +9863,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         + 'value="' + v + '" maxlength="60" '
         + 'oninput="_wizSetText(this.value)" '
         + 'onkeydown="if(event.key===\'Enter\')wizNext()">';
+
     } else if (step.type === 'chips') {
       const sel = step.multi ? (Array.isArray(curVal) ? curVal : []) : (curVal || null);
       inputHtml = '<div class="wiz-chips">'
@@ -9864,6 +9874,28 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
               + opt + '</button>';
           }).join('')
         + '</div>';
+
+    } else if (step.type === 'urls') {
+      // Pre-fill saved URLs or show 2 empty rows
+      const savedUrls = Array.isArray(curVal) && curVal.length ? curVal : ['', ''];
+      const rows = savedUrls.map(function(u, i) {
+        const ph = i === 0
+          ? '🎵 https://www.tiktok.com/@username/video/...'
+          : '📸 https://www.instagram.com/p/...';
+        return '<input class="wiz-input wiz-url-inp" style="margin-bottom:8px;" '
+          + 'placeholder="' + ph + '" value="' + u.replace(/"/g, '&quot;') + '">';
+      }).join('');
+
+      // Show previous ToV result if already analyzed this session
+      const tovPreview = _wizTovResult
+        ? '<div style="margin-top:10px;padding:10px 14px;background:#4ade8018;border:1px solid #4ade8040;border-radius:12px;font-size:12px;color:#4ade80;line-height:1.5;">'
+          + '✅ <b>Стиль навчено!</b><br><span style="color:var(--text3);">' + _wizTovResult.slice(0, 200) + (_wizTovResult.length > 200 ? '…' : '') + '</span></div>'
+        : '';
+
+      inputHtml = '<div id="wizUrlList">' + rows + '</div>'
+        + '<button onclick="wizAddUrlRow()" style="background:none;border:1.5px dashed var(--border);color:var(--text4);border-radius:12px;padding:8px 14px;font-size:13px;cursor:pointer;width:100%;margin-bottom:4px;">+ Ще посилання</button>'
+        + '<div id="wizTovStatus" style="display:none;margin-top:8px;font-size:13px;color:var(--text3);text-align:center;"></div>'
+        + tovPreview;
     }
 
     body.innerHTML = '<div class="' + anim + '">'
@@ -9874,11 +9906,19 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '</div>';
 
     const isFirst = _wizStep === 0;
-    footer.innerHTML = (isFirst
-      ? '<button class="wiz-btn-skip" onclick="_wizClose()">✕ Пізніше</button>'
-      : '<button class="wiz-btn-back" onclick="wizBack()">← Назад</button>')
-      + '<button class="wiz-btn-skip" onclick="wizSkip()">Пропустити</button>'
-      + '<button class="wiz-btn-next" onclick="wizNext()">Далі →</button>';
+    const isUrlStep = step.type === 'urls';
+
+    if (isUrlStep) {
+      footer.innerHTML = '<button class="wiz-btn-back" onclick="wizBack()">← Назад</button>'
+        + '<button class="wiz-btn-skip" onclick="wizSkip()">Пропустити</button>'
+        + '<button id="wizTovBtn" class="wiz-btn-next" onclick="wizAnalyzeTov()">✨ Аналізувати</button>';
+    } else {
+      footer.innerHTML = (isFirst
+        ? '<button class="wiz-btn-skip" onclick="_wizClose()">✕ Пізніше</button>'
+        : '<button class="wiz-btn-back" onclick="wizBack()">← Назад</button>')
+        + '<button class="wiz-btn-skip" onclick="wizSkip()">Пропустити</button>'
+        + '<button class="wiz-btn-next" onclick="wizNext()">Далі →</button>';
+    }
   }
 
   window._wizSetText = function(v) {
@@ -9895,6 +9935,96 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       _wizData[key] = opt;
       btn.closest('.wiz-chips').querySelectorAll('.wiz-chip').forEach(function(b) { b.classList.remove('wiz-sel'); });
       btn.classList.add('wiz-sel');
+    }
+  };
+
+  window.wizAddUrlRow = function() {
+    const list = document.getElementById('wizUrlList');
+    if (!list || list.querySelectorAll('.wiz-url-inp').length >= 5) return;
+    const inp = document.createElement('input');
+    inp.className = 'wiz-input wiz-url-inp';
+    inp.style.marginBottom = '8px';
+    inp.placeholder = '🔗 https://...';
+    list.appendChild(inp);
+  };
+
+  window.wizAnalyzeTov = async function() {
+    const urls = [...document.querySelectorAll('#wizUrlList .wiz-url-inp')]
+      .map(function(i) { return i.value.trim(); }).filter(Boolean);
+
+    if (!urls.length) {
+      // No URLs entered — just advance to next step
+      _wizStep++;
+      _renderWizStep(true);
+      return;
+    }
+
+    // Save URLs for if user goes back
+    _wizData.tovUrls = urls;
+
+    const btn = document.getElementById('wizTovBtn');
+    const status = document.getElementById('wizTovStatus');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Завантажую…'; }
+    if (status) { status.style.display = 'block'; status.textContent = '📥 Читаю підписи з постів…'; }
+
+    const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+    const captions = [];
+
+    for (const url of urls) {
+      try {
+        const r = await fetch(BACKEND + '/api/carousel/fetch-post-caption', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url }),
+        });
+        const data = await r.json();
+        if (data.caption) captions.push(data.caption);
+      } catch (_) {}
+    }
+
+    if (!captions.length) {
+      if (status) status.textContent = '⚠️ Не вдалося прочитати підписи. Переконайся що пости публічні.';
+      if (btn) { btn.disabled = false; btn.textContent = '✨ Аналізувати'; }
+      return;
+    }
+
+    if (status) status.textContent = '🧠 Аналізую стиль письма…';
+    if (btn) btn.textContent = '⏳ Аналізую…';
+
+    const prompt = 'Analyze these real social media captions from the SAME creator and describe their unique writing style in 2–3 concise sentences.\n'
+      + 'Focus on: sentence length & rhythm, emoji frequency and types used, formality/slang level, hook style, CTA patterns, any recurring phrases or quirks.\n'
+      + 'Be specific — this will be used as a style guide so AI generates new captions that sound EXACTLY like this person.\n\n'
+      + 'Captions:\n' + captions.map(function(c, i) { return (i+1) + '. ' + c; }).join('\n\n')
+      + '\n\nRespond with the style description only, no intro phrases.';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+      });
+      let text = '';
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const d = line.slice(6); if (d === '[DONE]') break;
+          try { text += JSON.parse(d).text || ''; } catch (_) {}
+        }
+      }
+      _wizTovResult = text.trim();
+      // Save ToV to workspace storage (same as manual analysis)
+      saveWsTov(_wizWsId, { analysis: _wizTovResult, updatedAt: Date.now(), sources: captions.length });
+      capStyleAnalysis = _wizTovResult;
+      // Advance to done
+      _wizStep++;
+      _renderWizStep(true);
+    } catch (e) {
+      if (status) status.textContent = '❌ Помилка: ' + (e.message || e);
+      if (btn) { btn.disabled = false; btn.textContent = '✨ Аналізувати'; }
     }
   };
 
@@ -9922,15 +10052,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     _saveWsProfile(_wizWsId, _wizData);
     _closeWizard();
     applyWsProfileToCaption();
+    loadTovForCurrentWs();
     renderWorkspaces();
     const toast = document.createElement('div');
     toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);'
       + 'background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;'
       + 'font-size:14px;padding:12px 26px;border-radius:20px;z-index:11000;white-space:nowrap;'
       + 'box-shadow:0 8px 32px #0005;animation:wizFadeIn .3s ease;pointer-events:none;';
-    toast.textContent = '✅ Профіль акаунту збережено!';
+    toast.textContent = _wizTovResult ? '✅ Профіль та Tone of Voice збережено!' : '✅ Профіль акаунту збережено!';
     document.body.appendChild(toast);
-    setTimeout(function() { toast.remove(); }, 3000);
+    setTimeout(function() { toast.remove(); }, 3500);
   };
 
   window.applyWsProfileToCaption = function() {
