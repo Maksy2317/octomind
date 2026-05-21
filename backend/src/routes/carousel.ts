@@ -314,10 +314,11 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
     } else if (isSky && maskFile) {
       // Transparent zone = sky only (above detected horizon).
       enhancePrompt =
-        `Transform the sky in this photo: ${styleHint}. ` +
-        `Only change the sky area — everything below (grass, field, players, stands, buildings) ` +
-        `must remain exactly as it is in the original photo. ` +
-        `Make sure the horizon blends naturally between the new sky and the unchanged ground.`;
+        `Dramatically transform the sky in this sports photo: ${styleHint}. ` +
+        `Replace the sky area with a stunning, cinematic, high-impact ${styleHint} sky. ` +
+        `Everything below the horizon — grass, field, athletes, spectators, stands, buildings — ` +
+        `must remain exactly as in the original. ` +
+        `Make the horizon blend naturally between the new sky and the unchanged ground.`;
     } else if (maskFile) {
       // Generic edit with mask: transparent zone = background around the player.
       enhancePrompt =
@@ -325,12 +326,15 @@ carouselRouter.post('/enhance', async (req: Request, res: Response, next: NextFu
         `The person in the foreground should remain completely unchanged — ` +
         `same face, clothing, body position, and expression. Only edit the background.`;
     } else if (isSky) {
-      // Sky intent but no mask provided — prompt-only sky change.
+      // Sky replace — no mask. AI transforms the sky/backdrop area,
+      // client-side composite ensures pixel-perfect player preservation.
       enhancePrompt =
-        `Change only the sky in this photo: ${styleHint}. ` +
-        `The sky is the region above the horizon line. ` +
-        `Everything below the horizon — grass, field, players, spectators, fences, buildings — ` +
-        `must remain 100% identical to the original. Do not move, clone, or alter any person.`;
+        `This is a sports photo. Dramatically transform the sky and background atmosphere: ${styleHint}. ` +
+        `Make the sky visually stunning, cinematic, and high-impact — exactly as described. ` +
+        `Fill the entire upper portion of the image (above the horizon) with the requested sky/atmosphere. ` +
+        `The main athlete/player in the foreground, the grass, and the field must stay completely unchanged. ` +
+        `Do not alter, move, resize, or clone any person. ` +
+        `The sky transformation should make this sports photo look professional, dramatic, and Instagram-worthy.`;
     } else {
       // No mask: full-image edit, instruct model to preserve people naturally.
       enhancePrompt =

@@ -6694,7 +6694,7 @@
     const origPx = ctx.getImageData(0, 0, S, S).data;
 
     const out = new Uint8ClampedArray(S * S * 4);
-    const feather = 18; // soft blend pixels at horizon
+    const feather = 40; // wider feather = more natural sky-to-ground transition
     for (let i = 0; i < S * S; i++) {
       const y = Math.floor(i / S);
       const isPlayer = segMask && segMask[i] > 0.15;
@@ -7085,11 +7085,33 @@
               // SKIN RETOUCH: expose the player (transparent = edit skin),
               // protect the background (opaque). AI edits only the person's skin.
               reqBody.mask = await photoAiCreatePlayerExposedMask(segMask);
-            } else if (isSky && segMask) {
-              // SKY: sky-only mask + client-side composite after
-              const skyResult = await photoAiCreateSkyMask(photoAiOrig1024, segMask);
-              reqBody.mask = skyResult.maskDataUrl;
-              _skyHorizonY = skyResult.horizonY;
+            } else if (isSky) {
+              // SKY REPLACE — no mask sent to AI.
+              //
+              // Problem with color-based sky detection: in sports photos the
+              // actual sky is barely visible (trees/stands cover it). The old
+              // algorithm stopped at row ~5-10, replacing only those few pixels
+              // → result looked identical to the original.
+              //
+              // New approach: horizon = topmost player pixel (from BodyPix segMask).
+              // Everything above the player head = sky zone AI can transform.
+              // Client-side photoAiSkyComposite takes AI pixels above that line
+              // and pastes original player + ground below → pixel-perfect result.
+              const S = 1024;
+              if (segMask) {
+                // Scan top-to-bottom for first player pixel → player head Y
+                let topY = Math.round(S * 0.50); // safe default
+                for (let idx = 0; idx < S * S; idx++) {
+                  if (segMask[idx] > 0.15) { topY = Math.floor(idx / S); break; }
+                }
+                // Horizon = player top. Clamp: min 22% (always visible change), max 62%.
+                _skyHorizonY = Math.max(topY, Math.round(S * 0.22));
+                _skyHorizonY = Math.min(_skyHorizonY, Math.round(S * 0.62));
+              } else {
+                _skyHorizonY = Math.round(S * 0.38); // no segmask: top 38%
+              }
+              // reqBody.mask intentionally NOT set — AI sees full image,
+              // generates a more coherent dramatic sky without mask constraints.
             } else if (segMask) {
               // GENERIC BACKGROUND EDIT: protect player, AI edits background.
               // Send WITHOUT mask — AI generates a clean background, then we
