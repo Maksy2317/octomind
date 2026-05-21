@@ -1183,6 +1183,60 @@
     }
     .wiz-done-summary b { color: var(--text); }
 
+    /* ── Profile field editor ── */
+    .prof-field {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .prof-field:last-child { border-bottom: none; }
+    .prof-field-label {
+      font-size: 12px; color: var(--text4); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      width: 90px; flex-shrink: 0; padding-top: 2px;
+    }
+    .prof-field-val {
+      flex: 1; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+    }
+    .prof-tag {
+      font-size: 12px; padding: 3px 10px; border-radius: 20px;
+      background: var(--surface3); color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .prof-empty { font-size: 13px; color: var(--text4); font-style: italic; }
+    .prof-edit-btn {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text4); font-size: 12px; padding: 3px 9px;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+      transition: all .15s;
+    }
+    .prof-edit-btn:hover { border-color: var(--accent); color: var(--accent2); }
+    /* inline editor that drops below a field */
+    .prof-inline-editor {
+      background: var(--surface2); border: 1.5px solid var(--accent);
+      border-radius: 14px; padding: 12px 14px; margin-top: 4px;
+      width: 100%; box-sizing: border-box;
+    }
+    .prof-inline-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .prof-inline-chip {
+      padding: 7px 13px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text3); cursor: pointer; transition: all .14s;
+    }
+    .prof-inline-chip.sel {
+      background: linear-gradient(135deg,#6C63FF22,#38BDF822);
+      border-color: var(--accent); color: var(--accent2);
+    }
+    .prof-inline-actions { display: flex; gap: 8px; }
+    .prof-inline-save {
+      flex: 1; padding: 9px; border-radius: 12px; font-size: 13px;
+      font-weight: 700; border: none; cursor: pointer;
+      background: linear-gradient(135deg,var(--accent),#38BDF8); color: #fff;
+    }
+    .prof-inline-cancel {
+      padding: 9px 14px; border-radius: 12px; font-size: 13px; font-weight: 600;
+      border: 1.5px solid var(--border); background: none; color: var(--text3); cursor: pointer;
+    }
+
     /* ── Dashboard setup banner ── */
     #dashSetupBanner {
       margin-bottom: 16px;
@@ -2780,6 +2834,9 @@
               <button onclick="addWorkspace()" class="btn btn-primary" style="padding:10px 16px;font-size:13px;" data-i18n="ws_add_btn">+ Додати</button>
             </div>
           </div>
+
+          <!-- Account profile card (rendered dynamically) -->
+          <div id="profileCard"></div>
         </div>
 
         <!-- Settings -->
@@ -3110,6 +3167,7 @@
       setTimeout(function() {
         try { renderProfile(); } catch(e) {}
         try { if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner(); } catch(e) {}
+        try { if (typeof renderProfileCard !== 'undefined') renderProfileCard(); } catch(e) {}
       }, 0);
     } else {
       document.getElementById('quizWrap').style.display = '';
@@ -3697,6 +3755,7 @@
     if (id === 'calendar') calInit();
     if (id === 'caption')  capInitScreen();
     if (id === 'dashboard' && typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    if (id === 'profile'  && typeof renderProfileCard    !== 'undefined') renderProfileCard();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
     const w = document.getElementById('octoWidget');
     if (w) w.style.display = id === 'advisor' ? 'none' : 'block';
@@ -3784,6 +3843,24 @@
     document.getElementById('imgPreviewThumb').src = '';
   }
 
+  function buildProfileContext() {
+    const wsId = getActiveWsId();
+    const profile = (typeof getWsProfile !== 'undefined') ? getWsProfile(wsId) : null;
+    const tov = (typeof getWsTov !== 'undefined') ? getWsTov(wsId) : null;
+    if (!profile && !tov) return null;
+    const lines = [];
+    if (profile) {
+      if (profile.brandName) lines.push('Brand/Account name: ' + profile.brandName);
+      if (profile.niche)     lines.push('Niche: ' + profile.niche);
+      if (profile.audience)  lines.push('Target audience: ' + profile.audience);
+      if (profile.style && profile.style.length)     lines.push('Content style: ' + profile.style.join(', '));
+      if (profile.platforms && profile.platforms.length) lines.push('Publishing platforms: ' + profile.platforms.join(', '));
+      if (profile.lang)      lines.push('Preferred caption language: ' + profile.lang);
+    }
+    if (tov && tov.analysis) lines.push('Writing style / Tone of Voice: ' + tov.analysis);
+    return lines.length ? lines.join('\n') : null;
+  }
+
   async function sendMsg() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
@@ -3827,7 +3904,7 @@
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: historyToSend })
+        body: JSON.stringify({ messages: historyToSend, context: buildProfileContext() })
       });
 
       const bubble = document.getElementById('bubble-' + aiId);
@@ -7905,6 +7982,7 @@
     if (typeof applyWsProfileToCaption !== 'undefined') applyWsProfileToCaption();
     renderWorkspaces();
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    if (typeof renderProfileCard !== 'undefined') renderProfileCard();
   }
 
   function addWorkspace() {
@@ -10119,6 +10197,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     loadTovForCurrentWs();
     renderWorkspaces();
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    if (typeof renderProfileCard !== 'undefined') renderProfileCard();
     const toast = document.createElement('div');
     toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);'
       + 'background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;'
@@ -10175,6 +10254,206 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         if (toneChip) capChip('capTone', toneChip);
       }
     }
+  };
+})();
+
+// ── ACCOUNT PROFILE CARD (profile screen) ────────────────────────────────────
+(function() {
+  const FIELD_DEFS = [
+    { key: 'brandName', icon: '✏️', label: 'Назва',      type: 'text',  placeholder: 'Іван Спорт, Studio Bloom...' },
+    { key: 'niche',     icon: '🎯', label: 'Ніша',       type: 'chips', multi: false,
+      options: ['⚽ Спорт','💪 Фітнес / ЗОЖ','🏡 Нерухомість','💅 Б\'юті','🍕 Їжа / Ресторан','✈️ Подорожі','💻 Технології','💼 Бізнес','📚 Освіта','🎨 Творчість','🛒 E-commerce','🎭 Розваги'] },
+    { key: 'audience',  icon: '👥', label: 'Аудиторія',  type: 'chips', multi: false,
+      options: ['🧒 13–17 років','🧑 18–24 роки','👨 25–34 роки','🧔 35–44 роки','👴 45+ років','🌍 Широка аудиторія'] },
+    { key: 'style',     icon: '🎨', label: 'Стиль',      type: 'chips', multi: true,
+      options: ['🔥 Динамічний','✨ Естетичний','📖 Освітній','😂 Гумористичний','💪 Мотиваційний','🛒 Продаючий','🎬 Кінематографічний','💡 Натхненний'] },
+    { key: 'platforms', icon: '📱', label: 'Платформи',  type: 'chips', multi: true,
+      options: ['🎵 TikTok','🎬 Instagram Reels','📖 Stories','▶️ YouTube Shorts','💼 LinkedIn','📘 Facebook'] },
+    { key: 'lang',      icon: '🗣️', label: 'Мова',       type: 'chips', multi: false,
+      options: ['🇺🇦 Українська','🇷🇺 Русский','🇬🇧 English'] },
+  ];
+
+  let _editingKey = null;
+  let _editVal    = null;
+
+  window.renderProfileCard = function() {
+    const el = document.getElementById('profileCard');
+    if (!el) return;
+    const wsId   = getActiveWsId();
+    const profile = (typeof getWsProfile !== 'undefined') ? getWsProfile(wsId) : null;
+    const tov     = (typeof getWsTov !== 'undefined') ? getWsTov(wsId) : null;
+    const wsName  = (typeof _getWsName !== 'undefined') ? _getWsName(wsId) : wsId;
+
+    _editingKey = null;
+
+    let rows = FIELD_DEFS.map(function(f) {
+      const val = profile ? profile[f.key] : null;
+      let valHtml = '';
+      if (!val || (Array.isArray(val) && !val.length)) {
+        valHtml = '<span class="prof-empty">не вказано</span>';
+      } else if (Array.isArray(val)) {
+        valHtml = val.map(function(v) { return '<span class="prof-tag">' + v + '</span>'; }).join('');
+      } else {
+        valHtml = '<span class="prof-tag">' + val + '</span>';
+      }
+      return '<div class="prof-field" id="pf-row-' + f.key + '">'
+        + '<div class="prof-field-label">' + f.icon + ' ' + f.label + '</div>'
+        + '<div class="prof-field-val" id="pf-val-' + f.key + '">' + valHtml + '</div>'
+        + '<button class="prof-edit-btn" onclick="profEditField(\'' + f.key + '\')" id="pf-btn-' + f.key + '">✎</button>'
+        + '</div>'
+        + '<div id="pf-editor-' + f.key + '" style="display:none;"></div>';
+    }).join('');
+
+    // ToV row
+    let tovHtml = '';
+    if (tov && tov.analysis) {
+      const preview = tov.analysis.slice(0, 120) + (tov.analysis.length > 120 ? '…' : '');
+      const srcLabel = tov.sources ? tov.sources + ' пост(и)' : '';
+      tovHtml = '<span class="prof-tag" style="background:#4ade8018;color:#4ade80;border-color:#4ade8040;">✅ навчено' + (srcLabel ? ' · ' + srcLabel : '') + '</span>'
+        + '<span style="font-size:12px;color:var(--text4);display:block;width:100%;margin-top:4px;line-height:1.4;">' + preview + '</span>';
+    } else {
+      tovHtml = '<span class="prof-empty">не налаштовано</span>';
+    }
+    rows += '<div class="prof-field">'
+      + '<div class="prof-field-label">✍️ ToV</div>'
+      + '<div class="prof-field-val" style="flex-direction:column;align-items:flex-start;">' + tovHtml + '</div>'
+      + '<div style="display:flex;gap:6px;flex-shrink:0;">'
+      + (tov ? '<button class="prof-edit-btn" onclick="profClearTov()" style="color:#ff6b6b;border-color:#ff6b6b44;" title="Скинути">🗑</button>' : '')
+      + '<button class="prof-edit-btn" onclick="openAcctWizard(\'' + wsId + '\')" title="Відкрити wizard">⚙️</button>'
+      + '</div>'
+      + '</div>';
+
+    const hasAny = !!(profile || tov);
+    el.innerHTML = '<div class="card">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+      +   '<div>'
+      +     '<div class="card-title" style="margin-bottom:2px;">⚙️ Профіль акаунту</div>'
+      +     '<div style="font-size:12px;color:var(--accent2);font-weight:600;">' + wsName + '</div>'
+      +   '</div>'
+      +   '<div style="display:flex;gap:8px;align-items:center;">'
+      +     (hasAny ? '<button onclick="profClearAll(\'' + wsId + '\')" style="background:none;border:1px solid #ff6b6b44;border-radius:8px;color:#ff6b6b;font-size:12px;padding:5px 10px;cursor:pointer;">🗑 Скинути</button>' : '')
+      +     '<button onclick="openAcctWizard(\'' + wsId + '\')" class="prof-edit-btn" style="padding:6px 12px;font-size:13px;font-weight:700;border-color:var(--accent);color:var(--accent2);">+ Заповнити</button>'
+      +   '</div>'
+      + '</div>'
+      + rows
+      + (!hasAny ? '<div style="text-align:center;padding:16px 0;font-size:13px;color:var(--text4);">Профіль порожній — пройди налаштування щоб AI знав про твій акаунт</div>' : '')
+      + '</div>';
+  };
+
+  window.profEditField = function(key) {
+    // Close any open editor first
+    if (_editingKey && _editingKey !== key) {
+      const prev = document.getElementById('pf-editor-' + _editingKey);
+      if (prev) prev.style.display = 'none';
+      const prevBtn = document.getElementById('pf-btn-' + _editingKey);
+      if (prevBtn) prevBtn.textContent = '✎';
+    }
+    if (_editingKey === key) {
+      // Toggle close
+      document.getElementById('pf-editor-' + key).style.display = 'none';
+      document.getElementById('pf-btn-' + key).textContent = '✎';
+      _editingKey = null; return;
+    }
+
+    _editingKey = key;
+    const btn = document.getElementById('pf-btn-' + key);
+    if (btn) btn.textContent = '▲';
+
+    const wsId = getActiveWsId();
+    const profile = (typeof getWsProfile !== 'undefined') ? getWsProfile(wsId) : null;
+    const f = FIELD_DEFS.find(function(d) { return d.key === key; });
+    if (!f) return;
+
+    const curVal = profile ? profile[key] : null;
+    _editVal = curVal ? (Array.isArray(curVal) ? curVal.slice() : curVal) : (f.multi ? [] : null);
+
+    const editorEl = document.getElementById('pf-editor-' + key);
+    let inner = '';
+
+    if (f.type === 'text') {
+      const v = (typeof _editVal === 'string' ? _editVal : '').replace(/"/g, '&quot;');
+      inner = '<input id="profInpText" class="wiz-input" type="text" value="' + v + '" '
+        + 'placeholder="' + (f.placeholder||'') + '" maxlength="60" style="margin-bottom:10px;">';
+    } else {
+      const sel = f.multi ? (Array.isArray(_editVal) ? _editVal : []) : (_editVal || null);
+      inner = '<div class="prof-inline-chips">'
+        + f.options.map(function(opt) {
+            const isSel = f.multi ? sel.indexOf(opt) >= 0 : sel === opt;
+            return '<button class="prof-inline-chip' + (isSel ? ' sel' : '') + '" '
+              + 'onclick="profToggleChip(this,\'' + key + '\',' + f.multi + ',\'' + opt.replace(/'/g,'&#39;') + '\')">'
+              + opt + '</button>';
+          }).join('')
+        + '</div>';
+    }
+
+    editorEl.innerHTML = '<div class="prof-inline-editor">'
+      + inner
+      + '<div class="prof-inline-actions">'
+      +   '<button class="prof-inline-cancel" onclick="profCancelEdit(\'' + key + '\')">Скасувати</button>'
+      +   '<button class="prof-inline-save" onclick="profSaveField(\'' + key + '\')">💾 Зберегти</button>'
+      + '</div>'
+      + '</div>';
+    editorEl.style.display = 'block';
+  };
+
+  window.profToggleChip = function(btn, key, multi, opt) {
+    if (multi) {
+      if (!Array.isArray(_editVal)) _editVal = [];
+      const idx = _editVal.indexOf(opt);
+      if (idx >= 0) { _editVal.splice(idx, 1); btn.classList.remove('sel'); }
+      else { _editVal.push(opt); btn.classList.add('sel'); }
+    } else {
+      _editVal = opt;
+      btn.closest('.prof-inline-chips').querySelectorAll('.prof-inline-chip').forEach(function(b) { b.classList.remove('sel'); });
+      btn.classList.add('sel');
+    }
+  };
+
+  window.profSaveField = function(key) {
+    const textInp = document.getElementById('profInpText');
+    if (textInp) _editVal = textInp.value.trim();
+
+    const wsId = getActiveWsId();
+    let profile = (typeof getWsProfile !== 'undefined') ? getWsProfile(wsId) : null;
+    if (!profile) profile = {};
+    if (_editVal === null || _editVal === '' || (Array.isArray(_editVal) && !_editVal.length)) {
+      delete profile[key];
+    } else {
+      profile[key] = _editVal;
+    }
+    localStorage.setItem('octo_profile_' + wsId, JSON.stringify(profile));
+    if (typeof applyWsProfileToCaption !== 'undefined') applyWsProfileToCaption();
+    renderProfileCard();
+    if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    renderWorkspaces();
+  };
+
+  window.profCancelEdit = function(key) {
+    const edEl = document.getElementById('pf-editor-' + key);
+    if (edEl) edEl.style.display = 'none';
+    const btn = document.getElementById('pf-btn-' + key);
+    if (btn) btn.textContent = '✎';
+    _editingKey = null;
+  };
+
+  window.profClearTov = function() {
+    if (!confirm('Скинути Tone of Voice для цього акаунту?')) return;
+    saveWsTov(getActiveWsId(), null);
+    capStyleAnalysis = null;
+    loadTovForCurrentWs();
+    renderProfileCard();
+    if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    renderWorkspaces();
+  };
+
+  window.profClearAll = function(wsId) {
+    if (!confirm('Скинути весь профіль акаунту «' + (typeof _getWsName !== 'undefined' ? _getWsName(wsId) : wsId) + '»?')) return;
+    localStorage.removeItem('octo_profile_' + wsId);
+    saveWsTov(wsId, null);
+    if (wsId === getActiveWsId()) { capStyleAnalysis = null; loadTovForCurrentWs(); }
+    renderProfileCard();
+    if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    renderWorkspaces();
   };
 })();
 

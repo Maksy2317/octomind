@@ -113,7 +113,7 @@ When analyzing images: describe what you see, identify marketing opportunities, 
 
 
 chatRouter.post('/', async (req: Request, res: Response) => {
-  const { messages } = req.body;
+  const { messages, context } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
@@ -122,6 +122,15 @@ chatRouter.post('/', async (req: Request, res: Response) => {
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'AI not configured' });
   }
+
+  // Build personalised system prompt if user account context is provided
+  const systemPrompt = context
+    ? SYSTEM_PROMPT + '\n\n━━━ USER ACCOUNT CONTEXT ━━━\n'
+      + 'The following is saved information about this user\'s social media account. '
+      + 'Use it to personalise every response — reference their brand, niche, audience and platforms proactively. '
+      + 'Write captions/plans/strategies specifically for their context, not generically.\n'
+      + String(context).slice(0, 1200)  // safety cap
+    : SYSTEM_PROMPT;
 
   try {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -132,7 +141,7 @@ chatRouter.post('/', async (req: Request, res: Response) => {
     const stream = client.messages.stream({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: messages.slice(-20),
     });
 
