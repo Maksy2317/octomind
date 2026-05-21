@@ -2707,26 +2707,36 @@
             <div class="cap-section-toggle" id="capStyleToggle" onclick="capToggleStyle()">
               <div>
                 <div style="font-size:13px;font-weight:700;color:var(--text);">🎯 Мій стиль</div>
-                <div style="font-size:11px;color:var(--text4);margin-top:2px;">Навчи AI писати як ти — вкинь 2–3 свої підписи</div>
+                <div style="font-size:11px;color:var(--text4);margin-top:2px;">Вкинь посилання на 2–3 свої пости — AI навчиться писати як ти</div>
               </div>
               <span class="toggle-arrow" id="capStyleArrow">▼</span>
             </div>
             <div id="capStyleBody" style="display:none;" class="cap-section-body">
-              <textarea id="capStyleExamples" class="cap-textarea" rows="4"
-                style="min-height:90px;margin-bottom:10px;"
-                placeholder="Встав 2–3 свої підписи з Instagram/TikTok:
-
-Вчора вперше пробіг 10 км 🔥 Три місяці тому навіть 1 км...
-#бігати #спорт
-
-Якщо ти читаєш це о 23:00 — ти знаєш про що я 😅"></textarea>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <button class="cap-analyze-btn" id="capStyleBtn" onclick="capAnalyzeStyle()">
-                  🔍 Аналізувати стиль
+              <p style="font-size:12px;color:var(--text4);margin:0 0 10px;line-height:1.5;">
+                Встав посилання на свої пости з Instagram або TikTok (по одному в рядку). Ми витягнемо підписи і навчимо AI писати в твоєму стилі.
+              </p>
+              <!-- URL inputs -->
+              <div id="capStyleUrls">
+                <div class="cap-url-row" style="display:flex;gap:6px;margin-bottom:6px;">
+                  <input class="cap-input cap-url-input" placeholder="https://www.instagram.com/p/..." style="flex:1;font-size:13px;padding:9px 12px;">
+                  <span style="padding:9px 6px;color:var(--text4);font-size:16px;cursor:pointer;" onclick="capRemoveUrl(this)">✕</span>
+                </div>
+                <div class="cap-url-row" style="display:flex;gap:6px;margin-bottom:6px;">
+                  <input class="cap-input cap-url-input" placeholder="https://www.tiktok.com/@.../video/..." style="flex:1;font-size:13px;padding:9px 12px;">
+                  <span style="padding:9px 6px;color:var(--text4);font-size:16px;cursor:pointer;" onclick="capRemoveUrl(this)">✕</span>
+                </div>
+              </div>
+              <button class="cap-analyze-btn" onclick="capAddUrlRow()" style="margin-bottom:10px;color:var(--accent);">+ Додати ще посилання</button>
+              <!-- Fetched captions preview -->
+              <div id="capFetchedCaptions" style="display:none;margin-bottom:10px;">
+                <div style="font-size:11px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-bottom:6px;">Знайдені підписи:</div>
+                <div id="capFetchedList" style="font-size:12px;color:var(--text3);line-height:1.6;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;max-height:140px;overflow-y:auto;white-space:pre-wrap;"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <button class="cap-analyze-btn" id="capFetchBtn" onclick="capFetchAndAnalyze()">
+                  ✨ Завантажити та аналізувати
                 </button>
-                <button class="cap-analyze-btn" onclick="capClearStyle()" style="color:var(--text4);">
-                  ✕ Скинути
-                </button>
+                <button class="cap-analyze-btn" onclick="capClearStyle()" style="color:var(--text4);">✕ Скинути</button>
               </div>
               <div id="capStyleBadge" style="display:none;" class="cap-style-badge"></div>
             </div>
@@ -2771,10 +2781,10 @@
             <div class="cap-label">📸 Завантаж фото/скрін <span style="color:var(--text4);font-weight:400;text-transform:none;letter-spacing:0;">(необов'язково — AI опише контент)</span></div>
             <label class="cap-photo-zone" id="capPhotoZone" for="capPhotoInput">
               <span style="font-size:28px;">🖼️</span>
-              <span style="font-size:13px;color:var(--text3);">Клацни, щоб завантажити фото</span>
-              <span style="font-size:11px;color:var(--text4);">AI автоматично опише що на ньому і заповнить поле нижче</span>
+              <span style="font-size:13px;color:var(--text3);">Клацни, щоб завантажити фото або відео</span>
+              <span style="font-size:11px;color:var(--text4);">AI опише контент і заповнить поле нижче</span>
             </label>
-            <input type="file" id="capPhotoInput" accept="image/*" style="display:none;" onchange="capAnalyzePhoto(this)">
+            <input type="file" id="capPhotoInput" accept="image/*,video/*" style="display:none;" onchange="capAnalyzePhoto(this)">
           </div>
 
           <!-- Description -->
@@ -7811,7 +7821,7 @@
   };
   const CAP_LANG_NAMES = { ru: 'русском языке', uk: 'украинском языке', en: 'English' };
 
-  // ── Caption AI: style learning & photo analysis ──────────────────────────
+  // ── Caption AI: style learning (URL-based) & photo/video analysis ──────────
 
   let capStyleAnalysis = null; // persists across generations in the session
 
@@ -7825,33 +7835,98 @@
     tog.classList.toggle('open', !open);
   }
 
-  function capClearStyle() {
-    capStyleAnalysis = null;
-    document.getElementById('capStyleExamples').value = '';
-    document.getElementById('capStyleBadge').style.display = 'none';
+  function capAddUrlRow() {
+    const container = document.getElementById('capStyleUrls');
+    const row = document.createElement('div');
+    row.className = 'cap-url-row';
+    row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+    row.innerHTML = `<input class="cap-input cap-url-input" placeholder="https://www.instagram.com/p/..." style="flex:1;font-size:13px;padding:9px 12px;">
+      <span style="padding:9px 6px;color:var(--text4);font-size:16px;cursor:pointer;" onclick="capRemoveUrl(this)">✕</span>`;
+    container.appendChild(row);
   }
 
-  async function capAnalyzeStyle() {
-    const examples = document.getElementById('capStyleExamples').value.trim();
-    if (!examples) {
-      document.getElementById('capStyleExamples').focus();
+  function capRemoveUrl(el) {
+    el.closest('.cap-url-row').remove();
+  }
+
+  function capClearStyle() {
+    capStyleAnalysis = null;
+    document.querySelectorAll('.cap-url-input').forEach(i => { i.value = ''; });
+    document.getElementById('capFetchedCaptions').style.display = 'none';
+    document.getElementById('capFetchedList').textContent = '';
+    document.getElementById('capStyleBadge').style.display = 'none';
+    document.getElementById('capStyleToggle').querySelector('.toggle-arrow').style.cssText = '';
+    document.getElementById('capStyleToggle').classList.remove('open');
+  }
+
+  async function capFetchAndAnalyze() {
+    const urls = [...document.querySelectorAll('.cap-url-input')]
+      .map(i => i.value.trim()).filter(Boolean);
+    if (!urls.length) {
+      alert('Вкинь хоча б одне посилання на пост');
       return;
     }
-    const btn   = document.getElementById('capStyleBtn');
+
+    const btn   = document.getElementById('capFetchBtn');
     const badge = document.getElementById('capStyleBadge');
     btn.disabled = true;
-    btn.textContent = '⏳ Аналізую…';
+    btn.textContent = '⏳ Завантажую підписи…';
     badge.style.display = 'none';
     capStyleAnalysis = null;
 
-    const prompt = `Analyze these social media captions and describe the creator's unique writing style in 2–3 concise sentences.
-Focus on: sentence length & rhythm, emoji frequency and types, formality level, hook style, CTA patterns, any recurring phrases or quirks.
-Be specific — this description will be used as a style guide to generate new captions that sound exactly like this creator.
+    const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
+    const captions = [];
+
+    for (const url of urls) {
+      try {
+        const r = await fetch(`${BACKEND}/api/carousel/fetch-post-caption`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await r.json();
+        if (data.caption) {
+          captions.push({ url, caption: data.caption, author: data.author, platform: data.platform });
+        } else {
+          captions.push({ url, caption: null, error: data.error });
+        }
+      } catch {
+        captions.push({ url, caption: null, error: 'Мережева помилка' });
+      }
+    }
+
+    const good = captions.filter(c => c.caption);
+    const bad  = captions.filter(c => !c.caption);
+
+    // Show fetched results
+    const fetchedDiv = document.getElementById('capFetchedCaptions');
+    const fetchedList = document.getElementById('capFetchedList');
+    fetchedDiv.style.display = 'block';
+    fetchedList.textContent = good.map((c, i) =>
+      `[${i+1}] ${c.platform === 'instagram' ? '📸' : '🎵'} ${c.caption}`
+    ).join('\n\n') + (bad.length ? `\n\n⚠️ Не вдалося: ${bad.map(b => b.error || b.url).join(', ')}` : '');
+
+    if (!good.length) {
+      badge.style.display = 'block';
+      badge.style.cssText = 'color:#ff6b6b;background:#ff6b6b18;border-color:#ff6b6b44;margin-top:10px;padding:10px 14px;border-radius:10px;font-size:12px;';
+      badge.textContent = '❌ Не вдалося завантажити жодного підпису. Переконайся що пости публічні.';
+      btn.disabled = false;
+      btn.textContent = '✨ Завантажити та аналізувати';
+      return;
+    }
+
+    // Analyze style with Claude
+    btn.textContent = '⏳ Аналізую стиль…';
+    const allCaptions = good.map((c, i) => `${i+1}. ${c.caption}`).join('\n\n');
+
+    const prompt = `Analyze these real social media captions from the SAME creator and describe their unique writing style in 2–3 concise sentences.
+Focus on: sentence length & rhythm, emoji frequency and types used, formality/slang level, hook style (question/shock/statement), CTA patterns, any recurring phrases or quirks.
+Be specific — this will be used as a style guide so AI generates new captions that sound EXACTLY like this person.
 
 Captions:
-${examples}
+${allCaptions}
 
-Respond with the style description only, no intro.`;
+Respond with the style description only, no intro phrases.`;
 
     try {
       const res = await fetch('/api/chat', {
@@ -7872,76 +7947,129 @@ Respond with the style description only, no intro.`;
         }
       }
       capStyleAnalysis = text.trim();
+      badge.style.cssText = '';
       badge.style.display = 'block';
-      badge.innerHTML = `✅ <b>Стиль вивчено!</b> AI писатиме в твоєму стилі.<br>
-        <span style="color:#a3e4a3;font-weight:400;">${capStyleAnalysis.slice(0, 140)}${capStyleAnalysis.length > 140 ? '…' : ''}</span>`;
+      badge.innerHTML = `✅ <b>Стиль вивчено!</b> Завантажено ${good.length} підпис(и).<br>
+        <span style="color:#a3e4a3;font-weight:400;">${capStyleAnalysis.slice(0, 160)}${capStyleAnalysis.length > 160 ? '…' : ''}</span>`;
     } catch (e) {
       badge.style.display = 'block';
-      badge.style.cssText = 'color:#ff6b6b;background:#ff6b6b18;border-color:#ff6b6b44;';
+      badge.style.cssText = 'color:#ff6b6b;background:#ff6b6b18;border-color:#ff6b6b44;margin-top:10px;padding:10px 14px;border-radius:10px;font-size:12px;';
       badge.textContent = '❌ Помилка аналізу. Спробуй ще раз.';
     } finally {
       btn.disabled = false;
-      btn.textContent = '🔍 Аналізувати стиль';
+      btn.textContent = '✨ Завантажити та аналізувати';
+    }
+  }
+
+  // ── Extract a frame from a video file for Claude Vision analysis ──────────
+  function capExtractVideoFrame(file) {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      const objUrl = URL.createObjectURL(file);
+      video.src = objUrl;
+
+      const trySeek = () => {
+        video.currentTime = Math.min(1.5, video.duration * 0.1 || 1.5);
+      };
+
+      video.addEventListener('loadedmetadata', trySeek);
+      video.addEventListener('seeked', () => {
+        const cv = document.createElement('canvas');
+        cv.width  = Math.min(video.videoWidth  || 640, 1280);
+        cv.height = Math.min(video.videoHeight || 360, 720);
+        cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(objUrl);
+        resolve(cv.toDataURL('image/jpeg', 0.88));
+      });
+      video.addEventListener('error', () => { URL.revokeObjectURL(objUrl); resolve(null); });
+      video.load();
+    });
+  }
+
+  // ── Shared function: send image dataUrl to Claude Vision, fill capDesc ────
+  async function capSendToVision(dataUrl, mimeType, isVideo) {
+    const zone = document.getElementById('capPhotoZone');
+    const base64 = dataUrl.replace(/^data:image\/[^;]+;base64,/, '');
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+              { type: 'text', text: `Describe what you see in this ${isVideo ? 'video frame' : 'image'} in 2–3 sentences as a concise social media content description. Focus on: what is happening, the setting/location, the mood/energy. Write naturally, no "I see" intro phrases — just describe directly.` }
+            ]
+          }]
+        })
+      });
+      let text = '';
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const d = line.slice(6); if (d === '[DONE]') break;
+          try { text += JSON.parse(d).text || ''; } catch {}
+        }
+      }
+      const desc = text.trim();
+      document.getElementById('capDesc').value = desc;
+      document.getElementById('capDesc').style.borderColor = 'var(--accent)';
+      setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 2500);
+      document.getElementById('capDescAiTag').style.display = 'inline-block';
+      zone.querySelector('#capPhotoSpan').textContent = `✅ ${isVideo ? 'Відео' : 'Фото'} проаналізовано · клацни щоб змінити`;
+      zone.querySelector('#capPhotoSpan').style.color = '#4ade80';
+    } catch {
+      zone.querySelector('#capPhotoSpan').textContent = '❌ Не вдалося. Опиши контент вручну.';
     }
   }
 
   function capAnalyzePhoto(input) {
     const file = input.files[0];
     if (!file) return;
+    const isVideo = file.type.startsWith('video/');
     const zone = document.getElementById('capPhotoZone');
-    const descTag = document.getElementById('capDescAiTag');
 
-    const fr = new FileReader();
-    fr.onload = async (e) => {
-      const dataUrl  = e.target.result;
-      const base64   = dataUrl.replace(/^data:image\/[^;]+;base64,/, '');
-      const mimeType = file.type || 'image/jpeg';
+    zone.classList.add('has-image');
 
-      // Show thumbnail in zone
-      zone.classList.add('has-image');
+    if (isVideo) {
+      // Show video thumbnail placeholder while extracting frame
       zone.innerHTML = `
-        <img src="${dataUrl}" style="max-height:110px;border-radius:8px;object-fit:contain;">
-        <span id="capPhotoSpan" style="font-size:12px;color:var(--text3);">⏳ Аналізую фото…</span>
-        <input type="file" id="capPhotoInput" accept="image/*" style="display:none;" onchange="capAnalyzePhoto(this)">`;
+        <span style="font-size:32px;">🎬</span>
+        <span id="capPhotoSpan" style="font-size:12px;color:var(--text3);">⏳ Витягую кадр з відео…</span>
+        <input type="file" id="capPhotoInput" accept="image/*,video/*" style="display:none;" onchange="capAnalyzePhoto(this)">`;
 
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-                { type: 'text', text: 'Describe what you see in this image in 2–3 sentences, as a concise social media content description. Focus on: what is happening, the setting/location, the mood/energy. Write naturally, no "I see" intro phrases — just describe directly.' }
-              ]
-            }]
-          })
-        });
-        let text = '';
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          for (const line of dec.decode(value).split('\n')) {
-            if (!line.startsWith('data: ')) continue;
-            const d = line.slice(6); if (d === '[DONE]') break;
-            try { text += JSON.parse(d).text || ''; } catch {}
-          }
+      capExtractVideoFrame(file).then(frameDataUrl => {
+        if (!frameDataUrl) {
+          zone.querySelector('#capPhotoSpan').textContent = '❌ Не вдалося прочитати відео.';
+          return;
         }
-        const desc = text.trim();
-        document.getElementById('capDesc').value = desc;
-        document.getElementById('capDesc').style.borderColor = 'var(--accent)';
-        setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 2500);
-        descTag.style.display = 'inline-block';
-        document.getElementById('capPhotoSpan').textContent = '✅ Готово · натисни щоб змінити фото';
-        document.getElementById('capPhotoSpan').style.color = '#4ade80';
-      } catch (err) {
-        document.getElementById('capPhotoSpan').textContent = '❌ Не вдалося. Опиши контент вручну.';
-      }
-    };
-    fr.readAsDataURL(file);
+        // Show extracted frame
+        zone.innerHTML = `
+          <img src="${frameDataUrl}" style="max-height:110px;border-radius:8px;object-fit:contain;">
+          <span id="capPhotoSpan" style="font-size:12px;color:var(--text3);">⏳ Аналізую вміст відео…</span>
+          <input type="file" id="capPhotoInput" accept="image/*,video/*" style="display:none;" onchange="capAnalyzePhoto(this)">`;
+        capSendToVision(frameDataUrl, 'image/jpeg', true);
+      });
+    } else {
+      const fr = new FileReader();
+      fr.onload = (e) => {
+        const dataUrl  = e.target.result;
+        zone.innerHTML = `
+          <img src="${dataUrl}" style="max-height:110px;border-radius:8px;object-fit:contain;">
+          <span id="capPhotoSpan" style="font-size:12px;color:var(--text3);">⏳ Аналізую фото…</span>
+          <input type="file" id="capPhotoInput" accept="image/*,video/*" style="display:none;" onchange="capAnalyzePhoto(this)">`;
+        capSendToVision(dataUrl, file.type || 'image/jpeg', false);
+      };
+      fr.readAsDataURL(file);
+    }
   }
 
   async function captionGenerate() {
