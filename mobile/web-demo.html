@@ -974,6 +974,42 @@
     body.light-mode .cap-textarea, body.light-mode .cap-input { background: var(--surface2); border-color: var(--border); color: var(--text); }
     body.light-mode .cap-card { background: var(--surface); border-color: var(--border); }
     body.light-mode .cap-copy-btn { background: var(--surface2); border-color: var(--border); }
+    /* Caption AI — Style & Photo additions */
+    .cap-section-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; padding: 12px 16px; border-radius: 14px;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      transition: border-color .18s;
+    }
+    .cap-section-toggle:hover { border-color: var(--accent); }
+    .cap-section-toggle .toggle-arrow { font-size: 14px; color: var(--text3); transition: transform .22s; }
+    .cap-section-toggle.open { border-color: var(--accent); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .cap-section-body {
+      border: 1.5px solid var(--accent); border-top: none;
+      border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;
+      padding: 14px 16px; background: var(--surface2);
+    }
+    .cap-style-badge {
+      margin-top: 10px; padding: 10px 14px; border-radius: 10px;
+      background: #4ade8018; border: 1px solid #4ade8044;
+      font-size: 12px; line-height: 1.5; color: #4ade80;
+    }
+    .cap-photo-zone {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 96px; gap: 7px; padding: 18px;
+      border: 2px dashed var(--border); border-radius: 14px;
+      cursor: pointer; transition: border-color .18s; text-align: center;
+    }
+    .cap-photo-zone:hover { border-color: var(--accent); }
+    .cap-photo-zone.has-image { border-style: solid; border-color: var(--accent); padding: 10px; }
+    .cap-analyze-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 12px; border: 1.5px solid var(--border);
+      background: var(--surface); color: var(--text2); font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .cap-analyze-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .cap-analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* ── COMPETITOR ── */
     .comp-badge {
@@ -2666,6 +2702,36 @@
       <div class="screen" id="caption">
         <div style="max-width:680px;margin:0 auto;padding-bottom:40px;">
 
+          <!-- ── STYLE LEARNING ──────────────────────────────────────────── -->
+          <div style="margin-bottom:24px;">
+            <div class="cap-section-toggle" id="capStyleToggle" onclick="capToggleStyle()">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text);">🎯 Мій стиль</div>
+                <div style="font-size:11px;color:var(--text4);margin-top:2px;">Навчи AI писати як ти — вкинь 2–3 свої підписи</div>
+              </div>
+              <span class="toggle-arrow" id="capStyleArrow">▼</span>
+            </div>
+            <div id="capStyleBody" style="display:none;" class="cap-section-body">
+              <textarea id="capStyleExamples" class="cap-textarea" rows="4"
+                style="min-height:90px;margin-bottom:10px;"
+                placeholder="Встав 2–3 свої підписи з Instagram/TikTok:
+
+Вчора вперше пробіг 10 км 🔥 Три місяці тому навіть 1 км...
+#бігати #спорт
+
+Якщо ти читаєш це о 23:00 — ти знаєш про що я 😅"></textarea>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <button class="cap-analyze-btn" id="capStyleBtn" onclick="capAnalyzeStyle()">
+                  🔍 Аналізувати стиль
+                </button>
+                <button class="cap-analyze-btn" onclick="capClearStyle()" style="color:var(--text4);">
+                  ✕ Скинути
+                </button>
+              </div>
+              <div id="capStyleBadge" style="display:none;" class="cap-style-badge"></div>
+            </div>
+          </div>
+
           <!-- Platform -->
           <div style="margin-bottom:24px;">
             <div class="cap-label">📱 Платформа</div>
@@ -2700,10 +2766,24 @@
             </div>
           </div>
 
+          <!-- ── PHOTO ANALYSIS ──────────────────────────────────────────── -->
+          <div style="margin-bottom:24px;">
+            <div class="cap-label">📸 Завантаж фото/скрін <span style="color:var(--text4);font-weight:400;text-transform:none;letter-spacing:0;">(необов'язково — AI опише контент)</span></div>
+            <label class="cap-photo-zone" id="capPhotoZone" for="capPhotoInput">
+              <span style="font-size:28px;">🖼️</span>
+              <span style="font-size:13px;color:var(--text3);">Клацни, щоб завантажити фото</span>
+              <span style="font-size:11px;color:var(--text4);">AI автоматично опише що на ньому і заповнить поле нижче</span>
+            </label>
+            <input type="file" id="capPhotoInput" accept="image/*" style="display:none;" onchange="capAnalyzePhoto(this)">
+          </div>
+
           <!-- Description -->
           <div style="margin-bottom:24px;">
-            <div class="cap-label">📝 Опиши свой контент</div>
-            <textarea id="capDesc" class="cap-textarea" placeholder="Например: видео о том, как я похудел на 10 кг за 3 месяца, без диет, только тренировки по 20 минут утром…" rows="4"></textarea>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div class="cap-label" style="margin-bottom:0;">📝 Опиши свій контент</div>
+              <span id="capDescAiTag" style="display:none;font-size:10px;font-weight:700;background:#6C63FF22;color:var(--accent2);border:1px solid var(--accent);border-radius:8px;padding:2px 8px;">✨ AI заповнив</span>
+            </div>
+            <textarea id="capDesc" class="cap-textarea" placeholder="Наприклад: відео про те, як я схуд на 10 кг за 3 місяці, без дієт, тільки тренування по 20 хвилин вранці…" rows="4"></textarea>
           </div>
 
           <!-- Keywords -->
@@ -7731,6 +7811,139 @@
   };
   const CAP_LANG_NAMES = { ru: 'русском языке', uk: 'украинском языке', en: 'English' };
 
+  // ── Caption AI: style learning & photo analysis ──────────────────────────
+
+  let capStyleAnalysis = null; // persists across generations in the session
+
+  function capToggleStyle() {
+    const body  = document.getElementById('capStyleBody');
+    const tog   = document.getElementById('capStyleToggle');
+    const arrow = document.getElementById('capStyleArrow');
+    const open  = body.style.display === 'block';
+    body.style.display = open ? 'none' : 'block';
+    arrow.style.transform = open ? '' : 'rotate(180deg)';
+    tog.classList.toggle('open', !open);
+  }
+
+  function capClearStyle() {
+    capStyleAnalysis = null;
+    document.getElementById('capStyleExamples').value = '';
+    document.getElementById('capStyleBadge').style.display = 'none';
+  }
+
+  async function capAnalyzeStyle() {
+    const examples = document.getElementById('capStyleExamples').value.trim();
+    if (!examples) {
+      document.getElementById('capStyleExamples').focus();
+      return;
+    }
+    const btn   = document.getElementById('capStyleBtn');
+    const badge = document.getElementById('capStyleBadge');
+    btn.disabled = true;
+    btn.textContent = '⏳ Аналізую…';
+    badge.style.display = 'none';
+    capStyleAnalysis = null;
+
+    const prompt = `Analyze these social media captions and describe the creator's unique writing style in 2–3 concise sentences.
+Focus on: sentence length & rhythm, emoji frequency and types, formality level, hook style, CTA patterns, any recurring phrases or quirks.
+Be specific — this description will be used as a style guide to generate new captions that sound exactly like this creator.
+
+Captions:
+${examples}
+
+Respond with the style description only, no intro.`;
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+      });
+      let text = '';
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const d = line.slice(6); if (d === '[DONE]') break;
+          try { text += JSON.parse(d).text || ''; } catch {}
+        }
+      }
+      capStyleAnalysis = text.trim();
+      badge.style.display = 'block';
+      badge.innerHTML = `✅ <b>Стиль вивчено!</b> AI писатиме в твоєму стилі.<br>
+        <span style="color:#a3e4a3;font-weight:400;">${capStyleAnalysis.slice(0, 140)}${capStyleAnalysis.length > 140 ? '…' : ''}</span>`;
+    } catch (e) {
+      badge.style.display = 'block';
+      badge.style.cssText = 'color:#ff6b6b;background:#ff6b6b18;border-color:#ff6b6b44;';
+      badge.textContent = '❌ Помилка аналізу. Спробуй ще раз.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 Аналізувати стиль';
+    }
+  }
+
+  function capAnalyzePhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const zone = document.getElementById('capPhotoZone');
+    const descTag = document.getElementById('capDescAiTag');
+
+    const fr = new FileReader();
+    fr.onload = async (e) => {
+      const dataUrl  = e.target.result;
+      const base64   = dataUrl.replace(/^data:image\/[^;]+;base64,/, '');
+      const mimeType = file.type || 'image/jpeg';
+
+      // Show thumbnail in zone
+      zone.classList.add('has-image');
+      zone.innerHTML = `
+        <img src="${dataUrl}" style="max-height:110px;border-radius:8px;object-fit:contain;">
+        <span id="capPhotoSpan" style="font-size:12px;color:var(--text3);">⏳ Аналізую фото…</span>
+        <input type="file" id="capPhotoInput" accept="image/*" style="display:none;" onchange="capAnalyzePhoto(this)">`;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+                { type: 'text', text: 'Describe what you see in this image in 2–3 sentences, as a concise social media content description. Focus on: what is happening, the setting/location, the mood/energy. Write naturally, no "I see" intro phrases — just describe directly.' }
+              ]
+            }]
+          })
+        });
+        let text = '';
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of dec.decode(value).split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            const d = line.slice(6); if (d === '[DONE]') break;
+            try { text += JSON.parse(d).text || ''; } catch {}
+          }
+        }
+        const desc = text.trim();
+        document.getElementById('capDesc').value = desc;
+        document.getElementById('capDesc').style.borderColor = 'var(--accent)';
+        setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 2500);
+        descTag.style.display = 'inline-block';
+        document.getElementById('capPhotoSpan').textContent = '✅ Готово · натисни щоб змінити фото';
+        document.getElementById('capPhotoSpan').style.color = '#4ade80';
+      } catch (err) {
+        document.getElementById('capPhotoSpan').textContent = '❌ Не вдалося. Опиши контент вручну.';
+      }
+    };
+    fr.readAsDataURL(file);
+  }
+
   async function captionGenerate() {
     const desc = document.getElementById('capDesc').value.trim();
     if (!desc) {
@@ -7756,7 +7969,7 @@
 ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
 Тон: ${CAP_TONE_LABELS[tone] || tone}
 Язык: ${CAP_LANG_NAMES[lang] || lang}
-
+${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого автора (подражай их манере письма, эмодзи, длине предложений, структуре): ${capStyleAnalysis}\n` : ''}
 Требования:
 - Каждый вариант: цепляющий крючок (первые 1-2 строки), основной текст, призыв к действию (CTA)
 - Длина: оптимальная для ${CAP_PLATFORM_LABELS[platform] || platform} (не слишком длинная)
