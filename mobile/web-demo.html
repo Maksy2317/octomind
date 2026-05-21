@@ -7184,10 +7184,24 @@
             clearInterval(tick); tick = null;
             if (!resp.ok) {
               let errMsg = `Помилка сервера ${resp.status}`;
+              let retryable = resp.status === 503 || resp.status === 502 || resp.status === 429;
               try {
                 const errBody = await resp.json();
-                if (errBody.error) errMsg += `: ${errBody.error}`;
+                if (errBody.error) errMsg = errBody.error;
+                if (errBody.retryable) retryable = true;
               } catch (_) {}
+              if (retryable) {
+                // Show retry UI instead of hard alert
+                document.getElementById('photoAiStep3').style.display = 'none';
+                document.getElementById('photoAiStep2').style.display = 'block';
+                const retryBanner = document.createElement('div');
+                retryBanner.style.cssText = 'background:#ff6b3522;border:1.5px solid #ff6b35;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#ff9a6c;display:flex;align-items:center;gap:10px;';
+                retryBanner.innerHTML = `<span style="font-size:18px;">⚠️</span><div><b>AI сервіс тимчасово перевантажений</b><br>Зачекай 10–20 секунд і спробуй ще раз.</div>`;
+                const step2 = document.getElementById('photoAiStep2');
+                step2.insertBefore(retryBanner, step2.firstChild);
+                setTimeout(() => retryBanner.remove(), 8000);
+                return;
+              }
               throw new Error(errMsg);
             }
             const data = await resp.json();
@@ -7242,8 +7256,13 @@
       document.querySelectorAll('.sky-chip').forEach(b => b.classList.remove('sky-active'));
     } catch (err) {
       document.getElementById('photoAiStep3').style.display = 'none';
+      document.getElementById('photoAiStep4').style.display = 'none';
       document.getElementById('photoAiStep2').style.display = 'block';
-      alert('Помилка: ' + (err.message || err));
+      const msg = (err && err.message) ? err.message : String(err);
+      // Don't double-show retryable errors (already handled with inline banner)
+      if (msg.indexOf('тимчасово') === -1) {
+        alert('Помилка: ' + msg);
+      }
     }
   }
 
