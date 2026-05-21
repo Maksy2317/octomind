@@ -2705,8 +2705,11 @@
           <!-- ── STYLE LEARNING ──────────────────────────────────────────── -->
           <div style="margin-bottom:24px;">
             <div class="cap-section-toggle" id="capStyleToggle" onclick="capToggleStyle()">
-              <div>
-                <div style="font-size:13px;font-weight:700;color:var(--text);">🎯 Мій стиль</div>
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:13px;font-weight:700;color:var(--text);">🎯 Tone of Voice</span>
+                  <span id="capStyleWsBadge" style="font-size:10px;font-weight:700;background:var(--surface3);color:var(--text3);border:1px solid var(--border);border-radius:6px;padding:1px 8px;" id="capStyleWsBadge"></span>
+                </div>
                 <div style="font-size:11px;color:var(--text4);margin-top:2px;">Вкинь посилання на 2–3 свої пости — AI навчиться писати як ти</div>
               </div>
               <span class="toggle-arrow" id="capStyleArrow">▼</span>
@@ -7678,6 +7681,57 @@
   function getActiveWsId() {
     return localStorage.getItem('octo_active_ws') || 'default';
   }
+
+  // ── Tone of Voice per workspace ───────────────────────────────────────────
+  function getWsTov(wsId) {
+    try { return JSON.parse(localStorage.getItem('octo_tov_' + wsId) || 'null'); } catch { return null; }
+  }
+  function saveWsTov(wsId, tov) {
+    if (tov) localStorage.setItem('octo_tov_' + wsId, JSON.stringify(tov));
+    else localStorage.removeItem('octo_tov_' + wsId);
+  }
+  function loadTovForCurrentWs() {
+    const wsId = getActiveWsId();
+    const saved = getWsTov(wsId);
+    capStyleAnalysis = saved ? saved.analysis : null;
+    const wsName = _getWsName(wsId);
+
+    // Update workspace name badge in style section header
+    const wsBadge = document.getElementById('capStyleWsBadge');
+    if (wsBadge) {
+      wsBadge.textContent = wsName;
+      if (saved) {
+        wsBadge.style.background = '#4ade8018';
+        wsBadge.style.color = '#4ade80';
+        wsBadge.style.borderColor = '#4ade8040';
+      } else {
+        wsBadge.style.background = '';
+        wsBadge.style.color = '';
+        wsBadge.style.borderColor = '';
+      }
+    }
+
+    // Update style badge in expanded section
+    const badge = document.getElementById('capStyleBadge');
+    if (badge) {
+      if (saved) {
+        badge.style.cssText = '';
+        badge.style.display = 'block';
+        badge.innerHTML = `✅ <b>Tone of Voice для "${wsName}"</b> — завантажено<br>
+          <span style="color:#a3e4a3;font-weight:400;">${saved.analysis.slice(0, 160)}${saved.analysis.length > 160 ? '…' : ''}</span>`;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  }
+  function _getWsName(wsId) {
+    if (wsId === 'default') {
+      const t = translations[currentLang] || translations['uk'];
+      return (t.ws_default || '🏠 Основний проект').replace(/^[^\s]*\s/, '');
+    }
+    const ws = getWorkspaces().find(w => w.id === wsId);
+    return ws ? ws.name : wsId;
+  }
   function setActiveWs(id) {
     localStorage.setItem('octo_active_ws', id);
     // Load that workspace's chat history
@@ -7702,6 +7756,8 @@
       });
       msgs.scrollTop = msgs.scrollHeight;
     }
+    // Load Tone of Voice for the new active workspace
+    loadTovForCurrentWs();
     renderWorkspaces();
   }
 
@@ -7743,16 +7799,24 @@
     const createdLabel = t.ws_created || 'Створено';
     const activeLabel = t.ws_active || '● Активний';
 
-    container.innerHTML = all.map(w => `
-      <div onclick="setActiveWs('${w.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;cursor:pointer;border:1.5px solid ${w.id===activeId?'var(--accent)':'var(--border)'};background:${w.id===activeId?'rgba(108,99,255,0.1)':'var(--surface2)'};transition:all 0.2s;">
+    container.innerHTML = all.map(w => {
+      const hasTov = !!getWsTov(w.id);
+      const isActive = w.id === activeId;
+      return `
+      <div onclick="setActiveWs('${w.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;cursor:pointer;border:1.5px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'rgba(108,99,255,0.1)':'var(--surface2)'};transition:all 0.2s;">
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:14px;color:${w.id===activeId?'var(--accent2)':'var(--text)'};">${w.name}</div>
-          ${w.created ? `<div style="font-size:11px;color:var(--text4);">${createdLabel} ${w.created}</div>` : ''}
+          <div style="font-weight:700;font-size:14px;color:${isActive?'var(--accent2)':'var(--text)'};">${w.name}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+            ${w.created ? `<div style="font-size:11px;color:var(--text4);">${createdLabel} ${w.created}</div>` : ''}
+            ${hasTov ? `<span style="font-size:10px;font-weight:700;background:#4ade8018;color:#4ade80;border:1px solid #4ade8040;border-radius:6px;padding:1px 7px;">🎯 Tone of Voice</span>` : ''}
+          </div>
         </div>
-        ${w.id===activeId ? `<div style="font-size:11px;color:var(--accent);font-weight:700;">${activeLabel}</div>` : ''}
-        ${w.id!=='default' ? `<button onclick="event.stopPropagation();deleteWorkspace('${w.id}')" style="background:transparent;border:none;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>` : ''}
-      </div>
-    `).join('');
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${isActive ? `<div style="font-size:11px;color:var(--accent);font-weight:700;">${activeLabel}</div>` : ''}
+          ${w.id!=='default' ? `<button onclick="event.stopPropagation();deleteWorkspace('${w.id}')" style="background:transparent;border:none;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
   }
 
   // ── PROFILE RENDER ───────────────────────────────────────────────────────────
@@ -7833,6 +7897,8 @@
     body.style.display = open ? 'none' : 'block';
     arrow.style.transform = open ? '' : 'rotate(180deg)';
     tog.classList.toggle('open', !open);
+    // On open: sync badge with current workspace's saved ToV
+    if (!open) loadTovForCurrentWs();
   }
 
   function capAddUrlRow() {
@@ -7851,12 +7917,14 @@
 
   function capClearStyle() {
     capStyleAnalysis = null;
+    // Clear from localStorage for current workspace
+    saveWsTov(getActiveWsId(), null);
     document.querySelectorAll('.cap-url-input').forEach(i => { i.value = ''; });
     document.getElementById('capFetchedCaptions').style.display = 'none';
     document.getElementById('capFetchedList').textContent = '';
     document.getElementById('capStyleBadge').style.display = 'none';
-    document.getElementById('capStyleToggle').querySelector('.toggle-arrow').style.cssText = '';
-    document.getElementById('capStyleToggle').classList.remove('open');
+    // Refresh workspace list to remove 🎯 badge
+    renderWorkspaces();
   }
 
   async function capFetchAndAnalyze() {
@@ -7947,9 +8015,15 @@ Respond with the style description only, no intro phrases.`;
         }
       }
       capStyleAnalysis = text.trim();
+      // Persist ToV for current active workspace
+      const wsId = getActiveWsId();
+      const wsName = _getWsName(wsId);
+      saveWsTov(wsId, { analysis: capStyleAnalysis, updatedAt: Date.now(), sources: good.length });
+      // Refresh workspace list to show 🎯 badge
+      renderWorkspaces();
       badge.style.cssText = '';
       badge.style.display = 'block';
-      badge.innerHTML = `✅ <b>Стиль вивчено!</b> Завантажено ${good.length} підпис(и).<br>
+      badge.innerHTML = `✅ <b>Tone of Voice збережено для "${wsName}"</b> · ${good.length} пост(и)<br>
         <span style="color:#a3e4a3;font-weight:400;">${capStyleAnalysis.slice(0, 160)}${capStyleAnalysis.length > 160 ? '…' : ''}</span>`;
     } catch (e) {
       badge.style.display = 'block';
@@ -8584,7 +8658,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   function calLoad()       { try { return JSON.parse(localStorage.getItem('octo_calendar') || '{}'); } catch { return {}; } }
   function calSave(data)   { try { localStorage.setItem('octo_calendar', JSON.stringify(data)); } catch {} }
 
-  // Init workspaces chat history on load
+  // Init workspaces chat history + Tone of Voice on load
   (function initWsChat() {
     const activeId = getActiveWsId();
     try {
@@ -8595,6 +8669,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         history.forEach(m => chatHistory.push(m));
       }
     } catch {}
+    // Load ToV for the active workspace on startup
+    loadTovForCurrentWs();
   })();
 
   // ══════════════════════════════════════════════════════════════════════════
