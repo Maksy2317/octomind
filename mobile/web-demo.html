@@ -1057,6 +1057,19 @@
     }
     .pa-chip:hover { border-color: var(--accent2); color: var(--text); background: var(--surface3); }
     .pa-chip.active { border-color: var(--accent); background: #6C63FF22; color: var(--accent2); }
+    .sky-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 12px; border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--surface2); color: var(--text3);
+      font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all .18s; white-space: nowrap;
+    }
+    .sky-chip:hover { border-color: var(--accent2); color: var(--text); background: var(--surface3); transform: translateY(-1px); }
+    .sky-chip.sky-active { border-color: var(--accent); background: #6C63FF22; color: var(--accent2); }
+    .sky-chip .sky-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block;
+    }
     .pa-manual-btn {
       width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
       border-radius: 14px; padding: 13px 14px; cursor: pointer; transition: all .15s;
@@ -2382,6 +2395,36 @@
                   <div>
                     <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);aspect-ratio:1/1;display:block;">
                     <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨</div>
+                  </div>
+                </div>
+                <!-- Sky colour picker — visible only after sky edits -->
+                <div id="skyColorPicker" style="display:none;margin-bottom:14px;">
+                  <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:8px;">🎨 Спробуй інший колір неба:</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <button class="sky-chip" onclick="photoAiQuickSky('sunset sky dramatic orange red fiery clouds',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#ff6b35,#c0392b)"></span>🌅 Захід
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('clear bright blue sky sunny daytime',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#74b9ff,#0984e3)"></span>☀️ Блакитне
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('golden hour sky warm yellow orange haze beautiful',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#fdcb6e,#e17055)"></span>✨ Золотий
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('dramatic dark storm clouds lightning moody epic',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#636e72,#2d3436)"></span>⛈️ Гроза
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('pink purple magenta romantic sky pastel clouds',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#fd79a8,#a29bfe)"></span>🌸 Рожеве
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('night sky full of bright stars milky way dark blue',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#2c3e50,#0c1445)"></span>⭐ Ніч
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('dramatic overcast grey epic clouds moody cinematic',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#b2bec3,#636e72)"></span>☁️ Хмарне
+                    </button>
+                    <button class="sky-chip" onclick="photoAiQuickSky('vibrant colorful vivid sky purple teal orange gradients',this)">
+                      <span class="sky-dot" style="background:linear-gradient(135deg,#a29bfe,#00cec9,#fdcb6e)"></span>🌈 Яскраве
+                    </button>
                   </div>
                 </div>
                 <button onclick="photoAiDownload()" class="btn btn-primary btn-full">💾 Скачати</button>
@@ -7183,11 +7226,28 @@
       document.getElementById('photoAiAfterImg').src    = photoAiResultDataUrl;
       document.getElementById('photoAiStep3').style.display = 'none';
       document.getElementById('photoAiStep4').style.display = 'block';
+      // Show sky colour picker only when this was a sky edit
+      document.getElementById('skyColorPicker').style.display = isSky ? 'block' : 'none';
+      // Reset active state on sky chips
+      document.querySelectorAll('.sky-chip').forEach(b => b.classList.remove('sky-active'));
     } catch (err) {
       document.getElementById('photoAiStep3').style.display = 'none';
       document.getElementById('photoAiStep2').style.display = 'block';
       alert('Помилка: ' + (err.message || err));
     }
+  }
+
+  // Quick sky colour change — sets prompt + re-runs generation from original photo
+  function photoAiQuickSky(skyPrompt, btn) {
+    // Highlight active chip
+    document.querySelectorAll('.sky-chip').forEach(b => b.classList.remove('sky-active'));
+    if (btn) btn.classList.add('sky-active');
+    // Set prompt and run
+    document.getElementById('photoAiPrompt').value = skyPrompt;
+    // Jump back to processing (hide step4, show step3 briefly via generate)
+    document.getElementById('photoAiStep4').style.display = 'none';
+    document.getElementById('photoAiStep3').style.display = 'block';
+    photoAiGenerate();
   }
 
   function photoAiAgain() {
