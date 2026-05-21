@@ -1183,6 +1183,62 @@
     }
     .wiz-done-summary b { color: var(--text); }
 
+    /* ── Dashboard setup banner ── */
+    #dashSetupBanner {
+      margin-bottom: 16px;
+    }
+    .setup-banner {
+      position: relative;
+      border-radius: 20px;
+      padding: 20px;
+      background: linear-gradient(135deg, #1a1040 0%, #0d1a2e 100%);
+      border: 1.5px solid #6C63FF55;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color .2s, transform .15s;
+    }
+    .setup-banner:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .setup-banner::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, #6C63FF18, #38BDF810);
+      pointer-events: none;
+    }
+    .setup-banner-glow {
+      position: absolute; top: -30px; right: -20px;
+      width: 140px; height: 140px;
+      background: radial-gradient(circle, #6C63FF33 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .setup-banner-dismiss {
+      position: absolute; top: 10px; right: 12px;
+      background: none; border: none; color: var(--text4);
+      font-size: 16px; cursor: pointer; padding: 4px 6px;
+      border-radius: 8px; z-index: 1;
+      transition: color .15s;
+    }
+    .setup-banner-dismiss:hover { color: var(--text2); }
+    .setup-banner-steps {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; margin-bottom: 14px;
+    }
+    .setup-banner-step {
+      font-size: 11px; padding: 4px 10px; border-radius: 20px;
+      background: rgba(255,255,255,.07); color: var(--text3);
+      border: 1px solid rgba(255,255,255,.1);
+    }
+    .setup-banner-step.done {
+      background: #4ade8018; color: #4ade80;
+      border-color: #4ade8030;
+    }
+    .setup-banner-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: linear-gradient(135deg, #6C63FF, #38BDF8);
+      border: none; border-radius: 14px; color: #fff;
+      font-size: 14px; font-weight: 700; padding: 11px 20px;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .setup-banner-btn:hover { opacity: .88; }
+
     .sky-chip .sky-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block;
     }
@@ -1545,6 +1601,9 @@
 
         <!-- Dashboard -->
         <div class="screen active" id="dashboard">
+          <!-- Setup banner — shown until account profile is configured -->
+          <div id="dashSetupBanner" style="display:none;"></div>
+
           <div class="stats-grid">
             <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value">12</div><div class="stat-label" data-i18n="stat_videos">Відео створено</div><div class="stat-change" data-i18n="stat_videos_ch">↑ 3 цього тижня</div></div>
             <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value">5</div><div class="stat-label" data-i18n="stat_carousels">Каруселі</div><div class="stat-change" data-i18n="stat_carousels_ch">↑ 2 цього тижня</div></div>
@@ -3048,7 +3107,10 @@
       // (currentLang and translations are declared later in the script —
       //  calling renderProfile() synchronously here hits a TDZ ReferenceError,
       //  which is silently caught by initView's try/catch → showAuth() is called)
-      setTimeout(function() { try { renderProfile(); } catch(e) {} }, 0);
+      setTimeout(function() {
+        try { renderProfile(); } catch(e) {}
+        try { if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner(); } catch(e) {}
+      }, 0);
     } else {
       document.getElementById('quizWrap').style.display = '';
     }
@@ -3634,6 +3696,7 @@
     if (id === 'photo')    photoSwitchTab('carousel');
     if (id === 'calendar') calInit();
     if (id === 'caption')  capInitScreen();
+    if (id === 'dashboard' && typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
     const w = document.getElementById('octoWidget');
     if (w) w.style.display = id === 'advisor' ? 'none' : 'block';
@@ -7841,6 +7904,7 @@
     // Apply saved account profile (platform, lang, tone) to Caption AI chips
     if (typeof applyWsProfileToCaption !== 'undefined') applyWsProfileToCaption();
     renderWorkspaces();
+    if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
   }
 
   function addWorkspace() {
@@ -10054,6 +10118,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     applyWsProfileToCaption();
     loadTovForCurrentWs();
     renderWorkspaces();
+    if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
     const toast = document.createElement('div');
     toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);'
       + 'background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;'
@@ -10110,6 +10175,90 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         if (toneChip) capChip('capTone', toneChip);
       }
     }
+  };
+})();
+
+// ── DASHBOARD SETUP BANNER ────────────────────────────────────────────────────
+(function() {
+  // Session-level dismiss (resets on page reload — intentional, so user is reminded each visit
+  // until they actually complete setup)
+  const _dismissed = {};
+
+  window.renderDashSetupBanner = function() {
+    const el = document.getElementById('dashSetupBanner');
+    if (!el) return;
+
+    const wsId = getActiveWsId();
+    const profile = (typeof getWsProfile !== 'undefined') ? getWsProfile(wsId) : null;
+    const tov = (typeof getWsTov !== 'undefined') ? getWsTov(wsId) : null;
+
+    // If fully configured (has profile AND tov), hide the banner
+    if (profile && tov) { el.style.display = 'none'; return; }
+    // If dismissed this session, hide
+    if (_dismissed[wsId]) { el.style.display = 'none'; return; }
+
+    el.style.display = 'block';
+
+    // Work out which steps are done
+    const hasName      = !!(profile && profile.brandName);
+    const hasNiche     = !!(profile && profile.niche);
+    const hasPlatforms = !!(profile && profile.platforms && profile.platforms.length);
+    const hasLang      = !!(profile && profile.lang);
+    const hasTov       = !!tov;
+
+    const steps = [
+      { label: '✏️ Назва',      done: hasName },
+      { label: '🎯 Ніша',       done: hasNiche },
+      { label: '📱 Платформи',  done: hasPlatforms },
+      { label: '🗣️ Мова',       done: hasLang },
+      { label: '✍️ Tone of Voice', done: hasTov },
+    ];
+    const doneCount = steps.filter(function(s) { return s.done; }).length;
+    const total = steps.length;
+    const pct = Math.round((doneCount / total) * 100);
+
+    const wsName = (typeof _getWsName !== 'undefined') ? _getWsName(wsId) : 'акаунту';
+
+    const stepsHtml = steps.map(function(s) {
+      return '<span class="setup-banner-step' + (s.done ? ' done' : '') + '">'
+        + (s.done ? '✓ ' : '') + s.label + '</span>';
+    }).join('');
+
+    el.innerHTML = '<div class="setup-banner" onclick="openAcctWizard(\'' + wsId + '\')">'
+      + '<div class="setup-banner-glow"></div>'
+      + '<button class="setup-banner-dismiss" onclick="event.stopPropagation();_dismissSetupBanner(\'' + wsId + '\')" title="Сховати">✕</button>'
+      + '<div style="display:flex;align-items:center;gap:14px;position:relative;">'
+      +   '<div style="font-size:44px;flex-shrink:0;line-height:1;">🚀</div>'
+      +   '<div style="flex:1;">'
+      +     '<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;">'
+      +       'Налаштуй акаунт <span style="color:var(--accent2);">' + wsName + '</span>'
+      +     '</div>'
+      +     '<div style="font-size:13px;color:var(--text3);line-height:1.45;margin-bottom:0;">'
+      +       (doneCount === 0
+              ? 'Пройди швидке налаштування — Caption AI одразу знатиме твій стиль, нішу та мову.'
+              : 'Заповнено ' + doneCount + ' з ' + total + ' — ще трохи і Caption AI працюватиме на максимумі.')
+      +     '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="setup-banner-steps">' + stepsHtml + '</div>'
+      + '<div style="display:flex;align-items:center;gap:12px;">'
+      +   '<button class="setup-banner-btn" onclick="event.stopPropagation();openAcctWizard(\'' + wsId + '\')">'
+      +     (doneCount === 0 ? '⚙️ Налаштувати за 1 хв' : '⚙️ Продовжити налаштування') + ' →'
+      +   '</button>'
+      +   '<div style="flex:1;">'
+      +     '<div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;">'
+      +       '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#6C63FF,#38BDF8);border-radius:2px;transition:width .4s;"></div>'
+      +     '</div>'
+      +     '<div style="font-size:11px;color:var(--text4);margin-top:4px;">' + doneCount + ' / ' + total + ' виконано</div>'
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+  };
+
+  window._dismissSetupBanner = function(wsId) {
+    _dismissed[wsId] = true;
+    const el = document.getElementById('dashSetupBanner');
+    if (el) el.style.display = 'none';
   };
 })();
 </script>
