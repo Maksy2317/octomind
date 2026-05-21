@@ -1103,6 +1103,86 @@
     }
     .sky-chip:hover { border-color: var(--accent2); color: var(--text); background: var(--surface3); transform: translateY(-1px); }
     .sky-chip.sky-active { border-color: var(--accent); background: #6C63FF22; color: var(--accent2); }
+    /* ── Account Setup Wizard ─────────────────────────────────────────── */
+    #acctWizard {
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(0,0,0,.82); backdrop-filter: blur(14px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px; animation: wizFadeIn .22s ease;
+    }
+    @keyframes wizFadeIn { from { opacity:0 } to { opacity:1 } }
+    .wiz-card {
+      width: 100%; max-width: 480px; max-height: 92vh;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 28px; overflow: hidden; display: flex; flex-direction: column;
+      box-shadow: 0 32px 80px #0009;
+    }
+    .wiz-header {
+      padding: 20px 24px 0; flex-shrink: 0;
+    }
+    .wiz-progress-track {
+      height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 20px;
+    }
+    .wiz-progress-fill {
+      height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2));
+      border-radius: 2px; transition: width .4s cubic-bezier(.4,0,.2,1);
+    }
+    .wiz-step-label {
+      font-size: 11px; color: var(--text4); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px;
+    }
+    .wiz-body {
+      padding: 4px 24px 24px; overflow-y: auto; flex: 1;
+    }
+    .wiz-icon { font-size: 42px; margin-bottom: 12px; display: block; }
+    .wiz-title { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 6px; line-height: 1.2; }
+    .wiz-sub { font-size: 14px; color: var(--text3); margin-bottom: 20px; line-height: 1.5; }
+    .wiz-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .wiz-chip {
+      padding: 9px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--text2); cursor: pointer; transition: all .16s; user-select: none;
+    }
+    .wiz-chip:hover { border-color: var(--accent); color: var(--text); }
+    .wiz-chip.wiz-sel {
+      background: linear-gradient(135deg, #6C63FF22, #38BDF822);
+      border-color: var(--accent); color: var(--accent2);
+    }
+    .wiz-input {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 14px; color: var(--text); font-size: 15px; padding: 14px 16px;
+      outline: none; font-family: inherit; transition: border-color .2s; margin-bottom: 4px;
+    }
+    .wiz-input:focus { border-color: var(--accent); }
+    .wiz-footer {
+      padding: 16px 24px 24px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; flex-shrink: 0;
+    }
+    .wiz-btn-next {
+      flex: 1; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), #38BDF8);
+      border: none; color: #fff; cursor: pointer; transition: opacity .15s;
+    }
+    .wiz-btn-next:hover { opacity: .88; }
+    .wiz-btn-back, .wiz-btn-skip {
+      padding: 14px 16px; border-radius: 16px; font-size: 13px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--text3); cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .wiz-btn-back:hover, .wiz-btn-skip:hover { border-color: var(--accent); color: var(--text); }
+    /* slide animations */
+    @keyframes wizSlideInR { from { transform: translateX(48px); opacity: 0 } to { transform: none; opacity: 1 } }
+    @keyframes wizSlideInL { from { transform: translateX(-48px); opacity: 0 } to { transform: none; opacity: 1 } }
+    .wiz-slide-r { animation: wizSlideInR .26s cubic-bezier(.4,0,.2,1); }
+    .wiz-slide-l { animation: wizSlideInL .26s cubic-bezier(.4,0,.2,1); }
+    /* done step confetti */
+    .wiz-done-summary {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 14px 16px; margin-bottom: 10px;
+      font-size: 13px; color: var(--text3); line-height: 1.6;
+    }
+    .wiz-done-summary b { color: var(--text); }
+
     .sky-chip .sky-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block;
     }
@@ -7758,6 +7838,8 @@
     }
     // Load Tone of Voice for the new active workspace
     loadTovForCurrentWs();
+    // Apply saved account profile (platform, lang, tone) to Caption AI chips
+    if (typeof applyWsProfileToCaption !== 'undefined') applyWsProfileToCaption();
     renderWorkspaces();
   }
 
@@ -7801,6 +7883,7 @@
 
     container.innerHTML = all.map(w => {
       const hasTov = !!getWsTov(w.id);
+      const hasProfile = !!(typeof getWsProfile !== 'undefined' && getWsProfile(w.id));
       const isActive = w.id === activeId;
       return `
       <div onclick="setActiveWs('${w.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;cursor:pointer;border:1.5px solid ${isActive?'var(--accent)':'var(--border)'};background:${isActive?'rgba(108,99,255,0.1)':'var(--surface2)'};transition:all 0.2s;">
@@ -7809,10 +7892,12 @@
           <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
             ${w.created ? `<div style="font-size:11px;color:var(--text4);">${createdLabel} ${w.created}</div>` : ''}
             ${hasTov ? `<span style="font-size:10px;font-weight:700;background:#4ade8018;color:#4ade80;border:1px solid #4ade8040;border-radius:6px;padding:1px 7px;">🎯 Tone of Voice</span>` : ''}
+            ${hasProfile ? `<span style="font-size:10px;font-weight:700;background:#38bdf818;color:#38bdf8;border:1px solid #38bdf840;border-radius:6px;padding:1px 7px;">⚙️ Профіль</span>` : ''}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           ${isActive ? `<div style="font-size:11px;color:var(--accent);font-weight:700;">${activeLabel}</div>` : ''}
+          <button onclick="event.stopPropagation();openAcctWizard('${w.id}')" style="background:var(--surface3);border:1px solid var(--border);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:8px;white-space:nowrap;" title="Налаштувати акаунт">⚙️</button>
           ${w.id!=='default' ? `<button onclick="event.stopPropagation();deleteWorkspace('${w.id}')" style="background:transparent;border:none;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>` : ''}
         </div>
       </div>`;
@@ -7863,6 +7948,10 @@
     document.querySelectorAll('#capLang .cap-chip').forEach(c => {
       c.classList.toggle('selected', c.dataset.val === target);
     });
+    // Apply saved account profile chips if available
+    if (typeof applyWsProfileToCaption !== 'undefined') {
+      setTimeout(function() { applyWsProfileToCaption(); }, 0);
+    }
   }
 
   function capChip(groupId, el) {
@@ -8165,11 +8254,18 @@ Respond with the style description only, no intro phrases.`;
     document.getElementById('capLoading').style.display  = 'block';
     document.getElementById('capGenBtn').disabled        = true;
 
+    const _capProfile = (typeof getWsProfile !== 'undefined') ? getWsProfile(getActiveWsId()) : null;
+    const _profileCtx = _capProfile ? [
+      _capProfile.brandName ? `Бренд/акаунт: ${_capProfile.brandName}` : '',
+      _capProfile.niche     ? `Ніша: ${_capProfile.niche}` : '',
+      _capProfile.audience  ? `Аудиторія: ${_capProfile.audience}` : '',
+    ].filter(Boolean).join('\n') : '';
+
     const prompt = `Ты — опытный SMM-специалист и копирайтер. Напиши 3 варианта подписи для ${CAP_PLATFORM_LABELS[platform] || platform}.
 
 Описание контента: ${desc}
 ${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
-Тон: ${CAP_TONE_LABELS[tone] || tone}
+${_profileCtx ? _profileCtx + '\n' : ''}Тон: ${CAP_TONE_LABELS[tone] || tone}
 Язык: ${CAP_LANG_NAMES[lang] || lang}
 ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого автора (подражай их манере письма, эмодзи, длине предложений, структуре): ${capStyleAnalysis}\n` : ''}
 Требования:
@@ -9609,7 +9705,297 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }
   };
 })();
+
+// ── ACCOUNT SETUP WIZARD ─────────────────────────────────────────────────────
+(function() {
+  const TOTAL_STEPS = 6;
+  let _wizStep = 0;
+  let _wizWsId = 'default';
+  let _wizData = {};
+
+  const WIZ_STEPS = [
+    {
+      icon: '✏️',
+      title: 'Назва акаунту',
+      sub: 'Як називається твій бренд або профіль?',
+      key: 'brandName',
+      type: 'text',
+      placeholder: 'Наприклад: Іван Спорт, Studio Bloom...',
+    },
+    {
+      icon: '🎯',
+      title: 'Ніша',
+      sub: 'Якою темою займається цей акаунт?',
+      key: 'niche',
+      type: 'chips',
+      multi: false,
+      options: [
+        '⚽ Спорт', '💪 Фітнес / ЗОЖ', '🏡 Нерухомість',
+        '💅 Б\'юті', '🍕 Їжа / Ресторан', '✈️ Подорожі',
+        '💻 Технології', '💼 Бізнес', '📚 Освіта',
+        '🎨 Творчість', '🛒 E-commerce', '🎭 Розваги',
+      ],
+    },
+    {
+      icon: '👥',
+      title: 'Цільова аудиторія',
+      sub: 'На кого розраховані твої пости?',
+      key: 'audience',
+      type: 'chips',
+      multi: false,
+      options: [
+        '🧒 13–17 років', '🧑 18–24 роки', '👨 25–34 роки',
+        '🧔 35–44 роки', '👴 45+ років', '🌍 Широка аудиторія',
+      ],
+    },
+    {
+      icon: '🎨',
+      title: 'Стиль контенту',
+      sub: 'Як виглядає і відчувається твій контент? (можна кілька)',
+      key: 'style',
+      type: 'chips',
+      multi: true,
+      options: [
+        '🔥 Динамічний', '✨ Естетичний', '📖 Освітній',
+        '😂 Гумористичний', '💪 Мотиваційний', '🛒 Продаючий',
+        '🎬 Кінематографічний', '💡 Натхненний',
+      ],
+    },
+    {
+      icon: '📱',
+      title: 'Платформи',
+      sub: 'Де ти публікуєш контент? (можна кілька)',
+      key: 'platforms',
+      type: 'chips',
+      multi: true,
+      options: [
+        '🎵 TikTok', '🎬 Instagram Reels', '📖 Stories',
+        '▶️ YouTube Shorts', '💼 LinkedIn', '📘 Facebook',
+      ],
+    },
+    {
+      icon: '🗣️',
+      title: 'Мова підписів',
+      sub: 'Якою мовою писати підписи до відео?',
+      key: 'lang',
+      type: 'chips',
+      multi: false,
+      options: ['🇺🇦 Українська', '🇷🇺 Русский', '🇬🇧 English'],
+    },
+  ];
+
+  function _getWsProfileInternal(wsId) {
+    try { return JSON.parse(localStorage.getItem('octo_profile_' + wsId) || 'null'); } catch { return null; }
+  }
+  function _saveWsProfile(wsId, profile) {
+    localStorage.setItem('octo_profile_' + wsId, JSON.stringify(profile));
+  }
+  window.getWsProfile = _getWsProfileInternal;
+
+  window.openAcctWizard = function(wsId) {
+    _wizWsId = wsId || getActiveWsId();
+    _wizStep = 0;
+    const existing = _getWsProfileInternal(_wizWsId);
+    _wizData = existing ? Object.assign({}, existing) : {};
+    const el = document.getElementById('acctWizard');
+    el.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    _renderWizStep(true);
+  };
+
+  function _closeWizard() {
+    document.getElementById('acctWizard').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  window._wizClose = _closeWizard;
+
+  function _renderWizStep(forward) {
+    const isDone = _wizStep >= WIZ_STEPS.length;
+    const pct = isDone ? 100 : Math.round((_wizStep / WIZ_STEPS.length) * 100);
+
+    document.getElementById('wizProgressFill').style.width = pct + '%';
+    document.getElementById('wizStepLabel').textContent = isDone
+      ? '✅ Все готово!'
+      : 'Крок ' + (_wizStep + 1) + ' з ' + WIZ_STEPS.length;
+
+    const body = document.getElementById('wizBody');
+    const footer = document.getElementById('wizFooter');
+    const anim = forward ? 'wiz-slide-r' : 'wiz-slide-l';
+
+    if (isDone) {
+      const d = _wizData;
+      const lines = [];
+      if (d.brandName) lines.push('<b>Акаунт:</b> ' + d.brandName);
+      if (d.niche) lines.push('<b>Ніша:</b> ' + d.niche);
+      if (d.audience) lines.push('<b>Аудиторія:</b> ' + d.audience);
+      if (d.style && d.style.length) lines.push('<b>Стиль:</b> ' + d.style.join(', '));
+      if (d.platforms && d.platforms.length) lines.push('<b>Платформи:</b> ' + d.platforms.join(', '));
+      if (d.lang) lines.push('<b>Мова:</b> ' + d.lang);
+
+      body.innerHTML = '<div class="' + anim + '">'
+        + '<span class="wiz-icon">🎉</span>'
+        + '<div class="wiz-title">Все налаштовано!</div>'
+        + '<div class="wiz-sub">Caption AI тепер знає про твій акаунт і буде автоматично враховувати твої вподобання.</div>'
+        + '<div class="wiz-done-summary">' + (lines.join('<br>') || 'Профіль збережено.') + '</div>'
+        + '</div>';
+      footer.innerHTML = '<button class="wiz-btn-back" onclick="wizBack()">← Назад</button>'
+        + '<button class="wiz-btn-next" onclick="wizFinish()">🚀 Почати роботу</button>';
+      return;
+    }
+
+    const step = WIZ_STEPS[_wizStep];
+    const curVal = _wizData[step.key];
+    let inputHtml = '';
+
+    if (step.type === 'text') {
+      const v = (typeof curVal === 'string' ? curVal : '').replace(/"/g, '&quot;');
+      inputHtml = '<input id="wizTextInput" class="wiz-input" type="text" '
+        + 'placeholder="' + (step.placeholder || '') + '" '
+        + 'value="' + v + '" maxlength="60" '
+        + 'oninput="_wizSetText(this.value)" '
+        + 'onkeydown="if(event.key===\'Enter\')wizNext()">';
+    } else if (step.type === 'chips') {
+      const sel = step.multi ? (Array.isArray(curVal) ? curVal : []) : (curVal || null);
+      inputHtml = '<div class="wiz-chips">'
+        + step.options.map(function(opt) {
+            const isSel = step.multi ? sel.indexOf(opt) >= 0 : sel === opt;
+            return '<button class="wiz-chip' + (isSel ? ' wiz-sel' : '') + '" '
+              + 'onclick="_wizToggleChip(this,\'' + step.key + '\',' + step.multi + ',\'' + opt.replace(/'/g, '&#39;') + '\')">'
+              + opt + '</button>';
+          }).join('')
+        + '</div>';
+    }
+
+    body.innerHTML = '<div class="' + anim + '">'
+      + '<span class="wiz-icon">' + step.icon + '</span>'
+      + '<div class="wiz-title">' + step.title + '</div>'
+      + '<div class="wiz-sub">' + step.sub + '</div>'
+      + inputHtml
+      + '</div>';
+
+    const isFirst = _wizStep === 0;
+    footer.innerHTML = (isFirst
+      ? '<button class="wiz-btn-skip" onclick="_wizClose()">✕ Пізніше</button>'
+      : '<button class="wiz-btn-back" onclick="wizBack()">← Назад</button>')
+      + '<button class="wiz-btn-skip" onclick="wizSkip()">Пропустити</button>'
+      + '<button class="wiz-btn-next" onclick="wizNext()">Далі →</button>';
+  }
+
+  window._wizSetText = function(v) {
+    const step = WIZ_STEPS[_wizStep];
+    if (step) _wizData[step.key] = v;
+  };
+  window._wizToggleChip = function(btn, key, multi, opt) {
+    if (multi) {
+      if (!Array.isArray(_wizData[key])) _wizData[key] = [];
+      const idx = _wizData[key].indexOf(opt);
+      if (idx >= 0) { _wizData[key].splice(idx, 1); btn.classList.remove('wiz-sel'); }
+      else { _wizData[key].push(opt); btn.classList.add('wiz-sel'); }
+    } else {
+      _wizData[key] = opt;
+      btn.closest('.wiz-chips').querySelectorAll('.wiz-chip').forEach(function(b) { b.classList.remove('wiz-sel'); });
+      btn.classList.add('wiz-sel');
+    }
+  };
+
+  window.wizNext = function() {
+    const textIn = document.getElementById('wizTextInput');
+    if (textIn) {
+      const step = WIZ_STEPS[_wizStep];
+      if (step) _wizData[step.key] = textIn.value.trim();
+    }
+    _wizStep++;
+    _renderWizStep(true);
+  };
+  window.wizBack = function() {
+    if (_wizStep <= 0) { _closeWizard(); return; }
+    _wizStep--;
+    _renderWizStep(false);
+  };
+  window.wizSkip = function() {
+    const step = WIZ_STEPS[_wizStep];
+    if (step) delete _wizData[step.key];
+    _wizStep++;
+    _renderWizStep(true);
+  };
+  window.wizFinish = function() {
+    _saveWsProfile(_wizWsId, _wizData);
+    _closeWizard();
+    applyWsProfileToCaption();
+    renderWorkspaces();
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);'
+      + 'background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;'
+      + 'font-size:14px;padding:12px 26px;border-radius:20px;z-index:11000;white-space:nowrap;'
+      + 'box-shadow:0 8px 32px #0005;animation:wizFadeIn .3s ease;pointer-events:none;';
+    toast.textContent = '✅ Профіль акаунту збережено!';
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+  };
+
+  window.applyWsProfileToCaption = function() {
+    const wsId = getActiveWsId();
+    const profile = _getWsProfileInternal(wsId);
+    if (!profile) return;
+
+    // Platform mapping
+    if (profile.platforms && profile.platforms.length) {
+      const platMap = { 'TikTok': 'tiktok', 'Reels': 'reels', 'Stories': 'stories', 'YouTube': 'youtube' };
+      const firstPlat = profile.platforms[0];
+      const platVal = Object.keys(platMap).reduce(function(found, k) {
+        return (!found && firstPlat.indexOf(k) >= 0) ? platMap[k] : found;
+      }, null);
+      if (platVal) {
+        const platChip = document.querySelector('#capPlatform [data-val="' + platVal + '"]');
+        if (platChip) capChip('capPlatform', platChip);
+      }
+    }
+
+    // Language
+    if (profile.lang) {
+      const langMap = { 'Українська': 'uk', 'Русский': 'ru', 'English': 'en' };
+      const langVal = Object.keys(langMap).reduce(function(f, k) {
+        return (!f && profile.lang.indexOf(k) >= 0) ? langMap[k] : f;
+      }, null);
+      if (langVal) {
+        const langChip = document.querySelector('#capLang [data-val="' + langVal + '"]');
+        if (langChip) capChip('capLang', langChip);
+      }
+    }
+
+    // Style → tone
+    if (profile.style && profile.style.length) {
+      const styleToTone = { 'Освітній': 'edu', 'Гумористичний': 'funny', 'Продаючий': 'sales', 'Мотиваційний': 'motivate' };
+      let matchedTone = null;
+      profile.style.forEach(function(s) {
+        if (!matchedTone) {
+          Object.keys(styleToTone).forEach(function(k) {
+            if (!matchedTone && s.indexOf(k) >= 0) matchedTone = styleToTone[k];
+          });
+        }
+      });
+      if (matchedTone) {
+        const toneChip = document.querySelector('#capTone [data-val="' + matchedTone + '"]');
+        if (toneChip) capChip('capTone', toneChip);
+      }
+    }
+  };
+})();
 </script>
+
+<!-- ═══ ACCOUNT SETUP WIZARD MODAL ═══ -->
+<div id="acctWizard" style="display:none;">
+  <div class="wiz-card">
+    <div class="wiz-header">
+      <div class="wiz-progress-track">
+        <div class="wiz-progress-fill" id="wizProgressFill" style="width:0%"></div>
+      </div>
+      <div class="wiz-step-label" id="wizStepLabel">Крок 1 з 6</div>
+    </div>
+    <div class="wiz-body" id="wizBody"></div>
+    <div class="wiz-footer" id="wizFooter"></div>
+  </div>
+</div>
 
 </body>
 </html>
