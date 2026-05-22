@@ -3622,6 +3622,10 @@
   });
 
   window.pwaTriggerInstall = function() {
+    // iOS doesn't support beforeinstallprompt — show manual instructions instead
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIos) { pwaShowIosInstructions(); return; }
+
     if (_pwaInstallPrompt) {
       _pwaInstallPrompt.prompt();
       _pwaInstallPrompt.userChoice.then(r => {
