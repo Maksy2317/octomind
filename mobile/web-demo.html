@@ -1382,6 +1382,31 @@
       background: var(--surface2); border-radius: 10px; margin-bottom: 6px;
     }
     .cal-post-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    /* peak day indicator */
+    .cal-day.peak-day { position: relative; }
+    .cal-day.peak-day::after {
+      content: '★';
+      position: absolute; top: 2px; right: 3px;
+      font-size: 7px; color: var(--accent2); opacity: .7;
+    }
+    /* research-recommended time chip */
+    .cal-time-hot {
+      background: linear-gradient(135deg,#ff6b3520,#ff8c5510) !important;
+      border-color: #ff6b3566 !important; color: #ff8c55 !important;
+    }
+    .cal-time-hot.selected {
+      background: linear-gradient(135deg,#ff6b35,#ff8c55) !important;
+      border-color: #ff6b35 !important; color: #fff !important;
+    }
+    /* time research banner */
+    .cal-time-banner {
+      font-size: 11px; color: var(--text4); background: var(--surface2);
+      border-radius: 10px; padding: 7px 12px; margin-bottom: 10px;
+      line-height: 1.6; border: 1px solid var(--border);
+    }
+    .cal-time-banner b { color: var(--text3); }
+    .cal-time-banner .peak-label { color: var(--accent2); font-weight: 700; }
+
     .cal-post-del {
       margin-left: auto; background: none; border: none; color: var(--text4);
       cursor: pointer; font-size: 14px; padding: 0 4px;
@@ -3119,10 +3144,13 @@
               </div>
 
               <!-- Time chips -->
+              <div id="calTimeBanner" class="cal-time-banner" style="display:none;"></div>
               <div style="font-size:11px;color:var(--text4);margin-bottom:5px;">Час публікації</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="calTimeChips">
+                <div class="cal-type-chip" data-time="07:00" onclick="calTimeChip(this)">🌄 07:00</div>
                 <div class="cal-type-chip" data-time="09:00" onclick="calTimeChip(this)">🌅 09:00</div>
                 <div class="cal-type-chip selected" data-time="12:00" onclick="calTimeChip(this)">☀️ 12:00</div>
+                <div class="cal-type-chip" data-time="15:00" onclick="calTimeChip(this)">🌤️ 15:00</div>
                 <div class="cal-type-chip" data-time="18:00" onclick="calTimeChip(this)">🌆 18:00</div>
                 <div class="cal-type-chip" data-time="20:00" onclick="calTimeChip(this)">🌙 20:00</div>
               </div>
@@ -8699,7 +8727,31 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   };
   const CAL_TYPE_COLORS = { reels:'#6C63FF', stories:'#ec4899', carousel:'#3b82f6', tiktok:'#10b981', caption:'#f59e0b', post:'#8B8BA7' };
   const CAL_TYPE_ICONS  = { reels:'🎬', stories:'📖', carousel:'🖼️', tiktok:'🎵', caption:'✍️', post:'📝' };
-  const CAL_TIME_ICONS  = { '09:00':'🌅', '12:00':'☀️', '18:00':'🌆', '20:00':'🌙' };
+  const CAL_TIME_ICONS  = { '07:00':'🌄', '09:00':'🌅', '12:00':'☀️', '15:00':'🌤️', '18:00':'🌆', '20:00':'🌙' };
+
+  // Research-based best posting times (Sprout Social + Buffer + Later 2026)
+  // dow: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  const CAL_RESEARCH = {
+    tiktok:   { peak:[2,3,4], slots:{ 0:['09:00','12:00'], 1:['15:00','18:00'], 2:['15:00','18:00'], 3:['15:00','18:00'], 4:['15:00','18:00'], 5:['15:00','18:00'], 6:['09:00','15:00'] } },
+    reels:    { peak:[2,3,4], slots:{ 0:['18:00'], 1:['15:00','18:00'], 2:['12:00','18:00'], 3:['12:00','18:00'], 4:['12:00','18:00'], 5:['12:00','18:00'], 6:['12:00','15:00'] } },
+    stories:  { peak:[1,2,3,4,5], slots:{ 0:['07:00','20:00'], 1:['07:00','12:00','20:00'], 2:['07:00','12:00','20:00'], 3:['07:00','12:00','20:00'], 4:['07:00','12:00','20:00'], 5:['07:00','12:00','20:00'], 6:['07:00','20:00'] } },
+    carousel: { peak:[2,3,4], slots:{ 0:['18:00'], 1:['12:00','15:00'], 2:['12:00','15:00'], 3:['12:00','18:00'], 4:['12:00','15:00'], 5:['12:00'], 6:['15:00'] } },
+    post:     { peak:[2,3,4], slots:{ 0:['18:00'], 1:['12:00'], 2:['12:00','15:00'], 3:['12:00','15:00'], 4:['12:00','15:00'], 5:['12:00'], 6:['15:00'] } },
+    caption:  { peak:[2,3,4], slots:{ 0:['18:00'], 1:['12:00'], 2:['12:00','15:00'], 3:['12:00','15:00'], 4:['12:00','15:00'], 5:['12:00'], 6:['15:00'] } },
+  };
+  const CAL_NICHE_OVERRIDES = {
+    'Їжа':         { tiktok:['15:00','12:00'], reels:['12:00','15:00'], stories:['12:00','18:00'] },
+    'Фітнес':      { tiktok:['07:00','15:00'], reels:['07:00','15:00'], stories:['07:00','20:00'] },
+    'Нерухомість': { tiktok:['15:00','18:00'], reels:['12:00','15:00'], carousel:['12:00','15:00'] },
+    'Б\'юті':      { tiktok:['15:00','18:00'], reels:['12:00','18:00'] },
+    'Подорожі':    { tiktok:['15:00','18:00'], reels:['15:00','18:00'] },
+    'Технології':  { tiktok:['12:00','15:00'], reels:['12:00','15:00'], carousel:['12:00','15:00'] },
+    'Бізнес':      { tiktok:['12:00','15:00'], reels:['12:00','15:00'] },
+    'Освіта':      { tiktok:['15:00','18:00'], reels:['12:00','15:00'] },
+    'E-commerce':  { tiktok:['15:00','18:00'], reels:['12:00','15:00'] },
+    'Мода':        { tiktok:['12:00','18:00'], reels:['12:00','18:00'] },
+    'Фінанси':     { tiktok:['12:00','15:00'], reels:['12:00','15:00'] },
+  };
 
   let calYear, calMonth, calSelectedDate = null, calListMode = false;
 
@@ -8804,8 +8856,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       const isWeekend = dow === 0 || dow === 6;
       const isSel    = calSelectedDate === key;
 
+      const isPeakDay = dow === 2 || dow === 3 || dow === 4; // Tue/Wed/Thu
       const cell = document.createElement('div');
-      cell.className = 'cal-day' + (isToday ? ' today' : '') + (isWeekend ? ' weekend' : '') + (isSel ? ' selected' : '');
+      cell.className = 'cal-day' + (isToday ? ' today' : '') + (isWeekend ? ' weekend' : '') + (isSel ? ' selected' : '') + (isPeakDay ? ' peak-day' : '');
       cell.onclick = () => calDayClick(d, key);
 
       let inner = `<div class="cal-day-num">${d}</div>`;
@@ -8891,7 +8944,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
 Правила:
 - Типи: reels, stories, carousel, tiktok, caption, post
-- Час: "09:00", "12:00", "18:00" або "20:00"
+- Час (за даними Sprout Social/Buffer 2026): reels/tiktok → "15:00","18:00" (вт-чт пік), stories → "07:00","12:00","20:00", carousel/post → "12:00","15:00"; допустимі значення: "07:00","09:00","12:00","15:00","18:00","20:00"
 - note: конкретна тема/ідея (не загальна фраза), 4-10 слів, враховуй нішу
 - Кількість: 14-18 публікацій рівномірно по місяцю
 - В неділю не більше 1 публікації
@@ -8960,6 +9013,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     calRenderDayPosts(key);
     document.getElementById('calEditor').style.display = 'block';
     document.getElementById('calEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Smart time recommendations for the selected day
+    const selType = document.querySelector('#calTypeChips .cal-type-chip.selected')?.dataset.type || 'reels';
+    calSmartTimeUpdate(selType);
   }
 
   function calRenderDayPosts(key) {
@@ -9008,6 +9064,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     el.classList.add('selected');
     el.style.background   = el.dataset.color;
     el.style.borderColor  = el.dataset.color;
+    calSmartTimeUpdate(el.dataset.type);
   }
 
   function calTimeChip(el) {
@@ -9040,6 +9097,58 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     calRenderDayPosts(key);
     calRender();
   }
+
+  // ── Research helpers ──────────────────────────────────────────────────────
+  function calGetNicheKey() {
+    if (typeof getWsProfile === 'undefined' || typeof getActiveWsId === 'undefined') return null;
+    const profile = getWsProfile(getActiveWsId());
+    return (profile && profile.niche) ? profile.niche : null;
+  }
+
+  function calGetBestTimes(type, dow) {
+    const resType = CAL_RESEARCH[type] || CAL_RESEARCH['post'];
+    const niche   = calGetNicheKey();
+    if (niche && CAL_NICHE_OVERRIDES[niche] && CAL_NICHE_OVERRIDES[niche][type]) {
+      return CAL_NICHE_OVERRIDES[niche][type];
+    }
+    return resType.slots[dow] || resType.slots[1] || ['12:00'];
+  }
+
+  function calSmartTimeUpdate(type) {
+    if (!calSelectedDate) return;
+    const date = new Date(calSelectedDate);
+    const dow  = date.getDay();
+    const best = calGetBestTimes(type, dow);
+    const resType = CAL_RESEARCH[type] || CAL_RESEARCH['post'];
+
+    // Mark chips as hot or normal
+    document.querySelectorAll('#calTimeChips .cal-type-chip').forEach(chip => {
+      const t = chip.dataset.time;
+      if (best.includes(t)) chip.classList.add('cal-time-hot');
+      else chip.classList.remove('cal-time-hot');
+    });
+
+    // Auto-select first best time unless current selection is already optimal
+    const curSel = document.querySelector('#calTimeChips .cal-type-chip.selected');
+    if (!curSel || !best.includes(curSel.dataset.time)) {
+      document.querySelectorAll('#calTimeChips .cal-type-chip').forEach(c => c.classList.remove('selected'));
+      const firstBest = document.querySelector(`#calTimeChips [data-time="${best[0]}"]`);
+      if (firstBest) firstBest.classList.add('selected');
+    }
+
+    // Update banner
+    const banner = document.getElementById('calTimeBanner');
+    if (!banner) return;
+    const niche    = calGetNicheKey();
+    const hasNicheOverride = niche && CAL_NICHE_OVERRIDES[niche] && CAL_NICHE_OVERRIDES[niche][type];
+    const isPeak   = resType.peak.includes(dow);
+    const peakBit  = isPeak  ? `<span class="peak-label">★ Пік охоплення</span> · ` : '';
+    const nicheBit = hasNicheOverride ? `<span class="peak-label">📍 ${niche}</span> · ` : '';
+    const timeList = best.map(t => `${CAL_TIME_ICONS[t]||''}&nbsp;${t}`).join(', ');
+    banner.innerHTML = `${peakBit}${nicheBit}<b>Найкращий час:</b> ${timeList} · <span style="color:var(--text4);font-size:10px;">Sprout Social / Buffer 2026</span>`;
+    banner.style.display = '';
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   function calKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
   function calLoad() {
