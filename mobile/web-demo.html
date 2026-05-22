@@ -1412,6 +1412,12 @@
       cursor: pointer; font-size: 14px; padding: 0 4px;
     }
     .cal-post-del:hover { color: #ff4757; }
+    .cal-post-bell {
+      background: none; border: none; color: var(--text4);
+      cursor: pointer; font-size: 13px; padding: 0 3px; transition: color 0.15s, transform 0.15s; opacity: 0.45;
+    }
+    .cal-post-bell:hover { color: var(--accent2); opacity: 1; transform: scale(1.2); }
+    .cal-post-bell.active { color: var(--accent2); opacity: 1; }
     @media (max-width: 600px) {
       .cal-day { min-height: 52px; padding: 4px; border-radius: 8px; }
       .cal-day-num { font-size: 11px; }
@@ -8912,6 +8918,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           ${p.time ? `<span style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time}</span>` : ''}
           ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${p.note}</span>` : '<span style="flex:1;"></span>'}
           <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text4);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
+          <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="${p.reminder?'Нагадування увімкнено':'Увімкнути нагадування'}">🔔</button>
           <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
         </div>`;
       });
@@ -8933,6 +8940,19 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     const months = CAL_MONTHS[lang] || CAL_MONTHS.uk;
     const monthName = months[calMonth] + ' ' + calYear;
 
+    // Start from tomorrow for current month, day 1 for future months
+    const now = new Date();
+    const isCurrentMonth = (now.getFullYear() === calYear && now.getMonth() === calMonth);
+    const startDay = isCurrentMonth ? Math.min(now.getDate() + 1, daysInMonth) : 1;
+    const remainingDays = daysInMonth - startDay + 1;
+
+    if (isCurrentMonth && startDay > daysInMonth) {
+      if (btn) { btn.disabled = false; btn.textContent = '🐙 AI-план'; }
+      if (loading) loading.style.display = 'none';
+      alert('Цього місяця більше немає днів для планування. Перейди на наступний місяць!');
+      return;
+    }
+
     // Build profile context for personalised plan
     const profileCtx = (typeof buildProfileContext !== 'undefined') ? buildProfileContext() : null;
     if (subText) subText.textContent = profileCtx ? 'Враховую нішу та платформи...' : 'Вибираю формати...';
@@ -8941,23 +8961,39 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       ? `\n\nКонтекст акаунту (ОБОВ'ЯЗКОВО враховуй при виборі тем і форматів):\n${profileCtx}\n`
       : '';
 
-    const prompt = `TASK: Generate a social media content plan for ${monthName} (${daysInMonth} days).${profileBlock}
+    // Calculate targets based on remaining days (PDF-based frequency)
+    const weeksLeft = Math.max(1, remainingDays / 7);
+    const ttTarget  = Math.round(weeksLeft * 5);  // TikTok  ~5/week
+    const rlTarget  = Math.round(weeksLeft * 4);  // Reels   ~4/week
+    const stTarget  = Math.round(weeksLeft * 3);  // Stories ~3/week
+    const crTarget  = Math.round(weeksLeft * 2);  // Carousel ~2/week
+    const totalTarget = ttTarget + rlTarget + stTarget + crTarget;
 
-OUTPUT FORMAT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations. Start your response with [ and end with ].
+    const prompt = `TASK: Generate a social media content calendar for ${monthName}, days ${startDay}–${daysInMonth} (${remainingDays} days).${profileBlock}
 
-EXAMPLE: [{"day":3,"type":"reels","time":"18:00","note":"Topic idea here"},{"day":5,"type":"stories","time":"07:00","note":"Another idea"}]
+OUTPUT FORMAT: Respond ONLY with a raw JSON array. No markdown, no code blocks, no text. Start with [ end with ].
 
-RULES:
-- Fields per item: day (1-${daysInMonth}), type, time, note — nothing else
-- type values: reels | stories | carousel | tiktok | caption | post
-- time values (research-based): "07:00" | "09:00" | "12:00" | "15:00" | "18:00" | "20:00"
-- Best times: reels/tiktok → "15:00" or "18:00"; stories → "07:00","12:00","20:00"; carousel/post → "12:00","15:00"
-- note: specific topic/idea, 4-10 words, relevant to niche
-- Total: 14-18 posts spread across the month
-- Max 1 post on Sundays; vary formats (no 3 same in a row)
-- Match niche/platforms from account context if provided
+EXAMPLE (multiple posts same day allowed!):
+[{"day":${startDay},"type":"tiktok","time":"18:00","note":"Hook: прийом що змінив мій бізнес"},{"day":${startDay},"type":"reels","time":"15:00","note":"3 помилки початківців — reels cut"},{"day":${startDay + 1},"type":"stories","time":"07:00","note":"Опитування: що вам заважає зростати?"}]
 
-START YOUR RESPONSE WITH [ NOW:`;
+FREQUENCY RULES (research-based, mandatory):
+- TikTok: ${ttTarget} posts total (≈5/week) — generate separately from Reels!
+- Instagram Reels: ${rlTarget} posts total (≈4/week)
+- Instagram Stories: ${stTarget} posts total (≈3/week)
+- Carousel: ${crTarget} posts total (≈2/week)
+- TOTAL: ~${totalTarget} posts across days ${startDay}–${daysInMonth}
+
+CONTENT RULES:
+- day values: integers ${startDay}–${daysInMonth} only
+- type values: tiktok | reels | stories | carousel | post
+- time: "07:00"|"09:00"|"12:00"|"15:00"|"18:00"|"20:00"
+- Best times: tiktok→"15:00"/"18:00"; reels→"12:00"/"15:00"/"18:00"; stories→"07:00"/"12:00"/"20:00"; carousel→"12:00"/"15:00"
+- note: specific topic/hook idea in 4-10 words, niche-relevant
+- Same day CAN have tiktok + reels (they are different platforms)
+- Max 1 entry per format per day; max 3 entries total on any single day
+- No 3 same-type posts in a row; skip Sundays for carousel
+
+START WITH [ NOW:`;
 
     try {
       const res = await fetch('/api/chat', {
@@ -8996,10 +9032,10 @@ START YOUR RESPONSE WITH [ NOW:`;
       const data = calLoad();
       let added = 0;
       for (const item of plan) {
-        if (!item.day || item.day < 1 || item.day > daysInMonth) continue;
+        if (!item.day || item.day < startDay || item.day > daysInMonth) continue;
         const k = calKey(calYear, calMonth, item.day);
         if (!data[k]) data[k] = [];
-        data[k].push({ type: item.type || 'post', note: item.note || '', time: item.time || '' });
+        data[k].push({ type: item.type || 'post', note: item.note || '', time: item.time || '', reminder: false });
         added++;
       }
       calSave(data);
@@ -9016,6 +9052,31 @@ START YOUR RESPONSE WITH [ NOW:`;
       if (btn) { btn.disabled = false; btn.textContent = '🐙 AI-план'; }
       if (loading) loading.style.display = 'none';
     }
+  }
+
+  function calToggleReminder(key, idx) {
+    const data = calLoad();
+    if (!data[key] || !data[key][idx]) return;
+    data[key][idx].reminder = !data[key][idx].reminder;
+    calSave(data);
+    // Re-render both views
+    calRenderDayPosts(key);
+    calRender();
+  }
+
+  function calCheckReminders() {
+    const now = new Date();
+    const key = calKey(now.getFullYear(), now.getMonth(), now.getDate());
+    const data = calLoad();
+    const posts = (data[key] || []).filter(function(p) { return p.reminder; });
+    if (!posts.length) return;
+    const count = posts.length;
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;font-size:14px;padding:13px 22px;border-radius:20px;z-index:9999;box-shadow:0 8px 32px #0005;cursor:pointer;white-space:nowrap;animation:fadeIn 0.3s ease forwards;';
+    toast.innerHTML = '🔔 Сьогодні ' + count + ' заплановани' + (count === 1 ? 'й' : 'х') + ' пост' + (count === 1 ? '' : 'ів') + ' — відкрити календар';
+    toast.onclick = function() { toast.remove(); showScreen('calendar'); };
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 9000);
   }
 
   function calDayClick(d, key) {
@@ -9051,6 +9112,7 @@ START YOUR RESPONSE WITH [ NOW:`;
         ${p.time ? `<span style="font-size:11px;color:var(--accent2);font-weight:600;">${timeIcon} ${p.time}</span>` : ''}
         ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${p.note}</span>` : '<span style="flex:1;"></span>'}
         <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
+        <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="${p.reminder?'Нагадування увімкнено':'Увімкнути нагадування'}">🔔</button>
         <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
       </div>`;
     }).join('');
@@ -9215,6 +9277,8 @@ START YOUR RESPONSE WITH [ NOW:`;
     const badge = document.getElementById('premiumTestBadge');
     if (tog)   tog.classList.toggle('on', isPrem);
     if (badge) badge.style.display = isPrem ? '' : 'none';
+    // Check for today's reminders after a short delay
+    setTimeout(calCheckReminders, 1200);
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -10152,20 +10216,22 @@ START YOUR RESPONSE WITH [ NOW:`;
       key: 'niche',
       type: 'chips',
       multi: false,
+      customizable: true,
       options: [
         '⚽ Спорт', '💪 Фітнес / ЗОЖ', '🏡 Нерухомість',
         '💅 Б\'юті', '🍕 Їжа / Ресторан', '✈️ Подорожі',
         '💻 Технології', '💼 Бізнес', '📚 Освіта',
         '🎨 Творчість', '🛒 E-commerce', '🎭 Розваги',
+        '✏️ Інша...',
       ],
     },
     {
       icon: '👥',
       title: 'Цільова аудиторія',
-      sub: 'На кого розраховані твої пости?',
+      sub: 'На кого розраховані твої пости? (можна кілька)',
       key: 'audience',
       type: 'chips',
-      multi: false,
+      multi: true,
       options: [
         '🧒 13–17 років', '🧑 18–24 роки', '👨 25–34 роки',
         '🧔 35–44 роки', '👴 45+ років', '🌍 Широка аудиторія',
@@ -10289,14 +10355,31 @@ START YOUR RESPONSE WITH [ NOW:`;
 
     } else if (step.type === 'chips') {
       const sel = step.multi ? (Array.isArray(curVal) ? curVal : []) : (curVal || null);
+      // For customizable single-select: check if current value is a custom (non-option) value
+      const knownOptions = step.options || [];
+      const isCustomVal = step.customizable && sel && !knownOptions.includes(sel);
+      const displaySel = isCustomVal ? '✏️ Інша...' : sel; // highlight "Інша" chip if custom val saved
+
       inputHtml = '<div class="wiz-chips">'
         + step.options.map(function(opt) {
-            const isSel = step.multi ? sel.indexOf(opt) >= 0 : sel === opt;
+            const isSel = step.multi ? sel.indexOf(opt) >= 0 : displaySel === opt;
             return '<button class="wiz-chip' + (isSel ? ' wiz-sel' : '') + '" '
               + 'onclick="_wizToggleChip(this,\'' + step.key + '\',' + step.multi + ',\'' + opt.replace(/'/g, '&#39;') + '\')">'
               + opt + '</button>';
           }).join('')
         + '</div>';
+
+      // Custom niche input (shown when "✏️ Інша..." is selected)
+      if (step.customizable) {
+        const showCustom = isCustomVal || displaySel === '✏️ Інша...';
+        const customVal = isCustomVal ? sel : '';
+        inputHtml += '<div id="wizCustomWrap" style="margin-top:10px;' + (showCustom ? '' : 'display:none;') + '">'
+          + '<input id="wizCustomInput" class="wiz-input" type="text" placeholder="Назви свою нішу..." '
+          + 'maxlength="50" value="' + customVal.replace(/"/g, '&quot;') + '" '
+          + 'oninput="_wizSetCustomNiche(this.value)" '
+          + 'onkeydown="if(event.key===\'Enter\')wizNext()">'
+          + '</div>';
+      }
 
     } else if (step.type === 'urls') {
       // Pre-fill saved URLs or show 2 empty rows
@@ -10348,6 +10431,9 @@ START YOUR RESPONSE WITH [ NOW:`;
     const step = WIZ_STEPS[_wizStep];
     if (step) _wizData[step.key] = v;
   };
+  window._wizSetCustomNiche = function(v) {
+    _wizData.niche = v.trim() || '✏️ Інша...';
+  };
   window._wizToggleChip = function(btn, key, multi, opt) {
     if (multi) {
       if (!Array.isArray(_wizData[key])) _wizData[key] = [];
@@ -10358,6 +10444,16 @@ START YOUR RESPONSE WITH [ NOW:`;
       _wizData[key] = opt;
       btn.closest('.wiz-chips').querySelectorAll('.wiz-chip').forEach(function(b) { b.classList.remove('wiz-sel'); });
       btn.classList.add('wiz-sel');
+    }
+    // Show/hide custom niche text input
+    const customWrap = document.getElementById('wizCustomWrap');
+    if (customWrap) {
+      const show = (opt === '✏️ Інша...');
+      customWrap.style.display = show ? '' : 'none';
+      if (show) {
+        if (!multi) _wizData[key] = '✏️ Інша...'; // reset until user types
+        setTimeout(function() { const inp = document.getElementById('wizCustomInput'); if (inp) inp.focus(); }, 60);
+      }
     }
   };
 
