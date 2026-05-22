@@ -8941,19 +8941,23 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       ? `\n\nКонтекст акаунту (ОБОВ'ЯЗКОВО враховуй при виборі тем і форматів):\n${profileCtx}\n`
       : '';
 
-    const prompt = `Склади детальний контент-план для соцмереж на ${monthName} (${daysInMonth} днів).${profileBlock}
-Відповідь ТІЛЬКИ у форматі JSON-масиву без зайвого тексту, коментарів і markdown:
-[{"day":3,"type":"reels","time":"18:00","note":"Конкретна тема/ідея посту"},...]
+    const prompt = `TASK: Generate a social media content plan for ${monthName} (${daysInMonth} days).${profileBlock}
 
-Правила:
-- Типи: reels, stories, carousel, tiktok, caption, post
-- Час (за даними Sprout Social/Buffer 2026): reels/tiktok → "15:00","18:00" (вт-чт пік), stories → "07:00","12:00","20:00", carousel/post → "12:00","15:00"; допустимі значення: "07:00","09:00","12:00","15:00","18:00","20:00"
-- note: конкретна тема/ідея (не загальна фраза), 4-10 слів, враховуй нішу
-- Кількість: 14-18 публікацій рівномірно по місяцю
-- В неділю не більше 1 публікації
-- Чергуй формати: не 3 однакових підряд
-- Якщо є ніша в профілі — теми мають відповідати цій ніші
-- Якщо є платформи — пріоритетні типи відповідають цим платформам`;
+OUTPUT FORMAT: Respond with ONLY a raw JSON array. No markdown, no code blocks, no explanations. Start your response with [ and end with ].
+
+EXAMPLE: [{"day":3,"type":"reels","time":"18:00","note":"Topic idea here"},{"day":5,"type":"stories","time":"07:00","note":"Another idea"}]
+
+RULES:
+- Fields per item: day (1-${daysInMonth}), type, time, note — nothing else
+- type values: reels | stories | carousel | tiktok | caption | post
+- time values (research-based): "07:00" | "09:00" | "12:00" | "15:00" | "18:00" | "20:00"
+- Best times: reels/tiktok → "15:00" or "18:00"; stories → "07:00","12:00","20:00"; carousel/post → "12:00","15:00"
+- note: specific topic/idea, 4-10 words, relevant to niche
+- Total: 14-18 posts spread across the month
+- Max 1 post on Sundays; vary formats (no 3 same in a row)
+- Match niche/platforms from account context if provided
+
+START YOUR RESPONSE WITH [ NOW:`;
 
     try {
       const res = await fetch('/api/chat', {
@@ -8975,9 +8979,19 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         }
       }
 
-      const match = fullText.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error('Не вдалося розпізнати план від AI');
-      const plan = JSON.parse(match[0]);
+      // Robust JSON extraction: strip markdown code blocks, then find array
+      let jsonText = fullText
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+      // Find the outermost [...] array
+      const start = jsonText.indexOf('[');
+      const end   = jsonText.lastIndexOf(']');
+      if (start === -1 || end === -1 || end < start) {
+        throw new Error('AI не повернув JSON. Відповідь: ' + jsonText.slice(0, 120));
+      }
+      jsonText = jsonText.slice(start, end + 1);
+      const plan = JSON.parse(jsonText);
 
       const data = calLoad();
       let added = 0;
