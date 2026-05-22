@@ -3322,6 +3322,14 @@
         try { renderProfile(); } catch(e) {}
         try { if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner(); } catch(e) {}
         try { if (typeof renderProfileCard !== 'undefined') renderProfileCard(); } catch(e) {}
+        // Restore last visited screen
+        try {
+          const last = localStorage.getItem('octo_last_screen');
+          if (last && last !== 'dashboard' && document.getElementById(last)) {
+            const navEl = document.querySelector('.nav-item[onclick*="\'' + last + '\'"]');
+            showScreen(last, navEl);
+          }
+        } catch(e) {}
         // Pull latest data from cloud (non-blocking — overwrites localStorage with cloud version)
         setTimeout(function() { try { syncFromCloud(); } catch(e) {} }, 300);
       }, 0);
@@ -4016,6 +4024,8 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     if (navEl) navEl.classList.add('active');
+    // Remember last screen so refresh restores it
+    try { localStorage.setItem('octo_last_screen', id); } catch {}
     const keys = screenTitleKeys[id];
     if (keys) {
       const t = translations[currentLang] || translations['uk'];
