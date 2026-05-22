@@ -1418,6 +1418,52 @@
     }
     .cal-post-bell:hover { color: var(--accent2); opacity: 1; transform: scale(1.2); }
     .cal-post-bell.active { color: var(--accent2); opacity: 1; }
+
+    /* ── Plan settings modal ──────────────────────────── */
+    #calPlanModal {
+      display: none; position: fixed; inset: 0; z-index: 1200;
+      background: rgba(0,0,0,.72); align-items: flex-end; justify-content: center;
+    }
+    #calPlanModal.open { display: flex; }
+    #calPlanSheet {
+      background: var(--surface); border-radius: 24px 24px 0 0;
+      padding: 10px 20px 32px; width: 100%; max-width: 600px;
+      max-height: 88vh; overflow-y: auto;
+      animation: slideUp 0.3s cubic-bezier(.16,1,.3,1) forwards;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .pm-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 18px; }
+    .pm-title  { font-size: 18px; font-weight: 800; color: var(--text); text-align: center; margin-bottom: 4px; }
+    .pm-sub    { font-size: 12px; color: var(--text4); text-align: center; margin-bottom: 22px; }
+    .pm-section { margin-bottom: 18px; }
+    .pm-label  { font-size: 12px; font-weight: 700; color: var(--text3); margin-bottom: 8px; letter-spacing: .3px; }
+    .pm-chips  { display: flex; gap: 7px; flex-wrap: wrap; }
+    .pm-chip {
+      padding: 7px 13px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface2); color: var(--text3);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .pm-chip.sel {
+      background: linear-gradient(135deg, #6C63FF22, #38BDF822);
+      border-color: var(--accent); color: var(--accent);
+    }
+    .pm-chip.sel-orange {
+      background: linear-gradient(135deg, #ff6b3522, #ff8c5522);
+      border-color: #ff6b35; color: #ff8c55;
+    }
+    .pm-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+    .pm-freq-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .pm-freq-label { font-size: 13px; color: var(--text3); min-width: 130px; flex-shrink: 0; }
+    .pm-freq-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pm-freq-chip {
+      padding: 5px 11px; border-radius: 14px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface2); color: var(--text4); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pm-freq-chip.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
     @media (max-width: 600px) {
       .cal-day { min-height: 52px; padding: 4px; border-radius: 8px; }
       .cal-day-num { font-size: 11px; }
@@ -3066,7 +3112,7 @@
               <button class="btn btn-secondary" onclick="calNav(1)" style="padding:8px 14px;border-radius:12px;font-size:18px;flex-shrink:0;">›</button>
               <!-- View toggle -->
               <button id="calViewToggleBtn" onclick="calToggleView()" style="padding:8px 12px;border-radius:12px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;flex-shrink:0;" title="Перемкнути вид">📋</button>
-              <button class="btn btn-primary" onclick="calAIPlan()" id="calAIBtn" style="padding:8px 14px;font-size:12px;white-space:nowrap;border-radius:12px;flex-shrink:0;">🐙 AI-план</button>
+              <button class="btn btn-primary" onclick="calOpenPlanModal()" id="calAIBtn" style="padding:8px 14px;font-size:12px;white-space:nowrap;border-radius:12px;flex-shrink:0;">🐙 AI-план</button>
             </div>
 
             <!-- AI plan context hint (shown when no profile) -->
@@ -3118,7 +3164,7 @@
               <div style="font-size:36px;margin-bottom:10px;">📅</div>
               <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Немає запланованих публікацій</div>
               <div style="font-size:12px;color:var(--text4);margin-bottom:14px;">Натисни на день щоб додати публікацію<br>або дай Octo скласти план автоматично</div>
-              <button class="btn btn-primary" onclick="calAIPlan()" style="font-size:13px;">🐙 Згенерувати план</button>
+              <button class="btn btn-primary" onclick="calOpenPlanModal()" style="font-size:13px;">🐙 Згенерувати план</button>
             </div>
 
             <!-- AI Plan generating indicator -->
@@ -8928,6 +8974,78 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     el.innerHTML = html;
   }
 
+  // ── Plan settings modal ──────────────────────────────────────────────────
+  window.calPlanConfig = JSON.parse(localStorage.getItem('calPlanConfig') || 'null') || {
+    platforms: ['stories', 'reels', 'tiktok'],
+    storiesPerDay: 5, tiktokPerWeek: 5, reelsPerWeek: 3, carouselPerWeek: 2, focus: 'growth'
+  };
+
+  function calOpenPlanModal() {
+    const cfg = window.calPlanConfig;
+    // Restore platform chips
+    document.querySelectorAll('#pmPlatforms .pm-chip').forEach(function(c) {
+      c.classList.toggle('sel', cfg.platforms.includes(c.dataset.val));
+    });
+    // Restore freq chips
+    [['stories','storiesPerDay','pmStoriesChips'],
+     ['tiktok','tiktokPerWeek','pmTiktokChips'],
+     ['reels','reelsPerWeek','pmReelsChips'],
+     ['carousel','carouselPerWeek','pmCarouselChips']].forEach(function(r) {
+      const val = String(cfg[r[1]]);
+      document.querySelectorAll('#' + r[2] + ' .pm-freq-chip').forEach(function(c) {
+        c.classList.toggle('sel', c.dataset.val === val);
+      });
+    });
+    // Restore focus
+    document.querySelectorAll('#pmFocusChips .pm-chip').forEach(function(c) {
+      c.classList.toggle('sel', c.dataset.val === cfg.focus);
+    });
+    // Show/hide platform rows
+    pmSyncRows();
+    document.getElementById('calPlanModal').classList.add('open');
+  }
+  window.calOpenPlanModal = calOpenPlanModal;
+
+  function calClosePlanModal() {
+    document.getElementById('calPlanModal').classList.remove('open');
+  }
+  window.calClosePlanModal = calClosePlanModal;
+
+  function pmSyncRows() {
+    const cfg = window.calPlanConfig;
+    document.getElementById('pmRowStories').style.display  = cfg.platforms.includes('stories')  ? '' : 'none';
+    document.getElementById('pmRowTiktok').style.display   = cfg.platforms.includes('tiktok')   ? '' : 'none';
+    document.getElementById('pmRowReels').style.display    = cfg.platforms.includes('reels')    ? '' : 'none';
+    document.getElementById('pmRowCarousel').style.display = cfg.platforms.includes('carousel') ? '' : 'none';
+  }
+
+  window.pmTogglePlatform = function(btn) {
+    const val = btn.dataset.val;
+    const idx = window.calPlanConfig.platforms.indexOf(val);
+    if (idx >= 0) { window.calPlanConfig.platforms.splice(idx, 1); btn.classList.remove('sel'); }
+    else          { window.calPlanConfig.platforms.push(val);       btn.classList.add('sel'); }
+    pmSyncRows();
+  };
+
+  window.pmSetFreq = function(key, btn) {
+    const keyMap = { stories:'storiesPerDay', tiktok:'tiktokPerWeek', reels:'reelsPerWeek', carousel:'carouselPerWeek' };
+    window.calPlanConfig[keyMap[key]] = parseInt(btn.dataset.val, 10);
+    btn.closest('.pm-freq-chips').querySelectorAll('.pm-freq-chip').forEach(function(c) { c.classList.remove('sel'); });
+    btn.classList.add('sel');
+  };
+
+  window.pmSetFocus = function(btn) {
+    window.calPlanConfig.focus = btn.dataset.val;
+    document.querySelectorAll('#pmFocusChips .pm-chip').forEach(function(c) { c.classList.remove('sel'); });
+    btn.classList.add('sel');
+  };
+
+  window.calPlanModalApply = function() {
+    localStorage.setItem('calPlanConfig', JSON.stringify(window.calPlanConfig));
+    calClosePlanModal();
+    calAIPlan();
+  };
+
   async function calAIPlan() {
     const btn     = document.getElementById('calAIBtn');
     const loading = document.getElementById('calAILoading');
@@ -8961,37 +9079,49 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       ? `\n\nКонтекст акаунту (ОБОВ'ЯЗКОВО враховуй при виборі тем і форматів):\n${profileCtx}\n`
       : '';
 
-    // Calculate targets based on remaining days (PDF-based frequency)
+    // Use user's plan config (from modal) or defaults
+    const cfg = window.calPlanConfig || {};
+    const platforms       = cfg.platforms       || ['tiktok','reels','stories'];
+    const storiesPerDay   = cfg.storiesPerDay   || 5;
+    const tiktokPerWeek   = cfg.tiktokPerWeek   || 5;
+    const reelsPerWeek    = cfg.reelsPerWeek    || 3;
+    const carouselPerWeek = cfg.carouselPerWeek || 2;
+    const focusLabel      = { growth:'зростання охоплення', sales:'продажі', trust:'довіра та авторитет', entertainment:'розваги' }[cfg.focus||'growth'];
+
+    // Stories: convert "per day" to calendar SESSIONS per day (morning / afternoon / evening blocks)
+    const stSessionsPerDay = storiesPerDay <= 2 ? 1 : storiesPerDay <= 8 ? 2 : 3;
+    const stBatchSize = Math.round(storiesPerDay / stSessionsPerDay);
+
     const weeksLeft = Math.max(1, remainingDays / 7);
-    const ttTarget  = Math.round(weeksLeft * 5);  // TikTok  ~5/week
-    const rlTarget  = Math.round(weeksLeft * 4);  // Reels   ~4/week
-    const stTarget  = Math.round(weeksLeft * 3);  // Stories ~3/week
-    const crTarget  = Math.round(weeksLeft * 2);  // Carousel ~2/week
+    const ttTarget  = platforms.includes('tiktok')   ? Math.round(weeksLeft * tiktokPerWeek)   : 0;
+    const rlTarget  = platforms.includes('reels')    ? Math.round(weeksLeft * reelsPerWeek)    : 0;
+    const stTarget  = platforms.includes('stories')  ? Math.round(weeksLeft * stSessionsPerDay * 6) : 0; // ~6 days/week
+    const crTarget  = platforms.includes('carousel') ? Math.round(weeksLeft * carouselPerWeek) : 0;
     const totalTarget = ttTarget + rlTarget + stTarget + crTarget;
 
     const prompt = `TASK: Generate a social media content calendar for ${monthName}, days ${startDay}–${daysInMonth} (${remainingDays} days).${profileBlock}
 
+USER'S POSTING GOALS (must follow exactly):
+- Focus: ${focusLabel}
+- Active platforms: ${platforms.join(', ')}${platforms.includes('stories') ? `\n- Stories: ${storiesPerDay}/day → create ${stSessionsPerDay} calendar slot(s)/day (each slot = ~${stBatchSize} stories). Label slots: "Ранковий блок", "Денний блок", "Вечірній блок" in notes.` : ''}${platforms.includes('tiktok') ? `\n- TikTok: ${tiktokPerWeek}/week` : ''}${platforms.includes('reels') ? `\n- Reels: ${reelsPerWeek}/week` : ''}${platforms.includes('carousel') ? `\n- Carousel: ${carouselPerWeek}/week` : ''}
+
 OUTPUT FORMAT: Respond ONLY with a raw JSON array. No markdown, no code blocks, no text. Start with [ end with ].
 
-EXAMPLE (multiple posts same day allowed!):
-[{"day":${startDay},"type":"tiktok","time":"18:00","note":"Hook: прийом що змінив мій бізнес"},{"day":${startDay},"type":"reels","time":"15:00","note":"3 помилки початківців — reels cut"},{"day":${startDay + 1},"type":"stories","time":"07:00","note":"Опитування: що вам заважає зростати?"}]
+TARGETS (mandatory totals):
+${platforms.includes('tiktok')   ? `- tiktok:   ${ttTarget} entries\n` : ''}\
+${platforms.includes('reels')    ? `- reels:    ${rlTarget} entries\n` : ''}\
+${platforms.includes('stories')  ? `- stories:  ${stTarget} entries (${stSessionsPerDay} slots/day)\n` : ''}\
+${platforms.includes('carousel') ? `- carousel: ${crTarget} entries\n` : ''}\
+- TOTAL: ~${totalTarget} entries across days ${startDay}–${daysInMonth}
 
-FREQUENCY RULES (research-based, mandatory):
-- TikTok: ${ttTarget} posts total (≈5/week) — generate separately from Reels!
-- Instagram Reels: ${rlTarget} posts total (≈4/week)
-- Instagram Stories: ${stTarget} posts total (≈3/week)
-- Carousel: ${crTarget} posts total (≈2/week)
-- TOTAL: ~${totalTarget} posts across days ${startDay}–${daysInMonth}
-
-CONTENT RULES:
-- day values: integers ${startDay}–${daysInMonth} only
-- type values: tiktok | reels | stories | carousel | post
+FIELD RULES:
+- day: integer ${startDay}–${daysInMonth}
+- type: tiktok | reels | stories | carousel | post
 - time: "07:00"|"09:00"|"12:00"|"15:00"|"18:00"|"20:00"
 - Best times: tiktok→"15:00"/"18:00"; reels→"12:00"/"15:00"/"18:00"; stories→"07:00"/"12:00"/"20:00"; carousel→"12:00"/"15:00"
-- note: specific topic/hook idea in 4-10 words, niche-relevant
-- Same day CAN have tiktok + reels (they are different platforms)
-- Max 1 entry per format per day; max 3 entries total on any single day
-- No 3 same-type posts in a row; skip Sundays for carousel
+- note: specific topic/hook, 4-10 words, niche-relevant${platforms.includes('stories') ? `; for story slots include block name and story count, e.g. "Ранковий блок — ${stBatchSize} stories | тема..."` : ''}
+- Same day CAN have tiktok + reels (separate platforms)
+- No 3 same-type rows in a row; spread evenly
 
 START WITH [ NOW:`;
 
@@ -10930,6 +11060,104 @@ START WITH [ NOW:`;
     </div>
     <div class="wiz-body" id="wizBody"></div>
     <div class="wiz-footer" id="wizFooter"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CONTENT PLAN SETTINGS MODAL (bottom sheet)
+══════════════════════════════════════════════ -->
+<div id="calPlanModal" onclick="if(event.target===this)calClosePlanModal()">
+  <div id="calPlanSheet">
+    <div class="pm-handle"></div>
+    <div class="pm-title">⚙️ Налаштуй контент-план</div>
+    <div class="pm-sub">Підкажи, як ти ведеш соцмережі — Octo врахує реальні обʼєми</div>
+
+    <!-- Platforms -->
+    <div class="pm-section">
+      <div class="pm-label">📱 Які соцмережі ведеш?</div>
+      <div class="pm-chips" id="pmPlatforms">
+        <button class="pm-chip sel" data-val="stories"  onclick="pmTogglePlatform(this)">📖 Stories</button>
+        <button class="pm-chip sel" data-val="reels"    onclick="pmTogglePlatform(this)">🎬 Reels</button>
+        <button class="pm-chip sel" data-val="tiktok"   onclick="pmTogglePlatform(this)">🎵 TikTok</button>
+        <button class="pm-chip"     data-val="carousel" onclick="pmTogglePlatform(this)">🖼 Carousel</button>
+      </div>
+    </div>
+
+    <hr class="pm-divider">
+
+    <!-- Frequency per platform -->
+    <div class="pm-section">
+      <div class="pm-label">📊 Скільки публікацій?</div>
+
+      <!-- Stories -->
+      <div class="pm-freq-row" id="pmRowStories">
+        <div class="pm-freq-label">📖 Stories / день</div>
+        <div class="pm-freq-chips" id="pmStoriesChips">
+          <button class="pm-freq-chip"     data-val="1"  onclick="pmSetFreq('stories',this)">1</button>
+          <button class="pm-freq-chip"     data-val="3"  onclick="pmSetFreq('stories',this)">3</button>
+          <button class="pm-freq-chip sel" data-val="5"  onclick="pmSetFreq('stories',this)">5</button>
+          <button class="pm-freq-chip"     data-val="10" onclick="pmSetFreq('stories',this)">10</button>
+          <button class="pm-freq-chip"     data-val="15" onclick="pmSetFreq('stories',this)">15</button>
+          <button class="pm-freq-chip"     data-val="20" onclick="pmSetFreq('stories',this)">20+</button>
+        </div>
+      </div>
+
+      <!-- TikTok -->
+      <div class="pm-freq-row" id="pmRowTiktok">
+        <div class="pm-freq-label">🎵 TikTok / тиждень</div>
+        <div class="pm-freq-chips" id="pmTiktokChips">
+          <button class="pm-freq-chip"     data-val="1"  onclick="pmSetFreq('tiktok',this)">1</button>
+          <button class="pm-freq-chip"     data-val="3"  onclick="pmSetFreq('tiktok',this)">3</button>
+          <button class="pm-freq-chip sel" data-val="5"  onclick="pmSetFreq('tiktok',this)">5</button>
+          <button class="pm-freq-chip"     data-val="7"  onclick="pmSetFreq('tiktok',this)">7</button>
+          <button class="pm-freq-chip"     data-val="14" onclick="pmSetFreq('tiktok',this)">2/день</button>
+        </div>
+      </div>
+
+      <!-- Reels -->
+      <div class="pm-freq-row" id="pmRowReels">
+        <div class="pm-freq-label">🎬 Reels / тиждень</div>
+        <div class="pm-freq-chips" id="pmReelsChips">
+          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('reels',this)">1</button>
+          <button class="pm-freq-chip"     data-val="2" onclick="pmSetFreq('reels',this)">2</button>
+          <button class="pm-freq-chip sel" data-val="3" onclick="pmSetFreq('reels',this)">3</button>
+          <button class="pm-freq-chip"     data-val="5" onclick="pmSetFreq('reels',this)">5</button>
+          <button class="pm-freq-chip"     data-val="7" onclick="pmSetFreq('reels',this)">щодня</button>
+        </div>
+      </div>
+
+      <!-- Carousel -->
+      <div class="pm-freq-row" id="pmRowCarousel" style="display:none;">
+        <div class="pm-freq-label">🖼 Carousel / тиждень</div>
+        <div class="pm-freq-chips" id="pmCarouselChips">
+          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('carousel',this)">1</button>
+          <button class="pm-freq-chip sel" data-val="2" onclick="pmSetFreq('carousel',this)">2</button>
+          <button class="pm-freq-chip"     data-val="3" onclick="pmSetFreq('carousel',this)">3</button>
+          <button class="pm-freq-chip"     data-val="4" onclick="pmSetFreq('carousel',this)">4</button>
+        </div>
+      </div>
+    </div>
+
+    <hr class="pm-divider">
+
+    <!-- Focus -->
+    <div class="pm-section">
+      <div class="pm-label">🎯 Акцент контенту</div>
+      <div class="pm-chips" id="pmFocusChips">
+        <button class="pm-chip sel" data-val="growth"        onclick="pmSetFocus(this)">📈 Зростання</button>
+        <button class="pm-chip"     data-val="sales"         onclick="pmSetFocus(this)">💰 Продажі</button>
+        <button class="pm-chip"     data-val="trust"         onclick="pmSetFocus(this)">🤝 Довіра</button>
+        <button class="pm-chip"     data-val="entertainment" onclick="pmSetFocus(this)">🎭 Розваги</button>
+      </div>
+    </div>
+
+    <!-- Generate button -->
+    <button onclick="calPlanModalApply()" style="width:100%;padding:15px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:16px;cursor:pointer;margin-top:8px;box-shadow:0 4px 20px #6C63FF44;">
+      🐙 Згенерувати план
+    </button>
+    <button onclick="calClosePlanModal()" style="width:100%;padding:11px;background:none;color:var(--text4);font-size:13px;border:none;cursor:pointer;margin-top:8px;">
+      Скасувати
+    </button>
   </div>
 </div>
 
