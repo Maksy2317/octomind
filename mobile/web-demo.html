@@ -3025,12 +3025,19 @@
         <div class="screen" id="calendar">
           <div style="max-width:780px;margin:0 auto;padding-bottom:40px;">
 
-            <!-- Header: month nav + AI plan -->
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-              <button class="btn btn-secondary" onclick="calNav(-1)" style="padding:8px 16px;border-radius:12px;font-size:18px;">‹</button>
-              <div style="flex:1;text-align:center;font-size:18px;font-weight:800;color:var(--text);" id="calMonthTitle"></div>
-              <button class="btn btn-secondary" onclick="calNav(1)" style="padding:8px 16px;border-radius:12px;font-size:18px;">›</button>
-              <button class="btn btn-primary" onclick="calAIPlan()" id="calAIBtn" style="padding:8px 14px;font-size:12px;white-space:nowrap;border-radius:12px;">🐙 AI-план</button>
+            <!-- Header: month nav + controls -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" onclick="calNav(-1)" style="padding:8px 14px;border-radius:12px;font-size:18px;flex-shrink:0;">‹</button>
+              <div style="flex:1;text-align:center;font-size:18px;font-weight:800;color:var(--text);min-width:120px;" id="calMonthTitle"></div>
+              <button class="btn btn-secondary" onclick="calNav(1)" style="padding:8px 14px;border-radius:12px;font-size:18px;flex-shrink:0;">›</button>
+              <!-- View toggle -->
+              <button id="calViewToggleBtn" onclick="calToggleView()" style="padding:8px 12px;border-radius:12px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;flex-shrink:0;" title="Перемкнути вид">📋</button>
+              <button class="btn btn-primary" onclick="calAIPlan()" id="calAIBtn" style="padding:8px 14px;font-size:12px;white-space:nowrap;border-radius:12px;flex-shrink:0;">🐙 AI-план</button>
+            </div>
+
+            <!-- AI plan context hint (shown when no profile) -->
+            <div id="calProfileHint" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(108,99,255,0.1);border:1px solid #6C63FF44;border-radius:12px;font-size:12px;color:var(--text3);">
+              💡 <b>Підказка:</b> заповни <button onclick="openAcctWizard(getActiveWsId())" style="background:none;border:none;color:var(--accent2);font-weight:700;cursor:pointer;padding:0;font-size:12px;">профіль акаунту ⚙️</button> — AI складе план з ідеями саме для твоєї ніші та платформ
             </div>
 
             <!-- Stats row -->
@@ -3043,32 +3050,36 @@
                 <div style="font-size:24px;font-weight:800;color:var(--text);" id="calStatWeek">0</div>
                 <div style="font-size:10px;color:var(--text4);margin-top:2px;">цього тижня</div>
               </div>
-              <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:14px;padding:12px 10px;text-align:center;background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(168,85,247,0.1));">
+              <div style="border:1px solid var(--accent);border-radius:14px;padding:12px 10px;text-align:center;background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(168,85,247,0.1));">
                 <div style="font-size:24px;font-weight:800;color:var(--accent);" id="calStatToday">0</div>
                 <div style="font-size:10px;color:var(--text4);margin-top:2px;">сьогодні</div>
               </div>
             </div>
 
-            <!-- Legend -->
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+            <!-- Legend + clear button -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
               <span class="cal-legend" style="--lc:#6C63FF">🎬 Reels</span>
               <span class="cal-legend" style="--lc:#ec4899">📖 Stories</span>
               <span class="cal-legend" style="--lc:#3b82f6">🖼️ Carousel</span>
               <span class="cal-legend" style="--lc:#10b981">🎵 TikTok</span>
               <span class="cal-legend" style="--lc:#f59e0b">✍️ Caption</span>
               <span class="cal-legend" style="--lc:#8B8BA7">📝 Пост</span>
+              <button onclick="calClearMonth()" style="margin-left:auto;background:none;border:1px solid #ff6b6b44;border-radius:8px;color:#ff6b6b;font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;">🗑 Очистити місяць</button>
             </div>
 
-            <!-- Day headers -->
-            <div class="cal-week-header">
-              <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div>
-              <div style="color:var(--accent2)">Сб</div><div style="color:var(--accent2)">Вс</div>
+            <!-- GRID VIEW -->
+            <div id="calGridView">
+              <div class="cal-week-header" id="calWeekHeader">
+                <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div>
+                <div style="color:var(--accent2)">Сб</div><div style="color:var(--accent2)">Нд</div>
+              </div>
+              <div class="cal-grid" id="calGrid"></div>
             </div>
 
-            <!-- Grid -->
-            <div class="cal-grid" id="calGrid"></div>
+            <!-- LIST / AGENDA VIEW -->
+            <div id="calListView" style="display:none;"></div>
 
-            <!-- Empty state hint (shown when no posts) -->
+            <!-- Empty state hint -->
             <div id="calEmptyHint" style="display:none;text-align:center;padding:24px 16px;border:1.5px dashed var(--border);border-radius:16px;margin-top:14px;">
               <div style="font-size:36px;margin-bottom:10px;">📅</div>
               <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Немає запланованих публікацій</div>
@@ -3079,12 +3090,12 @@
             <!-- AI Plan generating indicator -->
             <div id="calAILoading" style="display:none;text-align:center;padding:20px;margin-top:12px;" class="card">
               <div style="font-size:32px;margin-bottom:8px;">🐙</div>
-              <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Octo складає план...</div>
-              <div style="font-size:11px;color:var(--text4);">Аналізую нішу та вибираю формати</div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px;" id="calAILoadingText">Octo складає план...</div>
+              <div style="font-size:11px;color:var(--text4);" id="calAILoadingSub">Аналізую нішу та вибираю формати</div>
             </div>
 
             <!-- Day editor panel -->
-            <div id="calEditor" style="display:none;margin-top:16px;border-radius:16px;border:1px solid var(--border);background:var(--surface);padding:18px;">
+            <div id="calEditor" style="display:none;margin-top:16px;border-radius:18px;border:1.5px solid var(--border);background:var(--surface);padding:18px;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                 <div style="font-size:15px;font-weight:800;" id="calEditorTitle">📅 Понеділок, 1 травня</div>
                 <button onclick="document.getElementById('calEditor').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0;">✕</button>
@@ -3095,7 +3106,10 @@
 
               <!-- Add post form -->
               <div style="font-size:11px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700;">+ Додати публікацію</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="calTypeChips">
+
+              <!-- Content type chips -->
+              <div style="font-size:11px;color:var(--text4);margin-bottom:5px;">Формат</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="calTypeChips">
                 <div class="cal-type-chip selected" data-type="reels" data-color="#6C63FF" onclick="calTypeChip(this)">🎬 Reels</div>
                 <div class="cal-type-chip" data-type="stories" data-color="#ec4899" onclick="calTypeChip(this)">📖 Stories</div>
                 <div class="cal-type-chip" data-type="carousel" data-color="#3b82f6" onclick="calTypeChip(this)">🖼️ Carousel</div>
@@ -3103,7 +3117,18 @@
                 <div class="cal-type-chip" data-type="caption" data-color="#f59e0b" onclick="calTypeChip(this)">✍️ Caption</div>
                 <div class="cal-type-chip" data-type="post" data-color="#8B8BA7" onclick="calTypeChip(this)">📝 Пост</div>
               </div>
-              <input type="text" class="cap-input" id="calPostNote" placeholder="Тема / опис (необов'язково)" style="margin-bottom:10px;">
+
+              <!-- Time chips -->
+              <div style="font-size:11px;color:var(--text4);margin-bottom:5px;">Час публікації</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="calTimeChips">
+                <div class="cal-type-chip" data-time="09:00" onclick="calTimeChip(this)">🌅 09:00</div>
+                <div class="cal-type-chip selected" data-time="12:00" onclick="calTimeChip(this)">☀️ 12:00</div>
+                <div class="cal-type-chip" data-time="18:00" onclick="calTimeChip(this)">🌆 18:00</div>
+                <div class="cal-type-chip" data-time="20:00" onclick="calTimeChip(this)">🌙 20:00</div>
+              </div>
+
+              <!-- Note input -->
+              <input type="text" class="cap-input" id="calPostNote" placeholder="Тема / ідея (наприклад: топ-5 порад про...)" style="margin-bottom:10px;" onkeydown="if(event.key==='Enter')calAddPost()">
               <button class="btn btn-primary btn-full" onclick="calAddPost()">+ Додати</button>
             </div>
 
@@ -7983,6 +8008,8 @@
     renderWorkspaces();
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
     if (typeof renderProfileCard !== 'undefined') renderProfileCard();
+    // Re-render calendar for the new workspace (if on calendar screen)
+    if (document.getElementById('calendar')?.classList.contains('active')) calInit();
   }
 
   function addWorkspace() {
@@ -8672,13 +8699,20 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   };
   const CAL_TYPE_COLORS = { reels:'#6C63FF', stories:'#ec4899', carousel:'#3b82f6', tiktok:'#10b981', caption:'#f59e0b', post:'#8B8BA7' };
   const CAL_TYPE_ICONS  = { reels:'🎬', stories:'📖', carousel:'🖼️', tiktok:'🎵', caption:'✍️', post:'📝' };
+  const CAL_TIME_ICONS  = { '09:00':'🌅', '12:00':'☀️', '18:00':'🌆', '20:00':'🌙' };
 
-  let calYear, calMonth, calSelectedDate = null;
+  let calYear, calMonth, calSelectedDate = null, calListMode = false;
 
   function calInit() {
     const now = new Date();
     if (!calYear)  calYear  = now.getFullYear();
     if (!calMonth) calMonth = now.getMonth();
+    // Show profile hint if no profile configured
+    const hint = document.getElementById('calProfileHint');
+    if (hint) {
+      const hasProfile = (typeof getWsProfile !== 'undefined') && !!getWsProfile(getActiveWsId());
+      hint.style.display = hasProfile ? 'none' : '';
+    }
     calRender();
   }
 
@@ -8691,36 +8725,56 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     calRender();
   }
 
-  function calRender() {
+  function calToggleView() {
+    calListMode = !calListMode;
+    const btn = document.getElementById('calViewToggleBtn');
+    document.getElementById('calGridView').style.display  = calListMode ? 'none' : '';
+    document.getElementById('calListView').style.display  = calListMode ? '' : 'none';
+    if (btn) btn.textContent = calListMode ? '📅' : '📋';
+    if (calListMode) calRenderList();
+  }
+
+  function calClearMonth() {
     const lang = currentLang || 'uk';
+    const months = CAL_MONTHS[lang] || CAL_MONTHS.uk;
+    if (!confirm('Очистити всі публікації за ' + months[calMonth] + ' ' + calYear + '?')) return;
+    const data = calLoad();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) delete data[calKey(calYear, calMonth, d)];
+    calSave(data);
+    document.getElementById('calEditor').style.display = 'none';
+    calSelectedDate = null;
+    calRender();
+  }
+
+  function calRender() {
+    const lang   = currentLang || 'uk';
     const months = CAL_MONTHS[lang] || CAL_MONTHS.uk;
     const days   = CAL_DAYS[lang]   || CAL_DAYS.uk;
 
     document.getElementById('calMonthTitle').textContent = months[calMonth] + ' ' + calYear;
 
-    // Update weekday headers dynamically
-    const header = document.querySelector('.cal-week-header');
+    // Update weekday headers
+    const header = document.getElementById('calWeekHeader');
     if (header) {
       header.innerHTML = days.map((d, i) =>
-        `<div${i >= 5 ? ' style="color:var(--accent2)"' : ''}>${d}</div>`
-      ).join('');
+        `<div${i >= 5 ? ' style="color:var(--accent2)"' : ''}>${d}</div>`).join('');
     }
 
-    const grid  = document.getElementById('calGrid');
+    const grid = document.getElementById('calGrid');
     grid.innerHTML = '';
 
-    const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
-    const offset   = (firstDay === 0) ? 6 : firstDay - 1;    // Mon-based
+    const firstDay    = new Date(calYear, calMonth, 1).getDay();
+    const offset      = (firstDay === 0) ? 6 : firstDay - 1;
     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-    const today    = new Date();
-    const data     = calLoad();
+    const today       = new Date();
+    const data        = calLoad();
 
-    // ── Stats ───────────────────────────────────────────────────────────────
+    // Stats
     let totalPosts = 0, weekPosts = 0, todayPosts = 0;
-    const todayKey = calKey(today.getFullYear(), today.getMonth(), today.getDate());
-    // Week bounds (Mon–Sun of current week)
-    const weekStart = new Date(today); weekStart.setDate(today.getDate() - ((today.getDay()+6)%7));
-    const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+    const todayKey   = calKey(today.getFullYear(), today.getMonth(), today.getDate());
+    const weekStart  = new Date(today); weekStart.setDate(today.getDate() - ((today.getDay()+6)%7));
+    const weekEnd    = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
     for (let d = 1; d <= daysInMonth; d++) {
       const k = calKey(calYear, calMonth, d);
       const p = (data[k] || []).length;
@@ -8732,12 +8786,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     document.getElementById('calStatTotal').textContent = totalPosts;
     document.getElementById('calStatWeek').textContent  = weekPosts;
     document.getElementById('calStatToday').textContent = todayPosts;
-
-    // Empty hint
     const hint = document.getElementById('calEmptyHint');
     if (hint) hint.style.display = totalPosts === 0 ? '' : 'none';
 
-    // Empty cells before first day
+    // Empty offset cells
     for (let i = 0; i < offset; i++) {
       const cell = document.createElement('div');
       cell.className = 'cal-day empty';
@@ -8745,21 +8797,22 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const key     = calKey(calYear, calMonth, d);
-      const posts   = data[key] || [];
-      const isToday = (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d);
-      const isWeekend = (() => { const dow = new Date(calYear, calMonth, d).getDay(); return dow === 0 || dow === 6; })();
-      const isSel   = calSelectedDate === key;
+      const key      = calKey(calYear, calMonth, d);
+      const posts    = data[key] || [];
+      const isToday  = (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d);
+      const dow      = new Date(calYear, calMonth, d).getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      const isSel    = calSelectedDate === key;
 
       const cell = document.createElement('div');
       cell.className = 'cal-day' + (isToday ? ' today' : '') + (isWeekend ? ' weekend' : '') + (isSel ? ' selected' : '');
-      cell.onclick   = () => calDayClick(d, key);
+      cell.onclick = () => calDayClick(d, key);
 
       let inner = `<div class="cal-day-num">${d}</div>`;
       if (posts.length) {
         inner += '<div class="cal-dots">';
         posts.slice(0, 3).forEach(p => {
-          inner += `<span class="cal-dot" style="background:${CAL_TYPE_COLORS[p.type] || '#888'}"></span>`;
+          inner += `<span class="cal-dot" style="background:${CAL_TYPE_COLORS[p.type] || '#888'}" title="${CAL_TYPE_ICONS[p.type]||''} ${p.note||''}"></span>`;
         });
         if (posts.length > 3) inner += `<span style="font-size:9px;color:var(--text4)">+${posts.length-3}</span>`;
         inner += '</div>';
@@ -8767,30 +8820,90 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       cell.innerHTML = inner;
       grid.appendChild(cell);
     }
+
+    if (calListMode) calRenderList();
+  }
+
+  function calRenderList() {
+    const el = document.getElementById('calListView');
+    if (!el) return;
+    const lang    = currentLang || 'uk';
+    const months  = CAL_MONTHS[lang]   || CAL_MONTHS.uk;
+    const dayNames = CAL_DAY_NAMES[lang] || CAL_DAY_NAMES.uk;
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const data    = calLoad();
+    const today   = new Date();
+
+    let html = '';
+    let hasAny = false;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key   = calKey(calYear, calMonth, d);
+      const posts = data[key] || [];
+      if (!posts.length) continue;
+      hasAny = true;
+      const date     = new Date(calYear, calMonth, d);
+      const isToday  = (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d);
+      const dayLabel = dayNames[date.getDay()] + ', ' + d + ' ' + months[calMonth];
+      html += `<div style="margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:${isToday?'var(--accent)':'var(--text4)'};margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">
+          ${isToday ? '⚡ ' : ''}${dayLabel}
+        </div>`;
+      posts.forEach((p, i) => {
+        const timeIcon = CAL_TIME_ICONS[p.time] || '';
+        html += `<div class="cal-post-item" style="cursor:default;">
+          <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
+          <span style="font-size:13px;font-weight:700;">${CAL_TYPE_ICONS[p.type]||''} ${p.type}</span>
+          ${p.time ? `<span style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time}</span>` : ''}
+          ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${p.note}</span>` : '<span style="flex:1;"></span>'}
+          <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text4);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
+          <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    if (!hasAny) html = '<div style="text-align:center;padding:24px;color:var(--text4);font-size:13px;">Немає публікацій цього місяця</div>';
+    el.innerHTML = html;
   }
 
   async function calAIPlan() {
-    const btn = document.getElementById('calAIBtn');
+    const btn     = document.getElementById('calAIBtn');
     const loading = document.getElementById('calAILoading');
+    const subText = document.getElementById('calAILoadingSub');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Генерую...'; }
     if (loading) loading.style.display = '';
 
     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-    const lang = currentLang || 'uk';
+    const lang   = currentLang || 'uk';
     const months = CAL_MONTHS[lang] || CAL_MONTHS.uk;
     const monthName = months[calMonth] + ' ' + calYear;
 
-    const prompt = `Склади контент-план для соцмереж на ${monthName} (${daysInMonth} днів).
-Відповідь ТІЛЬКИ у форматі JSON-масиву без зайвого тексту:
-[{"day":5,"type":"reels","note":"Хук — топ-3 помилки"},{"day":8,"type":"stories","note":"Опитування"},...]
-Типи: reels, stories, carousel, tiktok, caption, post.
-Постів: 10-14 на місяць. Рівномірно розподіли по тижнях. Без постів у неділю.`;
+    // Build profile context for personalised plan
+    const profileCtx = (typeof buildProfileContext !== 'undefined') ? buildProfileContext() : null;
+    if (subText) subText.textContent = profileCtx ? 'Враховую нішу та платформи...' : 'Вибираю формати...';
+
+    const profileBlock = profileCtx
+      ? `\n\nКонтекст акаунту (ОБОВ'ЯЗКОВО враховуй при виборі тем і форматів):\n${profileCtx}\n`
+      : '';
+
+    const prompt = `Склади детальний контент-план для соцмереж на ${monthName} (${daysInMonth} днів).${profileBlock}
+Відповідь ТІЛЬКИ у форматі JSON-масиву без зайвого тексту, коментарів і markdown:
+[{"day":3,"type":"reels","time":"18:00","note":"Конкретна тема/ідея посту"},...]
+
+Правила:
+- Типи: reels, stories, carousel, tiktok, caption, post
+- Час: "09:00", "12:00", "18:00" або "20:00"
+- note: конкретна тема/ідея (не загальна фраза), 4-10 слів, враховуй нішу
+- Кількість: 14-18 публікацій рівномірно по місяцю
+- В неділю не більше 1 публікації
+- Чергуй формати: не 3 однакових підряд
+- Якщо є ніша в профілі — теми мають відповідати цій ніші
+- Якщо є платформи — пріоритетні типи відповідають цим платформам`;
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], context: profileCtx }),
       });
 
       let fullText = '';
@@ -8799,30 +8912,34 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
-        for (const line of chunk.split('\n')) {
+        for (const line of decoder.decode(value).split('\n')) {
           if (line.startsWith('data: ') && !line.includes('[DONE]')) {
             try { fullText += JSON.parse(line.slice(6)).text || ''; } catch {}
           }
         }
       }
 
-      // Extract JSON from response
       const match = fullText.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error('Не вдалося розпізнати план');
+      if (!match) throw new Error('Не вдалося розпізнати план від AI');
       const plan = JSON.parse(match[0]);
 
-      // Merge into existing calendar data
       const data = calLoad();
+      let added = 0;
       for (const item of plan) {
         if (!item.day || item.day < 1 || item.day > daysInMonth) continue;
         const k = calKey(calYear, calMonth, item.day);
         if (!data[k]) data[k] = [];
-        const color = CAL_TYPE_COLORS[item.type] || '#8B8BA7';
-        data[k].push({ type: item.type || 'post', note: item.note || '', color });
+        data[k].push({ type: item.type || 'post', note: item.note || '', time: item.time || '' });
+        added++;
       }
       calSave(data);
       calRender();
+      // Toast
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:20px;z-index:9999;box-shadow:0 8px 32px #0005;pointer-events:none;white-space:nowrap;';
+      toast.textContent = '✅ Додано ' + added + ' публікацій';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
     } catch (e) {
       alert('Помилка генерації плану: ' + e.message);
     } finally {
@@ -8834,14 +8951,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   function calDayClick(d, key) {
     calSelectedDate = key;
     calRender();
-
-    const date    = new Date(calYear, calMonth, d);
-    const lang    = currentLang || 'uk';
+    const date     = new Date(calYear, calMonth, d);
+    const lang     = currentLang || 'uk';
     const dayNames = CAL_DAY_NAMES[lang] || CAL_DAY_NAMES.uk;
     const months   = CAL_MONTHS[lang]    || CAL_MONTHS.uk;
     document.getElementById('calEditorTitle').textContent =
       '📅 ' + dayNames[date.getDay()] + ', ' + d + ' ' + months[calMonth];
-
     calRenderDayPosts(key);
     document.getElementById('calEditor').style.display = 'block';
     document.getElementById('calEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -8851,32 +8966,66 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     const data  = calLoad();
     const posts = data[key] || [];
     const el    = document.getElementById('calDayPosts');
-    if (!posts.length) { el.innerHTML = '<p style="font-size:13px;color:var(--text4);margin-bottom:8px;">Нет запланированных публикаций</p>'; return; }
-    el.innerHTML = posts.map((p, i) => `
-      <div class="cal-post-item">
+    if (!posts.length) {
+      el.innerHTML = '<p style="font-size:13px;color:var(--text4);margin-bottom:8px;">Немає запланованих публікацій</p>';
+      return;
+    }
+    el.innerHTML = posts.map((p, i) => {
+      const timeIcon = CAL_TIME_ICONS[p.time] || '';
+      return `<div class="cal-post-item">
         <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
-        <span style="font-size:13px;font-weight:700;color:var(--text2);">${CAL_TYPE_ICONS[p.type]||''} ${p.type.charAt(0).toUpperCase()+p.type.slice(1)}</span>
-        ${p.note ? `<span style="font-size:12px;color:var(--text3);margin-left:4px;">— ${p.note}</span>` : ''}
+        <span style="font-size:13px;font-weight:700;color:var(--text2);">${CAL_TYPE_ICONS[p.type]||''} ${p.type}</span>
+        ${p.time ? `<span style="font-size:11px;color:var(--accent2);font-weight:600;">${timeIcon} ${p.time}</span>` : ''}
+        ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${p.note}</span>` : '<span style="flex:1;"></span>'}
+        <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
         <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+  }
+
+  function calOpenCaption(type, note) {
+    // Jump to Caption AI with the post idea pre-filled
+    showScreen('caption', null);
+    setTimeout(() => {
+      const desc = document.getElementById('capDesc');
+      if (desc && note) { desc.value = note; desc.focus(); }
+      // Pre-select platform chip based on type
+      const platMap = { reels: 'reels', stories: 'stories', tiktok: 'tiktok', carousel: 'reels' };
+      const platVal = platMap[type];
+      if (platVal) {
+        const chip = document.querySelector(`#capPlatform [data-val="${platVal}"]`);
+        if (chip) capChip('capPlatform', chip);
+      }
+    }, 100);
   }
 
   function calTypeChip(el) {
-    document.querySelectorAll('#calTypeChips .cal-type-chip').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('#calTypeChips .cal-type-chip').forEach(c => {
+      c.classList.remove('selected');
+      c.style.background = '';
+      c.style.borderColor = '';
+    });
     el.classList.add('selected');
-    // Update button color
-    document.querySelector('#calTypeChips .cal-type-chip.selected').style.background = el.dataset.color;
-    document.querySelector('#calTypeChips .cal-type-chip.selected').style.borderColor = el.dataset.color;
+    el.style.background   = el.dataset.color;
+    el.style.borderColor  = el.dataset.color;
+  }
+
+  function calTimeChip(el) {
+    document.querySelectorAll('#calTimeChips .cal-type-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
   }
 
   function calAddPost() {
     if (!calSelectedDate) return;
     const type = document.querySelector('#calTypeChips .cal-type-chip.selected')?.dataset.type || 'post';
+    const time = document.querySelector('#calTimeChips .cal-type-chip.selected')?.dataset.time || '';
     const note = document.getElementById('calPostNote').value.trim();
 
     const data = calLoad();
     if (!data[calSelectedDate]) data[calSelectedDate] = [];
-    data[calSelectedDate].push({ type, note });
+    // Sort by time when inserting
+    data[calSelectedDate].push({ type, note, time });
+    data[calSelectedDate].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
     calSave(data);
 
     document.getElementById('calPostNote').value = '';
@@ -8893,8 +9042,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   function calKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-  function calLoad()       { try { return JSON.parse(localStorage.getItem('octo_calendar') || '{}'); } catch { return {}; } }
-  function calSave(data)   { try { localStorage.setItem('octo_calendar', JSON.stringify(data)); } catch {} }
+  function calLoad() {
+    const wsId = (typeof getActiveWsId !== 'undefined') ? getActiveWsId() : 'default';
+    try { return JSON.parse(localStorage.getItem('octo_calendar_' + wsId) || '{}'); } catch { return {}; }
+  }
+  function calSave(data) {
+    const wsId = (typeof getActiveWsId !== 'undefined') ? getActiveWsId() : 'default';
+    try { localStorage.setItem('octo_calendar_' + wsId, JSON.stringify(data)); } catch {}
+  }
 
   // Init workspaces chat history + Tone of Voice on load
   (function initWsChat() {
