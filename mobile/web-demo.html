@@ -3669,38 +3669,62 @@
     }
   });
 
-  window.pwaShowIosInstructions = function() {
+  // ── Shared bottom-sheet helper (works on all iOS versions) ──────────────────
+  window._octoSheet = function(html) {
+    // Remove any existing sheet first
+    const old = document.getElementById('_octoSheetOverlay');
+    if (old) old.remove();
+
     const t = document.createElement('div');
-    t.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;';
-    t.innerHTML = `<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;border:1px solid #6C63FF55;">
-      <div style="text-align:center;margin-bottom:18px;font-size:22px;">🐙</div>
-      <div style="font-size:17px;font-weight:800;color:#fff;text-align:center;margin-bottom:8px;">Встанови OctoMind</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:20px;">
-        1. Натисни кнопку <b style="color:#38BDF8;">Поділитися</b> (⬆️) внизу Safari<br>
-        2. Обери <b style="color:#38BDF8;">На екран «Домівка»</b><br>
-        3. Натисни <b style="color:#38BDF8;">Додати</b>
+    t.id = '_octoSheetOverlay';
+    // Use explicit TRBL instead of inset:0 for iOS <14.5 compat
+    t.style.position  = 'fixed';
+    t.style.top       = '0';
+    t.style.right     = '0';
+    t.style.bottom    = '0';
+    t.style.left      = '0';
+    t.style.zIndex    = '99999';
+    t.style.background = 'rgba(0,0,0,.88)';
+    t.style.display   = 'flex';
+    t.style.alignItems = 'flex-end';
+    t.style.justifyContent = 'center';
+    t.innerHTML = html;
+    document.body.appendChild(t);
+    // Close on backdrop tap
+    t.addEventListener('click', function(e) { if (e.target === t) t.remove(); });
+  };
+
+  window._octoSheetClose = function() {
+    const el = document.getElementById('_octoSheetOverlay');
+    if (el) el.remove();
+  };
+
+  window.pwaShowIosInstructions = function() {
+    _octoSheet(`<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 24px 44px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;">
+      <div style="text-align:center;margin-bottom:14px;font-size:28px;">🐙</div>
+      <div style="font-size:17px;font-weight:800;color:#fff;text-align:center;margin-bottom:14px;">Встанови OctoMind</div>
+      <div style="font-size:14px;color:rgba(255,255,255,.8);line-height:1.9;margin-bottom:24px;">
+        1️⃣ Натисни <b style="color:#38BDF8;">Поділитися ⬆️</b> внизу Safari<br>
+        2️⃣ Обери <b style="color:#38BDF8;">«На екран "Домівка"»</b><br>
+        3️⃣ Натисни <b style="color:#38BDF8;">Додати</b>
       </div>
-      <button onclick="this.closest('[style*=inset]').remove();pwaCloseBanner();"
-        style="width:100%;padding:14px;background:#6C63FF;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;">
+      <button id="_octoSheetBtn" style="width:100%;padding:15px;background:#6C63FF;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
         Зрозуміло ✓
       </button>
-    </div>`;
-    document.body.appendChild(t);
+    </div>`);
+    document.getElementById('_octoSheetBtn').addEventListener('click', function() { _octoSheetClose(); pwaCloseBanner(); });
   };
 
   // ── Generic info bottom-sheet (title + message) ──────────────────────────────
   window._pwaShowInfoSheet = function(title, message) {
-    const t = document.createElement('div');
-    t.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;';
-    t.innerHTML = `<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;border:1px solid #6C63FF55;">
-      <div style="font-size:17px;font-weight:800;color:#fff;margin-bottom:12px;">${title}</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.8;margin-bottom:24px;white-space:pre-line;">${message}</div>
-      <button onclick="this.closest('[style*=inset]').remove();"
-        style="width:100%;padding:14px;background:#6C63FF;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;">
+    _octoSheet(`<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 24px 44px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;">
+      <div style="font-size:17px;font-weight:800;color:#fff;margin-bottom:14px;">${title}</div>
+      <div style="font-size:14px;color:rgba(255,255,255,.8);line-height:1.9;margin-bottom:24px;white-space:pre-line;">${message}</div>
+      <button id="_octoSheetBtn" style="width:100%;padding:15px;background:#6C63FF;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
         Зрозуміло ✓
       </button>
-    </div>`;
-    document.body.appendChild(t);
+    </div>`);
+    document.getElementById('_octoSheetBtn').addEventListener('click', _octoSheetClose);
   };
 
   // ── Push notification subscription ───────────────────────────────────────────
@@ -3769,6 +3793,21 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ── iOS-safe click wiring for Settings buttons ────────────────────────────────
+  // iOS Safari sometimes ignores inline onclick on buttons inside overflow:auto.
+  // addEventListener is more reliable.
+  (function wirePwaButtons() {
+    function bindBtn(id, fn) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.onclick = null; // remove inline
+      el.addEventListener('click',     fn, { passive: false });
+      el.addEventListener('touchend',  function(e){ e.preventDefault(); fn(); }, { passive: false });
+    }
+    bindBtn('pushEnableBtn',         function(){ octoRequestPush(); });
+    bindBtn('pwaInstallSettingsBtn', function(){ pwaTriggerInstall(); });
+  })();
 
   // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
   const translations = {
