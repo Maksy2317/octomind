@@ -3688,10 +3688,44 @@
     document.body.appendChild(t);
   };
 
+  // ── Generic info bottom-sheet (title + message) ──────────────────────────────
+  window._pwaShowInfoSheet = function(title, message) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;';
+    t.innerHTML = `<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;border:1px solid #6C63FF55;">
+      <div style="font-size:17px;font-weight:800;color:#fff;margin-bottom:12px;">${title}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.8;margin-bottom:24px;white-space:pre-line;">${message}</div>
+      <button onclick="this.closest('[style*=inset]').remove();"
+        style="width:100%;padding:14px;background:#6C63FF;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;">
+        Зрозуміло ✓
+      </button>
+    </div>`;
+    document.body.appendChild(t);
+  };
+
   // ── Push notification subscription ───────────────────────────────────────────
   window.octoRequestPush = async function() {
+    const isIos        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+
+    // On iOS in browser (not installed PWA) — push not available, show install guide
+    if (isIos && !isStandalone) {
+      _pwaShowInfoSheet(
+        '🔔 Спочатку встанови додаток',
+        'Push-сповіщення на iPhone працюють тільки з встановленого додатку (не з браузера).\n\n' +
+        '1. Натисни ⬆️ Поділитися в Safari\n' +
+        '2. «На екран "Домівка"»\n' +
+        '3. Відкрий OctoMind з екрану домівки\n' +
+        '4. Зайди в Налаштування → Увімкнути сповіщення'
+      );
+      return;
+    }
+
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-    if (Notification.permission === 'denied') return;
+    if (Notification.permission === 'denied') {
+      _pwaShowInfoSheet('🔕 Сповіщення заблоковані', 'Відкрий Налаштування телефону → Safari/Chrome → Сповіщення → дозволь для цього сайту.');
+      return;
+    }
 
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') return;
