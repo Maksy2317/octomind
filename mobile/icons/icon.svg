@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a0d30"/>
+      <stop offset="100%" style="stop-color:#0d1a40"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C5CFC"/>
+      <stop offset="100%" style="stop-color:#38BDF8"/>
+    </linearGradient>
+  </defs>
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Octopus body -->
+  <ellipse cx="256" cy="210" rx="115" ry="105" fill="url(#body)"/>
+  <!-- Head highlight -->
+  <ellipse cx="230" cy="175" rx="55" ry="40" fill="rgba(255,255,255,0.12)"/>
+  <!-- Eyes -->
+  <circle cx="218" cy="195" r="22" fill="white"/>
+  <circle cx="294" cy="195" r="22" fill="white"/>
+  <circle cx="224" cy="200" r="13" fill="#1a0d30"/>
+  <circle cx="300" cy="200" r="13" fill="#1a0d30"/>
+  <!-- Eye shine -->
+  <circle cx="219" cy="194" r="5" fill="white"/>
+  <circle cx="295" cy="194" r="5" fill="white"/>
+  <!-- Smile -->
+  <path d="M230 235 Q256 258 282 235" stroke="white" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <!-- Tentacles (6) -->
+  <path d="M152 295 Q115 345 108 395 Q120 420 135 395 Q142 360 162 325" fill="url(#body)" opacity="0.95"/>
+  <path d="M185 320 Q162 385 168 440 Q182 460 195 435 Q190 385 205 335" fill="url(#body)" opacity="0.95"/>
+  <path d="M224 330 Q218 400 228 455 Q242 472 252 450 Q242 398 244 338" fill="url(#body)" opacity="0.95"/>
+  <path d="M268 330 Q272 400 268 455 Q278 472 290 450 Q286 398 282 338" fill="url(#body)" opacity="0.95"/>
+  <path d="M307 318 Q328 383 322 438 Q334 460 347 437 Q342 384 320 332" fill="url(#body)" opacity="0.95"/>
+  <path d="M340 294 Q375 342 382 392 Q395 418 408 392 Q398 350 362 320" fill="url(#body)" opacity="0.95"/>
+  <!-- Tentacle curl tips -->
+  <circle cx="122" cy="398" r="8" fill="url(#body)" opacity="0.8"/>
+  <circle cx="182" cy="443" r="8" fill="url(#body)" opacity="0.8"/>
+  <circle cx="240" cy="458" r="8" fill="url(#body)" opacity="0.8"/>
+  <circle cx="279" cy="458" r="8" fill="url(#body)" opacity="0.8"/>
+  <circle cx="342" cy="442" r="8" fill="url(#body)" opacity="0.8"/>
+  <circle cx="403" cy="396" r="8" fill="url(#body)" opacity="0.8"/>
+</svg>

@@ -3,10 +3,12 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import cron from 'node-cron';
 import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
 import { subtitlesRouter } from './routes/subtitles';
 import { carouselRouter } from './routes/carousel';
+import { pushRouter, sendPushToAll } from './routes/push';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -41,6 +43,28 @@ app.use('/api/video', videoRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/subtitles', subtitlesRouter);
 app.use('/api/carousel', carouselRouter);
+app.use('/api/push', pushRouter);
+
+// ── Daily reminder push (08:00 Kyiv time = 05:00 UTC) ────────────────────────
+cron.schedule('0 5 * * *', async () => {
+  const today = new Date();
+  const dd = String(today.getUTCDate()).padStart(2, '0');
+  const mm = String(today.getUTCMonth() + 1).padStart(2, '0');
+  console.log(`[CRON] Sending daily reminders for ${dd}.${mm}`);
+  try {
+    const result = await sendPushToAll({
+      title: '🐙 OctoMind — публікації сьогодні',
+      body: `Перевір контент-план на ${dd}.${mm} — є заплановані пости з нагадуванням!`,
+      icon: '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      url: '/?screen=calendar',
+      tag: 'daily-reminder',
+    });
+    console.log(`[CRON] Push result:`, result);
+  } catch (e) {
+    console.error('[CRON] Push failed:', e);
+  }
+}, { timezone: 'UTC' });
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

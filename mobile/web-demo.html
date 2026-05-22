@@ -9,7 +9,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="OctoMind">
-  <link rel="apple-touch-icon" href="assets/icon.png">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon.svg">
   <!-- Ubuntu font for overlay preview (bold weight only) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
@@ -1418,6 +1419,28 @@
     }
     .cal-post-bell:hover { color: var(--accent2); opacity: 1; transform: scale(1.2); }
     .cal-post-bell.active { color: var(--accent2); opacity: 1; }
+
+    /* ── PWA install banner ───────────────────────────── */
+    #pwaInstallBanner {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #1a0d30, #0d1a40);
+      border: 1px solid #6C63FF55; border-radius: 18px;
+      padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+      z-index: 1100; box-shadow: 0 8px 32px rgba(108,99,255,.3);
+      max-width: 340px; width: calc(100% - 40px);
+      animation: slideUp 0.4s cubic-bezier(.16,1,.3,1) forwards;
+    }
+    #pwaInstallBanner .pwa-icon { font-size: 28px; flex-shrink: 0; }
+    #pwaInstallBanner .pwa-text { flex: 1; }
+    #pwaInstallBanner .pwa-title { font-size: 13px; font-weight: 800; color: #fff; }
+    #pwaInstallBanner .pwa-sub   { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 2px; }
+    #pwaInstallBanner .pwa-btn   {
+      padding: 8px 14px; background: #6C63FF; color: #fff;
+      border: none; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    #pwaInstallBanner .pwa-close {
+      background: none; border: none; color: rgba(255,255,255,.4); font-size: 18px; cursor: pointer; padding: 0 2px; flex-shrink: 0;
+    }
 
     /* ── Plan settings modal ──────────────────────────── */
     #calPlanModal {
@@ -2919,6 +2942,29 @@
         <!-- Settings -->
         <div class="screen" id="settings">
 
+          <!-- NOTIFICATIONS + PWA INSTALL -->
+          <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(56,189,248,0.08));border:1px solid #6C63FF44;border-radius:16px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;">📱 Додаток та сповіщення</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button onclick="octoRequestPush()" id="pushEnableBtn"
+                style="padding:13px 18px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:14px;font-weight:800;border:none;border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:20px;">🔔</span>
+                <div>
+                  <div>Увімкнути сповіщення</div>
+                  <div style="font-size:11px;opacity:.8;font-weight:400;margin-top:1px;">Щоранку нагадування про заплановані пости</div>
+                </div>
+              </button>
+              <button onclick="pwaTriggerInstall()" id="pwaInstallSettingsBtn"
+                style="padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;border:1.5px solid var(--border);border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;">
+                <span style="font-size:20px;">📲</span>
+                <div>
+                  <div>Встановити як додаток</div>
+                  <div style="font-size:11px;color:var(--text4);font-weight:400;margin-top:1px;">Іконка на головному екрані телефону</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <!-- LANGUAGE SWITCHER -->
           <div style="margin-bottom:24px;">
             <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_language">🌐 Язык интерфейса</div>
@@ -3558,7 +3604,120 @@
     // Explicit logout is via the Sign Out button only.
   })();
 
-  // ── SERVICE WORKER ────────────────────────────────────────────────────────────
+  // ── SERVICE WORKER + PWA INSTALL + PUSH NOTIFICATIONS ───────────────────────
+  let _pwaInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _pwaInstallPrompt = e;
+    // Show install banner if not dismissed before
+    if (!localStorage.getItem('pwa_install_dismissed')) {
+      setTimeout(() => {
+        const b = document.getElementById('pwaInstallBanner');
+        if (b) b.style.display = 'flex';
+      }, 4000);
+    }
+  });
+
+  window.pwaTriggerInstall = function() {
+    if (_pwaInstallPrompt) {
+      _pwaInstallPrompt.prompt();
+      _pwaInstallPrompt.userChoice.then(r => {
+        if (r.outcome === 'accepted') {
+          pwaCloseBanner();
+          // After install, request push permission
+          setTimeout(octoRequestPush, 2000);
+        }
+        _pwaInstallPrompt = null;
+      });
+    }
+  };
+
+  window.pwaCloseBanner = function() {
+    const b = document.getElementById('pwaInstallBanner');
+    if (b) b.style.display = 'none';
+    localStorage.setItem('pwa_install_dismissed', '1');
+  };
+
+  // On iOS: show manual instructions instead of browser prompt
+  window.addEventListener('load', () => {
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    if (isIos && !isStandalone && !localStorage.getItem('pwa_install_dismissed')) {
+      setTimeout(() => {
+        const b = document.getElementById('pwaInstallBanner');
+        if (b) {
+          b.style.display = 'flex';
+          const btn = document.getElementById('pwaInstallBtn');
+          if (btn) { btn.textContent = 'Як?'; btn.onclick = pwaShowIosInstructions; }
+        }
+      }, 4000);
+    }
+  });
+
+  window.pwaShowIosInstructions = function() {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;';
+    t.innerHTML = `<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;border:1px solid #6C63FF55;">
+      <div style="text-align:center;margin-bottom:18px;font-size:22px;">🐙</div>
+      <div style="font-size:17px;font-weight:800;color:#fff;text-align:center;margin-bottom:8px;">Встанови OctoMind</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:20px;">
+        1. Натисни кнопку <b style="color:#38BDF8;">Поділитися</b> (⬆️) внизу Safari<br>
+        2. Обери <b style="color:#38BDF8;">На екран «Домівка»</b><br>
+        3. Натисни <b style="color:#38BDF8;">Додати</b>
+      </div>
+      <button onclick="this.closest('[style*=inset]').remove();pwaCloseBanner();"
+        style="width:100%;padding:14px;background:#6C63FF;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;">
+        Зрозуміло ✓
+      </button>
+    </div>`;
+    document.body.appendChild(t);
+  };
+
+  // ── Push notification subscription ───────────────────────────────────────────
+  window.octoRequestPush = async function() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    if (Notification.permission === 'denied') return;
+
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      // Get VAPID public key from server
+      const keyRes = await fetch('/api/push/vapid-public-key');
+      if (!keyRes.ok) return;
+      const { key } = await keyRes.json();
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(key),
+      });
+
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      });
+
+      // Show success toast
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;font-size:14px;padding:12px 22px;border-radius:20px;z-index:9999;box-shadow:0 8px 32px #0005;pointer-events:none;white-space:nowrap;';
+      toast.textContent = '🔔 Сповіщення увімкнено! Нагадування приходитимуть щоранку.';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    } catch (e) {
+      console.warn('[Push] Subscribe failed:', e);
+    }
+  };
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
@@ -8977,7 +9136,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   // ── Plan settings modal ──────────────────────────────────────────────────
   window.calPlanConfig = JSON.parse(localStorage.getItem('calPlanConfig') || 'null') || {
     platforms: ['stories', 'reels', 'tiktok'],
-    storiesPerDay: 5, tiktokPerWeek: 5, reelsPerWeek: 3, carouselPerWeek: 2, focus: 'growth'
+    storiesPerDay: 5, tiktokPerWeek: 5, reelsPerWeek: 3, carouselPerWeek: 2,
+    postPerWeek: 2, customPerWeek: 3, customPlatformName: '',
+    focus: 'growth'
   };
 
   function calOpenPlanModal() {
@@ -8990,7 +9151,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     [['stories','storiesPerDay','pmStoriesChips'],
      ['tiktok','tiktokPerWeek','pmTiktokChips'],
      ['reels','reelsPerWeek','pmReelsChips'],
-     ['carousel','carouselPerWeek','pmCarouselChips']].forEach(function(r) {
+     ['carousel','carouselPerWeek','pmCarouselChips'],
+     ['post','postPerWeek','pmPostChips'],
+     ['custom','customPerWeek','pmCustomChips']].forEach(function(r) {
       const val = String(cfg[r[1]]);
       document.querySelectorAll('#' + r[2] + ' .pm-freq-chip').forEach(function(c) {
         c.classList.toggle('sel', c.dataset.val === val);
@@ -9000,6 +9163,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     document.querySelectorAll('#pmFocusChips .pm-chip').forEach(function(c) {
       c.classList.toggle('sel', c.dataset.val === cfg.focus);
     });
+    // Restore custom platform name input
+    const customInp = document.getElementById('pmCustomInput');
+    if (customInp) customInp.value = cfg.customPlatformName || '';
     // Show/hide platform rows
     pmSyncRows();
     document.getElementById('calPlanModal').classList.add('open');
@@ -9017,6 +9183,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     document.getElementById('pmRowTiktok').style.display   = cfg.platforms.includes('tiktok')   ? '' : 'none';
     document.getElementById('pmRowReels').style.display    = cfg.platforms.includes('reels')    ? '' : 'none';
     document.getElementById('pmRowCarousel').style.display = cfg.platforms.includes('carousel') ? '' : 'none';
+    document.getElementById('pmRowPost').style.display     = cfg.platforms.includes('post')     ? '' : 'none';
+    const hasCustom = cfg.platforms.includes('custom');
+    document.getElementById('pmRowCustom').style.display   = hasCustom ? '' : 'none';
+    document.getElementById('pmCustomWrap').style.display  = hasCustom ? '' : 'none';
+    if (hasCustom) {
+      const name = cfg.customPlatformName;
+      document.getElementById('pmCustomFreqLabel').textContent = (name ? name : '✏️ Своя') + ' / тиждень';
+      setTimeout(function() { if (!name) document.getElementById('pmCustomInput').focus(); }, 60);
+    }
   }
 
   window.pmTogglePlatform = function(btn) {
@@ -9025,10 +9200,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (idx >= 0) { window.calPlanConfig.platforms.splice(idx, 1); btn.classList.remove('sel'); }
     else          { window.calPlanConfig.platforms.push(val);       btn.classList.add('sel'); }
     pmSyncRows();
+    // Live-update custom freq label when user types
+    const customInp = document.getElementById('pmCustomInput');
+    if (customInp) customInp.oninput = function() {
+      window.calPlanConfig.customPlatformName = this.value.trim();
+      const lbl = document.getElementById('pmCustomFreqLabel');
+      if (lbl) lbl.textContent = (this.value.trim() || '✏️ Своя') + ' / тиждень';
+    };
   };
 
   window.pmSetFreq = function(key, btn) {
-    const keyMap = { stories:'storiesPerDay', tiktok:'tiktokPerWeek', reels:'reelsPerWeek', carousel:'carouselPerWeek' };
+    const keyMap = { stories:'storiesPerDay', tiktok:'tiktokPerWeek', reels:'reelsPerWeek', carousel:'carouselPerWeek', post:'postPerWeek', custom:'customPerWeek' };
     window.calPlanConfig[keyMap[key]] = parseInt(btn.dataset.val, 10);
     btn.closest('.pm-freq-chips').querySelectorAll('.pm-freq-chip').forEach(function(c) { c.classList.remove('sel'); });
     btn.classList.add('sel');
@@ -9081,29 +9263,34 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
     // Use user's plan config (from modal) or defaults
     const cfg = window.calPlanConfig || {};
-    const platforms       = cfg.platforms       || ['tiktok','reels','stories'];
-    const storiesPerDay   = cfg.storiesPerDay   || 5;
-    const tiktokPerWeek   = cfg.tiktokPerWeek   || 5;
-    const reelsPerWeek    = cfg.reelsPerWeek    || 3;
-    const carouselPerWeek = cfg.carouselPerWeek || 2;
-    const focusLabel      = { growth:'зростання охоплення', sales:'продажі', trust:'довіра та авторитет', entertainment:'розваги' }[cfg.focus||'growth'];
+    const platforms          = cfg.platforms          || ['tiktok','reels','stories'];
+    const storiesPerDay      = cfg.storiesPerDay      || 5;
+    const tiktokPerWeek      = cfg.tiktokPerWeek      || 5;
+    const reelsPerWeek       = cfg.reelsPerWeek       || 3;
+    const carouselPerWeek    = cfg.carouselPerWeek    || 2;
+    const postPerWeek        = cfg.postPerWeek        || 2;
+    const customPerWeek      = cfg.customPerWeek      || 3;
+    const customName         = cfg.customPlatformName || 'custom';
+    const focusLabel         = { growth:'зростання охоплення', sales:'продажі', trust:'довіра та авторитет', entertainment:'розваги' }[cfg.focus||'growth'];
 
     // Stories: convert "per day" to calendar SESSIONS per day (morning / afternoon / evening blocks)
     const stSessionsPerDay = storiesPerDay <= 2 ? 1 : storiesPerDay <= 8 ? 2 : 3;
     const stBatchSize = Math.round(storiesPerDay / stSessionsPerDay);
 
-    const weeksLeft = Math.max(1, remainingDays / 7);
-    const ttTarget  = platforms.includes('tiktok')   ? Math.round(weeksLeft * tiktokPerWeek)   : 0;
-    const rlTarget  = platforms.includes('reels')    ? Math.round(weeksLeft * reelsPerWeek)    : 0;
-    const stTarget  = platforms.includes('stories')  ? Math.round(weeksLeft * stSessionsPerDay * 6) : 0; // ~6 days/week
-    const crTarget  = platforms.includes('carousel') ? Math.round(weeksLeft * carouselPerWeek) : 0;
-    const totalTarget = ttTarget + rlTarget + stTarget + crTarget;
+    const weeksLeft  = Math.max(1, remainingDays / 7);
+    const ttTarget   = platforms.includes('tiktok')   ? Math.round(weeksLeft * tiktokPerWeek)        : 0;
+    const rlTarget   = platforms.includes('reels')    ? Math.round(weeksLeft * reelsPerWeek)         : 0;
+    const stTarget   = platforms.includes('stories')  ? Math.round(weeksLeft * stSessionsPerDay * 6) : 0;
+    const crTarget   = platforms.includes('carousel') ? Math.round(weeksLeft * carouselPerWeek)      : 0;
+    const ptTarget   = platforms.includes('post')     ? Math.round(weeksLeft * postPerWeek)          : 0;
+    const ctTarget   = platforms.includes('custom')   ? Math.round(weeksLeft * customPerWeek)        : 0;
+    const totalTarget = ttTarget + rlTarget + stTarget + crTarget + ptTarget + ctTarget;
 
     const prompt = `TASK: Generate a social media content calendar for ${monthName}, days ${startDay}–${daysInMonth} (${remainingDays} days).${profileBlock}
 
 USER'S POSTING GOALS (must follow exactly):
 - Focus: ${focusLabel}
-- Active platforms: ${platforms.join(', ')}${platforms.includes('stories') ? `\n- Stories: ${storiesPerDay}/day → create ${stSessionsPerDay} calendar slot(s)/day (each slot = ~${stBatchSize} stories). Label slots: "Ранковий блок", "Денний блок", "Вечірній блок" in notes.` : ''}${platforms.includes('tiktok') ? `\n- TikTok: ${tiktokPerWeek}/week` : ''}${platforms.includes('reels') ? `\n- Reels: ${reelsPerWeek}/week` : ''}${platforms.includes('carousel') ? `\n- Carousel: ${carouselPerWeek}/week` : ''}
+- Active platforms: ${platforms.join(', ')}${platforms.includes('stories') ? `\n- Stories: ${storiesPerDay}/day → create ${stSessionsPerDay} calendar slot(s)/day (each = ~${stBatchSize} stories). Label notes: "Ранковий блок", "Денний блок", "Вечірній блок".` : ''}${platforms.includes('tiktok') ? `\n- TikTok: ${tiktokPerWeek}/week` : ''}${platforms.includes('reels') ? `\n- Reels: ${reelsPerWeek}/week` : ''}${platforms.includes('carousel') ? `\n- Carousel: ${carouselPerWeek}/week` : ''}${platforms.includes('post') ? `\n- Post (feed): ${postPerWeek}/week` : ''}${platforms.includes('custom') ? `\n- ${customName}: ${customPerWeek}/week (use type "post" with note prefixed "${customName}:")` : ''}
 
 OUTPUT FORMAT: Respond ONLY with a raw JSON array. No markdown, no code blocks, no text. Start with [ end with ].
 
@@ -9112,14 +9299,16 @@ ${platforms.includes('tiktok')   ? `- tiktok:   ${ttTarget} entries\n` : ''}\
 ${platforms.includes('reels')    ? `- reels:    ${rlTarget} entries\n` : ''}\
 ${platforms.includes('stories')  ? `- stories:  ${stTarget} entries (${stSessionsPerDay} slots/day)\n` : ''}\
 ${platforms.includes('carousel') ? `- carousel: ${crTarget} entries\n` : ''}\
+${platforms.includes('post')     ? `- post:     ${ptTarget} entries\n` : ''}\
+${platforms.includes('custom')   ? `- ${customName}: ${ctTarget} entries\n` : ''}\
 - TOTAL: ~${totalTarget} entries across days ${startDay}–${daysInMonth}
 
 FIELD RULES:
 - day: integer ${startDay}–${daysInMonth}
 - type: tiktok | reels | stories | carousel | post
 - time: "07:00"|"09:00"|"12:00"|"15:00"|"18:00"|"20:00"
-- Best times: tiktok→"15:00"/"18:00"; reels→"12:00"/"15:00"/"18:00"; stories→"07:00"/"12:00"/"20:00"; carousel→"12:00"/"15:00"
-- note: specific topic/hook, 4-10 words, niche-relevant${platforms.includes('stories') ? `; for story slots include block name and story count, e.g. "Ранковий блок — ${stBatchSize} stories | тема..."` : ''}
+- Best times: tiktok→"15:00"/"18:00"; reels→"12:00"/"15:00"/"18:00"; stories→"07:00"/"12:00"/"20:00"; carousel/post→"12:00"/"15:00"
+- note: specific topic/hook, 4-10 words, niche-relevant${platforms.includes('stories') ? `; story slots: "Ранковий блок — ${stBatchSize} stories | тема..."` : ''}
 - Same day CAN have tiktok + reels (separate platforms)
 - No 3 same-type rows in a row; spread evenly
 
@@ -11064,6 +11253,19 @@ START WITH [ NOW:`;
 </div>
 
 <!-- ══════════════════════════════════════════════
+     PWA INSTALL BANNER
+══════════════════════════════════════════════ -->
+<div id="pwaInstallBanner" style="display:none;">
+  <div class="pwa-icon">🐙</div>
+  <div class="pwa-text">
+    <div class="pwa-title">Встанови OctoMind</div>
+    <div class="pwa-sub">Іконка на екрані + сповіщення</div>
+  </div>
+  <button class="pwa-btn" id="pwaInstallBtn" onclick="pwaTriggerInstall()">Встановити</button>
+  <button class="pwa-close" onclick="pwaCloseBanner()">✕</button>
+</div>
+
+<!-- ══════════════════════════════════════════════
      CONTENT PLAN SETTINGS MODAL (bottom sheet)
 ══════════════════════════════════════════════ -->
 <div id="calPlanModal" onclick="if(event.target===this)calClosePlanModal()">
@@ -11080,6 +11282,15 @@ START WITH [ NOW:`;
         <button class="pm-chip sel" data-val="reels"    onclick="pmTogglePlatform(this)">🎬 Reels</button>
         <button class="pm-chip sel" data-val="tiktok"   onclick="pmTogglePlatform(this)">🎵 TikTok</button>
         <button class="pm-chip"     data-val="carousel" onclick="pmTogglePlatform(this)">🖼 Carousel</button>
+        <button class="pm-chip"     data-val="post"     onclick="pmTogglePlatform(this)">📝 Пост</button>
+        <button class="pm-chip"     data-val="custom"   onclick="pmTogglePlatform(this)">✏️ Свій варіант</button>
+      </div>
+      <!-- Custom platform input -->
+      <div id="pmCustomWrap" style="display:none;margin-top:10px;">
+        <input id="pmCustomInput" type="text" placeholder="Наприклад: YouTube Shorts, LinkedIn, Pinterest..."
+          maxlength="40"
+          style="width:100%;box-sizing:border-box;padding:9px 14px;border-radius:12px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--text);font-size:13px;outline:none;"
+          oninput="window.calPlanConfig.customPlatformName=this.value.trim()">
       </div>
     </div>
 
@@ -11134,6 +11345,30 @@ START WITH [ NOW:`;
           <button class="pm-freq-chip sel" data-val="2" onclick="pmSetFreq('carousel',this)">2</button>
           <button class="pm-freq-chip"     data-val="3" onclick="pmSetFreq('carousel',this)">3</button>
           <button class="pm-freq-chip"     data-val="4" onclick="pmSetFreq('carousel',this)">4</button>
+        </div>
+      </div>
+
+      <!-- Post -->
+      <div class="pm-freq-row" id="pmRowPost" style="display:none;">
+        <div class="pm-freq-label">📝 Пост / тиждень</div>
+        <div class="pm-freq-chips" id="pmPostChips">
+          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('post',this)">1</button>
+          <button class="pm-freq-chip sel" data-val="2" onclick="pmSetFreq('post',this)">2</button>
+          <button class="pm-freq-chip"     data-val="3" onclick="pmSetFreq('post',this)">3</button>
+          <button class="pm-freq-chip"     data-val="5" onclick="pmSetFreq('post',this)">5</button>
+          <button class="pm-freq-chip"     data-val="7" onclick="pmSetFreq('post',this)">щодня</button>
+        </div>
+      </div>
+
+      <!-- Custom platform -->
+      <div class="pm-freq-row" id="pmRowCustom" style="display:none;">
+        <div class="pm-freq-label" id="pmCustomFreqLabel">✏️ Своя / тиждень</div>
+        <div class="pm-freq-chips" id="pmCustomChips">
+          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('custom',this)">1</button>
+          <button class="pm-freq-chip"     data-val="2" onclick="pmSetFreq('custom',this)">2</button>
+          <button class="pm-freq-chip sel" data-val="3" onclick="pmSetFreq('custom',this)">3</button>
+          <button class="pm-freq-chip"     data-val="5" onclick="pmSetFreq('custom',this)">5</button>
+          <button class="pm-freq-chip"     data-val="7" onclick="pmSetFreq('custom',this)">щодня</button>
         </div>
       </div>
     </div>

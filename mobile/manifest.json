@@ -1,14 +1,31 @@
 {
-  "name": "OctoMind — AI Marketing Assistant",
+  "name": "OctoMind — AI Marketer",
   "short_name": "OctoMind",
-  "description": "Your AI marketing assistant for social media growth",
+  "description": "AI-маркетолог для TikTok та Instagram. Контент-план, підписи, аналіз.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0A0A14",
+  "background_color": "#0D0D1A",
   "theme_color": "#6C63FF",
   "orientation": "portrait",
+  "lang": "uk",
+  "scope": "/",
   "icons": [
-    { "src": "assets/icon.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "assets/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Content Calendar",
+      "short_name": "Calendar",
+      "url": "/?screen=calendar",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Ask Octo",
+      "short_name": "Ask Octo",
+      "url": "/?screen=chat",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    }
+  ],
+  "categories": ["productivity", "social", "business"]
 }
