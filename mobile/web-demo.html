@@ -3914,6 +3914,8 @@
           const isOn = !!sub;
           localStorage.setItem('push_subscribed', isOn ? '1' : '0');
           octoUpdatePushUI(isOn);
+          // Sync calendar reminders so per-post pushes survive page reload
+          if (isOn && typeof calSyncReminders === 'function') calSyncReminders();
         }).catch(() => {});
       }
     } catch(e) {}
@@ -3931,7 +3933,12 @@
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        if (sub) { localStorage.setItem('push_subscribed', '1'); octoUpdatePushUI(true); }
+        if (sub) {
+          localStorage.setItem('push_subscribed', '1');
+          octoUpdatePushUI(true);
+          // Sync calendar reminders to backend so per-post pushes are scheduled
+          if (typeof calSyncReminders === 'function') calSyncReminders();
+        }
       }
     } catch(e) {}
   };
@@ -9640,6 +9647,49 @@ START WITH [ NOW:`;
     // Re-render both views
     calRenderDayPosts(key);
     calRender();
+    // Sync updated reminders to backend for push notifications
+    calSyncReminders();
+  }
+
+  async function calSyncReminders() {
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      const data = calLoad();
+      const now  = Date.now();
+      const reminders = [];
+      for (const [key, posts] of Object.entries(data)) {
+        // key format: "YYYY-MM-DD"
+        const parts = key.split('-').map(Number);
+        if (parts.length !== 3) continue;
+        const [year, month, day] = parts;
+        for (let i = 0; i < posts.length; i++) {
+          const post = posts[i];
+          if (!post.reminder || !post.time) continue;
+          const [h, m] = post.time.split(':').map(Number);
+          // new Date with local tz — getTime() returns correct UTC ms
+          const postDate = new Date(year, month - 1, day, h, m, 0, 0);
+          if (postDate.getTime() <= now) continue;
+          reminders.push({
+            id:           `${key}_${i}`,
+            utcTimestamp: postDate.getTime(),
+            type:         post.type  || 'post',
+            note:         post.note  || '',
+            displayTime:  post.time,
+          });
+        }
+      }
+      await fetch('/api/push/schedule', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ endpoint: sub.endpoint, reminders }),
+      });
+      console.log('[CalSync] Synced', reminders.length, 'reminder(s) to backend');
+    } catch(e) {
+      console.warn('[CalSync]', e);
+    }
   }
 
   function calCheckReminders() {

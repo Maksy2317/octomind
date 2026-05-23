@@ -8,7 +8,7 @@ import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
 import { subtitlesRouter } from './routes/subtitles';
 import { carouselRouter } from './routes/carousel';
-import { pushRouter, sendPushToAll } from './routes/push';
+import { pushRouter, sendPushToAll, fireScheduledReminders } from './routes/push';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -44,6 +44,11 @@ app.use('/api/chat', chatRouter);
 app.use('/api/subtitles', subtitlesRouter);
 app.use('/api/carousel', carouselRouter);
 app.use('/api/push', pushRouter);
+
+// ── Per-post scheduled reminders (every minute) ──────────────────────────────
+cron.schedule('* * * * *', async () => {
+  try { await fireScheduledReminders(); } catch (e) { console.error('[CRON] fireScheduledReminders failed:', e); }
+}, { timezone: 'UTC' });
 
 // ── Daily reminder push (08:00 Kyiv time = 05:00 UTC) ────────────────────────
 cron.schedule('0 5 * * *', async () => {
