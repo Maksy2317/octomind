@@ -2948,22 +2948,22 @@
 
           <!-- NOTIFICATIONS + PWA INSTALL -->
           <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(56,189,248,0.08));border:1px solid #6C63FF44;border-radius:16px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;">📱 Додаток та сповіщення</div>
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_pwa_section">📱 Додаток та сповіщення</div>
             <div style="display:flex;flex-direction:column;gap:10px;">
-              <button onclick="octoRequestPush()" id="pushEnableBtn"
-                style="padding:13px 18px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:14px;font-weight:800;border:none;border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;">
+              <button id="pushEnableBtn"
+                style="padding:13px 18px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:14px;font-weight:800;border:none;border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">
                 <span style="font-size:20px;">🔔</span>
                 <div>
-                  <div>Увімкнути сповіщення</div>
-                  <div style="font-size:11px;opacity:.8;font-weight:400;margin-top:1px;">Щоранку нагадування про заплановані пости</div>
+                  <div data-i18n="s_pwa_push">Увімкнути сповіщення</div>
+                  <div style="font-size:11px;opacity:.8;font-weight:400;margin-top:1px;" data-i18n="s_pwa_push_sub">Щоранку нагадування про заплановані пости</div>
                 </div>
               </button>
-              <button onclick="pwaTriggerInstall()" id="pwaInstallSettingsBtn"
-                style="padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;border:1.5px solid var(--border);border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;">
+              <button id="pwaInstallSettingsBtn"
+                style="padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;border:1.5px solid var(--border);border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">
                 <span style="font-size:20px;">📲</span>
                 <div>
-                  <div>Встановити як додаток</div>
-                  <div style="font-size:11px;color:var(--text4);font-weight:400;margin-top:1px;">Іконка на головному екрані телефону</div>
+                  <div data-i18n="s_pwa_install">Встановити як додаток</div>
+                  <div style="font-size:11px;color:var(--text4);font-weight:400;margin-top:1px;" data-i18n="s_pwa_install_sub">Іконка на головному екрані телефону</div>
                 </div>
               </button>
             </div>
@@ -3798,12 +3798,21 @@
   // iOS Safari sometimes ignores inline onclick on buttons inside overflow:auto.
   // addEventListener is more reliable.
   (function wirePwaButtons() {
+    const isStandalone = window.navigator.standalone === true ||
+                         window.matchMedia('(display-mode: standalone)').matches;
+
+    // Hide install button when app is already installed as PWA
+    const installBtn = document.getElementById('pwaInstallSettingsBtn');
+    if (installBtn && isStandalone) {
+      installBtn.style.display = 'none';
+    }
+
     function bindBtn(id, fn) {
       const el = document.getElementById(id);
       if (!el) return;
       el.onclick = null; // remove inline
-      el.addEventListener('click',     fn, { passive: false });
-      el.addEventListener('touchend',  function(e){ e.preventDefault(); fn(); }, { passive: false });
+      el.addEventListener('click',    fn, { passive: false });
+      el.addEventListener('touchend', function(e){ e.preventDefault(); fn(); }, { passive: false });
     }
     bindBtn('pushEnableBtn',         function(){ octoRequestPush(); });
     bindBtn('pwaInstallSettingsBtn', function(){ pwaTriggerInstall(); });
@@ -3833,6 +3842,10 @@
       tone_friendly:'Дружелюбный', tone_pro:'Профессиональный', tone_sales:'Продающий', tone_fun:'Развлекательный',
       s_autotemplate:'Авто-выбор шаблона', s_autotemplate_sub:'Octo выбирает лучший шаблон сам',
       s_notifications:'Уведомления', s_notifications_sub:'Когда видео готово',
+      s_theme_section:'Тема', s_theme:'Светлый режим', s_theme_sub:'Переключить на светлую тему',
+      s_pwa_section:'📱 Приложение и уведомления',
+      s_pwa_push:'Включить уведомления', s_pwa_push_sub:'Утреннее напоминание о запланированных постах',
+      s_pwa_install:'Установить как приложение', s_pwa_install_sub:'Иконка на главном экране телефона',
       // ── Navigation ──
       nav_main:'Главное', nav_create:'Создать', nav_account:'Аккаунт',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
@@ -3909,6 +3922,10 @@
       tone_friendly:'Дружній', tone_pro:'Професійний', tone_sales:'Продажний', tone_fun:'Розважальний',
       s_autotemplate:'Авто-вибір шаблону', s_autotemplate_sub:'Octo вибирає кращий шаблон сам',
       s_notifications:'Сповіщення', s_notifications_sub:'Коли відео готове',
+      s_theme_section:'Тема', s_theme:'Світлий режим', s_theme_sub:'Переключити на світлу тему',
+      s_pwa_section:'📱 Додаток та сповіщення',
+      s_pwa_push:'Увімкнути сповіщення', s_pwa_push_sub:'Щоранку нагадування про заплановані пости',
+      s_pwa_install:'Встановити як додаток', s_pwa_install_sub:'Іконка на головному екрані телефону',
       // ── Navigation ──
       nav_main:'Головне', nav_create:'Створити', nav_account:'Акаунт',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
@@ -3985,6 +4002,10 @@
       tone_friendly:'Friendly', tone_pro:'Professional', tone_sales:'Sales', tone_fun:'Entertainment',
       s_autotemplate:'Auto template', s_autotemplate_sub:'Octo picks the best template automatically',
       s_notifications:'Notifications', s_notifications_sub:'When video is ready',
+      s_theme_section:'Theme', s_theme:'Light mode', s_theme_sub:'Switch to light theme',
+      s_pwa_section:'📱 App & notifications',
+      s_pwa_push:'Enable notifications', s_pwa_push_sub:'Morning reminders about scheduled posts',
+      s_pwa_install:'Install as app', s_pwa_install_sub:'Icon on your phone home screen',
       // ── Navigation ──
       nav_main:'Main', nav_create:'Create', nav_account:'Account',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
