@@ -2946,27 +2946,26 @@
         <!-- Settings -->
         <div class="screen" id="settings">
 
-          <!-- NOTIFICATIONS + PWA INSTALL -->
+          <!-- PWA INSTALL — big prominent button -->
+          <div id="pwaInstallSettingsBtn" style="margin-bottom:16px;">
+            <button onclick="pwaTriggerInstall()" touch-action="manipulation" style="width:100%;padding:16px 20px;border-radius:18px;border:none;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 24px rgba(108,99,255,0.35);letter-spacing:0.2px;">
+              📲 <span data-i18n="s_pwa_install">Встановити як додаток</span>
+            </button>
+            <p style="text-align:center;font-size:12px;color:var(--text4);margin:8px 0 0;" data-i18n="s_pwa_install_sub">Іконка на головному екрані телефону</p>
+          </div>
+
+          <!-- NOTIFICATIONS — subtle settings row with toggle -->
           <div style="margin-bottom:24px;border:1px solid var(--border);border-radius:16px;overflow:hidden;">
-            <!-- Push row -->
-            <div class="srow" id="pushRow" style="border:none;border-radius:0;margin:0;background:transparent;padding:14px 16px;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" onclick="octoRequestPush()">
-              <div style="font-size:18px;flex-shrink:0;" id="pushRowIcon">🔔</div>
+            <div class="srow" id="pushRow" style="border:none;border-radius:0;margin:0;background:transparent;padding:14px 16px;gap:12px;align-items:center;">
+              <div style="font-size:18px;flex-shrink:0;">🔔</div>
               <div class="sinfo" style="flex:1;">
-                <h4 id="pushRowTitle" data-i18n="s_pwa_push">Увімкнути сповіщення</h4>
-                <p id="pushRowSub" data-i18n="s_pwa_push_sub">Щоранку нагадування про заплановані пости</p>
+                <h4 id="pushRowTitle" data-i18n="s_pwa_push">Сповіщення</h4>
+                <p id="pushRowSub" data-i18n="s_pwa_push_sub">Нагадування про заплановані пости</p>
               </div>
-              <div id="pushRowBadge" style="display:none;font-size:11px;font-weight:700;background:#22c55e22;color:#22c55e;border:1px solid #22c55e55;border-radius:8px;padding:3px 8px;flex-shrink:0;white-space:nowrap;">● ON</div>
-              <div style="font-size:16px;color:var(--text4);flex-shrink:0;">›</div>
-            </div>
-            <div style="height:1px;background:var(--border);"></div>
-            <!-- Install row -->
-            <div class="srow" id="pwaInstallSettingsBtn" style="border:none;border-radius:0;margin:0;background:transparent;padding:14px 16px;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" onclick="pwaTriggerInstall()">
-              <div style="font-size:18px;flex-shrink:0;">📲</div>
-              <div class="sinfo" style="flex:1;">
-                <h4 data-i18n="s_pwa_install">Встановити як додаток</h4>
-                <p data-i18n="s_pwa_install_sub">Іконка на головному екрані телефону</p>
+              <!-- iOS-style toggle switch -->
+              <div id="pushToggle" onclick="octoTogglePush()" style="width:46px;height:27px;border-radius:14px;background:#555;position:relative;transition:background 0.25s;flex-shrink:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
+                <div id="pushToggleThumb" style="position:absolute;top:3px;left:3px;width:21px;height:21px;background:#fff;border-radius:50%;transition:left 0.25s;box-shadow:0 2px 5px rgba(0,0,0,0.4);pointer-events:none;"></div>
               </div>
-              <div style="font-size:16px;color:var(--text4);flex-shrink:0;">›</div>
             </div>
           </div>
 
@@ -3737,17 +3736,17 @@
       browserIcon = '🔵';
       browserName = 'Google Chrome';
       steps = [
-        { icon: '⋮', label: 'Натисни <b style="color:#38BDF8;">⋮</b> (три крапки) у правому верхньому куті' },
-        { icon: '➕', label: 'Обери <b style="color:#38BDF8;">«Додати на головний екран»</b>' },
-        { icon: '✅', label: 'Натисни <b style="color:#38BDF8;">«Додати»</b> у діалозі' },
+        { icon: '⚠️', label: 'Chrome на iPhone <b style="color:#f59e0b;">не підтримує</b> встановлення додатків' },
+        { icon: '🧭', label: 'Відкрий цю сторінку в <b style="color:#38BDF8;">Safari</b> — вона вбудована в iPhone' },
+        { icon: '⬆️', label: 'У Safari натисни <b style="color:#38BDF8;">⬆️ Поділитися</b> → <b style="color:#38BDF8;">«На екран "Домівка"»</b> → Додати' },
       ];
     } else if (isFirefox) {
       browserIcon = '🦊';
       browserName = 'Firefox';
       steps = [
-        { icon: '⋮', label: 'Натисни <b style="color:#38BDF8;">⋮</b> меню (три крапки) внизу' },
-        { icon: '➕', label: 'Обери <b style="color:#38BDF8;">«Додати на головний екран»</b>' },
-        { icon: '✅', label: 'Натисни <b style="color:#38BDF8;">«Додати»</b>' },
+        { icon: '⚠️', label: 'Firefox на iPhone <b style="color:#f59e0b;">не підтримує</b> встановлення додатків' },
+        { icon: '🧭', label: 'Відкрий цю сторінку в <b style="color:#38BDF8;">Safari</b> — вона вбудована в iPhone' },
+        { icon: '⬆️', label: 'У Safari натисни <b style="color:#38BDF8;">⬆️ Поділитися</b> → <b style="color:#38BDF8;">«На екран "Домівка"»</b> → Додати' },
       ];
     } else {
       browserIcon = '🧭';
@@ -3853,32 +3852,34 @@
     }
   };
 
-  // ── Push UI state: show ON/OFF in the settings row ───────────────────────────
+  // ── Push state tracker ──────────────────────────────────────────────────────
+  let _pushEnabled = localStorage.getItem('push_subscribed') === '1';
+
+  // ── Push UI state: update toggle switch visually ─────────────────────────────
   function octoUpdatePushUI(isOn) {
+    _pushEnabled = isOn;
     try {
-      const icon  = document.getElementById('pushRowIcon');
-      const title = document.getElementById('pushRowTitle');
+      const track = document.getElementById('pushToggle');
+      const thumb = document.getElementById('pushToggleThumb');
       const sub   = document.getElementById('pushRowSub');
-      const badge = document.getElementById('pushRowBadge');
-      const row   = document.getElementById('pushRow');
-      if (!icon) return;
+      if (!track) return;
       if (isOn) {
-        icon.textContent  = '🔔';
-        title.textContent = 'Сповіщення увімкнено';
-        sub.textContent   = 'Натисни, щоб вимкнути';
-        badge.style.display = '';
-        row.style.background = 'rgba(34,197,94,0.06)';
-        row.onclick = octoDisablePush;
+        track.style.background = '#22c55e';
+        thumb.style.left = '22px';
+        if (sub) sub.textContent = 'Нагадування увімкнено';
       } else {
-        icon.textContent  = '🔔';
-        title.textContent = 'Увімкнути сповіщення';
-        sub.textContent   = 'Щоранку нагадування про заплановані пости';
-        badge.style.display = 'none';
-        row.style.background = '';
-        row.onclick = octoRequestPush;
+        track.style.background = '#555';
+        thumb.style.left = '3px';
+        if (sub) sub.textContent = 'Вимкнено';
       }
     } catch(e) {}
   }
+
+  // ── Toggle: turn ON or OFF depending on current state ────────────────────────
+  window.octoTogglePush = function() {
+    if (_pushEnabled) octoDisablePush();
+    else octoRequestPush();
+  };
 
   // ── Unsubscribe from push ────────────────────────────────────────────────────
   window.octoDisablePush = async function() {
