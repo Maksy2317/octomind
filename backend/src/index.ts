@@ -8,7 +8,7 @@ import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
 import { subtitlesRouter } from './routes/subtitles';
 import { carouselRouter } from './routes/carousel';
-import { pushRouter, sendPushToAll, fireScheduledReminders } from './routes/push';
+import { pushRouter, sendPushToAll, fireScheduledReminders, loadSubscriptionsFromDB } from './routes/push';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -96,9 +96,11 @@ app.get('*', (_req, res) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`AI Marketer Backend running on http://0.0.0.0:${PORT}`);
   console.log(`AI Provider: ${process.env.AI_PROVIDER || 'mock'}`);
+  // Load persisted push subscriptions from Supabase
+  await loadSubscriptionsFromDB();
 });
 
 export default app;

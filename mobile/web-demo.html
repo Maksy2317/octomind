@@ -3919,8 +3919,16 @@
           const isOn = !!sub;
           localStorage.setItem('push_subscribed', isOn ? '1' : '0');
           octoUpdatePushUI(isOn);
-          // Sync calendar reminders so per-post pushes survive page reload
-          if (isOn && typeof calSyncReminders === 'function') calSyncReminders();
+          if (isOn && sub) {
+            // Re-register with backend (in case server restarted and lost in-memory cache)
+            fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription: sub.toJSON() }),
+            }).catch(() => {});
+            // Sync calendar reminders so per-post pushes survive page reload
+            if (typeof calSyncReminders === 'function') calSyncReminders();
+          }
         }).catch(() => {});
       }
     } catch(e) {}

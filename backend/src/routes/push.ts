@@ -8,31 +8,104 @@ const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(
-    'mailto:hello@octomind.app',
-    VAPID_PUBLIC,
-    VAPID_PRIVATE
-  );
+  webpush.setVapidDetails('mailto:hello@octomind.app', VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
-// ── In-memory subscription store ─────────────────────────────────────────────
+// ── Supabase (push_subscriptions table) ──────────────────────────────────────
+const SB_URL = process.env.SUPABASE_URL || '';
+const SB_KEY = process.env.SUPABASE_KEY || '';
+
+const sbH = () => ({
+  'apikey':        SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+  'Content-Type':  'application/json',
+});
+
+// ── In-memory cache (populated from DB on startup) ───────────────────────────
 type PushSub = {
   subscription: webpush.PushSubscription;
-  userId?: string;
-  createdAt: string;
+  userId?:      string;
+  createdAt:    string;
 };
 const subscriptions: PushSub[] = [];
 
-// ── Scheduled reminders ───────────────────────────────────────────────────────
+// ── Load subscriptions from Supabase into memory ─────────────────────────────
+export async function loadSubscriptionsFromDB(): Promise<void> {
+  if (!SB_URL || !SB_KEY) {
+    console.log('[Push] Supabase not configured — using in-memory only');
+    return;
+  }
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/push_subscriptions?select=*`, {
+      headers: sbH(),
+    });
+    if (!res.ok) {
+      console.warn('[Push] DB load failed:', res.status, await res.text());
+      return;
+    }
+    const rows: Array<{
+      endpoint:     string;
+      subscription: webpush.PushSubscription;
+      user_id?:     string;
+      created_at:   string;
+    }> = await res.json();
+
+    subscriptions.length = 0;
+    for (const row of rows) {
+      subscriptions.push({
+        subscription: row.subscription,
+        userId:       row.user_id,
+        createdAt:    row.created_at,
+      });
+    }
+    console.log(`[Push] Loaded ${subscriptions.length} subscription(s) from Supabase`);
+  } catch (e) {
+    console.warn('[Push] Failed to load subscriptions from DB:', e);
+  }
+}
+
+// ── Persist one subscription ──────────────────────────────────────────────────
+async function saveSubToDB(sub: PushSub): Promise<void> {
+  if (!SB_URL || !SB_KEY) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/push_subscriptions`, {
+      method:  'POST',
+      headers: { ...sbH(), 'Prefer': 'resolution=merge-duplicates' },
+      body:    JSON.stringify({
+        endpoint:     sub.subscription.endpoint,
+        subscription: sub.subscription,
+        user_id:      sub.userId || null,
+        created_at:   sub.createdAt,
+      }),
+    });
+  } catch (e) {
+    console.warn('[Push] Failed to save sub to DB:', e);
+  }
+}
+
+// ── Remove one subscription ───────────────────────────────────────────────────
+async function deleteSubFromDB(endpoint: string): Promise<void> {
+  if (!SB_URL || !SB_KEY) return;
+  try {
+    await fetch(
+      `${SB_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`,
+      { method: 'DELETE', headers: sbH() }
+    );
+  } catch (e) {
+    console.warn('[Push] Failed to delete sub from DB:', e);
+  }
+}
+
+// ── Scheduled reminders (in-memory — re-synced by client on page load) ───────
 type ScheduledReminder = {
-  endpoint: string;
+  endpoint:     string;
   subscription: webpush.PushSubscription;
-  id: string;
-  utcTimestamp: number; // ms — exact moment to fire
-  type: string;         // reels / tiktok / stories / carousel / post / custom
-  note: string;
-  displayTime: string;  // "15:00" for notification body
-  fired: boolean;
+  id:           string;
+  utcTimestamp: number;   // ms — exact moment to fire
+  type:         string;   // reels / tiktok / stories / carousel / post / custom
+  note:         string;
+  displayTime:  string;   // "15:00" for notification body
+  fired:        boolean;
 };
 const scheduledReminders: ScheduledReminder[] = [];
 
@@ -43,17 +116,24 @@ pushRouter.get('/vapid-public-key', (_req: Request, res: Response) => {
 });
 
 // ── POST /api/push/subscribe ─────────────────────────────────────────────────
-pushRouter.post('/subscribe', (req: Request, res: Response) => {
+pushRouter.post('/subscribe', async (req: Request, res: Response) => {
   const { subscription, userId } = req.body;
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: 'Invalid subscription' });
   }
+  const entry: PushSub = {
+    subscription,
+    userId,
+    createdAt: new Date().toISOString(),
+  };
   const exists = subscriptions.findIndex(s => s.subscription.endpoint === subscription.endpoint);
   if (exists >= 0) {
-    subscriptions[exists] = { subscription, userId, createdAt: new Date().toISOString() };
+    subscriptions[exists] = entry;
   } else {
-    subscriptions.push({ subscription, userId, createdAt: new Date().toISOString() });
+    subscriptions.push(entry);
   }
+  // Persist to Supabase (non-blocking)
+  saveSubToDB(entry);
   res.json({ ok: true, total: subscriptions.length });
 });
 
@@ -62,15 +142,17 @@ pushRouter.post('/unsubscribe', (req: Request, res: Response) => {
   const { endpoint } = req.body;
   const idx = subscriptions.findIndex(s => s.subscription.endpoint === endpoint);
   if (idx >= 0) subscriptions.splice(idx, 1);
-  // Also remove all scheduled reminders for this endpoint
+  // Remove scheduled reminders for this endpoint
   for (let i = scheduledReminders.length - 1; i >= 0; i--) {
     if (scheduledReminders[i].endpoint === endpoint) scheduledReminders.splice(i, 1);
   }
+  // Remove from DB (non-blocking)
+  deleteSubFromDB(endpoint);
   res.json({ ok: true });
 });
 
 // ── POST /api/push/schedule ───────────────────────────────────────────────────
-// Frontend calls this whenever a reminder is toggled.
+// Frontend calls this on every page load and on every bell toggle.
 // Replaces all reminders for this subscription endpoint.
 pushRouter.post('/schedule', (req: Request, res: Response) => {
   const { endpoint, reminders } = req.body;
@@ -89,7 +171,7 @@ pushRouter.post('/schedule', (req: Request, res: Response) => {
   const now = Date.now();
   let added = 0;
   for (const r of (reminders || [])) {
-    if (!r.utcTimestamp || r.utcTimestamp <= now) continue; // skip past
+    if (!r.utcTimestamp || r.utcTimestamp <= now) continue;
     scheduledReminders.push({
       endpoint,
       subscription: subEntry.subscription,
@@ -103,13 +185,13 @@ pushRouter.post('/schedule', (req: Request, res: Response) => {
     added++;
   }
 
-  console.log(`[Push] Scheduled ${added} reminders for endpoint ...${endpoint.slice(-20)}`);
+  console.log(`[Push] Scheduled ${added} reminder(s) for ...${endpoint.slice(-20)}`);
   res.json({ ok: true, scheduled: added });
 });
 
 // ── Exported: check & fire due reminders (called by cron in index.ts) ────────
 export async function fireScheduledReminders(): Promise<void> {
-  const now = Date.now();
+  const now    = Date.now();
   const WINDOW = 35_000; // ±35 s window (cron fires every minute)
 
   const due = scheduledReminders.filter(
@@ -161,14 +243,18 @@ export async function sendPushToAll(payload: object): Promise<{ sent: number; fa
       await webpush.sendNotification(sub.subscription, JSON.stringify(payload));
       sent++;
     } catch (err: any) {
-      if (err.statusCode === 410 || err.statusCode === 404) toRemove.push(sub.subscription.endpoint);
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        toRemove.push(sub.subscription.endpoint);
+      }
       failed++;
     }
   }
-  toRemove.forEach(ep => {
+  // Remove stale subscriptions
+  for (const ep of toRemove) {
     const idx = subscriptions.findIndex(s => s.subscription.endpoint === ep);
     if (idx >= 0) subscriptions.splice(idx, 1);
-  });
+    deleteSubFromDB(ep);
+  }
   return { sent, failed };
 }
 
