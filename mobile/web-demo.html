@@ -2950,16 +2950,16 @@
           <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(56,189,248,0.08));border:1px solid #6C63FF44;border-radius:16px;">
             <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_pwa_section">📱 Додаток та сповіщення</div>
             <div style="display:flex;flex-direction:column;gap:10px;">
-              <button id="pushEnableBtn"
-                style="padding:13px 18px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:14px;font-weight:800;border:none;border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">
+              <button id="pushEnableBtn" onclick="octoRequestPush()"
+                style="padding:13px 18px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:14px;font-weight:800;border:none;border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">
                 <span style="font-size:20px;">🔔</span>
                 <div>
                   <div data-i18n="s_pwa_push">Увімкнути сповіщення</div>
                   <div style="font-size:11px;opacity:.8;font-weight:400;margin-top:1px;" data-i18n="s_pwa_push_sub">Щоранку нагадування про заплановані пости</div>
                 </div>
               </button>
-              <button id="pwaInstallSettingsBtn"
-                style="padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;border:1.5px solid var(--border);border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;">
+              <button id="pwaInstallSettingsBtn" onclick="pwaTriggerInstall()"
+                style="padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;border:1.5px solid var(--border);border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">
                 <span style="font-size:20px;">📲</span>
                 <div>
                   <div data-i18n="s_pwa_install">Встановити як додаток</div>
@@ -3831,28 +3831,20 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  // ── iOS-safe click wiring for Settings buttons ────────────────────────────────
-  // iOS Safari sometimes ignores inline onclick on buttons inside overflow:auto.
-  // addEventListener is more reliable.
-  (function wirePwaButtons() {
-    const isStandalone = window.navigator.standalone === true ||
-                         window.matchMedia('(display-mode: standalone)').matches;
+  // ── PWA standalone detection + install button visibility ─────────────────────
+  (function initPwaUI() {
+    try {
+      // Works on iOS (Safari PWA), macOS PWA, Android PWA
+      const isStandalone =
+        window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        document.referrer.includes('android-app://');
 
-    // Hide install button when app is already installed as PWA
-    const installBtn = document.getElementById('pwaInstallSettingsBtn');
-    if (installBtn && isStandalone) {
-      installBtn.style.display = 'none';
-    }
-
-    function bindBtn(id, fn) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.onclick = null; // remove inline
-      el.addEventListener('click',    fn, { passive: false });
-      el.addEventListener('touchend', function(e){ e.preventDefault(); fn(); }, { passive: false });
-    }
-    bindBtn('pushEnableBtn',         function(){ octoRequestPush(); });
-    bindBtn('pwaInstallSettingsBtn', function(){ pwaTriggerInstall(); });
+      const installBtn = document.getElementById('pwaInstallSettingsBtn');
+      if (installBtn && isStandalone) {
+        installBtn.style.display = 'none';
+      }
+    } catch(e) {}
   })();
 
   // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
