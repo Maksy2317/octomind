@@ -3825,12 +3825,16 @@
       }
     }
 
+    // Permission granted — update toggle immediately
+    localStorage.setItem('push_subscribed', '1');
+    octoUpdatePushUI(true);
+
     try {
       const reg = await navigator.serviceWorker.ready;
       const keyRes = await fetch('/api/push/vapid-public-key');
       if (!keyRes.ok) {
         _pwaShowInfoSheet('🔔 Сповіщення увімкнено!',
-          'Дозвіл отримано ✅\n\nНагадування щоранку о 8:00 будуть приходити на цей пристрій.');
+          'Дозвіл отримано ✅\n\nПush-сповіщення надходитимуть у запланований час кожного поста з Календаря.');
         return;
       }
       const { key } = await keyRes.json();
@@ -3844,11 +3848,11 @@
         body: JSON.stringify({ subscription: sub.toJSON() }),
       });
       _pwaShowInfoSheet('🔔 Сповіщення увімкнено!',
-        '✅ Підписку оформлено!\n\nЩоранку о 8:00 OctoMind нагадає про заплановані пости в Календарі.');
+        '✅ Готово!\n\nСповіщення надходитимуть у запланований час кожного поста — рівно коли треба публікувати.');
     } catch (e) {
       console.warn('[Push] Subscribe failed:', e);
-      _pwaShowInfoSheet('🔔 Дозвіл отримано ✅',
-        'Сповіщення дозволено!\n\nНагадування приходитимуть щоранку о 8:00 про заплановані пости.');
+      _pwaShowInfoSheet('🔔 Сповіщення увімкнено!',
+        'Дозвіл отримано ✅\n\nСповіщення надходитимуть у запланований час кожного поста з Календаря.');
     }
   };
 
@@ -3997,7 +4001,7 @@
       s_notifications:'Уведомления', s_notifications_sub:'Когда видео готово',
       s_theme_section:'Тема', s_theme:'Светлый режим', s_theme_sub:'Переключить на светлую тему',
       s_pwa_section:'📱 Приложение и уведомления',
-      s_pwa_push:'Включить уведомления', s_pwa_push_sub:'Утреннее напоминание о запланированных постах',
+      s_pwa_push:'Уведомления', s_pwa_push_sub:'Напоминание в запланированное время каждого поста',
       s_pwa_install:'Установить как приложение', s_pwa_install_sub:'Иконка на главном экране телефона',
       // ── Navigation ──
       nav_main:'Главное', nav_create:'Создать', nav_account:'Аккаунт',
@@ -4077,7 +4081,7 @@
       s_notifications:'Сповіщення', s_notifications_sub:'Коли відео готове',
       s_theme_section:'Тема', s_theme:'Світлий режим', s_theme_sub:'Переключити на світлу тему',
       s_pwa_section:'📱 Додаток та сповіщення',
-      s_pwa_push:'Увімкнути сповіщення', s_pwa_push_sub:'Щоранку нагадування про заплановані пости',
+      s_pwa_push:'Сповіщення', s_pwa_push_sub:'Нагадування у запланований час кожного поста',
       s_pwa_install:'Встановити як додаток', s_pwa_install_sub:'Іконка на головному екрані телефону',
       // ── Navigation ──
       nav_main:'Головне', nav_create:'Створити', nav_account:'Акаунт',
@@ -4157,7 +4161,7 @@
       s_notifications:'Notifications', s_notifications_sub:'When video is ready',
       s_theme_section:'Theme', s_theme:'Light mode', s_theme_sub:'Switch to light theme',
       s_pwa_section:'📱 App & notifications',
-      s_pwa_push:'Enable notifications', s_pwa_push_sub:'Morning reminders about scheduled posts',
+      s_pwa_push:'Notifications', s_pwa_push_sub:'Reminder at the scheduled time of each post',
       s_pwa_install:'Install as app', s_pwa_install_sub:'Icon on your phone home screen',
       // ── Navigation ──
       nav_main:'Main', nav_create:'Create', nav_account:'Account',
