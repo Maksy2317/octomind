@@ -1724,11 +1724,11 @@
 
       <div class="sidebar-footer">
         <div class="plan-box">
-          <h4 data-i18n="plan_free_label">Безкоштовний план</h4>
-          <p data-i18n="plan_credits">3 з 5 кредитів використано</p>
-          <div class="plan-bar"><div class="plan-bar-fill"></div></div>
+          <h4 id="sidebarPlanLabel">Безкоштовний план</h4>
+          <p id="sidebarPlanCredits">0 з 10 Octo-запитів</p>
+          <div class="plan-bar"><div class="plan-bar-fill" id="sidebarPlanBar"></div></div>
         </div>
-        <div class="nav-item" onclick="showScreen('pricing',null)">
+        <div class="nav-item" id="sidebarUpgradeBtn" onclick="showScreen('pricing',null)">
           <span class="nav-icon">⬆️</span> <span data-i18n="nav_upgrade">Upgrade to Pro</span>
         </div>
       </div>
@@ -2974,6 +2974,22 @@
               <!-- iOS-style toggle switch -->
               <div id="pushToggle" onclick="octoTogglePush()" style="width:46px;height:27px;border-radius:14px;background:#555;position:relative;transition:background 0.25s;flex-shrink:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
                 <div id="pushToggleThumb" style="position:absolute;top:3px;left:3px;width:21px;height:21px;background:#fff;border-radius:50%;transition:left 0.25s;box-shadow:0 2px 5px rgba(0,0,0,0.4);pointer-events:none;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DEV PLAN TOGGLE -->
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">🔧 Beta-тестування</div>
+            <div style="border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+              <div class="srow" onclick="octoDevSwitchPlan()" style="border:none;border-radius:0;margin:0;background:transparent;padding:14px 16px;gap:12px;align-items:center;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
+                <div style="font-size:18px;flex-shrink:0;">💎</div>
+                <div class="sinfo" style="flex:1;">
+                  <h4>Поточний план</h4>
+                  <p id="devPlanSub" style="font-size:11px;">Натисни щоб переключити</p>
+                </div>
+                <div id="devPlanBadge" style="font-size:11px;font-weight:800;background:rgba(108,99,255,0.2);color:#A78BFA;border:1px solid #6C63FF55;border-radius:8px;padding:4px 10px;flex-shrink:0;">FREE</div>
+                <div style="font-size:16px;color:var(--text4);flex-shrink:0;">›</div>
               </div>
             </div>
           </div>
@@ -4419,8 +4435,9 @@
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if (!text && !pendingImage) return;
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('chat')) { input.value = text; return; }
     input.value = '';
-    if (typeof octoTrack !== 'undefined') octoTrack('chat');
+    if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat'); else if (typeof octoTrack !== 'undefined') octoTrack('chat');
     const msgs = document.getElementById('chatMessages');
 
     // Build message content (text + optional image)
@@ -4507,11 +4524,12 @@
   function analyzeProfile() {
     const url = document.getElementById('profileUrl').value;
     if (!url) { alert('Вставь ссылку на профиль'); return; }
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
     const name = url.split('/').filter(Boolean).pop() || 'username';
     document.getElementById('profileName').textContent = '@' + name;
     document.getElementById('analysisResult').style.display = 'block';
     document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth' });
-    if (typeof octoTrack !== 'undefined') octoTrack('profile');
+    if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
   }
 
   // ── VIDEO CREATOR — Real API ─────────────────────────────────────────────────
@@ -4969,6 +4987,7 @@
 
   async function vProcess() {
     if (!vS.file || !vS.fmt || !vS.tmplId) return;
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('video')) return;
     vs(4);
     const processing = document.getElementById('vProcessing');
     const done = document.getElementById('vDone');
@@ -5049,7 +5068,7 @@
         const freshUrl = processData.downloadUrl + '?v=' + Date.now();
         vS.lastRenderedUrl = freshUrl;
         document.getElementById('vDownloadLink').href = freshUrl;
-        if (typeof octoTrack !== 'undefined') octoTrack('video');
+        if (typeof octoUseFeature !== 'undefined') octoUseFeature('video');
         document.getElementById('vrd').textContent = tmplDisplayName + ' · ' + (fmtN[vS.fmt] || vS.fmt);
         document.getElementById('vDoneInfo').innerHTML =
           `📐 <strong>Формат:</strong> ${fmtN[vS.fmt] || vS.fmt} · 1080×1920 (9:16)<br>` +
@@ -6594,6 +6613,7 @@
 
   async function carDownloadZip() {
     if (!carCanvases.length) { alert('Спочатку створи карусель!'); return; }
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('carousel')) return;
     if (typeof JSZip === 'undefined') { alert('JSZip не завантажено. Перевір підключення.'); return; }
     const btn = document.getElementById('carDlBtn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Пакую…'; }
@@ -6607,7 +6627,7 @@
     a.href = URL.createObjectURL(content);
     a.download = 'octo_carousel.zip';
     a.click();
-    if (typeof octoTrack !== 'undefined') octoTrack('carousel');
+    if (typeof octoUseFeature !== 'undefined') octoUseFeature('carousel');
     if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
   }
 
@@ -8948,6 +8968,7 @@ Respond with the style description only, no intro phrases.`;
       setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 1500);
       return;
     }
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('caption')) return;
 
     const platform  = capGetVal('capPlatform');
     const tone      = capGetVal('capTone');
@@ -9014,7 +9035,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       }
 
       capRenderResults(fullText, platform, lang);
-      if (typeof octoTrack !== 'undefined') octoTrack('caption');
+      if (typeof octoUseFeature !== 'undefined') octoUseFeature('caption');
     } catch (e) {
       document.getElementById('capLoading').style.display = 'none';
       document.getElementById('capGenBtn').disabled = false;
@@ -11690,6 +11711,185 @@ START WITH [ NOW:`;
     const el = document.getElementById('dashSetupBanner');
     if (el) el.style.display = 'none';
   };
+})();
+
+// ── PLAN LIMITS SYSTEM ───────────────────────────────────────────────────────
+(function() {
+  const LIMITS = {
+    guest:   { chat:  0, video:  0, carousel:  0, caption:  0, analyzer: 0 },
+    free:    { chat: 10, video:  2, carousel:  2, caption:  3, analyzer: 1 },
+    starter: { chat: 60, video: 25, carousel: 25, caption: -1, analyzer: 5 },
+    pro:     { chat: -1, video: -1, carousel: -1, caption: -1, analyzer:-1 },
+  };
+  const PLAN_LABELS = { guest:'Гість', free:'Free', starter:'Starter', pro:'Pro' };
+  const FEATURE_LABELS = {
+    chat:'Ask Octo', video:'Відео', carousel:'Карусель',
+    caption:'Caption AI', analyzer:'Profile Analyzer',
+  };
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  function getPlan() {
+    try {
+      const u = JSON.parse(localStorage.getItem('octo_user') || 'null');
+      if (!u || u.guest) return 'guest';
+    } catch {}
+    return localStorage.getItem('octo_plan') || 'free';
+  }
+  function monthKey() {
+    const d = new Date();
+    return `octo_usage_${d.getFullYear()}_${d.getMonth()+1}`;
+  }
+  function getUsage() {
+    try { return JSON.parse(localStorage.getItem(monthKey()) || '{}'); } catch { return {}; }
+  }
+  function incUsage(f) {
+    const u = getUsage(); u[f] = (u[f]||0)+1;
+    try { localStorage.setItem(monthKey(), JSON.stringify(u)); } catch {}
+  }
+
+  // ── Check before action ──────────────────────────────────────────────────────
+  window.octoCanUse = function(feature) {
+    const plan = getPlan();
+    if (plan === 'guest') { _guestSheet(feature); return false; }
+    const limit = (LIMITS[plan]||LIMITS.free)[feature];
+    if (limit === -1) return true;
+    const used = getUsage()[feature] || 0;
+    if (used >= limit) { _limitSheet(feature, plan, used, limit); return false; }
+    return true;
+  };
+
+  // ── Count after success ──────────────────────────────────────────────────────
+  window.octoUseFeature = function(feature) {
+    incUsage(feature);
+    if (typeof octoTrack === 'function') octoTrack(feature);
+    octoUpdatePlanUI();
+  };
+
+  // ── Guest block sheet ────────────────────────────────────────────────────────
+  function _guestSheet(feature) {
+    const fn = FEATURE_LABELS[feature] || feature;
+    _octoSheet(`<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 20px 44px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;">
+      <div style="font-size:40px;text-align:center;margin-bottom:8px;">🔐</div>
+      <div style="font-size:18px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Потрібна реєстрація</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">${fn} доступний тільки для зареєстрованих</div>
+      <div style="background:rgba(108,99,255,.15);border:1px solid #6C63FF44;border-radius:14px;padding:14px;margin-bottom:20px;font-size:12px;color:rgba(255,255,255,.8);line-height:2;">
+        <b style="color:#fff;display:block;margin-bottom:4px;">🆓 Безкоштовно після реєстрації:</b>
+        💬 Ask Octo — 10 повідомлень / міс<br>
+        🎬 Відео — 2 / міс · 🖼️ Карусель — 2 / міс<br>
+        ✍️ Caption AI — 3 / міс · 📅 Календар — ∞
+      </div>
+      <button onclick="_octoSheetClose(); goToAuth();" style="width:100%;padding:15px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;margin-bottom:10px;">
+        Зареєструватись безкоштовно →
+      </button>
+      <button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
+        Переглянути інтерфейс
+      </button>
+    </div>`);
+  }
+
+  // ── Limit reached sheet ──────────────────────────────────────────────────────
+  function _limitSheet(feature, plan, used, limit) {
+    const fn = FEATURE_LABELS[feature] || feature;
+    const nextPlan  = plan === 'free' ? 'starter' : 'pro';
+    const nextLabel = plan === 'free' ? 'Starter — $10/міс' : 'Pro — $20/міс';
+    const nextFeats = {
+      starter: '💬 60 Octo · 🎬 25 відео · 🖼️ 25 каруселей · ✍️ ∞ підписи · 🚫 без watermark',
+      pro:     '💬 ∞ Octo · 🎬 ∞ відео · 🖼️ ∞ карусель · ✍️ ∞ підписи · 5 воркспейсів',
+    }[nextPlan] || '';
+    _octoSheet(`<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 20px 44px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;">
+      <div style="font-size:40px;text-align:center;margin-bottom:8px;">⛔</div>
+      <div style="font-size:18px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Ліміт вичерпано</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">${fn}: ${used} з ${limit} використано цього місяця</div>
+      <div style="background:rgba(108,99,255,.15);border:1px solid #6C63FF44;border-radius:14px;padding:14px;margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:800;color:#A78BFA;margin-bottom:6px;">⚡ ${nextLabel}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.8;">${nextFeats}</div>
+      </div>
+      <button onclick="_octoSheetClose(); showScreen('pricing',null);" style="width:100%;padding:15px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;margin-bottom:10px;">
+        Переглянути тарифи →
+      </button>
+      <button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
+        Закрити
+      </button>
+    </div>`);
+  }
+
+  // ── Update sidebar + dev badge ───────────────────────────────────────────────
+  window.octoUpdatePlanUI = function() {
+    const plan  = getPlan();
+    const usage = getUsage();
+    const lims  = LIMITS[plan] || LIMITS.free;
+
+    const label  = document.getElementById('sidebarPlanLabel');
+    const credits= document.getElementById('sidebarPlanCredits');
+    const bar    = document.getElementById('sidebarPlanBar');
+    const upBtn  = document.getElementById('sidebarUpgradeBtn');
+
+    if (plan === 'pro') {
+      if (label)   label.textContent   = '💎 Pro план';
+      if (credits) credits.textContent = 'Всі функції без обмежень';
+      if (bar)     { bar.style.width = '100%'; bar.style.background = '#22c55e'; }
+      if (upBtn)   upBtn.style.display = 'none';
+    } else if (plan === 'starter') {
+      const u = usage.chat||0;
+      if (label)   label.textContent   = '⚡ Starter план';
+      if (credits) credits.textContent = `${u} з 60 Octo-запитів`;
+      if (bar)     { bar.style.width = Math.min(100,(u/60)*100)+'%'; bar.style.background='#38BDF8'; }
+      if (upBtn)   upBtn.style.display = '';
+    } else if (plan === 'guest') {
+      if (label)   label.textContent   = 'Гість';
+      if (credits) credits.textContent = 'Зареєструйся безкоштовно';
+      if (bar)     bar.style.width = '0%';
+      if (upBtn)   upBtn.style.display = '';
+    } else { // free
+      const u = usage.chat||0;
+      if (label)   label.textContent   = 'Безкоштовний план';
+      if (credits) credits.textContent = `${u} з 10 Octo-запитів`;
+      if (bar)     { bar.style.width = Math.min(100,(u/10)*100)+'%'; bar.style.background = u>=10?'#ef4444':'#6C63FF'; }
+      if (upBtn)   upBtn.style.display = '';
+    }
+
+    // Dev badge in settings
+    const badge = document.getElementById('devPlanBadge');
+    const sub   = document.getElementById('devPlanSub');
+    if (badge) {
+      badge.textContent = (PLAN_LABELS[plan]||plan).toUpperCase();
+      badge.style.background = { guest:'rgba(100,100,100,.2)', free:'rgba(108,99,255,.2)', starter:'rgba(56,189,248,.2)', pro:'rgba(34,197,94,.2)' }[plan]||'';
+      badge.style.color = { guest:'#888', free:'#A78BFA', starter:'#38BDF8', pro:'#22c55e' }[plan]||'#A78BFA';
+    }
+    if (sub) {
+      const parts = [];
+      for (const f of ['chat','video','carousel','caption','analyzer']) {
+        const l = lims[f]; const u2 = usage[f]||0;
+        if (l !== -1) parts.push(`${FEATURE_LABELS[f]}: ${u2}/${l}`);
+        else parts.push(`${FEATURE_LABELS[f]}: ∞`);
+      }
+      sub.textContent = parts.join(' · ');
+    }
+  };
+
+  // ── Dev toggle ───────────────────────────────────────────────────────────────
+  window.octoDevSwitchPlan = function() {
+    const plans = ['free','starter','pro'];
+    const cur = getPlan() === 'guest' ? 'free' : (localStorage.getItem('octo_plan')||'free');
+    const next = plans[(plans.indexOf(cur)+1) % plans.length];
+    localStorage.setItem('octo_plan', next);
+    octoUpdatePlanUI();
+    if (typeof renderDashboard !== 'undefined') renderDashboard();
+    const names = { free:'Free ($0)', starter:'Starter ($10/міс)', pro:'Pro ($20/міс)' };
+    _pwaShowInfoSheet('🔧 План змінено', `Активний: ${names[next]}\n\nЦе тестовий перемикач — у продакшні тут буде оплата через Stripe.`);
+  };
+
+  // ── Go to auth screen ────────────────────────────────────────────────────────
+  window.goToAuth = function() {
+    try {
+      document.getElementById('mainApp').style.display = 'none';
+      document.getElementById('authScreen').style.display = '';
+    } catch {}
+  };
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() { octoUpdatePlanUI(); });
+
 })();
 
 // ── REAL DASHBOARD STATS ──────────────────────────────────────────────────────
