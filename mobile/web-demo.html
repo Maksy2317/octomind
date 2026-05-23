@@ -1763,10 +1763,19 @@
           <div id="dashSetupBanner" style="display:none;"></div>
 
           <div class="stats-grid">
-            <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value">12</div><div class="stat-label" data-i18n="stat_videos">Відео створено</div><div class="stat-change" data-i18n="stat_videos_ch">↑ 3 цього тижня</div></div>
-            <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value">5</div><div class="stat-label" data-i18n="stat_carousels">Каруселі</div><div class="stat-change" data-i18n="stat_carousels_ch">↑ 2 цього тижня</div></div>
-            <div class="stat-card"><div class="stat-icon">🔍</div><div class="stat-value">3</div><div class="stat-label" data-i18n="stat_profiles">Профілів проаналізовано</div><div class="stat-change" data-i18n="stat_profiles_ch">↑ 1 цього тижня</div></div>
-            <div class="stat-card"><div class="stat-icon"><img src="assets/octo_laptop.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value">28</div><div class="stat-label" data-i18n="stat_octo">Ask Octo запитів</div><div class="stat-change" data-i18n="stat_octo_ch">↑ 8 цього тижня</div></div>
+            <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value" id="ds_videos">0</div><div class="stat-label" data-i18n="stat_videos">Відео створено</div><div class="stat-change" id="ds_videos_ch">Ще не створювались</div></div>
+            <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value" id="ds_carousels">0</div><div class="stat-label" data-i18n="stat_carousels">Каруселі</div><div class="stat-change" id="ds_carousels_ch">Ще не створювались</div></div>
+            <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-value" id="ds_cal">0</div><div class="stat-label" id="ds_cal_label">Постів цього місяця</div><div class="stat-change" id="ds_cal_ch">Календар порожній</div></div>
+            <div class="stat-card"><div class="stat-icon"><img src="assets/octo_laptop.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value" id="ds_octo">0</div><div class="stat-label" data-i18n="stat_octo">Ask Octo запитів</div><div class="stat-change" id="ds_octo_ch">Ще не запитував</div></div>
+          </div>
+          <!-- Next scheduled post -->
+          <div id="ds_next_post" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:22px;">📆</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;color:var(--text4);margin-bottom:2px;" id="ds_next_label">Наступний пост</div>
+              <div style="font-size:14px;font-weight:700;" id="ds_next_val">—</div>
+            </div>
+            <button onclick="showScreen('calendar',null)" style="font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:5px 10px;cursor:pointer;white-space:nowrap;touch-action:manipulation;">Відкрити →</button>
           </div>
 
           <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg,#1A1040,#12121E); border-color:#6C63FF44;">
@@ -4296,7 +4305,10 @@
     if (id === 'photo')    photoSwitchTab('carousel');
     if (id === 'calendar') calInit();
     if (id === 'caption')  capInitScreen();
-    if (id === 'dashboard' && typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+    if (id === 'dashboard') {
+      if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
+      if (typeof renderDashboard !== 'undefined') renderDashboard();
+    }
     if (id === 'profile'  && typeof renderProfileCard    !== 'undefined') renderProfileCard();
     // Скрываем маскота на экране чата — он мешает кнопке отправки
     const w = document.getElementById('octoWidget');
@@ -4408,6 +4420,7 @@
     const text = input.value.trim();
     if (!text && !pendingImage) return;
     input.value = '';
+    if (typeof octoTrack !== 'undefined') octoTrack('chat');
     const msgs = document.getElementById('chatMessages');
 
     // Build message content (text + optional image)
@@ -4498,6 +4511,7 @@
     document.getElementById('profileName').textContent = '@' + name;
     document.getElementById('analysisResult').style.display = 'block';
     document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth' });
+    if (typeof octoTrack !== 'undefined') octoTrack('profile');
   }
 
   // ── VIDEO CREATOR — Real API ─────────────────────────────────────────────────
@@ -5035,6 +5049,7 @@
         const freshUrl = processData.downloadUrl + '?v=' + Date.now();
         vS.lastRenderedUrl = freshUrl;
         document.getElementById('vDownloadLink').href = freshUrl;
+        if (typeof octoTrack !== 'undefined') octoTrack('video');
         document.getElementById('vrd').textContent = tmplDisplayName + ' · ' + (fmtN[vS.fmt] || vS.fmt);
         document.getElementById('vDoneInfo').innerHTML =
           `📐 <strong>Формат:</strong> ${fmtN[vS.fmt] || vS.fmt} · 1080×1920 (9:16)<br>` +
@@ -6592,6 +6607,7 @@
     a.href = URL.createObjectURL(content);
     a.download = 'octo_carousel.zip';
     a.click();
+    if (typeof octoTrack !== 'undefined') octoTrack('carousel');
     if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
   }
 
@@ -8998,6 +9014,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       }
 
       capRenderResults(fullText, platform, lang);
+      if (typeof octoTrack !== 'undefined') octoTrack('caption');
     } catch (e) {
       document.getElementById('capLoading').style.display = 'none';
       document.getElementById('capGenBtn').disabled = false;
@@ -11673,6 +11690,106 @@ START WITH [ NOW:`;
     const el = document.getElementById('dashSetupBanner');
     if (el) el.style.display = 'none';
   };
+})();
+
+// ── REAL DASHBOARD STATS ──────────────────────────────────────────────────────
+(function() {
+  const EVENTS_KEY = 'octo_usage_events';
+
+  // Track one usage event with current timestamp
+  window.octoTrack = function(type) {
+    try {
+      const evts = JSON.parse(localStorage.getItem(EVENTS_KEY) || '[]');
+      evts.push({ type, ts: Date.now() });
+      if (evts.length > 2000) evts.splice(0, evts.length - 2000);
+      localStorage.setItem(EVENTS_KEY, JSON.stringify(evts));
+    } catch(e) {}
+  };
+
+  function weekStartTs() {
+    const n = new Date();
+    const diff = n.getDay() === 0 ? -6 : 1 - n.getDay(); // Mon = start
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate() + diff, 0, 0, 0, 0).getTime();
+  }
+
+  window.renderDashboard = function() {
+    try {
+      const evts  = JSON.parse(localStorage.getItem(EVENTS_KEY) || '[]');
+      const wkTs  = weekStartTs();
+      const cnt   = (t) => evts.filter(e => e.type === t).length;
+      const cntWk = (t) => evts.filter(e => e.type === t && e.ts >= wkTs).length;
+
+      // ── Videos ───────────────────────────────────────────────────────────────
+      const vTotal = cnt('video'), vWk = cntWk('video');
+      _setCard('ds_videos', vTotal, 'ds_videos_ch',
+        vWk > 0 ? `↑ ${vWk} цього тижня` : (vTotal > 0 ? 'Цього тижня — 0' : 'Ще не створювались'));
+
+      // ── Carousels ─────────────────────────────────────────────────────────────
+      const cTotal = cnt('carousel'), cWk = cntWk('carousel');
+      _setCard('ds_carousels', cTotal, 'ds_carousels_ch',
+        cWk > 0 ? `↑ ${cWk} цього тижня` : (cTotal > 0 ? 'Цього тижня — 0' : 'Ще не створювались'));
+
+      // ── Ask Octo ─────────────────────────────────────────────────────────────
+      const oTotal = cnt('chat'), oWk = cntWk('chat');
+      _setCard('ds_octo', oTotal, 'ds_octo_ch',
+        oWk > 0 ? `↑ ${oWk} цього тижня` : (oTotal > 0 ? 'Цього тижня — 0' : 'Ще не запитував'));
+
+      // ── Calendar ─────────────────────────────────────────────────────────────
+      const now    = new Date();
+      const wkEnd  = wkTs + 7 * 86400000;
+      let calMonth = 0, calWk = 0, calRemind = 0, calNext = null;
+
+      if (typeof calLoad === 'function') {
+        const data = calLoad();
+        for (const [key, posts] of Object.entries(data)) {
+          if (!Array.isArray(posts) || !posts.length) continue;
+          const parts = key.split('-').map(Number);
+          if (parts.length !== 3) continue;
+          const [y, mo, d] = parts;
+          const dayTs = new Date(y, mo - 1, d).getTime();
+
+          if (y === now.getFullYear() && mo === now.getMonth() + 1) calMonth += posts.length;
+          if (dayTs >= wkTs && dayTs < wkEnd) calWk += posts.length;
+
+          for (let i = 0; i < posts.length; i++) {
+            const p = posts[i];
+            if (p.reminder) calRemind++;
+            if (p.time) {
+              const [h, m] = p.time.split(':').map(Number);
+              const pTs = new Date(y, mo - 1, d, h, m).getTime();
+              if (pTs > Date.now() && (!calNext || pTs < calNext.ts)) {
+                const months = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру'];
+                calNext = { ts: pTs, type: p.type || 'пост', time: p.time,
+                  label: `${d} ${months[mo - 1]} о ${p.time}` };
+              }
+            }
+          }
+        }
+      }
+
+      _setCard('ds_cal', calMonth, 'ds_cal_ch',
+        calWk > 0 ? `↑ ${calWk} цього тижня` : (calMonth > 0 ? 'Цього тижня — 0' : 'Календар порожній'));
+
+      // ── Next post ─────────────────────────────────────────────────────────────
+      const nextEl = document.getElementById('ds_next_post');
+      if (nextEl && calNext) {
+        const TYPE = { reels:'Reels', tiktok:'TikTok', stories:'Stories', carousel:'Карусель', post:'Пост' };
+        document.getElementById('ds_next_val').textContent =
+          (TYPE[calNext.type] || calNext.type) + ' — ' + calNext.label;
+        nextEl.style.display = 'flex';
+      } else if (nextEl) {
+        nextEl.style.display = 'none';
+      }
+
+    } catch(e) { console.warn('[Dashboard]', e); }
+  };
+
+  function _setCard(valId, val, chId, chText) {
+    const v = document.getElementById(valId);
+    const c = document.getElementById(chId);
+    if (v) v.textContent = val;
+    if (c) c.textContent = chText;
+  }
 })();
 </script>
 
