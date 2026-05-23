@@ -3630,21 +3630,45 @@
   });
 
   window.pwaTriggerInstall = function() {
-    // iOS doesn't support beforeinstallprompt — show manual instructions instead
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isMac = /macintosh|mac os x/i.test(navigator.userAgent) && !isIos;
+
+    // iOS — show browser-specific manual instructions
     if (isIos) { pwaShowIosInstructions(); return; }
 
+    // Android/desktop — use native install prompt if available
     if (_pwaInstallPrompt) {
       _pwaInstallPrompt.prompt();
       _pwaInstallPrompt.userChoice.then(r => {
         if (r.outcome === 'accepted') {
           pwaCloseBanner();
-          // After install, request push permission
           setTimeout(octoRequestPush, 2000);
         }
         _pwaInstallPrompt = null;
       });
+      return;
     }
+
+    // Already installed (standalone) or no prompt available → explain
+    const isStandalone =
+      window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+    if (isStandalone) {
+      _pwaShowInfoSheet('✅ Вже встановлено!',
+        'OctoMind вже встановлено як додаток на цьому пристрої.\n\nЩоб відкрити — знайди іконку 🐙 на робочому столі або в Dock.');
+      return;
+    }
+
+    // Desktop browser — show install guide
+    if (isMac) {
+      _pwaShowInfoSheet('📲 Як встановити на Mac',
+        'В Chrome або Edge:\n1. Натисни ⊕ у правому кутку адресного рядка\n2. Обери «Встановити OctoMind»\n\nАбо відкрий меню браузера → «Зберегти та поділитися» → «Створити ярлик»');
+      return;
+    }
+
+    _pwaShowInfoSheet('📲 Встановити як додаток',
+      'Відкрий це у Chrome або Edge і натисни іконку встановлення ⊕ в адресному рядку.');
   };
 
   window.pwaCloseBanner = function() {
@@ -3767,56 +3791,64 @@
   // ── Push notification subscription ───────────────────────────────────────────
   window.octoRequestPush = async function() {
     const isIos        = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isStandalone = window.navigator.standalone === true;
+    const isStandalone = window.navigator.standalone === true ||
+                         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 
-    // On iOS in browser (not installed PWA) — push not available, show install guide
+    // iOS in browser (not installed) — push only works from installed PWA
     if (isIos && !isStandalone) {
       _pwaShowInfoSheet(
         '🔔 Спочатку встанови додаток',
-        'Push-сповіщення на iPhone працюють тільки з встановленого додатку (не з браузера).\n\n' +
-        '1. Натисни ⬆️ Поділитися в Safari\n' +
-        '2. «На екран "Домівка"»\n' +
-        '3. Відкрий OctoMind з екрану домівки\n' +
-        '4. Зайди в Налаштування → Увімкнути сповіщення'
+        'Push-сповіщення на iPhone працюють тільки з встановленого додатку.\n\n' +
+        '1️⃣ Натисни кнопку «Встановити як додаток» вище\n' +
+        '2️⃣ Відкрий OctoMind з екрану домівки\n' +
+        '3️⃣ Зайди в Налаштування → Увімкнути сповіщення'
       );
       return;
     }
 
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-    if (Notification.permission === 'denied') {
-      _pwaShowInfoSheet('🔕 Сповіщення заблоковані', 'Відкрий Налаштування телефону → Safari/Chrome → Сповіщення → дозволь для цього сайту.');
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      _pwaShowInfoSheet('😔 Не підтримується', 'Твій браузер не підтримує сповіщення.\nСпробуй Chrome або відкрий як PWA-додаток.');
       return;
     }
-
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return;
+    if (Notification.permission === 'denied') {
+      _pwaShowInfoSheet('🔕 Сповіщення заблоковані',
+        'Ти раніше заблокував сповіщення для цього сайту.\n\nЯк дозволити:\n• Mac/Chrome: натисни 🔒 поруч з адресою → Сповіщення → Дозволити\n• iPhone: Налаштування → Safari → Сповіщення → знайди сайт → Дозволити');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      // Already granted — just subscribe (or re-subscribe)
+    } else {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        _pwaShowInfoSheet('😔 Сповіщення не дозволено', 'Ти відхилив запит. Щоб увімкнути пізніше — натисни 🔒 в адресному рядку → Сповіщення → Дозволити.');
+        return;
+      }
+    }
 
     try {
       const reg = await navigator.serviceWorker.ready;
-      // Get VAPID public key from server
       const keyRes = await fetch('/api/push/vapid-public-key');
-      if (!keyRes.ok) return;
+      if (!keyRes.ok) {
+        _pwaShowInfoSheet('🔔 Сповіщення увімкнено!',
+          'Дозвіл отримано ✅\n\nНагадування щоранку о 8:00 будуть приходити на цей пристрій.');
+        return;
+      }
       const { key } = await keyRes.json();
-
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(key),
       });
-
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription: sub.toJSON() }),
       });
-
-      // Show success toast
-      const toast = document.createElement('div');
-      toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;font-size:14px;padding:12px 22px;border-radius:20px;z-index:9999;box-shadow:0 8px 32px #0005;pointer-events:none;white-space:nowrap;';
-      toast.textContent = '🔔 Сповіщення увімкнено! Нагадування приходитимуть щоранку.';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 4000);
+      _pwaShowInfoSheet('🔔 Сповіщення увімкнено!',
+        '✅ Підписку оформлено!\n\nЩоранку о 8:00 OctoMind нагадає про заплановані пости в Календарі.');
     } catch (e) {
       console.warn('[Push] Subscribe failed:', e);
+      _pwaShowInfoSheet('🔔 Дозвіл отримано ✅',
+        'Сповіщення дозволено!\n\nНагадування приходитимуть щоранку о 8:00 про заплановані пости.');
     }
   };
 
