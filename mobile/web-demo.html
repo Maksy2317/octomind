@@ -2947,25 +2947,26 @@
         <div class="screen" id="settings">
 
           <!-- NOTIFICATIONS + PWA INSTALL -->
-          <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,rgba(108,99,255,0.12),rgba(56,189,248,0.08));border:1px solid #6C63FF44;border-radius:16px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_pwa_section">📱 Додаток та сповіщення</div>
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <button id="pushEnableBtn" onclick="octoRequestPush()"
-                style="padding:13px 18px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:14px;font-weight:800;border:none;border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">
-                <span style="font-size:20px;">🔔</span>
-                <div>
-                  <div data-i18n="s_pwa_push">Увімкнути сповіщення</div>
-                  <div style="font-size:11px;opacity:.8;font-weight:400;margin-top:1px;" data-i18n="s_pwa_push_sub">Щоранку нагадування про заплановані пости</div>
-                </div>
-              </button>
-              <button id="pwaInstallSettingsBtn" onclick="pwaTriggerInstall()"
-                style="padding:13px 18px;background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;border:1.5px solid var(--border);border-radius:13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">
-                <span style="font-size:20px;">📲</span>
-                <div>
-                  <div data-i18n="s_pwa_install">Встановити як додаток</div>
-                  <div style="font-size:11px;color:var(--text4);font-weight:400;margin-top:1px;" data-i18n="s_pwa_install_sub">Іконка на головному екрані телефону</div>
-                </div>
-              </button>
+          <div style="margin-bottom:24px;border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+            <!-- Push row -->
+            <div class="srow" id="pushRow" style="border:none;border-radius:0;margin:0;background:transparent;padding:14px 16px;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" onclick="octoRequestPush()">
+              <div style="font-size:18px;flex-shrink:0;" id="pushRowIcon">🔔</div>
+              <div class="sinfo" style="flex:1;">
+                <h4 id="pushRowTitle" data-i18n="s_pwa_push">Увімкнути сповіщення</h4>
+                <p id="pushRowSub" data-i18n="s_pwa_push_sub">Щоранку нагадування про заплановані пости</p>
+              </div>
+              <div id="pushRowBadge" style="display:none;font-size:11px;font-weight:700;background:#22c55e22;color:#22c55e;border:1px solid #22c55e55;border-radius:8px;padding:3px 8px;flex-shrink:0;white-space:nowrap;">● ON</div>
+              <div style="font-size:16px;color:var(--text4);flex-shrink:0;">›</div>
+            </div>
+            <div style="height:1px;background:var(--border);"></div>
+            <!-- Install row -->
+            <div class="srow" id="pwaInstallSettingsBtn" style="border:none;border-radius:0;margin:0;background:transparent;padding:14px 16px;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;" onclick="pwaTriggerInstall()">
+              <div style="font-size:18px;flex-shrink:0;">📲</div>
+              <div class="sinfo" style="flex:1;">
+                <h4 data-i18n="s_pwa_install">Встановити як додаток</h4>
+                <p data-i18n="s_pwa_install_sub">Іконка на головному екрані телефону</p>
+              </div>
+              <div style="font-size:16px;color:var(--text4);flex-shrink:0;">›</div>
             </div>
           </div>
 
@@ -3850,6 +3851,89 @@
       _pwaShowInfoSheet('🔔 Дозвіл отримано ✅',
         'Сповіщення дозволено!\n\nНагадування приходитимуть щоранку о 8:00 про заплановані пости.');
     }
+  };
+
+  // ── Push UI state: show ON/OFF in the settings row ───────────────────────────
+  function octoUpdatePushUI(isOn) {
+    try {
+      const icon  = document.getElementById('pushRowIcon');
+      const title = document.getElementById('pushRowTitle');
+      const sub   = document.getElementById('pushRowSub');
+      const badge = document.getElementById('pushRowBadge');
+      const row   = document.getElementById('pushRow');
+      if (!icon) return;
+      if (isOn) {
+        icon.textContent  = '🔔';
+        title.textContent = 'Сповіщення увімкнено';
+        sub.textContent   = 'Натисни, щоб вимкнути';
+        badge.style.display = '';
+        row.style.background = 'rgba(34,197,94,0.06)';
+        row.onclick = octoDisablePush;
+      } else {
+        icon.textContent  = '🔔';
+        title.textContent = 'Увімкнути сповіщення';
+        sub.textContent   = 'Щоранку нагадування про заплановані пости';
+        badge.style.display = 'none';
+        row.style.background = '';
+        row.onclick = octoRequestPush;
+      }
+    } catch(e) {}
+  }
+
+  // ── Unsubscribe from push ────────────────────────────────────────────────────
+  window.octoDisablePush = async function() {
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+          await sub.unsubscribe();
+        }
+      }
+      localStorage.removeItem('push_subscribed');
+      octoUpdatePushUI(false);
+      _pwaShowInfoSheet('🔕 Сповіщення вимкнено', 'Ти більше не отримуватимеш щоранкових нагадувань.\n\nМожна увімкнути знову в будь-який момент.');
+    } catch(e) {
+      localStorage.removeItem('push_subscribed');
+      octoUpdatePushUI(false);
+    }
+  };
+
+  // ── Init push UI state on load ───────────────────────────────────────────────
+  (function() {
+    try {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.ready.then(reg =>
+          reg.pushManager.getSubscription()
+        ).then(sub => {
+          const isOn = !!sub;
+          localStorage.setItem('push_subscribed', isOn ? '1' : '0');
+          octoUpdatePushUI(isOn);
+        }).catch(() => {});
+      }
+    } catch(e) {}
+  })();
+
+  // Quick restore from localStorage (before async check completes)
+  if (localStorage.getItem('push_subscribed') === '1') octoUpdatePushUI(true);
+
+  // Also update UI after successful subscribe in octoRequestPush
+  const _origRequestPush = window.octoRequestPush;
+  window.octoRequestPush = async function() {
+    await _origRequestPush();
+    // Re-check subscription state after attempt
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) { localStorage.setItem('push_subscribed', '1'); octoUpdatePushUI(true); }
+      }
+    } catch(e) {}
   };
 
   function urlBase64ToUint8Array(base64String) {
