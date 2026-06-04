@@ -140,7 +140,7 @@ chatRouter.post('/', async (req: Request, res: Response) => {
 
     const stream = client.messages.stream({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: messages.slice(-20),
     });
