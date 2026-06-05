@@ -43,12 +43,12 @@ export async function loadSubscriptionsFromDB(): Promise<void> {
       console.warn('[Push] DB load failed:', res.status, await res.text());
       return;
     }
-    const rows: Array<{
+    const rows = await res.json() as Array<{
       endpoint:     string;
       subscription: webpush.PushSubscription;
       user_id?:     string;
       created_at:   string;
-    }> = await res.json();
+    }>;
 
     subscriptions.length = 0;
     for (const row of rows) {
