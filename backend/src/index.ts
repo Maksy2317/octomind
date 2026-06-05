@@ -8,6 +8,7 @@ import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
 import { subtitlesRouter } from './routes/subtitles';
 import { carouselRouter } from './routes/carousel';
+import { calendarRouter } from './routes/calendar';
 import { pushRouter, sendPushToAll, fireScheduledReminders, loadSubscriptionsFromDB } from './routes/push';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -43,6 +44,7 @@ app.use('/api/video', videoRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/subtitles', subtitlesRouter);
 app.use('/api/carousel', carouselRouter);
+app.use('/api/calendar', calendarRouter);
 app.use('/api/push', pushRouter);
 
 // ── Per-post scheduled reminders (every minute) ──────────────────────────────

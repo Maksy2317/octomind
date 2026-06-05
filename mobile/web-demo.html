@@ -9574,96 +9574,32 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     const profileCtx = (typeof buildProfileContext !== 'undefined') ? buildProfileContext() : null;
     if (subText) subText.textContent = profileCtx ? 'Враховую нішу та платформи...' : 'Вибираю формати...';
 
-    const profileBlock = profileCtx
-      ? `\n\nКонтекст акаунту (ОБОВ'ЯЗКОВО враховуй при виборі тем і форматів):\n${profileCtx}\n`
-      : '';
-
     // Use user's plan config (from modal) or defaults
     const cfg = window.calPlanConfig || {};
-    const platforms          = cfg.platforms          || ['tiktok','reels','stories'];
-    const storiesPerDay      = cfg.storiesPerDay      || 5;
-    const tiktokPerWeek      = cfg.tiktokPerWeek      || 5;
-    const reelsPerWeek       = cfg.reelsPerWeek       || 3;
-    const carouselPerWeek    = cfg.carouselPerWeek    || 2;
-    const postPerWeek        = cfg.postPerWeek        || 2;
-    const customPerWeek      = cfg.customPerWeek      || 3;
-    const customName         = cfg.customPlatformName || 'custom';
-    const focusLabel         = { growth:'зростання охоплення', sales:'продажі', trust:'довіра та авторитет', entertainment:'розваги' }[cfg.focus||'growth'];
-
-    // Stories: convert "per day" to calendar SESSIONS per day (morning / afternoon / evening blocks)
-    const stSessionsPerDay = storiesPerDay <= 2 ? 1 : storiesPerDay <= 8 ? 2 : 3;
-    const stBatchSize = Math.round(storiesPerDay / stSessionsPerDay);
-
-    const weeksLeft  = Math.max(1, remainingDays / 7);
-    const ttTarget   = platforms.includes('tiktok')   ? Math.round(weeksLeft * tiktokPerWeek)        : 0;
-    const rlTarget   = platforms.includes('reels')    ? Math.round(weeksLeft * reelsPerWeek)         : 0;
-    const stTarget   = platforms.includes('stories')  ? Math.round(weeksLeft * stSessionsPerDay * 6) : 0;
-    const crTarget   = platforms.includes('carousel') ? Math.round(weeksLeft * carouselPerWeek)      : 0;
-    const ptTarget   = platforms.includes('post')     ? Math.round(weeksLeft * postPerWeek)          : 0;
-    const ctTarget   = platforms.includes('custom')   ? Math.round(weeksLeft * customPerWeek)        : 0;
-    const totalTarget = ttTarget + rlTarget + stTarget + crTarget + ptTarget + ctTarget;
-
-    const prompt = `TASK: Generate a social media content calendar for ${monthName}, days ${startDay}–${daysInMonth} (${remainingDays} days).${profileBlock}
-
-USER'S POSTING GOALS (must follow exactly):
-- Focus: ${focusLabel}
-- Active platforms: ${platforms.join(', ')}${platforms.includes('stories') ? `\n- Stories: ${storiesPerDay}/day → create ${stSessionsPerDay} calendar slot(s)/day (each = ~${stBatchSize} stories). Label notes: "Ранковий блок", "Денний блок", "Вечірній блок".` : ''}${platforms.includes('tiktok') ? `\n- TikTok: ${tiktokPerWeek}/week` : ''}${platforms.includes('reels') ? `\n- Reels: ${reelsPerWeek}/week` : ''}${platforms.includes('carousel') ? `\n- Carousel: ${carouselPerWeek}/week` : ''}${platforms.includes('post') ? `\n- Post (feed): ${postPerWeek}/week` : ''}${platforms.includes('custom') ? `\n- ${customName}: ${customPerWeek}/week (use type "post" with note prefixed "${customName}:")` : ''}
-
-OUTPUT FORMAT: Respond ONLY with a raw JSON array. No markdown, no code blocks, no text. Start with [ end with ].
-
-TARGETS (mandatory totals):
-${platforms.includes('tiktok')   ? `- tiktok:   ${ttTarget} entries\n` : ''}\
-${platforms.includes('reels')    ? `- reels:    ${rlTarget} entries\n` : ''}\
-${platforms.includes('stories')  ? `- stories:  ${stTarget} entries (${stSessionsPerDay} slots/day)\n` : ''}\
-${platforms.includes('carousel') ? `- carousel: ${crTarget} entries\n` : ''}\
-${platforms.includes('post')     ? `- post:     ${ptTarget} entries\n` : ''}\
-${platforms.includes('custom')   ? `- ${customName}: ${ctTarget} entries\n` : ''}\
-- TOTAL: ~${totalTarget} entries across days ${startDay}–${daysInMonth}
-
-FIELD RULES:
-- day: integer ${startDay}–${daysInMonth}
-- type: tiktok | reels | stories | carousel | post
-- time: "07:00"|"09:00"|"12:00"|"15:00"|"18:00"|"20:00"
-- Best times: tiktok→"15:00"/"18:00"; reels→"12:00"/"15:00"/"18:00"; stories→"07:00"/"12:00"/"20:00"; carousel/post→"12:00"/"15:00"
-- note: specific topic/hook, 4-10 words, niche-relevant${platforms.includes('stories') ? `; story slots: "Ранковий блок — ${stBatchSize} stories | тема..."` : ''}
-- Same day CAN have tiktok + reels (separate platforms)
-- No 3 same-type rows in a row; spread evenly
-
-START WITH [ NOW:`;
+    const requestBody = {
+      year: calYear,
+      month: calMonth,
+      monthName,
+      startDay,
+      daysInMonth,
+      remainingDays,
+      language: lang,
+      profileContext: profileCtx,
+      config: cfg,
+    };
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/calendar/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], context: profileCtx }),
+        body: JSON.stringify(requestBody),
       });
-
-      let fullText = '';
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (const line of decoder.decode(value).split('\n')) {
-          if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-            try { fullText += JSON.parse(line.slice(6)).text || ''; } catch {}
-          }
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Не вдалося згенерувати план');
       }
-
-      // Robust JSON extraction: strip markdown code blocks, then find array
-      let jsonText = fullText
-        .replace(/```json\s*/gi, '')
-        .replace(/```\s*/g, '')
-        .trim();
-      // Find the outermost [...] array
-      const start = jsonText.indexOf('[');
-      const end   = jsonText.lastIndexOf(']');
-      if (start === -1 || end === -1 || end < start) {
-        throw new Error('AI не повернув JSON. Відповідь: ' + jsonText.slice(0, 120));
-      }
-      jsonText = jsonText.slice(start, end + 1);
-      const plan = JSON.parse(jsonText);
+      const { plan, fallbackUsed } = await res.json();
+      if (fallbackUsed && subText) subText.textContent = 'AI був недоступний — додав базовий план';
 
       const data = calLoad();
       let added = 0;
