@@ -76,8 +76,8 @@ function buildTargetPlan(body: CalendarPlanRequest): TargetPlan {
   const postPerWeek = clampInt(cfg.postPerWeek, 2, 0, 20);
   const customPerWeek = clampInt(cfg.customPerWeek, 3, 0, 20);
   const customName = String(cfg.customPlatformName || 'custom').trim() || 'custom';
-  const stSessionsPerDay = storiesPerDay <= 0 ? 0 : storiesPerDay <= 2 ? 1 : storiesPerDay <= 8 ? 2 : 3;
-  const stBatchSize = Math.max(1, Math.round(storiesPerDay / Math.max(1, stSessionsPerDay)));
+  const stSessionsPerDay = storiesPerDay;
+  const stBatchSize = 1;
   const weeksLeft = Math.max(1, body.remainingDays / 7);
   const focusLabel = {
     growth: 'зростання охоплення',
@@ -89,7 +89,7 @@ function buildTargetPlan(body: CalendarPlanRequest): TargetPlan {
   const counts = {
     tiktok: platforms.includes('tiktok') ? Math.round(weeksLeft * tiktokPerWeek) : 0,
     reels: platforms.includes('reels') ? Math.round(weeksLeft * reelsPerWeek) : 0,
-    stories: platforms.includes('stories') ? Math.round(weeksLeft * stSessionsPerDay * 6) : 0,
+    stories: platforms.includes('stories') ? body.remainingDays * storiesPerDay : 0,
     carousel: platforms.includes('carousel') ? Math.round(weeksLeft * carouselPerWeek) : 0,
     post: platforms.includes('post') ? Math.round(weeksLeft * postPerWeek) : 0,
     custom: platforms.includes('custom') ? Math.round(weeksLeft * customPerWeek) : 0,
@@ -165,8 +165,8 @@ function applyFallbackNotes(entries: CalendarPlanItem[], target: TargetPlan): Ca
       return { ...item, note: item.note + topic };
     }
     if (item.type === 'stories') {
-      const block = item.time === '07:00' ? 'Ранковий блок' : item.time === '12:00' ? 'Денний блок' : 'Вечірній блок';
-      return { ...item, note: `${block} — ${target.stBatchSize} stories | ${topic}` };
+      const block = item.time === '07:00' ? 'Ранкова сторіс' : item.time === '12:00' ? 'Денна сторіс' : 'Вечірня сторіс';
+      return { ...item, note: `${block} | ${topic}` };
     }
     return { ...item, note: topic };
   });
@@ -231,7 +231,7 @@ Rules:
 - Preserve every day/type/time from the skeleton exactly.
 - Return exactly ${skeleton.length} items.
 - note: 4-10 words, practical, niche-relevant, no hashtags.
-- For stories use: "Ранковий блок — ${target.stBatchSize} stories | тема", "Денний блок — ${target.stBatchSize} stories | тема", or "Вечірній блок — ${target.stBatchSize} stories | тема".
+- For stories use: "Ранкова сторіс | тема", "Денна сторіс | тема", or "Вечірня сторіс | тема".
 - For prefixed custom rows keep the prefix in note.
 
 Skeleton:
