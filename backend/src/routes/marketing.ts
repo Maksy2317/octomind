@@ -9,7 +9,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, auditContent,
+  extractBusinessProfile, auditContent, researchNiche, adaptTrend,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -119,6 +119,50 @@ marketingRouter.post('/audit', async (req: Request, res: Response, next: NextFun
       output: audit as unknown as Record<string, unknown>, profileId,
     });
     res.json({ audit });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/research  — real niche/market research via web search.
+marketingRouter.post('/research', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const research = await researchNiche(ctx);
+    await logGeneration(req, {
+      type: 'research', input: { context: ctx },
+      output: research as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ research });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/trend  — reference (link + description [+ images]) → original idea.
+marketingRouter.post('/trend', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const link = typeof req.body?.link === 'string' ? req.body.link.slice(0, 500) : '';
+  const description = typeof req.body?.description === 'string' ? req.body.description.slice(0, 2000) : '';
+  const reference = [link && `Посилання: ${link}`, description && `Опис: ${description}`].filter(Boolean).join('\n');
+  if (!reference.trim()) {
+    res.status(400).json({ error: 'Додай посилання або опис референсу' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const raw = Array.isArray(req.body?.images) ? req.body.images : [];
+    const images: AuditImage[] = raw
+      .filter((im: unknown): im is AuditImage =>
+        !!im && typeof (im as AuditImage).data === 'string' && ALLOWED_MEDIA.has((im as AuditImage).media_type))
+      .slice(0, 4);
+    const idea = await adaptTrend(ctx, reference, images);
+    await logGeneration(req, {
+      type: 'trend', input: { reference, images: images.length },
+      output: idea as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ idea });
   } catch (err) {
     next(err);
   }

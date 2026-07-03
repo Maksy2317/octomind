@@ -39,6 +39,7 @@ export function profileToContext(p: BusinessProfile | null | Record<string, unkn
     ['УТП', src.usp],
     ['Ціль', src.goal],
     ['Тон', src.tone],
+    ['Дослідження ринку', src.market_research],
   ];
   const lines = fields
     .filter(([, v]) => v != null && String(v).trim() !== '')
@@ -167,6 +168,79 @@ export function generateOfferStrategy(
     (analysis ? `\n\nАналіз:\n${JSON.stringify(analysis)}` : '') +
     '\n\nСформулюй офер і стратегію з обґрунтуванням.';
   return jsonCall<OfferStrategy>(system, user);
+}
+
+// ── Web-search-enabled call (server-side tool) ────────────────────────────────
+// SDK 0.27 doesn't type the web_search tool, so we cast. The server runs the
+// search loop and returns the final text; we read text blocks and parse JSON.
+// NOTE: single-shot (no pause_turn continuation) — revisit if research truncates.
+const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 5 };
+
+async function jsonCallSearch<T>(system: string, user: string, maxTokens = 3000): Promise<T> {
+  if (!isMarketingConfigured()) throw new Error('AI not configured');
+  const res = await client.messages.create({
+    model: MARKETING_MODEL,
+    max_tokens: maxTokens,
+    system,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tools: [WEB_SEARCH_TOOL] as any,
+    messages: [{ role: 'user', content: user }],
+  });
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+  return parseJsonLoose<T>(text);
+}
+
+// ── Niche/market research (real, via web search) ──────────────────────────────
+// Runs once (e.g. after onboarding) so the marketer is "in the know" about the
+// current market before building any strategy.
+export interface MarketResearch {
+  summary: string;
+  trends: string[];            // що зараз у тренді в ніші
+  what_works: string[];        // формати/підходи, що працюють
+  hooks: string[];             // приклади хуків
+  competitor_notes: string[];  // що роблять конкуренти
+  sources: string[];           // джерела/посилання
+}
+
+export function researchNiche(profileCtx: string): Promise<MarketResearch> {
+  const system =
+    'Ти — маркетолог-дослідник. ОБОВ’ЯЗКОВО скористайся веб-пошуком, щоб знайти СВІЖУ, реальну ' +
+    'інформацію про ринок і нішу цього бізнесу: що зараз працює в контенті ніші, тренди TikTok/Instagram, ' +
+    'підходи конкурентів, типові офери й ціни, сезонні приводи. Спирайся на знайдене, не вигадуй. ' +
+    LANG_RULE +
+    ' Схема JSON: {"summary": string, "trends": string[], "what_works": string[], "hooks": string[], ' +
+    '"competitor_notes": string[], "sources": string[]}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nДослідь ринок і нішу цього бізнесу. Знайди, що реально працює ЗАРАЗ.`;
+  return jsonCallSearch<MarketResearch>(system, user);
+}
+
+// ── Trend adapter (reference → original idea, NOT a copy) ──────────────────────
+export interface TrendIdea {
+  idea: string;        // ідея ролика під бізнес
+  hook: string;        // хук (перші 2 сек)
+  script: string[];    // кроки сценарію
+  caption: string;
+  cta: string;
+  why: string;         // чому спрацює під цей бізнес
+}
+
+export function adaptTrend(profileCtx: string, reference: string, images?: AuditImage[]): Promise<TrendIdea> {
+  const system =
+    'Ти — контент-мейкер і маркетолог. Клієнт дав РЕФЕРЕНС (тренд / приклад відео). ' +
+    'Твоя задача — НЕ копіювати його, а зробити ОРИГІНАЛЬНУ ідею ролика під бізнес клієнта, ' +
+    'надихнувшись референсом (структура/енергія/формат), але зі своїм змістом. ' +
+    LANG_RULE +
+    ' Схема JSON: {"idea": string, "hook": string, "script": string[], "caption": string, "cta": string, "why": string}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nРеференс (тренд/приклад): ${reference}\n\n` +
+    'Зроби оригінальний сценарій ролика під цей бізнес за мотивами референсу (не копію).';
+  return (images && images.length)
+    ? jsonCallVision<TrendIdea>(system, user, images)
+    : jsonCall<TrendIdea>(system, user, 2500);
 }
 
 // ── Onboarding: extract a business profile from free conversation ─────────────
