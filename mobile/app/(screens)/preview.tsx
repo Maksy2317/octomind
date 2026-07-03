@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Alert, ScrollView, ActivityIndicator, Image,
+  Alert, ScrollView, ActivityIndicator,
 } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/useAppStore';
@@ -10,6 +11,15 @@ import { processVideo, getVideoUrl } from '../../services/api';
 
 export default function PreviewScreen() {
   const store = useAppStore();
+
+  const hasSource = !!store.videoUri;
+
+  // Muted, looping preview of the original selected video.
+  const player = useVideoPlayer(store.videoUri ?? '', (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   async function handleProcess() {
     if (!store.videoId || !store.selectedTemplate || !store.selectedFormat) return;
@@ -49,13 +59,22 @@ export default function PreviewScreen() {
           <Text style={styles.title}>Preview</Text>
         </View>
 
-        {/* Video preview placeholder */}
+        {/* Original video preview */}
         <View style={styles.videoContainer}>
-          <View style={styles.videoPlaceholder}>
-            <Text style={styles.placeholderIcon}>🎥</Text>
-            <Text style={styles.placeholderText}>Video Selected</Text>
-            <Text style={styles.placeholderSubtext}>Ready to process</Text>
-          </View>
+          {hasSource ? (
+            <VideoView
+              style={StyleSheet.absoluteFill}
+              player={player}
+              contentFit="cover"
+              nativeControls={false}
+            />
+          ) : (
+            <View style={styles.videoPlaceholder}>
+              <Text style={styles.placeholderIcon}>🎥</Text>
+              <Text style={styles.placeholderText}>No video</Text>
+              <Text style={styles.placeholderSubtext}>Go back to upload</Text>
+            </View>
+          )}
           <View style={styles.videoLabel}>
             <Text style={styles.videoLabelText}>Original</Text>
           </View>

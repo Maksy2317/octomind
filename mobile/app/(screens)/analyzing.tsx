@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/useAppStore';
@@ -12,60 +12,110 @@ const STEPS = [
   { label: 'Matching templates...', duration: 800 },
 ];
 
+// While the backend is still working we never let the bar reach 100% — it is
+// capped here so the UI can't report "done" before the API actually returns.
+const WAITING_CAP = 90;
+
 export default function AnalyzingScreen() {
-  const [currentStep, setCurrentStep] = React.useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const progress = useRef(new Animated.Value(0)).current;
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const store = useAppStore();
 
-  useEffect(() => {
-    runAnalysis();
-  }, []);
-
-  // Animate progress bar
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: ((currentStep + 1) / STEPS.length) * 100,
-      duration: STEPS[currentStep]?.duration ?? 800,
-      useNativeDriver: false,
-    }).start();
-  }, [currentStep]);
+  function clearTimers() {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  }
 
   async function runAnalysis() {
+    // Guard: we cannot analyse without an uploaded video and a chosen format.
+    if (!store.videoId || !store.selectedFormat) {
+      setError('Видео или формат не выбраны. Вернитесь назад и повторите.');
+      return;
+    }
+
+    setError(null);
+    setCurrentStep(0);
+    progress.setValue(0);
+    clearTimers();
+
+    // Advance visually through the steps, but the animated bar is capped at
+    // WAITING_CAP — the last ~10% is reserved for the real API completion.
+    STEPS.forEach((step, i) => {
+      const delay = STEPS.slice(0, i).reduce((sum, s) => sum + s.duration, 0);
+      const t = setTimeout(() => {
+        setCurrentStep(i);
+        const pct = Math.min(WAITING_CAP, ((i + 1) / STEPS.length) * WAITING_CAP);
+        Animated.timing(progress, {
+          toValue: pct,
+          duration: step.duration,
+          useNativeDriver: false,
+        }).start();
+      }, delay);
+      timers.current.push(t);
+    });
+
     try {
-      // Step through UI animation while API call runs in parallel
-      const stepTimers = STEPS.map((step, i) =>
-        new Promise<void>(resolve => {
-          const delay = STEPS.slice(0, i).reduce((sum, s) => sum + s.duration, 0);
-          setTimeout(() => {
-            setCurrentStep(i);
-            resolve();
-          }, delay);
-        }),
-      );
-
-      const [apiResult] = await Promise.all([
-        analyzeVideo(store.videoId!, store.selectedFormat!),
-        ...stepTimers,
-      ]);
-
+      // The result is driven by the API, NOT by the animation timers.
+      const apiResult = await analyzeVideo(store.videoId, store.selectedFormat);
+      clearTimers();
       store.setAnalysis(apiResult.analysis, apiResult.templates);
 
-      // Brief pause so last step is visible
-      setTimeout(() => router.push('/(screens)/templates'), 400);
-    } catch (error: any) {
-      Alert.alert(
-        'Analysis failed',
-        error?.response?.data?.error || error.message || 'Please try again.',
-        [{ text: 'Go Back', onPress: () => router.back() }],
+      // Only now — after the backend returned — do we complete to 100%.
+      setCurrentStep(STEPS.length);
+      Animated.timing(progress, {
+        toValue: 100,
+        duration: 300,
+        useNativeDriver: false,
+      }).start(() => {
+        router.push('/(screens)/templates');
+      });
+    } catch (err: any) {
+      clearTimers();
+      setError(
+        err?.response?.data?.error ||
+        err?.message ||
+        'Не удалось проанализировать видео. Проверьте соединение и попробуйте ещё раз.',
       );
     }
   }
+
+  useEffect(() => {
+    runAnalysis();
+    return clearTimers;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const progressWidth = progress.interpolate({
     inputRange: [0, 100],
     outputRange: ['0%', '100%'],
   });
 
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.errorEmoji}>😕</Text>
+          <View style={styles.textBlock}>
+            <Text style={styles.title}>Что-то пошло не так</Text>
+            <Text style={styles.subtitle}>{error}</Text>
+          </View>
+          <View style={styles.errorActions}>
+            <TouchableOpacity style={styles.retryButton} onPress={runAnalysis} activeOpacity={0.85}>
+              <Text style={styles.retryText}>Повторить</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.85}>
+              <Text style={styles.backText}>Назад</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Progress state ─────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -128,6 +178,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   brainEmoji: { fontSize: 72 },
+  errorEmoji: { fontSize: 72 },
   pulse: {
     position: 'absolute',
     width: 120,
@@ -164,4 +215,21 @@ const styles = StyleSheet.create({
   stepTextActive: { color: '#FFFFFF', fontWeight: '600' },
   stepTextDone: { color: '#5A7A5A' },
   checkmark: { color: '#4CAF50', fontSize: 14 },
+  errorActions: { width: '100%', gap: 12 },
+  retryButton: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  retryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  backButton: {
+    backgroundColor: '#1A1A2E',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2A2A4A',
+  },
+  backText: { color: '#C8C8E8', fontSize: 16, fontWeight: '600' },
 });

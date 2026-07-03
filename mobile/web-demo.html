@@ -1890,6 +1890,54 @@
 
         <!-- Analyzer -->
         <div class="screen" id="analyzer">
+
+          <!-- ═══ MARKETING BRAIN (real /api/marketing) ═══ -->
+          <style>
+            .ob-input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+              border-radius:11px; padding:11px 13px; font:inherit; font-size:14px; outline:none; margin-top:10px; resize:vertical; }
+            .ob-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,0.18); }
+            .ob-status { display:none; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:var(--text2); }
+            .ob-status.ob-busy, .ob-status.ob-ok, .ob-status.ob-err { display:flex; }
+            .ob-status.ob-ok { color:var(--green); } .ob-status.ob-err { color:#FF8A80; }
+            .ob-spin { width:15px; height:15px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--accent); animation:ob-spin .8s linear infinite; flex:none; }
+            @keyframes ob-spin { to { transform:rotate(360deg); } }
+            .ob-res { animation:ob-rise .4s ease both; } @keyframes ob-rise { from {opacity:0;transform:translateY(8px);} to {opacity:1;transform:none;} }
+            .ob-rc-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+            .ob-ico { width:34px;height:34px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:17px;background:var(--surface3); }
+            .ob-sec { font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin:14px 0 7px; }
+            .ob-chips { display:flex;flex-wrap:wrap;gap:6px; }
+            .ob-chip { background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:12.5px;color:var(--text2); }
+            .ob-chip.warn { border-color:rgba(255,183,77,.4);color:#FFB74D; } .ob-chip.good { border-color:rgba(76,175,80,.4);color:#9CDf9F; }
+            .ob-why { background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-left:3px solid var(--accent);
+              border-radius:10px;padding:11px 14px;margin-top:12px;font-size:13.5px;color:var(--text2); } .ob-why b { color:var(--accent2); }
+            .ob-headline { font-size:19px;font-weight:800;line-height:1.3;background:linear-gradient(90deg,#fff,var(--accent2));
+              -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px; }
+            .ob-funnel { counter-reset:ob-f;display:flex;flex-direction:column;gap:7px;padding:0;margin:0; }
+            .ob-funnel li { list-style:none;counter-increment:ob-f;position:relative;background:var(--surface2);border:1px solid var(--border);
+              border-radius:10px;padding:9px 13px 9px 42px;font-size:13.5px;color:var(--text2); }
+            .ob-funnel li::before { content:counter(ob-f);position:absolute;left:11px;top:50%;transform:translateY(-50%);
+              width:21px;height:21px;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center; }
+            .ob-variant { background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:15px;margin-top:10px; }
+            .ob-angle { display:inline-block;font-size:11px;font-weight:800;color:var(--accent2);background:rgba(167,139,250,.12);
+              border-radius:6px;padding:3px 9px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px; }
+            .ob-variant p { font-size:14px;color:var(--text2);white-space:pre-wrap;margin:0; }
+            .ob-cap { margin-top:8px;font-size:12.5px;color:var(--text3);font-style:italic; }
+            .ob-tags { margin-top:8px;font-size:12.5px;color:var(--accent2);word-spacing:.35em; }
+            .ob-cta { margin-top:14px;padding:11px 14px;border-radius:10px;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.3);font-size:13.5px;color:#B8E6BA; }
+            .ob-copy { float:right;background:none;border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:4px 10px;font-size:11.5px;cursor:pointer; }
+            .ob-copy:hover { color:var(--text);border-color:var(--accent); }
+            .ob-kv { margin-top:4px;font-size:14px;color:var(--text2); }
+          </style>
+          <div class="card">
+            <div class="card-title">🧠 Маркетинговий мозок</div>
+            <div class="card-sub">Аналіз твого бізнесу → офер → стратегія → готові тексти. Бере профіль поточного акаунту (заповни в «Особистий кабінет»).</div>
+            <textarea id="obDesc" class="ob-input" rows="2" placeholder="Коротко опиши бізнес: що продаєш, чим особливий (необов'язково — але покращує результат)"></textarea>
+            <input id="obBrief" class="ob-input" placeholder="Побажання до текстів — напр.: анонс акції на вихідні (необов'язково)" />
+            <button class="btn btn-primary" id="obRunBtn" style="width:100%;margin-top:12px;" onclick="octoRunBrain()">🚀 Запустити аналіз</button>
+            <div class="ob-status" id="obStatus"></div>
+          </div>
+          <div id="obResult"></div>
+
           <div class="card">
             <div class="card-title">🔍 Анализ профиля</div>
             <div class="card-sub">Вставь ссылку на Instagram или TikTok — Octo проведёт полный аудит</div>
@@ -12086,6 +12134,162 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     </button>
   </div>
 </div>
+
+<!-- ═══ MARKETING BRAIN — logic (real /api/marketing endpoints) ═══ -->
+<script>
+(function () {
+  'use strict';
+
+  // Stable identity per workspace, so different companies keep separate business
+  // profiles. Matches the backend's x-device-id regex ([A-Za-z0-9_-]{8,128}).
+  function brainDeviceId() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+
+  // Strip a leading emoji/symbol prefix the chip options carry (e.g. "🎯 Нерухомість").
+  function deemoji(s) { return (s == null ? '' : String(s)).replace(/^[^\p{L}\p{N}]+/u, '').trim(); }
+  function arr(a) { return Array.isArray(a) ? a.map(deemoji).filter(Boolean) : []; }
+
+  // Map the site's per-workspace account profile → the backend business profile.
+  function brainProfile() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var p = (window.getWsProfile ? window.getWsProfile(ws) : null) || {};
+    var tov = (typeof getWsTov === 'function') ? getWsTov(ws) : null;
+    var out = {};
+    if (p.brandName) out.business_name = p.brandName;
+    if (p.niche) out.niche = deemoji(p.niche);
+    if (p.audience) out.target_audience = deemoji(p.audience);
+    var style = arr(p.style); if (style.length) out.tone = style.join(', ');
+    var desc = (document.getElementById('obDesc') || {}).value;
+    if (desc && desc.trim()) out.description = desc.trim();
+    var extra = {};
+    var plat = arr(p.platforms); if (plat.length) extra.platforms = plat;
+    if (p.lang) extra.lang = deemoji(p.lang);
+    if (tov && tov.analysis) extra.tone_of_voice = tov.analysis;
+    if (Object.keys(extra).length) out.extra = extra;
+    return out;
+  }
+
+  async function brainApi(path, body) {
+    var res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': brainDeviceId() },
+      body: JSON.stringify(body || {}),
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  }
+
+  function status(kind, msg) {
+    var el = document.getElementById('obStatus');
+    if (!el) return;
+    if (!msg) { el.className = 'ob-status'; el.textContent = ''; return; }
+    el.className = 'ob-status ob-' + kind;
+    el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + esc(msg);
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  function chips(a, cls) { return (a && a.length) ? '<div class="ob-chips">' + a.map(function (x) { return '<span class="ob-chip ' + (cls || '') + '">' + esc(x) + '</span>'; }).join('') + '</div>' : ''; }
+  function sec(label, html) { return html ? '<div class="ob-sec">' + label + '</div>' + html : ''; }
+  function addCard(html) {
+    var wrap = document.getElementById('obResult');
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML = html;
+    wrap.appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function renderAnalysis(a) {
+    if (!a) return;
+    addCard(
+      '<div class="ob-rc-head"><div class="ob-ico">🔍</div><div><div class="card-title" style="margin:0;">Аналіз бізнесу</div><div class="card-sub" style="margin:0;">хто клієнт і де його шукати</div></div></div>' +
+      '<p style="color:var(--text2);font-size:14px;">' + esc(a.summary) + '</p>' +
+      sec('Сегменти аудиторії', chips(a.target_segments)) +
+      sec('Болі клієнтів', chips(a.pains, 'warn')) +
+      sec('Чим вирізнятися', chips(a.differentiators, 'good')) +
+      sec('Канали', chips(a.channels)) +
+      sec('Ризики', chips(a.risks, 'warn')) +
+      sec('Точки зростання', chips(a.opportunities, 'good')));
+  }
+
+  function renderOffer(o) {
+    if (!o) return;
+    var f = o.offer, s = o.strategy;
+    addCard(
+      '<div class="ob-rc-head"><div class="ob-ico">🎯</div><div><div class="card-title" style="margin:0;">Офер і стратегія</div><div class="card-sub" style="margin:0;">що пропонувати і як просувати</div></div></div>' +
+      '<div class="ob-headline">' + esc(f.headline) + '</div>' +
+      '<p style="color:var(--text2);font-size:14px;">' + esc(f.details) + '</p>' +
+      '<div class="ob-why"><b>Чому спрацює:</b> ' + esc(f.why) + '</div>' +
+      sec('Позиціонування', '<div class="ob-kv">' + esc(s.positioning) + '</div>') +
+      sec('Головний канал', '<div class="ob-kv">' + esc(s.primary_channel) + '</div>') +
+      sec('Воронка', '<ul class="ob-funnel">' + (s.funnel || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>') +
+      sec('Кути контенту', chips(s.content_angles)) +
+      '<div class="ob-cta">🎬 <b>Цільова дія:</b> ' + esc(s.call_to_action) + '</div>' +
+      '<div class="ob-why"><b>Чому така стратегія:</b> ' + esc(s.why) + '</div>');
+  }
+
+  function renderText(t) {
+    if (!t) return;
+    var variants = t.variants || [];
+    var vars = variants.map(function (v, i) {
+      return '<div class="ob-variant"><button class="ob-copy" data-copy="' + i + '">⧉ копіювати</button>' +
+        '<span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>' +
+        (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '') +
+        ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
+    }).join('');
+    addCard(
+      '<div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">Готові тексти</div><div class="card-sub" style="margin:0;">3 варіанти з різними кутами</div></div></div>' +
+      vars + (t.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(t.cta) + '</div>' : ''));
+    // Wire copy buttons on the just-added card.
+    var cards = document.querySelectorAll('#obResult .ob-copy');
+    cards.forEach(function (btn) {
+      if (btn._wired) return; btn._wired = true;
+      btn.onclick = function () {
+        var v = variants[Number(btn.dataset.copy)]; if (!v) return;
+        var full = v.text + (v.caption ? '\n\n' + v.caption : '') + ((v.hashtags || []).length ? '\n' + v.hashtags.join(' ') : '');
+        navigator.clipboard.writeText(full).then(function () { btn.textContent = '✓ скопійовано'; setTimeout(function () { btn.textContent = '⧉ копіювати'; }, 1600); });
+      };
+    });
+  }
+
+  // Public entry point (called from the button's inline onclick).
+  window.octoRunBrain = async function () {
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
+    var profile = brainProfile();
+    if (!profile.niche && !profile.description) {
+      status('err', 'Спочатку обери нішу в «Особистий кабінет → Профіль акаунту» або додай опис бізнесу вище.');
+      return;
+    }
+    var btn = document.getElementById('obRunBtn');
+    btn.disabled = true;
+    document.getElementById('obResult').innerHTML = '';
+    var brief = (document.getElementById('obBrief') || {}).value;
+    var body = { profile: profile };
+    if (brief && brief.trim()) body.brief = brief.trim();
+    try {
+      status('busy', 'Крок 1/3 — аналізую бізнес…');
+      var a = await brainApi('/api/marketing/analyze', body);
+      renderAnalysis(a.analysis);
+      status('busy', 'Крок 2/3 — формулюю офер і стратегію…');
+      var o = await brainApi('/api/marketing/offer', Object.assign({}, body, { analysis: a.analysis }));
+      renderOffer(o.offer);
+      status('busy', 'Крок 3/3 — пишу тексти…');
+      var t = await brainApi('/api/marketing/text', Object.assign({}, body, { offer: o.offer }));
+      renderText(t.text);
+      status('ok', 'Готово! Аналіз, офер і тексти вище.');
+      if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
+    } catch (e) {
+      status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
+    }
+    btn.disabled = false;
+  };
+})();
+</script>
 
 </body>
 </html>

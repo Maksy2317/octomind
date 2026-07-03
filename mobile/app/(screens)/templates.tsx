@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, Image, Dimensions,
@@ -13,7 +13,6 @@ const CARD_WIDTH = (width - 24 * 2 - 12) / 2;
 
 export default function TemplatesScreen() {
   const { templates, analysis, selectedTemplate, setSelectedTemplate } = useAppStore();
-  const [hovered, setHovered] = useState<string | null>(null);
 
   function handleSelect(template: Template) {
     setSelectedTemplate(template);

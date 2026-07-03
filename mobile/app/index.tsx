@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 type Screen = 'welcome' | 'upload' | 'format' | 'analyzing' | 'templates' | 'preview' | 'export';
 
@@ -54,7 +55,7 @@ export default function DemoApp() {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={() => goToScreen('upload')}
+            onPress={() => router.push('/(screens)/upload')}
           >
             <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>
@@ -153,7 +154,7 @@ export default function DemoApp() {
         <View style={styles.centerContent}>
           <Text style={styles.largeEmoji}>🤖</Text>
           <Text style={styles.title}>AI is analyzing</Text>
-          <Text style={styles.desc} style={{ marginBottom: 40 }}>
+          <Text style={[styles.desc, { marginBottom: 40 }]}>
             Detecting content, mood, colors...
           </Text>
 
@@ -326,6 +327,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 40,
+  },
+  hero: {
+    alignItems: 'center',
+    paddingVertical: 32,
   },
   header: {
     paddingHorizontal: 24,

@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import cron from 'node-cron';
@@ -10,10 +12,16 @@ import { subtitlesRouter } from './routes/subtitles';
 import { carouselRouter } from './routes/carousel';
 import { calendarRouter } from './routes/calendar';
 import { pushRouter, sendPushToAll, fireScheduledReminders, loadSubscriptionsFromDB } from './routes/push';
+import { profileRouter } from './routes/profile';
+import { marketingRouter } from './routes/marketing';
 import { errorHandler } from './middleware/errorHandler';
+import { cleanupOldFiles } from './services/cleanup';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// Behind Railway's proxy — needed for express-rate-limit to read the real client IP.
+app.set('trust proxy', 1);
 
 // Ensure output directory exists
 const outputDir = process.env.OUTPUT_DIR
@@ -21,14 +29,76 @@ const outputDir = process.env.OUTPUT_DIR
   : path.resolve(process.cwd(), 'uploads/output');
 fs.mkdirSync(outputDir, { recursive: true });
 
-app.use(cors({
-  origin: (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean),
-  credentials: true,
+const uploadDirEarly = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(process.cwd(), 'uploads');
+fs.mkdirSync(uploadDirEarly, { recursive: true });
+
+// ── Security headers ─────────────────────────────────────────────────────────
+// crossOriginResourcePolicy is relaxed so the app can load served video files
+// from /uploads and /output cross-origin.
+//
+// CSP: the frontend (web-demo.html, octomind-brain.html) is single-file HTML
+// with inline <script> — helmet's default `script-src 'self'` blocks ALL of it
+// (buttons dead, no JS runs). Allow inline scripts/handlers; keep the rest of
+// the defaults. `upgrade-insecure-requests` is dropped so plain-http localhost
+// dev isn't force-upgraded to https.
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'self'"],
+      'base-uri': ["'self'"],
+      'font-src': ["'self'", 'https:', 'data:'],
+      'form-action': ["'self'"],
+      'frame-ancestors': ["'self'"],
+      'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+      'media-src': ["'self'", 'blob:', 'data:'],
+      'object-src': ["'none'"],
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'script-src-attr': ["'unsafe-inline'"],
+      'style-src': ["'self'", 'https:', "'unsafe-inline'"],
+      'connect-src': ["'self'", 'https:'],
+    },
+  },
 }));
 
-// Raise body-size limit to 20 MB so base64-encoded photos fit in JSON payloads
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// ── CORS: same-origin always allowed + ALLOWED_ORIGINS whitelist ─────────────
+// The backend serves the frontend itself (web-demo.html и др.), so requests
+// from the very host we're running on must always pass — locally AND on
+// Railway, without listing every domain in env. The whitelist covers genuinely
+// cross-origin clients (Expo dev server etc). Requests with no Origin (native
+// apps, curl) also pass.
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(cors<express.Request>((req, callback) => {
+  const origin = req.header('Origin');
+  const selfOrigin = `${req.protocol}://${req.get('host')}`;   // trust proxy → korrect https on Railway
+  const allowed = !origin || origin === selfOrigin || allowedOrigins.includes(origin);
+  if (!allowed) console.warn(`[CORS] Blocked origin: ${origin} (self: ${selfOrigin})`);
+  callback(null, { origin: allowed, credentials: true });
+}));
+
+// ── Rate limiting ────────────────────────────────────────────────────────────
+// Protects the API (incl. paid AI endpoints) from abuse / accidental floods.
+const apiLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 min
+  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+});
+app.use('/api', apiLimiter);
+
+// Body-size limit — configurable; large enough for base64 photos, capped to
+// avoid memory-exhaustion via oversized JSON payloads.
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '20mb';
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: JSON_BODY_LIMIT }));
 
 // Serve processed videos
 app.use('/output', express.static(path.resolve(outputDir)));
@@ -46,6 +116,8 @@ app.use('/api/subtitles', subtitlesRouter);
 app.use('/api/carousel', carouselRouter);
 app.use('/api/calendar', calendarRouter);
 app.use('/api/push', pushRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api/marketing', marketingRouter);
 
 // ── Per-post scheduled reminders (every minute) ──────────────────────────────
 cron.schedule('* * * * *', async () => {
@@ -72,6 +144,20 @@ cron.schedule('0 5 * * *', async () => {
     console.error('[CRON] Push failed:', e);
   }
 }, { timezone: 'UTC' });
+
+// ── Cleanup of stale uploads/outputs (older than 48h) ────────────────────────
+const FILE_MAX_AGE_MS = Number(process.env.FILE_MAX_AGE_HOURS || 48) * 3_600_000;
+function runCleanup() {
+  try {
+    cleanupOldFiles([uploadDirEarly, outputDir], FILE_MAX_AGE_MS);
+  } catch (e) {
+    // cleanupOldFiles already swallows per-file errors; this is a last-resort guard.
+    console.error('[CRON] Cleanup sweep failed:', e);
+  }
+}
+// Run hourly; also once at startup.
+cron.schedule('0 * * * *', runCleanup, { timezone: 'UTC' });
+runCleanup();
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

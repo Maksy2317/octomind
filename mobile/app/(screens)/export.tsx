@@ -6,6 +6,7 @@ import {
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/useAppStore';
@@ -15,7 +16,21 @@ export default function ExportScreen() {
   const [savedToLibrary, setSavedToLibrary] = useState(false);
   const { processedVideoUrl, selectedFormat, selectedTemplate, reset } = useAppStore();
 
+  const hasVideo = !!processedVideoUrl;
+
+  // Player is created for the processed result. Hooks must run unconditionally,
+  // so we pass the (possibly null) URL — expo-video renders nothing without a source.
+  const player = useVideoPlayer(processedVideoUrl ?? '', (p) => {
+    p.loop = true;
+  });
+
   async function saveToLibrary() {
+    // Guard: never attempt a download without a ready URL.
+    if (!processedVideoUrl) {
+      Alert.alert('Видео ещё не готово', 'Обработанное видео недоступно. Попробуйте создать его заново.');
+      return;
+    }
+
     setIsSaving(true);
     try {
       const permission = await MediaLibrary.requestPermissionsAsync();
@@ -28,7 +43,7 @@ export default function ExportScreen() {
       const filename = `ai-marketer-${Date.now()}.mp4`;
       const localPath = `${FileSystem.cacheDirectory}${filename}`;
 
-      const download = await FileSystem.downloadAsync(processedVideoUrl!, localPath);
+      const download = await FileSystem.downloadAsync(processedVideoUrl, localPath);
 
       const asset = await MediaLibrary.createAssetAsync(download.uri);
       await MediaLibrary.createAlbumAsync('AI Marketer', asset, false);
@@ -42,6 +57,12 @@ export default function ExportScreen() {
   }
 
   async function shareVideo() {
+    // Guard: never attempt a download without a ready URL.
+    if (!processedVideoUrl) {
+      Alert.alert('Видео ещё не готово', 'Обработанное видео недоступно. Попробуйте создать его заново.');
+      return;
+    }
+
     try {
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
@@ -51,14 +72,14 @@ export default function ExportScreen() {
 
       const filename = `ai-marketer-${Date.now()}.mp4`;
       const localPath = `${FileSystem.cacheDirectory}${filename}`;
-      await FileSystem.downloadAsync(processedVideoUrl!, localPath);
+      const download = await FileSystem.downloadAsync(processedVideoUrl, localPath);
 
-      await Sharing.shareAsync(localPath, {
+      await Sharing.shareAsync(download.uri, {
         mimeType: 'video/mp4',
         dialogTitle: 'Share your video',
       });
     } catch (err: any) {
-      Alert.alert('Share failed', err.message);
+      Alert.alert('Share failed', err.message || 'Could not share the video.');
     }
   }
 
@@ -86,13 +107,22 @@ export default function ExportScreen() {
           </View>
         </View>
 
-        {/* Processed video placeholder */}
+        {/* Processed video */}
         <View style={styles.videoContainer}>
-          <View style={styles.videoPlaceholder}>
-            <Text style={styles.placeholderIcon}>✨</Text>
-            <Text style={styles.placeholderText}>Video Ready</Text>
-            <Text style={styles.placeholderSubtext}>Template applied</Text>
-          </View>
+          {hasVideo ? (
+            <VideoView
+              style={StyleSheet.absoluteFill}
+              player={player}
+              contentFit="cover"
+              nativeControls
+            />
+          ) : (
+            <View style={styles.videoPlaceholder}>
+              <Text style={styles.placeholderIcon}>⚠️</Text>
+              <Text style={styles.placeholderText}>Видео недоступно</Text>
+              <Text style={styles.placeholderSubtext}>Создайте его заново</Text>
+            </View>
+          )}
           <View style={styles.processedBadge}>
             <Text style={styles.processedBadgeText}>✨ Processed</Text>
           </View>
@@ -101,9 +131,9 @@ export default function ExportScreen() {
         {/* Action buttons */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.primaryAction, savedToLibrary && styles.savedAction]}
+            style={[styles.primaryAction, savedToLibrary && styles.savedAction, !hasVideo && styles.actionDisabled]}
             onPress={saveToLibrary}
-            disabled={isSaving || savedToLibrary}
+            disabled={!hasVideo || isSaving || savedToLibrary}
             activeOpacity={0.85}
           >
             <Text style={styles.actionIcon}>{savedToLibrary ? '✓' : '💾'}</Text>
@@ -113,8 +143,9 @@ export default function ExportScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryAction}
+            style={[styles.secondaryAction, !hasVideo && styles.actionDisabled]}
             onPress={shareVideo}
+            disabled={!hasVideo}
             activeOpacity={0.85}
           >
             <Text style={styles.actionIcon}>📤</Text>
@@ -187,6 +218,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   savedAction: { backgroundColor: '#2A4A2A' },
+  actionDisabled: { opacity: 0.4 },
   actionIcon: { fontSize: 20 },
   primaryActionText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   secondaryAction: {

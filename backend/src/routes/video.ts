@@ -49,6 +49,23 @@ function findVideoFile(videoId: string): string | null {
   return null;
 }
 
+// ── Input safety helpers ─────────────────────────────────────────────────────
+// videoId is a UUID (see multer filename). Reject anything else so it can never
+// be used for path traversal when building a file path.
+const UUID_RE = /^[0-9a-fA-F-]{36}$/;
+function isValidVideoId(id: unknown): id is string {
+  return typeof id === 'string' && UUID_RE.test(id);
+}
+// templateId ends up in an output filename — restrict to safe characters.
+const TEMPLATE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+function isValidTemplateId(id: unknown): id is string {
+  return typeof id === 'string' && TEMPLATE_ID_RE.test(id);
+}
+
+// Max size of base64 payloads (characters). ~10M chars ≈ ~7.5 MB decoded.
+const MAX_FRAME_B64 = Number(process.env.MAX_FRAME_B64_CHARS) || 10 * 1024 * 1024;
+const MAX_OVERLAY_B64 = Number(process.env.MAX_OVERLAY_B64_CHARS) || 10 * 1024 * 1024;
+
 // POST /api/video/upload
 videoRouter.post('/upload', upload.single('video'), async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -63,6 +80,12 @@ videoRouter.post('/analyze-frame', async (req: Request, res: Response, next: Nex
   try {
     const { frame, format, templateId } = req.body as { frame: string; format: VideoFormat; templateId?: string };
     if (!frame || !format) { res.status(400).json({ error: 'frame and format are required' }); return; }
+    if (typeof frame !== 'string' || frame.length > MAX_FRAME_B64) {
+      res.status(413).json({ error: 'Frame image is too large' }); return;
+    }
+    if (templateId !== undefined && !isValidTemplateId(templateId)) {
+      res.status(400).json({ error: 'Invalid templateId' }); return;
+    }
 
     const analysis = await analyzeFrame(frame, format);
     const templates = getTemplatesForFormat(format, analysis.tags);
@@ -90,6 +113,7 @@ videoRouter.post('/analyze', async (req: Request, res: Response, next: NextFunct
   try {
     const { videoId, format } = req.body as { videoId: string; format: VideoFormat };
     if (!videoId || !format) { res.status(400).json({ error: 'videoId and format are required' }); return; }
+    if (!isValidVideoId(videoId)) { res.status(400).json({ error: 'Invalid videoId' }); return; }
 
     const videoPath = findVideoFile(videoId);
     if (!videoPath) { res.status(404).json({ error: 'Video file not found' }); return; }
@@ -117,6 +141,13 @@ videoRouter.post('/process', async (req: Request, res: Response, next: NextFunct
 
     if (!videoId || !templateId || !format) {
       res.status(400).json({ error: 'videoId, templateId, and format are required' }); return;
+    }
+    if (!isValidVideoId(videoId)) { res.status(400).json({ error: 'Invalid videoId' }); return; }
+    if (!isValidTemplateId(templateId)) { res.status(400).json({ error: 'Invalid templateId' }); return; }
+    if (customOverlay !== undefined) {
+      if (typeof customOverlay !== 'string' || customOverlay.length > MAX_OVERLAY_B64) {
+        res.status(413).json({ error: 'Custom overlay image is too large' }); return;
+      }
     }
 
     const inputPath = findVideoFile(videoId);
