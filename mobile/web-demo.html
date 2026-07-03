@@ -1683,25 +1683,36 @@
       </div>
 
       <div class="nav-label" data-i18n="nav_main">Головне</div>
-      <div class="nav-item active" onclick="showScreen('campaign',this)">
+      <div class="nav-item active" onclick="showScreen('dashboard',this)">
+        <span class="nav-icon">🏠</span> <span data-i18n="nav_overview">Огляд</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('advisor',this)">
+        <span class="nav-icon">🧠</span> Маркетолог
+        <span class="nav-badge">AI</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('campaign',this)">
         <span class="nav-icon">🎯</span> Просування
         <span class="nav-badge">AI</span>
       </div>
       <div class="nav-item" onclick="showScreen('campaigns',this)">
         <span class="nav-icon">📁</span> <span data-i18n="nav_campaigns">Мої кампанії</span>
       </div>
-      <div class="nav-item" onclick="showScreen('advisor',this)">
-        <span class="nav-icon">🧠</span> Маркетолог
-      </div>
-      <div class="nav-item" onclick="showScreen('dashboard',this)">
-        <span class="nav-icon">🏠</span> <span data-i18n="nav_overview">Огляд</span>
-      </div>
 
-      <div class="nav-label" data-i18n="nav_create">Студія</div>
+      <div class="nav-label" data-i18n="nav_tools">Інструменти AI</div>
+      <div class="nav-item" onclick="showScreen('research',this)">
+        <span class="nav-icon">🔎</span> <span data-i18n="nav_research">Дослідження ринку</span>
+        <span class="nav-badge new">New</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('audit',this)">
+        <span class="nav-icon">🔍</span> <span data-i18n="nav_audit">Розбір контенту</span>
+        <span class="nav-badge new">New</span>
+      </div>
       <div class="nav-item" onclick="showScreen('trend',this)">
         <span class="nav-icon">💡</span> <span data-i18n="nav_trend">Ідея з тренду</span>
         <span class="nav-badge new">New</span>
       </div>
+
+      <div class="nav-label" data-i18n="nav_create">Студія</div>
       <div class="nav-item" onclick="showScreen('caption',this)">
         <span class="nav-icon">✍️</span> Тексти
       </div>
@@ -1741,8 +1752,8 @@
             <span></span><span></span><span></span>
           </div>
           <div class="topbar-left">
-            <h1 id="topTitle">Просування 🎯</h1>
-            <p id="topSub">Постав бізнес-ціль — Octo зробить стратегію і матеріали</p>
+            <h1 id="topTitle">Огляд</h1>
+            <p id="topSub">Твій маркетинг на одному екрані</p>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1756,7 +1767,7 @@
       <div class="content">
 
         <!-- Dashboard -->
-        <div class="screen" id="dashboard">
+        <div class="screen active" id="dashboard">
           <!-- Setup banner — shown until account profile is configured -->
           <div id="dashSetupBanner" style="display:none;"></div>
 
@@ -1990,7 +2001,7 @@
           .oc-mat .ml { font-size:13.5px; font-weight:700; }
           .oc-mat .mw { font-size:12px; color:var(--text3); margin-top:2px; }
         </style>
-        <div class="screen active" id="campaign">
+        <div class="screen" id="campaign">
 
           <!-- Gate: shown until Octo knows the business -->
           <div class="card" id="ocGate" style="display:none;">
@@ -3613,7 +3624,7 @@
         // Restore last visited screen
         try {
           const last = localStorage.getItem('octo_last_screen');
-          if (last && last !== 'campaign' && document.getElementById(last)) {
+          if (last && last !== 'dashboard' && document.getElementById(last)) {
             const navEl = document.querySelector('.nav-item[onclick*="\'' + last + '\'"]');
             showScreen(last, navEl);
           }
@@ -4309,14 +4320,15 @@
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
       screen_campaign:'Продвижение 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
       nav_campaigns:'Мои кампании', screen_campaigns:'Мои кампании 📁', screen_campaigns_sub:'Стратегия и все материалы в одном месте',
-      nav_trend:'Идея из тренда', screen_research:'Исследование рынка 🔎', screen_research_sub:'Octo найдёт, что работает в твоей нише',
+      nav_trend:'Идея из тренда', nav_tools:'Инструменты AI', nav_research:'Исследование рынка', nav_audit:'Разбор контента',
+      screen_research:'Исследование рынка 🔎', screen_research_sub:'Octo найдёт, что работает в твоей нише',
       screen_trend:'Идея из тренда 💡', screen_trend_sub:'Референс → оригинальный сценарий под твой бизнес',
       screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
       screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 из 5 кредитов использовано',
       // ── Topbar screen titles ──
-      screen_dashboard:'Dashboard', screen_dashboard_sub:'С возвращением! Твой маркетинговый обзор.',
+      screen_dashboard:'Обзор', screen_dashboard_sub:'Твой маркетинг на одном экране',
       screen_advisor:'Маркетолог 🧠', screen_advisor_sub:'Расскажи о бизнесе — Octo разберется и предложит план',
       screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Получи полный аудит Instagram или TikTok',
       screen_video:'Video Creator', screen_video_sub:'Обработай видео с AI шаблонами',
@@ -4396,14 +4408,15 @@
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
       screen_campaign:'Просування 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
       nav_campaigns:'Мої кампанії', screen_campaigns:'Мої кампанії 📁', screen_campaigns_sub:'Стратегія і всі матеріали в одному місці',
-      nav_trend:'Ідея з тренду', screen_research:'Дослідження ринку 🔎', screen_research_sub:'Octo знайде, що працює у твоїй ніші',
+      nav_trend:'Ідея з тренду', nav_tools:'Інструменти AI', nav_research:'Дослідження ринку', nav_audit:'Розбір контенту',
+      screen_research:'Дослідження ринку 🔎', screen_research_sub:'Octo знайде, що працює у твоїй ніші',
       screen_trend:'Ідея з тренду 💡', screen_trend_sub:'Референс → оригінальний сценарій під твій бізнес',
       screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
       screen_audit:'Розбір контенту 🔍', screen_audit_sub:'Завантаж пости — Octo покаже слабкі місця і що виправити',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Безкоштовний план', plan_credits:'3 з 5 кредитів використано',
       // ── Topbar screen titles ──
-      screen_dashboard:'Dashboard', screen_dashboard_sub:'Ласкаво просимо! Твій маркетинговий огляд.',
+      screen_dashboard:'Огляд', screen_dashboard_sub:'Твій маркетинг на одному екрані',
       screen_advisor:'Маркетолог 🧠', screen_advisor_sub:'Розкажи про бізнес — Octo розбереться і запропонує план',
       screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Отримай повний аудит Instagram або TikTok',
       screen_video:'Video Creator', screen_video_sub:'Обробляй відео з AI шаблонами',
@@ -4483,14 +4496,15 @@
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
       screen_campaign:'Promotion 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
       nav_campaigns:'My campaigns', screen_campaigns:'My campaigns 📁', screen_campaigns_sub:'Strategy and all materials in one place',
-      nav_trend:'Trend idea', screen_research:'Market research 🔎', screen_research_sub:'Octo finds what works in your niche',
+      nav_trend:'Trend idea', nav_tools:'AI tools', nav_research:'Market research', nav_audit:'Content audit',
+      screen_research:'Market research 🔎', screen_research_sub:'Octo finds what works in your niche',
       screen_trend:'Trend idea 💡', screen_trend_sub:'Reference → original script for your business',
       screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
       screen_audit:'Content audit 🔍', screen_audit_sub:'Upload posts — Octo shows weak spots and what to fix',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 of 5 credits used',
       // ── Topbar screen titles ──
-      screen_dashboard:'Dashboard', screen_dashboard_sub:'Welcome back! Your marketing overview.',
+      screen_dashboard:'Overview', screen_dashboard_sub:'Your marketing in one place',
       screen_advisor:'AI Marketer 🧠', screen_advisor_sub:'Tell Octo about your business — get a plan',
       screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Get a full Instagram or TikTok audit',
       screen_video:'Video Creator', screen_video_sub:'Process video with AI templates',
