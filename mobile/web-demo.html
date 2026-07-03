@@ -1687,6 +1687,9 @@
         <span class="nav-icon">🎯</span> Просування
         <span class="nav-badge">AI</span>
       </div>
+      <div class="nav-item" onclick="showScreen('campaigns',this)">
+        <span class="nav-icon">📁</span> <span data-i18n="nav_campaigns">Мої кампанії</span>
+      </div>
       <div class="nav-item" onclick="showScreen('advisor',this)">
         <span class="nav-icon">🧠</span> Маркетолог
       </div>
@@ -2033,6 +2036,21 @@
           <!-- STEP 3+4: strategy + materials results -->
           <div id="ocResult"></div>
           </div><!-- /ocFlow -->
+        </div>
+
+        <!-- ═══ МОЇ КАМПАНІЇ (saved campaign objects — library + detail) ═══ -->
+        <style>
+          .cmp-card { background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:15px 16px; margin-bottom:10px; cursor:pointer; transition:border-color .15s; }
+          .cmp-card:hover { border-color:var(--accent); }
+          .cmp-top { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+          .cmp-name { font-size:15px; font-weight:750; flex:1; }
+          .cmp-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; background:rgba(108,99,255,.12); color:var(--accent2); flex:none; }
+          .cmp-meta { font-size:12px; color:var(--text4); }
+          .cmp-del { background:none; border:none; color:var(--text4); cursor:pointer; font-size:14px; padding:2px 6px; }
+          .cmp-del:hover { color:#FF8A80; }
+        </style>
+        <div class="screen" id="campaigns">
+          <div id="cmpList"></div>
         </div>
 
         <!-- Стратегія — marketing brain (legacy, поза меню) -->
@@ -3603,6 +3621,7 @@
     advisor:   ['screen_advisor',   'screen_advisor_sub'],
     strategy:  ['screen_strategy',  'screen_strategy_sub'],
     campaign:  ['screen_campaign',  'screen_campaign_sub'],
+    campaigns: ['screen_campaigns', 'screen_campaigns_sub'],
     onboard:   ['screen_onboard',   'screen_onboard_sub'],
     audit:     ['screen_audit',     'screen_audit_sub'],
     analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
@@ -4243,6 +4262,7 @@
       nav_main:'Главное', nav_create:'Студия', nav_account:'Аккаунт', nav_overview:'Обзор',
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
       screen_campaign:'Продвижение 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
+      nav_campaigns:'Мои кампании', screen_campaigns:'Мои кампании 📁', screen_campaigns_sub:'Стратегия и все материалы в одном месте',
       screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
       screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
@@ -4327,6 +4347,7 @@
       nav_main:'Головне', nav_create:'Студія', nav_account:'Акаунт', nav_overview:'Огляд',
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
       screen_campaign:'Просування 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
+      nav_campaigns:'Мої кампанії', screen_campaigns:'Мої кампанії 📁', screen_campaigns_sub:'Стратегія і всі матеріали в одному місці',
       screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
       screen_audit:'Розбір контенту 🔍', screen_audit_sub:'Завантаж пости — Octo покаже слабкі місця і що виправити',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
@@ -4411,6 +4432,7 @@
       nav_main:'Main', nav_create:'Studio', nav_account:'Account', nav_overview:'Overview',
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
       screen_campaign:'Promotion 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
+      nav_campaigns:'My campaigns', screen_campaigns:'My campaigns 📁', screen_campaigns_sub:'Strategy and all materials in one place',
       screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
       screen_audit:'Content audit 🔍', screen_audit_sub:'Upload posts — Octo shows weak spots and what to fix',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
@@ -12720,6 +12742,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       var d = ($('ocDetails') || {}).value; if (d && d.trim()) body.details = d.trim();
       var r = await api('/api/marketing/strategy', body);
       renderStrategy(r.strategy);
+      try { if (window.octoCampaignSaveStrategy) window.octoCampaignSaveStrategy(chosen, (($('ocDetails') || {}).value || ''), r.strategy); } catch (e) {}
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
     } catch (e) {
@@ -12739,6 +12762,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     api('/api/marketing/text', body).then(function (r) {
       if (st) { st.className = 'ob-status'; st.textContent = ''; }
       renderText(r.text);
+      try { if (window.octoCampaignAddMaterial) window.octoCampaignAddMaterial('text', 'Рекламні тексти', r.text); } catch (e) {}
     }).catch(function (e) {
       if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
     }).finally(function () { if (mb) mb.disabled = false; });
@@ -12919,6 +12943,138 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }
     btn.disabled = false;
   };
+})();
+</script>
+
+<!-- ═══ МОЇ КАМПАНІЇ — campaign object store + library/detail (Rule 4) ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var wsId = function () { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); };
+  var chips = function (a, cls) { return (a && a.length) ? '<div class="ob-chips">' + a.map(function (x) { return '<span class="ob-chip ' + (cls || '') + '">' + esc(x) + '</span>'; }).join('') + '</div>' : ''; };
+  var sec = function (l, h) { return h ? '<div class="ob-sec">' + l + '</div>' + h : ''; };
+  var rid = function () { return 'cmp_' + Math.random().toString(36).slice(2, 10); };
+
+  // Campaign store — localStorage per workspace (like the business profile).
+  window.octoCampaigns = {
+    key: function () { return 'octo_campaigns_' + wsId(); },
+    all: function () { try { return JSON.parse(localStorage.getItem(this.key()) || '[]'); } catch (e) { return []; } },
+    saveAll: function (a) { try { localStorage.setItem(this.key(), JSON.stringify(a)); } catch (e) {} },
+    get: function (id) { return this.all().filter(function (c) { return c.id === id; })[0] || null; },
+    upsert: function (c) { var a = this.all(), i = a.map(function (x) { return x.id; }).indexOf(c.id); if (i >= 0) a[i] = c; else a.unshift(c); this.saveAll(a); },
+    remove: function (id) { this.saveAll(this.all().filter(function (c) { return c.id !== id; })); },
+    current: null,
+  };
+
+  var now = function () { return Date.now(); };
+  var fmtDate = function (ts) { try { var d = new Date(ts); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); } catch (e) { return ''; } };
+
+  // ── Hooks called from the Просування flow ──────────────────────────────────
+  window.octoCampaignSaveStrategy = function (chosen, details, strategy) {
+    var c = {
+      id: rid(),
+      name: (chosen && chosen.t) ? chosen.t : 'Кампанія',
+      goalId: chosen && chosen.id,
+      goal: chosen && chosen.t,
+      details: details || '',
+      strategy: strategy,
+      materials: [],
+      status: 'active',
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    window.octoCampaigns.upsert(c);
+    window.octoCampaigns.current = c.id;
+    // Banner above the strategy card with a link into the library.
+    var wrap = $('ocResult'); if (!wrap) return;
+    var b = document.createElement('div');
+    b.className = 'card';
+    b.style.cssText = 'border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);display:flex;align-items:center;gap:12px;';
+    b.innerHTML = '<div style="font-size:20px;">✅</div><div style="flex:1;font-size:13.5px;color:var(--text2);">Збережено в <b>«Мої кампанії»</b> — стратегія і всі матеріали в одному місці.</div>'
+      + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;white-space:nowrap;" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\')">📁 Відкрити</button>';
+    wrap.insertBefore(b, wrap.firstChild);
+  };
+
+  window.octoCampaignAddMaterial = function (type, title, output) {
+    var id = window.octoCampaigns.current; if (!id) return;
+    var c = window.octoCampaigns.get(id); if (!c) return;
+    c.materials.push({ id: rid(), type: type, title: title, output: output, createdAt: now() });
+    c.updatedAt = now();
+    window.octoCampaigns.upsert(c);
+  };
+
+  // ── Render: library list ────────────────────────────────────────────────────
+  function renderList() {
+    var el = $('cmpList'); if (!el) return;
+    var all = window.octoCampaigns.all();
+    if (!all.length) {
+      el.innerHTML = '<div class="card" style="text-align:center;padding:34px 18px;">'
+        + '<div style="font-size:34px;margin-bottom:8px;">📁</div>'
+        + '<div style="font-size:14px;color:var(--text3);margin-bottom:14px;">Ще немає кампаній.<br>Постав ціль у «Просуванні» — і Octo збере стратегію та матеріали сюди.</div>'
+        + '<button class="btn btn-primary" onclick="showScreen(\'campaign\',null)">🎯 Створити просування</button></div>';
+      return;
+    }
+    el.innerHTML = all.map(function (c) {
+      var n = c.materials ? c.materials.length : 0;
+      return '<div class="cmp-card" onclick="octoOpenCampaign(\'' + c.id + '\')">'
+        + '<div class="cmp-top"><div class="cmp-name">' + esc(c.name) + '</div>'
+        + '<span class="cmp-badge">' + n + ' матер.</span>'
+        + '<button class="cmp-del" title="Видалити" onclick="event.stopPropagation();octoDeleteCampaign(\'' + c.id + '\')">🗑</button></div>'
+        + '<div class="cmp-meta">' + esc((c.strategy && c.strategy.offer) ? c.strategy.offer.slice(0, 90) : (c.goal || '')) + ' · ' + fmtDate(c.createdAt) + '</div></div>';
+    }).join('');
+  }
+
+  // ── Render: single campaign (strategy + all materials in one place) ─────────
+  function renderText(t) {
+    var vars = (t.variants || []).map(function (v) {
+      return '<div class="ob-variant"><span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>'
+        + (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '')
+        + ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
+    }).join('');
+    return vars + (t.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(t.cta) + '</div>' : '');
+  }
+  function renderMaterial(m) {
+    var body = (m.type === 'text') ? renderText(m.output) : '<pre style="white-space:pre-wrap;font-size:13px;color:var(--text2);">' + esc(JSON.stringify(m.output, null, 2)) + '</pre>';
+    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + '</div></div></div>' + body + '</div>';
+  }
+
+  window.octoOpenCampaign = function (id) {
+    var el = $('cmpList'); if (!el) return;
+    var c = window.octoCampaigns.get(id); if (!c) { renderList(); return; }
+    var s = c.strategy || {};
+    var strategyCard = '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія просування</div><div class="card-sub" style="margin:0;">' + esc(c.goal || '') + '</div></div></div>'
+      + sec('Ціль', '<div class="ob-kv">' + esc(s.goal) + '</div>')
+      + sec('Аудиторія', '<div class="ob-kv">' + esc(s.audience) + '</div>')
+      + sec('Проблема клієнта', '<div class="ob-kv">' + esc(s.problem) + '</div>')
+      + sec('Переваги', chips(s.benefits, 'good'))
+      + (s.offer ? '<div class="ob-headline" style="font-size:17px;margin-top:14px;">' + esc(s.offer) + '</div>' : '')
+      + (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '')
+      + (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '') + '</div>';
+    var mats = (c.materials && c.materials.length)
+      ? c.materials.map(renderMaterial).join('')
+      : '<div class="card" style="text-align:center;color:var(--text4);font-size:13px;padding:18px;">Матеріалів ще нема. Повернись у «Просування» → «Створити тексти».</div>';
+    el.innerHTML = '<button class="oc-back" style="background:none;border:none;color:var(--text3);font:inherit;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;" onclick="octoCampaignsBack()">← усі кампанії</button>'
+      + '<div class="card"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🎯</div>'
+      + '<div style="flex:1;"><div class="card-title" style="margin:0;">' + esc(c.name) + '</div><div class="card-sub" style="margin:0;">створено ' + fmtDate(c.createdAt) + ' · ' + (c.materials ? c.materials.length : 0) + ' матеріалів</div></div>'
+      + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="showScreen(\'campaign\',null)">➕ Ще матеріали</button></div></div>'
+      + strategyCard + mats;
+    window.scrollTo(0, 0);
+  };
+  window.octoCampaignsBack = function () { renderList(); };
+  window.octoDeleteCampaign = function (id) {
+    if (!confirm('Видалити цю кампанію?')) return;
+    window.octoCampaigns.remove(id);
+    renderList();
+  };
+
+  // Render the library whenever the screen opens.
+  var _os = window.showScreen;
+  if (typeof _os === 'function') {
+    window.showScreen = function (id, el) { _os(id, el); if (id === 'campaigns') renderList(); };
+  }
+  document.addEventListener('DOMContentLoaded', function () { if ($('cmpList')) renderList(); });
 })();
 </script>
 
