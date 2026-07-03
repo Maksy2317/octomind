@@ -1684,7 +1684,7 @@
 
       <div class="nav-label" data-i18n="nav_main">Головне</div>
       <div class="nav-item active" onclick="showScreen('campaign',this)">
-        <span class="nav-icon">🎯</span> Створити кампанію
+        <span class="nav-icon">🎯</span> Просування
         <span class="nav-badge">AI</span>
       </div>
       <div class="nav-item" onclick="showScreen('advisor',this)">
@@ -1734,7 +1734,7 @@
             <span></span><span></span><span></span>
           </div>
           <div class="topbar-left">
-            <h1 id="topTitle">Створити кампанію 🎯</h1>
+            <h1 id="topTitle">Просування 🎯</h1>
             <p id="topSub">Постав бізнес-ціль — Octo зробить стратегію і матеріали</p>
           </div>
         </div>
@@ -1991,7 +1991,7 @@
               <img src="assets/octo_thinking.png" alt="Octo" style="width:56px;height:56px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">Спершу познайомимось 👋</div>
-                <div class="card-sub" style="margin:0;">Octo ще не знає твій бізнес. Розкажи про нього — і кампанії будуть точні, під тебе.</div>
+                <div class="card-sub" style="margin:0;">Octo ще не знає твій бізнес. Розкажи про нього — і просування буде точним, під тебе.</div>
               </div>
             </div>
             <button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen('onboard',null)">Познайомити Octo →</button>
@@ -4242,7 +4242,7 @@
       // ── Navigation ──
       nav_main:'Главное', nav_create:'Студия', nav_account:'Аккаунт', nav_overview:'Обзор',
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
-      screen_campaign:'Создать кампанию 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
+      screen_campaign:'Продвижение 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
       screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
       screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
@@ -4326,7 +4326,7 @@
       // ── Navigation ──
       nav_main:'Головне', nav_create:'Студія', nav_account:'Акаунт', nav_overview:'Огляд',
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
-      screen_campaign:'Створити кампанію 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
+      screen_campaign:'Просування 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
       screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
       screen_audit:'Розбір контенту 🔍', screen_audit_sub:'Завантаж пости — Octo покаже слабкі місця і що виправити',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
@@ -4410,7 +4410,7 @@
       // ── Navigation ──
       nav_main:'Main', nav_create:'Studio', nav_account:'Account', nav_overview:'Overview',
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
-      screen_campaign:'New campaign 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
+      screen_campaign:'Promotion 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
       screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
       screen_audit:'Content audit 🔍', screen_audit_sub:'Upload posts — Octo shows weak spots and what to fix',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
@@ -12387,7 +12387,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       (a.strengths && a.strengths.length ? '<div class="ob-sec">Що працює</div>' + chips(a.strengths, 'good') : '') +
       (a.weaknesses && a.weaknesses.length ? '<div class="ob-sec">Слабкі місця</div>' + chips(a.weaknesses, 'warn') : '') +
       (fixes ? '<div class="ob-sec">Що виправити</div>' + fixes : '') +
-      '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showScreen(\'campaign\',null)">🎯 Створити кампанію з урахуванням цього →</button>';
+      '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showScreen(\'campaign\',null)">🎯 До просування з урахуванням цього →</button>';
     $('auResult').innerHTML = '';
     $('auResult').appendChild(card);
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -12501,9 +12501,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);">' +
       '<div class="on-hero"><img src="assets/octo_happy.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
       '<div><div class="card-title" style="margin:0;">✅ Octo тебе знає!</div>' +
-      '<div class="card-sub" style="margin:0;">Далі — покажу, де у твоєму контенті слабкі місця, або одразу зробимо кампанію.</div></div></div>' +
+      '<div class="card-sub" style="margin:0;">Далі — покажу, де у твоєму контенті слабкі місця, або одразу займемось просуванням.</div></div></div>' +
       '<button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen(\'audit\',null)">🔍 Розбери мій контент →</button>' +
-      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'campaign\',null)">🎯 Одразу створити кампанію</button></div>';
+      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'campaign\',null)">🎯 Одразу до просування</button></div>';
   }
 
   async function run(text, isFollow) {
@@ -12667,7 +12667,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var card = document.createElement('div');
     card.className = 'card ob-res';
     card.innerHTML =
-      '<div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія кампанії</div>' +
+      '<div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія просування</div>' +
       '<div class="card-sub" style="margin:0;">' + esc(chosen ? chosen.t : '') + '</div></div></div>' +
       sec('Ціль', '<div class="ob-kv">' + esc(s.goal) + '</div>') +
       sec('Аудиторія', '<div class="ob-kv">' + esc(s.audience) + '</div>') +
