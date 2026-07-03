@@ -1875,6 +1875,42 @@
           </div>
         </div>
 
+        <!-- ═══ ЗНАЙОМСТВО (Understand phase — build business profile) ═══ -->
+        <style>
+          .on-hero { display:flex; gap:14px; align-items:center; margin-bottom:16px; }
+          .on-hero img { width:56px; height:56px; object-fit:contain; flex:none; }
+          .on-prof-row { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+          .on-prof-row:last-child { border-bottom:none; }
+          .on-prof-k { font-size:12px; color:var(--text3); width:120px; flex:none; padding-top:2px; }
+          .on-prof-v { font-size:13.5px; color:var(--text); font-weight:600; }
+          .on-prof-v.empty { color:var(--text4); font-weight:400; font-style:italic; }
+          .on-fill { animation:on-glow .6s ease; }
+          @keyframes on-glow { from { background:rgba(108,99,255,.18); } to { background:transparent; } }
+        </style>
+        <div class="screen" id="onboard">
+          <div class="card">
+            <div class="on-hero">
+              <img src="assets/octo_search.png" alt="Octo">
+              <div>
+                <div class="card-title" style="margin:0;">Спершу познайомимось 👋</div>
+                <div class="card-sub" style="margin:0;">Розкажи про свій бізнес — Octo запам'ятає і далі все робитиме під тебе. Це не анкета: пиши вільно.</div>
+              </div>
+            </div>
+            <textarea id="onText" class="ob-input" rows="4" placeholder="Напр.: Маю барбершоп на Подолі в Києві, 4 майстри, стрижки й догляд за бородою, середній чек 500 грн. Клієнти — хлопці 20-40. Хочу більше записів. Запис через Instagram."></textarea>
+            <button class="btn btn-primary" id="onBtn" style="width:100%;margin-top:12px;" onclick="octoOnboardSend()">Познайомити Octo →</button>
+            <div class="ob-status" id="onStatus"></div>
+          </div>
+
+          <div class="card" id="onProfileCard" style="display:none;">
+            <div class="card-title" style="margin-bottom:6px;">🧠 Що Octo запам'ятав про твій бізнес</div>
+            <div class="card-sub" style="margin-bottom:12px;">Можеш доповнити повідомленням нижче, якщо десь не так.</div>
+            <div id="onProfileRows"></div>
+          </div>
+
+          <div id="onFollowWrap" style="display:none;"></div>
+          <div id="onDone" style="display:none;"></div>
+        </div>
+
         <!-- ═══ КАМПАНІЯ (goal-first flow, Phase A) ═══ -->
         <style>
           .oc-steps { display:flex; align-items:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
@@ -1906,6 +1942,19 @@
         </style>
         <div class="screen active" id="campaign">
 
+          <!-- Gate: shown until Octo knows the business -->
+          <div class="card" id="ocGate" style="display:none;">
+            <div class="on-hero">
+              <img src="assets/octo_thinking.png" alt="Octo" style="width:56px;height:56px;object-fit:contain;flex:none;">
+              <div>
+                <div class="card-title" style="margin:0;">Спершу познайомимось 👋</div>
+                <div class="card-sub" style="margin:0;">Octo ще не знає твій бізнес. Розкажи про нього — і кампанії будуть точні, під тебе.</div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen('onboard',null)">Познайомити Octo →</button>
+          </div>
+
+          <div id="ocFlow">
           <div class="oc-steps" id="ocSteps">
             <div class="oc-step-pill on" data-s="goal"><span class="n">1</span>Ціль</div>
             <span style="color:var(--text4);font-size:11px;">→</span>
@@ -1940,6 +1989,7 @@
 
           <!-- STEP 3+4: strategy + materials results -->
           <div id="ocResult"></div>
+          </div><!-- /ocFlow -->
         </div>
 
         <!-- Стратегія — marketing brain (legacy, поза меню) -->
@@ -3509,6 +3559,7 @@
     advisor:   ['screen_advisor',   'screen_advisor_sub'],
     strategy:  ['screen_strategy',  'screen_strategy_sub'],
     campaign:  ['screen_campaign',  'screen_campaign_sub'],
+    onboard:   ['screen_onboard',   'screen_onboard_sub'],
     analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
     video:     ['screen_video',     'screen_video_sub'],
     photo:     ['screen_photo',     'screen_photo_sub'],
@@ -4147,6 +4198,7 @@
       nav_main:'Главное', nav_create:'Студия', nav_account:'Аккаунт', nav_overview:'Обзор',
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
       screen_campaign:'Создать кампанию 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
+      screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 из 5 кредитов использовано',
       // ── Topbar screen titles ──
@@ -4229,6 +4281,7 @@
       nav_main:'Головне', nav_create:'Студія', nav_account:'Акаунт', nav_overview:'Огляд',
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
       screen_campaign:'Створити кампанію 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
+      screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Безкоштовний план', plan_credits:'3 з 5 кредитів використано',
       // ── Topbar screen titles ──
@@ -4311,6 +4364,7 @@
       nav_main:'Main', nav_create:'Studio', nav_account:'Account', nav_overview:'Overview',
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
       screen_campaign:'New campaign 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
+      screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 of 5 credits used',
       // ── Topbar screen titles ──
@@ -12200,6 +12254,151 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   </div>
 </div>
 
+<!-- ═══ ЗНАЙОМСТВО + профіль бізнесу (пам'ять) ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function deviceId() {
+    var id = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+
+  // Business profile = OctoMind's memory of the company. Source of truth for the
+  // campaign flow. Stored per workspace.
+  window.octoBiz = {
+    key: function () { return 'octo_biz_' + wsId(); },
+    get: function () { try { return JSON.parse(localStorage.getItem(this.key()) || 'null'); } catch (e) { return null; } },
+    save: function (p) { try { localStorage.setItem(this.key(), JSON.stringify(p || {})); } catch (e) {} },
+    isSet: function () { var p = this.get(); return !!(p && p.niche && (p.description || p.business_name)); },
+    merge: function (patch) {
+      var p = this.get() || {};
+      Object.keys(patch || {}).forEach(function (k) { if (patch[k] != null && String(patch[k]).trim() !== '') p[k] = patch[k]; });
+      this.save(p);
+      return p;
+    },
+  };
+
+  var FIELDS = [
+    ['business_name', 'Назва'], ['niche', 'Ніша'], ['description', 'Що продає'],
+    ['target_audience', 'Аудиторія'], ['geo', 'Гео'], ['price_segment', 'Ціна'],
+    ['usp', 'УТП'], ['goal', 'Ціль'], ['tone', 'Тон'],
+  ];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+
+  async function api(path, body) {
+    var res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify(body || {}),
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  }
+
+  function status(kind, msg) {
+    var el = $('onStatus'); if (!el) return;
+    if (!msg) { el.className = 'ob-status'; el.textContent = ''; return; }
+    el.className = 'ob-status ob-' + kind;
+    el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + esc(msg);
+  }
+
+  function renderProfile(prev) {
+    var p = window.octoBiz.get() || {};
+    $('onProfileCard').style.display = '';
+    $('onProfileRows').innerHTML = FIELDS.map(function (f) {
+      var v = p[f[0]];
+      var changed = prev && (!prev[f[0]]) && v;
+      return '<div class="on-prof-row' + (changed ? ' on-fill' : '') + '">' +
+        '<div class="on-prof-k">' + f[1] + '</div>' +
+        '<div class="on-prof-v' + (v ? '' : ' empty') + '">' + (v ? esc(v) : 'ще не знаю') + '</div></div>';
+    }).join('');
+    // Mirror key fields into the legacy account profile so chat/other screens see them.
+    try {
+      var ws = wsId(), lp = JSON.parse(localStorage.getItem('octo_profile_' + ws) || '{}');
+      if (p.business_name) lp.brandName = p.business_name;
+      if (p.niche) lp.niche = p.niche;
+      if (p.target_audience) lp.audience = p.target_audience;
+      localStorage.setItem('octo_profile_' + ws, JSON.stringify(lp));
+    } catch (e) {}
+  }
+
+  function renderFollow(q) {
+    if (!q) { $('onFollowWrap').style.display = 'none'; return; }
+    $('onFollowWrap').style.display = '';
+    $('onFollowWrap').innerHTML =
+      '<div class="card"><div class="on-hero"><img src="assets/octo_idea.png" style="width:44px;height:44px;object-fit:contain;flex:none;">' +
+      '<div class="card-sub" style="margin:0;color:var(--text);font-size:14px;">' + esc(q) + '</div></div>' +
+      '<textarea id="onText2" class="ob-input" rows="2" placeholder="Відповідь Octo…"></textarea>' +
+      '<button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="octoOnboardFollow()">Відповісти →</button></div>';
+  }
+
+  function renderDone() {
+    $('onFollowWrap').style.display = 'none';
+    $('onDone').style.display = '';
+    $('onDone').innerHTML =
+      '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);">' +
+      '<div class="on-hero"><img src="assets/octo_happy.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
+      '<div><div class="card-title" style="margin:0;">✅ Octo тебе знає!</div>' +
+      '<div class="card-sub" style="margin:0;">Тепер можна створювати кампанії — Octo вже враховує твій бізнес.</div></div></div>' +
+      '<button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen(\'campaign\',null)">🎯 Створити кампанію →</button></div>';
+  }
+
+  async function run(text, isFollow) {
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('chat')) return;
+    var prev = window.octoBiz.get() || {};
+    status('busy', 'Octo слухає й запам’ятовує…');
+    try {
+      var r = await api('/api/marketing/onboard', { text: text, known: prev });
+      window.octoBiz.merge(r.profile || {});
+      renderProfile(prev);
+      status('', '');
+      if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
+      if (r.enough && !r.follow_up) { renderFollow(null); renderDone(); }
+      else { renderFollow(r.follow_up || 'Розкажи ще трохи — чим твій бізнес особливий?'); $('onDone').style.display = 'none'; }
+    } catch (e) {
+      status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
+    }
+  }
+
+  window.octoOnboardSend = function () {
+    var t = ($('onText') || {}).value; if (!t || !t.trim()) { status('err', 'Напиши кілька слів про бізнес.'); return; }
+    var b = $('onBtn'); b.disabled = true;
+    run(t.trim(), false).finally(function () { b.disabled = false; });
+  };
+  window.octoOnboardFollow = function () {
+    var t = ($('onText2') || {}).value; if (!t || !t.trim()) return;
+    run(t.trim(), true);
+  };
+
+  // Show the profile if we already have one when landing on onboarding.
+  var _os = window.showScreen;
+  if (typeof _os === 'function') {
+    window.showScreen = function (id, el) {
+      _os(id, el);
+      if (id === 'onboard' && window.octoBiz.get()) { renderProfile(null); if (window.octoBiz.isSet()) renderDone(); }
+    };
+  }
+
+  // First-run gate: no business profile yet → land on onboarding.
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      try {
+        var app = document.getElementById('appWrap');
+        if (app && app.style.display !== 'none' && !window.octoBiz.isSet()) {
+          if (typeof showScreen === 'function') showScreen('onboard', null);
+        }
+      } catch (e) {}
+    }, 120);
+  });
+})();
+</script>
+
 <!-- ═══ КАМПАНІЯ — goal-first flow logic (Phase A) ═══ -->
 <script>
 (function () {
@@ -12228,11 +12427,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     while (id.length < 8) id += '0';
     return id.slice(0, 128);
   }
-  // Reuse the account profile as the business profile (same mapping as the brain).
+  // Business profile is OctoMind's memory (built during onboarding). That's the
+  // source of truth for campaigns. Fall back to the legacy account profile.
   function bizProfile() {
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get(), o = {};
+      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone']
+        .forEach(function (k) { if (b[k]) o[k] = b[k]; });
+      if (Object.keys(o).length) return o;
+    }
     var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
     var p = (window.getWsProfile ? window.getWsProfile(ws) : null) || {};
-    var tov = (typeof getWsTov === 'function') ? getWsTov(ws) : null;
     var dz = function (s) { return (s == null ? '' : String(s)).replace(/^[^\p{L}\p{N}]+/u, '').trim(); };
     var out = {};
     if (p.brandName) out.business_name = p.brandName;
@@ -12382,17 +12587,25 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }).finally(function () { if (mb) mb.disabled = false; });
   }
 
+  // Gate the campaign behind knowing the business (Understand → then campaigns).
+  function gate() {
+    var known = window.octoBiz && window.octoBiz.isSet();
+    var g = $('ocGate'), f = $('ocFlow');
+    if (g) g.style.display = known ? 'none' : '';
+    if (f) f.style.display = known ? '' : 'none';
+    if (known) renderGoals();
+  }
+
   // Init when the campaign screen becomes visible.
   var _origShow = window.showScreen;
   if (typeof _origShow === 'function') {
     window.showScreen = function (id, el) {
       _origShow(id, el);
-      if (id === 'campaign') renderGoals();
+      if (id === 'campaign') gate();
     };
   }
-  // First load may land directly on campaign.
-  document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('campaign')) renderGoals(); });
-  renderGoals();
+  document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('campaign')) gate(); });
+  gate();
 })();
 </script>
 

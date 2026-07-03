@@ -9,9 +9,12 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
+  extractBusinessProfile,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy,
 } from '../services/ai/marketing';
+import { saveBusinessProfile } from '../services/db/repos';
+import { BusinessProfileInput } from '../services/db/models';
 
 export const marketingRouter = Router();
 
@@ -89,6 +92,32 @@ marketingRouter.post('/offer', async (req: Request, res: Response, next: NextFun
       output: offer as unknown as Record<string, unknown>, profileId,
     });
     res.json({ offer });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/onboard  — extract business profile from free text.
+// Body: { text: string, known?: {...profile fields} }
+marketingRouter.post('/onboard', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const text = typeof req.body?.text === 'string' ? req.body.text.slice(0, 4000) : '';
+  if (!text.trim()) {
+    res.status(400).json({ error: 'Розкажи трохи про бізнес (text)' });
+    return;
+  }
+  try {
+    const known = (req.body?.known && typeof req.body.known === 'object')
+      ? req.body.known as BusinessProfileInput : undefined;
+    const result = await extractBusinessProfile(text, known);
+    // Persist the merged profile when the DB is up (best-effort).
+    if (req.userId) {
+      const merged = { ...(known || {}), ...result.profile };
+      try { await saveBusinessProfile(req.userId, merged); } catch (err) {
+        console.warn('[Onboard] profile save skipped:', (err as Error).message?.slice(0, 160));
+      }
+    }
+    res.json(result);
   } catch (err) {
     next(err);
   }

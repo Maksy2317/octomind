@@ -10,7 +10,7 @@
 // same way routes/carousel.ts does.
 
 import Anthropic from '@anthropic-ai/sdk';
-import { BusinessProfile } from '../db/models';
+import { BusinessProfile, BusinessProfileInput } from '../db/models';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -141,6 +141,37 @@ export function generateOfferStrategy(
     (analysis ? `\n\nАналіз:\n${JSON.stringify(analysis)}` : '') +
     '\n\nСформулюй офер і стратегію з обґрунтуванням.';
   return jsonCall<OfferStrategy>(system, user);
+}
+
+// ── Onboarding: extract a business profile from free conversation ─────────────
+// The "Understand" phase. User talks freely about their business; we pull out
+// structured profile fields we're confident about, and ask ONE follow-up for the
+// most important gap. Hybrid onboarding: conversational in, structured out.
+
+export interface ProfileExtraction {
+  profile: BusinessProfileInput;   // only fields we're confident about
+  enough: boolean;                 // do we know enough to start campaigns?
+  follow_up: string;               // one short friendly question, or '' if enough
+}
+
+export function extractBusinessProfile(
+  userText: string,
+  known?: BusinessProfileInput,
+): Promise<ProfileExtraction> {
+  const system =
+    'Ти — AI-маркетолог, який знайомиться з бізнесом клієнта. З того, що людина розповіла ' +
+    '(вільним текстом), витягни те, у чому ти ВПЕВНЕНИЙ, у структуру профілю. Не вигадуй — ' +
+    'якщо поля немає в тексті, не заповнюй його. Мінімум, щоб почати роботу: ніша + що продають. ' +
+    'Якщо цього ще немає — постав ОДНЕ коротке дружнє питання про найважливіший пробіл. ' +
+    'Якщо вже достатньо — follow_up порожній. ' +
+    LANG_RULE +
+    ' Схема JSON: {"profile": {"business_name"?: string, "niche"?: string, "description"?: string, ' +
+    '"target_audience"?: string, "geo"?: string, "price_segment"?: string, "usp"?: string, ' +
+    '"goal"?: string, "tone"?: string}, "enough": boolean, "follow_up": string}.';
+  const user =
+    (known && Object.keys(known).length ? `Вже відомо: ${JSON.stringify(known)}\n\n` : '') +
+    `Людина розповіла:\n${userText}\n\nОнови профіль.`;
+  return jsonCall<ProfileExtraction>(system, user, 1500);
 }
 
 // ── Campaign strategy (goal-first — the v2 concept) ───────────────────────────
