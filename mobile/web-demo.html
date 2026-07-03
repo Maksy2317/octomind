@@ -1683,13 +1683,12 @@
       </div>
 
       <div class="nav-label" data-i18n="nav_main">Головне</div>
-      <div class="nav-item active" onclick="showScreen('advisor',this)">
-        <span class="nav-icon">🧠</span> Маркетолог
+      <div class="nav-item active" onclick="showScreen('campaign',this)">
+        <span class="nav-icon">🎯</span> Створити кампанію
         <span class="nav-badge">AI</span>
       </div>
-      <div class="nav-item" onclick="showScreen('strategy',this)">
-        <span class="nav-icon">📋</span> Стратегія
-        <span class="nav-badge new">New</span>
+      <div class="nav-item" onclick="showScreen('advisor',this)">
+        <span class="nav-icon">🧠</span> Маркетолог
       </div>
       <div class="nav-item" onclick="showScreen('dashboard',this)">
         <span class="nav-icon">🏠</span> <span data-i18n="nav_overview">Огляд</span>
@@ -1735,8 +1734,8 @@
             <span></span><span></span><span></span>
           </div>
           <div class="topbar-left">
-            <h1 id="topTitle">Маркетолог 🧠</h1>
-            <p id="topSub">Розкажи про бізнес — Octo розбереться і запропонує план</p>
+            <h1 id="topTitle">Створити кампанію 🎯</h1>
+            <p id="topSub">Постав бізнес-ціль — Octo зробить стратегію і матеріали</p>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -1826,7 +1825,7 @@
         </div>
 
         <!-- Ask Octo -->
-        <div class="screen active" id="advisor">
+        <div class="screen" id="advisor">
           <div class="chat-wrap">
             <div class="chat-header">
               <div class="chat-octo-avatar"><img src="assets/octo_laptop.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
@@ -1876,7 +1875,74 @@
           </div>
         </div>
 
-        <!-- Стратегія — marketing brain -->
+        <!-- ═══ КАМПАНІЯ (goal-first flow, Phase A) ═══ -->
+        <style>
+          .oc-steps { display:flex; align-items:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+          .oc-step-pill { display:flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--border);
+            border-radius:20px; padding:6px 13px 6px 7px; font-size:12px; font-weight:600; color:var(--text3); }
+          .oc-step-pill .n { width:20px; height:20px; border-radius:50%; background:var(--surface3); color:var(--text3);
+            display:grid; place-items:center; font-size:11px; font-weight:700; }
+          .oc-step-pill.on { border-color:var(--accent); color:var(--text); background:rgba(108,99,255,.1); }
+          .oc-step-pill.on .n { background:var(--accent); color:#fff; }
+          .oc-step-pill.ok .n { background:var(--green); color:#fff; }
+          .oc-goal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+          @media (max-width:560px){ .oc-goal-grid { grid-template-columns:1fr; } }
+          .oc-goal { text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:14px;
+            padding:15px 16px; cursor:pointer; transition:border-color .15s, transform .1s; font:inherit; color:var(--text); }
+          .oc-goal:hover { border-color:var(--accent); }
+          .oc-goal:active { transform:scale(.99); }
+          .oc-goal .ic { font-size:22px; display:block; margin-bottom:8px; }
+          .oc-goal .t { display:block; font-size:14.5px; font-weight:700; line-height:1.25; }
+          .oc-goal .s { display:block; font-size:12px; color:var(--text3); margin-top:3px; }
+          .oc-chosen { display:inline-flex; align-items:center; gap:8px; background:rgba(108,99,255,.1);
+            border:1px solid var(--accent); border-radius:10px; padding:8px 12px; font-size:13.5px; font-weight:700; }
+          .oc-back { background:none; border:none; color:var(--text3); font:inherit; font-size:13px; cursor:pointer; padding:0; margin-bottom:12px; }
+          .oc-back:hover { color:var(--text); }
+          .oc-mat { display:flex; gap:10px; align-items:flex-start; background:var(--surface2); border:1px solid var(--border);
+            border-radius:11px; padding:11px 13px; margin-top:8px; }
+          .oc-mat .mi { font-size:18px; flex:none; }
+          .oc-mat .ml { font-size:13.5px; font-weight:700; }
+          .oc-mat .mw { font-size:12px; color:var(--text3); margin-top:2px; }
+        </style>
+        <div class="screen active" id="campaign">
+
+          <div class="oc-steps" id="ocSteps">
+            <div class="oc-step-pill on" data-s="goal"><span class="n">1</span>Ціль</div>
+            <span style="color:var(--text4);font-size:11px;">→</span>
+            <div class="oc-step-pill" data-s="details"><span class="n">2</span>Деталі</div>
+            <span style="color:var(--text4);font-size:11px;">→</span>
+            <div class="oc-step-pill" data-s="strategy"><span class="n">3</span>Стратегія</div>
+            <span style="color:var(--text4);font-size:11px;">→</span>
+            <div class="oc-step-pill" data-s="materials"><span class="n">4</span>Матеріали</div>
+          </div>
+
+          <!-- STEP 1: goal -->
+          <div id="ocGoalStep">
+            <div class="card">
+              <div class="card-title">🎯 Який результат для бізнесу потрібен?</div>
+              <div class="card-sub" style="margin-bottom:16px;">Обери ціль — Octo сам вирішить, яка стратегія і які матеріали потрібні. Не думай про формати.</div>
+              <div class="oc-goal-grid" id="ocGoalGrid"></div>
+            </div>
+          </div>
+
+          <!-- STEP 2: details -->
+          <div id="ocDetailsStep" style="display:none;">
+            <button class="oc-back" onclick="octoCampaignBack()">← змінити ціль</button>
+            <div class="card">
+              <div style="margin-bottom:14px;"><span class="oc-chosen" id="ocGoalChosen"></span></div>
+              <div class="card-title" style="font-size:15px;">Розкажи трохи більше</div>
+              <div class="card-sub" style="margin-bottom:12px;">Що саме просуваємо, ціна, акція, для кого. Що детальніше — то точніша стратегія.</div>
+              <textarea id="ocDetails" class="ob-input" rows="3" placeholder="Напр.: 2-кімнатна квартира на Подолі, свіжий ремонт, метро поруч, 18 000 грн/міс, готова до заселення"></textarea>
+              <button class="btn btn-primary" id="ocStrategyBtn" style="width:100%;margin-top:12px;" onclick="octoCampaignStrategy()">→ Отримати стратегію</button>
+              <div class="ob-status" id="ocStatus"></div>
+            </div>
+          </div>
+
+          <!-- STEP 3+4: strategy + materials results -->
+          <div id="ocResult"></div>
+        </div>
+
+        <!-- Стратегія — marketing brain (legacy, поза меню) -->
         <div class="screen" id="strategy">
 
           <!-- ═══ MARKETING BRAIN (real /api/marketing) ═══ -->
@@ -3389,7 +3455,7 @@
         // Restore last visited screen
         try {
           const last = localStorage.getItem('octo_last_screen');
-          if (last && last !== 'advisor' && document.getElementById(last)) {
+          if (last && last !== 'campaign' && document.getElementById(last)) {
             const navEl = document.querySelector('.nav-item[onclick*="\'' + last + '\'"]');
             showScreen(last, navEl);
           }
@@ -3442,6 +3508,7 @@
     dashboard: ['screen_dashboard', 'screen_dashboard_sub'],
     advisor:   ['screen_advisor',   'screen_advisor_sub'],
     strategy:  ['screen_strategy',  'screen_strategy_sub'],
+    campaign:  ['screen_campaign',  'screen_campaign_sub'],
     analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
     video:     ['screen_video',     'screen_video_sub'],
     photo:     ['screen_photo',     'screen_photo_sub'],
@@ -4079,6 +4146,7 @@
       // ── Navigation ──
       nav_main:'Главное', nav_create:'Студия', nav_account:'Аккаунт', nav_overview:'Обзор',
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
+      screen_campaign:'Создать кампанию 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 из 5 кредитов использовано',
       // ── Topbar screen titles ──
@@ -4160,6 +4228,7 @@
       // ── Navigation ──
       nav_main:'Головне', nav_create:'Студія', nav_account:'Акаунт', nav_overview:'Огляд',
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
+      screen_campaign:'Створити кампанію 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Безкоштовний план', plan_credits:'3 з 5 кредитів використано',
       // ── Topbar screen titles ──
@@ -4241,6 +4310,7 @@
       // ── Navigation ──
       nav_main:'Main', nav_create:'Studio', nav_account:'Account', nav_overview:'Overview',
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
+      screen_campaign:'New campaign 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 of 5 credits used',
       // ── Topbar screen titles ──
@@ -12129,6 +12199,202 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     </button>
   </div>
 </div>
+
+<!-- ═══ КАМПАНІЯ — goal-first flow logic (Phase A) ═══ -->
+<script>
+(function () {
+  'use strict';
+
+  // Business GOALS (results, not file types) — the entry point per spec.
+  const GOALS = [
+    { id: 'clients',   ic: '🎯', t: 'Більше клієнтів / заявок', s: 'залучити нових' },
+    { id: 'sell',      ic: '🛒', t: 'Продати товар',            s: 'конкретний продукт' },
+    { id: 'bookings',  ic: '💇', t: 'Більше записів',           s: 'на послугу' },
+    { id: 'launch',    ic: '🚀', t: 'Просунути новий продукт',  s: 'запуск' },
+    { id: 'realty',    ic: '🏠', t: 'Продати / здати нерухомість', s: 'об’єкт' },
+    { id: 'brand',     ic: '⭐', t: 'Впізнаваність бренду',     s: 'щоб про тебе знали' },
+    { id: 'content',   ic: '📅', t: 'Контент на тиждень',       s: 'план публікацій' },
+    { id: 'promo',     ic: '🎉', t: 'Акція / подія',            s: 'спецпропозиція' },
+  ];
+
+  const MAT_ICON = { ad_text:'📢', caption:'✍️', headlines:'🔤', stories:'📲', carousel:'🖼️', image:'🎨', video:'🎬', post:'📝', content_plan:'📅' };
+
+  const $ = (id) => document.getElementById(id);
+  let chosen = null;
+
+  function deviceId() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+  // Reuse the account profile as the business profile (same mapping as the brain).
+  function bizProfile() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var p = (window.getWsProfile ? window.getWsProfile(ws) : null) || {};
+    var tov = (typeof getWsTov === 'function') ? getWsTov(ws) : null;
+    var dz = function (s) { return (s == null ? '' : String(s)).replace(/^[^\p{L}\p{N}]+/u, '').trim(); };
+    var out = {};
+    if (p.brandName) out.business_name = p.brandName;
+    if (p.niche) out.niche = dz(p.niche);
+    if (p.audience) out.target_audience = dz(p.audience);
+    if (Array.isArray(p.style) && p.style.length) out.tone = p.style.map(dz).join(', ');
+    return out;
+  }
+  async function api(path, body) {
+    var res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify(body || {}),
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function chips(a, cls) { return (a && a.length) ? '<div class="ob-chips">' + a.map(function (x) { return '<span class="ob-chip ' + (cls || '') + '">' + esc(x) + '</span>'; }).join('') + '</div>' : ''; }
+  function sec(l, h) { return h ? '<div class="ob-sec">' + l + '</div>' + h : ''; }
+
+  function setStep(name) {
+    document.querySelectorAll('#ocSteps .oc-step-pill').forEach(function (el) {
+      var order = ['goal','details','strategy','materials'];
+      var i = order.indexOf(el.dataset.s), cur = order.indexOf(name);
+      el.className = 'oc-step-pill' + (i < cur ? ' ok' : i === cur ? ' on' : '');
+    });
+  }
+  function status(kind, msg) {
+    var el = $('ocStatus'); if (!el) return;
+    if (!msg) { el.className = 'ob-status'; el.textContent = ''; return; }
+    el.className = 'ob-status ob-' + kind;
+    el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + esc(msg);
+  }
+
+  // Render the goal grid once.
+  function renderGoals() {
+    var grid = $('ocGoalGrid'); if (!grid || grid.dataset.done) return;
+    grid.dataset.done = '1';
+    grid.innerHTML = GOALS.map(function (g) {
+      return '<button class="oc-goal" data-goal="' + g.id + '"><span class="ic">' + g.ic + '</span>' +
+        '<span class="t">' + g.t + '</span><span class="s">' + g.s + '</span></button>';
+    }).join('');
+    grid.querySelectorAll('.oc-goal').forEach(function (btn) {
+      btn.onclick = function () { pickGoal(btn.dataset.goal); };
+    });
+  }
+  function pickGoal(id) {
+    chosen = GOALS.find(function (g) { return g.id === id; });
+    $('ocGoalChosen').innerHTML = chosen.ic + ' ' + esc(chosen.t);
+    $('ocGoalStep').style.display = 'none';
+    $('ocResult').innerHTML = '';
+    $('ocDetailsStep').style.display = '';
+    setStep('details');
+    $('ocDetails').focus();
+  }
+  window.octoCampaignBack = function () {
+    $('ocDetailsStep').style.display = 'none';
+    $('ocResult').innerHTML = '';
+    $('ocGoalStep').style.display = '';
+    setStep('goal');
+  };
+
+  function renderStrategy(s) {
+    var mats = (s.recommended_materials || []).map(function (m) {
+      return '<div class="oc-mat"><span class="mi">' + (MAT_ICON[m.type] || '•') + '</span><div>' +
+        '<div class="ml">' + esc(m.label) + '</div><div class="mw">' + esc(m.why) + '</div></div></div>';
+    }).join('');
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML =
+      '<div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія кампанії</div>' +
+      '<div class="card-sub" style="margin:0;">' + esc(chosen ? chosen.t : '') + '</div></div></div>' +
+      sec('Ціль', '<div class="ob-kv">' + esc(s.goal) + '</div>') +
+      sec('Аудиторія', '<div class="ob-kv">' + esc(s.audience) + '</div>') +
+      sec('Проблема клієнта', '<div class="ob-kv">' + esc(s.problem) + '</div>') +
+      sec('Переваги', chips(s.benefits, 'good')) +
+      '<div class="ob-headline" style="font-size:17px;margin-top:14px;">' + esc(s.offer) + '</div>' +
+      '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' +
+      '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' +
+      sec('Octo пропонує створити', mats) +
+      '<button class="btn btn-primary" id="ocMakeTextBtn" style="width:100%;margin-top:16px;">✍️ Створити тексти під цю стратегію</button>' +
+      '<div class="ob-status" id="ocMatStatus" style="margin-top:10px;"></div>';
+    $('ocResult').appendChild(card);
+    $('ocMakeTextBtn').onclick = function () { makeText(s); };
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function renderText(t) {
+    var variants = t.variants || [];
+    var vars = variants.map(function (v, i) {
+      return '<div class="ob-variant"><button class="ob-copy" data-c="' + i + '">⧉ копіювати</button>' +
+        '<span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>' +
+        (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '') +
+        ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
+    }).join('');
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML =
+      '<div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">Готові тексти</div>' +
+      '<div class="card-sub" style="margin:0;">3 варіанти під стратегію</div></div></div>' + vars +
+      (t.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(t.cta) + '</div>' : '');
+    $('ocResult').appendChild(card);
+    card.querySelectorAll('.ob-copy').forEach(function (btn) {
+      btn.onclick = function () {
+        var v = variants[Number(btn.dataset.c)]; if (!v) return;
+        var full = v.text + (v.caption ? '\n\n' + v.caption : '') + ((v.hashtags || []).length ? '\n' + v.hashtags.join(' ') : '');
+        navigator.clipboard.writeText(full).then(function () { btn.textContent = '✓ скопійовано'; setTimeout(function () { btn.textContent = '⧉ копіювати'; }, 1600); });
+      };
+    });
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  window.octoCampaignStrategy = async function () {
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
+    if (!chosen) return;
+    var btn = $('ocStrategyBtn'); btn.disabled = true;
+    setStep('strategy');
+    status('busy', 'Octo будує стратегію під ціль…');
+    try {
+      var body = { goal: chosen.t, profile: bizProfile() };
+      var d = ($('ocDetails') || {}).value; if (d && d.trim()) body.details = d.trim();
+      var r = await api('/api/marketing/strategy', body);
+      renderStrategy(r.strategy);
+      status('', '');
+      if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
+    } catch (e) {
+      status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
+    }
+    btn.disabled = false;
+  };
+
+  function makeText(strategy) {
+    var mb = $('ocMakeTextBtn'); if (mb) mb.disabled = true;
+    var st = $('ocMatStatus');
+    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Пишу тексти…'; }
+    setStep('materials');
+    var brief = 'Ціль: ' + (chosen ? chosen.t : '') + '. Оффер: ' + strategy.offer +
+      '. Ключове повідомлення: ' + strategy.key_message + '. CTA: ' + strategy.cta + '.';
+    var body = { profile: bizProfile(), brief: brief };
+    api('/api/marketing/text', body).then(function (r) {
+      if (st) { st.className = 'ob-status'; st.textContent = ''; }
+      renderText(r.text);
+    }).catch(function (e) {
+      if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
+    }).finally(function () { if (mb) mb.disabled = false; });
+  }
+
+  // Init when the campaign screen becomes visible.
+  var _origShow = window.showScreen;
+  if (typeof _origShow === 'function') {
+    window.showScreen = function (id, el) {
+      _origShow(id, el);
+      if (id === 'campaign') renderGoals();
+    };
+  }
+  // First load may land directly on campaign.
+  document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('campaign')) renderGoals(); });
+  renderGoals();
+})();
+</script>
 
 <!-- ═══ MARKETING BRAIN — logic (real /api/marketing endpoints) ═══ -->
 <script>

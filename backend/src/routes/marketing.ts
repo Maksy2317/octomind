@@ -8,7 +8,7 @@ import { optionalIdentity } from '../middleware/identity';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
-  analyzeBusiness, generateOfferStrategy, generateMarketingText,
+  analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy,
 } from '../services/ai/marketing';
@@ -89,6 +89,29 @@ marketingRouter.post('/offer', async (req: Request, res: Response, next: NextFun
       output: offer as unknown as Record<string, unknown>, profileId,
     });
     res.json({ offer });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/strategy  — goal-first campaign strategy (v2 core).
+// Body: { goal: string, details?: string, profile?: {...} }
+marketingRouter.post('/strategy', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const goal = typeof req.body?.goal === 'string' ? req.body.goal.slice(0, 400) : '';
+  if (!goal.trim()) {
+    res.status(400).json({ error: 'Вкажи бізнес-ціль (goal)' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const details = typeof req.body?.details === 'string' ? req.body.details.slice(0, 2000) : undefined;
+    const strategy = await generateCampaignStrategy(ctx, goal, details);
+    await logGeneration(req, {
+      type: 'strategy', input: { context: ctx, goal, details: details ?? null },
+      output: strategy as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ strategy });
   } catch (err) {
     next(err);
   }

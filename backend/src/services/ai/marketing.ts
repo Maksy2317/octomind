@@ -143,6 +143,45 @@ export function generateOfferStrategy(
   return jsonCall<OfferStrategy>(system, user);
 }
 
+// ── Campaign strategy (goal-first — the v2 concept) ───────────────────────────
+// Input is a BUSINESS GOAL (not a file type) + optional details. Output is the
+// exact strategy shape from the product spec: goal → audience → problem →
+// benefits → offer → key message → CTA, plus the material set the AI proposes.
+
+export interface CampaignStrategy {
+  goal: string;                 // уточнена ціль кампанії
+  audience: string;             // цільова аудиторія
+  problem: string;              // основна проблема клієнта
+  benefits: string[];           // переваги продукту/послуги
+  offer: string;                // оффер
+  key_message: string;          // ключове рекламне повідомлення
+  cta: string;                  // призив до дії
+  recommended_materials: Array<{ type: string; label: string; why: string }>;
+}
+
+export function generateCampaignStrategy(
+  profileCtx: string,
+  goal: string,
+  details?: string,
+): Promise<CampaignStrategy> {
+  const system =
+    'Ти — AI-маркетолог. Користувач ставить БІЗНЕС-ЦІЛЬ (не «зроби файл»). ' +
+    'Твоя робота — до будь-якої генерації показати чітку маркетингову стратегію під цю ціль, ' +
+    'а потім самому запропонувати, які матеріали створити (користувач не має думати про формати). ' +
+    'Ніша будь-яка — адаптуйся. ' +
+    LANG_RULE +
+    ' Схема JSON: {"goal": string, "audience": string, "problem": string, "benefits": string[], ' +
+    '"offer": string, "key_message": string, "cta": string, ' +
+    '"recommended_materials": [{"type": string (одне з: ad_text|caption|headlines|stories|carousel|image|video|post|content_plan), ' +
+    '"label": string (людською мовою), "why": string (навіщо саме це під цю ціль)}]}. ' +
+    'Пропонуй 3-6 матеріалів, релевантних саме цій цілі й ніші.';
+  const user =
+    `Дані про бізнес:\n${profileCtx}\n\nБізнес-ціль користувача: ${goal}` +
+    (details ? `\nДеталі: ${details}` : '') +
+    '\n\nЗроби стратегію під цю ціль і запропонуй набір матеріалів.';
+  return jsonCall<CampaignStrategy>(system, user, 3000);
+}
+
 // ── 3. Marketing text ─────────────────────────────────────────────────────────
 
 export interface MarketingText {
