@@ -9,9 +9,9 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile,
+  extractBusinessProfile, auditContent,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
-  BusinessAnalysis, OfferStrategy,
+  BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
 import { saveBusinessProfile } from '../services/db/repos';
 import { BusinessProfileInput } from '../services/db/models';
@@ -92,6 +92,33 @@ marketingRouter.post('/offer', async (req: Request, res: Response, next: NextFun
       output: offer as unknown as Record<string, unknown>, profileId,
     });
     res.json({ offer });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/audit  — vision audit of the client's own content.
+// Body: { images: [{ media_type, data(base64) }], profile? }
+const ALLOWED_MEDIA = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+marketingRouter.post('/audit', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const raw = Array.isArray(req.body?.images) ? req.body.images : [];
+  const images: AuditImage[] = raw
+    .filter((im: unknown): im is AuditImage =>
+      !!im && typeof (im as AuditImage).data === 'string' && ALLOWED_MEDIA.has((im as AuditImage).media_type))
+    .slice(0, 6);
+  if (!images.length) {
+    res.status(400).json({ error: 'Додай хоча б одне зображення (png/jpg/webp)' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const audit = await auditContent(ctx, images);
+    await logGeneration(req, {
+      type: 'audit', input: { context: ctx, images: images.length },
+      output: audit as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ audit });
   } catch (err) {
     next(err);
   }

@@ -1911,6 +1911,49 @@
           <div id="onDone" style="display:none;"></div>
         </div>
 
+        <!-- ═══ РОЗБІР КОНТЕНТУ (Claude Vision audit) ═══ -->
+        <style>
+          .au-drop { border:2px dashed var(--border); border-radius:14px; padding:26px 16px; text-align:center; cursor:pointer;
+            transition:border-color .15s, background .15s; }
+          .au-drop:hover { border-color:var(--accent); background:rgba(108,99,255,.05); }
+          .au-drop .ai { font-size:30px; }
+          .au-thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+          .au-thumb { position:relative; width:72px; height:72px; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+          .au-thumb img { width:100%; height:100%; object-fit:cover; }
+          .au-thumb .x { position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,.6);
+            color:#fff; border:none; font-size:11px; cursor:pointer; line-height:18px; padding:0; }
+          .au-score { display:flex; align-items:center; gap:16px; margin-bottom:6px; }
+          .au-score .num { font-size:42px; font-weight:800; line-height:1; background:linear-gradient(135deg,var(--accent),var(--accent2));
+            -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+          .au-score .lbl { font-size:12px; color:var(--text3); }
+          .au-fix { display:flex; gap:10px; background:var(--surface2); border:1px solid var(--border); border-radius:11px; padding:11px 13px; margin-top:8px; }
+          .au-fix .n { width:22px; height:22px; border-radius:7px; background:var(--accent); color:#fff; font-size:11px; font-weight:800;
+            display:grid; place-items:center; flex:none; }
+          .au-fix .w { font-size:13.5px; font-weight:700; }
+          .au-fix .y { font-size:12.5px; color:var(--text3); margin-top:2px; }
+        </style>
+        <div class="screen" id="audit">
+          <div class="card">
+            <div class="on-hero">
+              <img src="assets/octo_search.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <div>
+                <div class="card-title" style="margin:0;">🔍 Розбір твого контенту</div>
+                <div class="card-sub" style="margin:0;">Завантаж кілька постів або скрін профілю — Octo чесно покаже, де ти втрачаєш клієнтів і що виправити.</div>
+              </div>
+            </div>
+            <input type="file" id="auFiles" accept="image/*" multiple style="display:none" onchange="octoAuditFiles(event)">
+            <div class="au-drop" onclick="document.getElementById('auFiles').click()">
+              <div class="ai">📷</div>
+              <div style="font-weight:700;margin-top:6px;">Обрати фото / скріни</div>
+              <div style="font-size:12px;color:var(--text4);margin-top:2px;">до 6 зображень · пости, профіль, креативи</div>
+            </div>
+            <div class="au-thumbs" id="auThumbs"></div>
+            <button class="btn btn-primary" id="auBtn" style="width:100%;margin-top:14px;display:none;" onclick="octoAuditRun()">🔍 Розібрати мій контент</button>
+            <div class="ob-status" id="auStatus"></div>
+          </div>
+          <div id="auResult"></div>
+        </div>
+
         <!-- ═══ КАМПАНІЯ (goal-first flow, Phase A) ═══ -->
         <style>
           .oc-steps { display:flex; align-items:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
@@ -3560,6 +3603,7 @@
     strategy:  ['screen_strategy',  'screen_strategy_sub'],
     campaign:  ['screen_campaign',  'screen_campaign_sub'],
     onboard:   ['screen_onboard',   'screen_onboard_sub'],
+    audit:     ['screen_audit',     'screen_audit_sub'],
     analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
     video:     ['screen_video',     'screen_video_sub'],
     photo:     ['screen_photo',     'screen_photo_sub'],
@@ -4199,6 +4243,7 @@
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
       screen_campaign:'Создать кампанию 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
       screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
+      screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 из 5 кредитов использовано',
       // ── Topbar screen titles ──
@@ -4282,6 +4327,7 @@
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
       screen_campaign:'Створити кампанію 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
       screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
+      screen_audit:'Розбір контенту 🔍', screen_audit_sub:'Завантаж пости — Octo покаже слабкі місця і що виправити',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Безкоштовний план', plan_credits:'3 з 5 кредитів використано',
       // ── Topbar screen titles ──
@@ -4365,6 +4411,7 @@
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
       screen_campaign:'New campaign 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
       screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
+      screen_audit:'Content audit 🔍', screen_audit_sub:'Upload posts — Octo shows weak spots and what to fix',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
       plan_free_label:'Free Plan', plan_credits:'3 of 5 credits used',
       // ── Topbar screen titles ──
@@ -12254,6 +12301,114 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   </div>
 </div>
 
+<!-- ═══ РОЗБІР КОНТЕНТУ — Vision audit logic ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var images = []; // { media_type, data(base64), thumb }
+
+  function deviceId() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function chips(a, cls) { return (a && a.length) ? '<div class="ob-chips">' + a.map(function (x) { return '<span class="ob-chip ' + (cls || '') + '">' + esc(x) + '</span>'; }).join('') + '</div>' : ''; }
+  function bizProfile() {
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get(), o = {};
+      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
+      return o;
+    }
+    return {};
+  }
+  function status(kind, msg) {
+    var el = $('auStatus'); if (!el) return;
+    if (!msg) { el.className = 'ob-status'; el.textContent = ''; return; }
+    el.className = 'ob-status ob-' + kind;
+    el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + esc(msg);
+  }
+
+  // Downscale to max 1024px longest side → JPEG base64 (controls payload + tokens).
+  function fileToImage(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var max = 1024, w = img.width, h = img.height;
+          if (w > max || h > max) { var r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          var url = c.toDataURL('image/jpeg', 0.85);
+          resolve({ media_type: 'image/jpeg', data: url.split(',')[1], thumb: url });
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderThumbs() {
+    $('auThumbs').innerHTML = images.map(function (im, i) {
+      return '<div class="au-thumb"><img src="' + im.thumb + '"><button class="x" data-i="' + i + '">✕</button></div>';
+    }).join('');
+    $('auThumbs').querySelectorAll('.x').forEach(function (b) {
+      b.onclick = function () { images.splice(Number(b.dataset.i), 1); renderThumbs(); $('auBtn').style.display = images.length ? '' : 'none'; };
+    });
+    $('auBtn').style.display = images.length ? '' : 'none';
+  }
+
+  window.octoAuditFiles = function (ev) {
+    var files = Array.prototype.slice.call(ev.target.files || []).slice(0, 6 - images.length);
+    Promise.all(files.map(fileToImage)).then(function (imgs) {
+      images = images.concat(imgs).slice(0, 6);
+      renderThumbs();
+    }).catch(function () { status('err', 'Не вдалося прочитати зображення.'); });
+    ev.target.value = '';
+  };
+
+  function renderAudit(a) {
+    var fixes = (a.fixes || []).map(function (f, i) {
+      return '<div class="au-fix"><span class="n">' + (i + 1) + '</span><div><div class="w">' + esc(f.what) + '</div><div class="y">' + esc(f.why) + '</div></div></div>';
+    }).join('');
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML =
+      '<div class="ob-rc-head"><div class="ob-ico">🔍</div><div><div class="card-title" style="margin:0;">Розбір контенту</div>' +
+      '<div class="card-sub" style="margin:0;">чесно, під твій бізнес</div></div></div>' +
+      (typeof a.score === 'number' ? '<div class="au-score"><div class="num">' + Math.round(a.score) + '</div><div><div style="font-weight:700;">/ 100</div><div class="lbl">оцінка контенту</div></div></div>' : '') +
+      '<p style="color:var(--text2);font-size:14px;margin-top:6px;">' + esc(a.summary) + '</p>' +
+      (a.strengths && a.strengths.length ? '<div class="ob-sec">Що працює</div>' + chips(a.strengths, 'good') : '') +
+      (a.weaknesses && a.weaknesses.length ? '<div class="ob-sec">Слабкі місця</div>' + chips(a.weaknesses, 'warn') : '') +
+      (fixes ? '<div class="ob-sec">Що виправити</div>' + fixes : '') +
+      '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showScreen(\'campaign\',null)">🎯 Створити кампанію з урахуванням цього →</button>';
+    $('auResult').innerHTML = '';
+    $('auResult').appendChild(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  window.octoAuditRun = function () {
+    if (!images.length) return;
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
+    var btn = $('auBtn'); btn.disabled = true;
+    status('busy', 'Octo уважно дивиться твій контент…');
+    fetch('/api/marketing/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify({ profile: bizProfile(), images: images.map(function (im) { return { media_type: im.media_type, data: im.data }; }) }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) { status('', ''); renderAudit(d.audit); if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer'); })
+      .catch(function (e) { status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message); })
+      .finally(function () { btn.disabled = false; });
+  };
+})();
+</script>
+
 <!-- ═══ ЗНАЙОМСТВО + профіль бізнесу (пам'ять) ═══ -->
 <script>
 (function () {
@@ -12345,8 +12500,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);">' +
       '<div class="on-hero"><img src="assets/octo_happy.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
       '<div><div class="card-title" style="margin:0;">✅ Octo тебе знає!</div>' +
-      '<div class="card-sub" style="margin:0;">Тепер можна створювати кампанії — Octo вже враховує твій бізнес.</div></div></div>' +
-      '<button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen(\'campaign\',null)">🎯 Створити кампанію →</button></div>';
+      '<div class="card-sub" style="margin:0;">Далі — покажу, де у твоєму контенті слабкі місця, або одразу зробимо кампанію.</div></div></div>' +
+      '<button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen(\'audit\',null)">🔍 Розбери мій контент →</button>' +
+      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'campaign\',null)">🎯 Одразу створити кампанію</button></div>';
   }
 
   async function run(text, isFollow) {

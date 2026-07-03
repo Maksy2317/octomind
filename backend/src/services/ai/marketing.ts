@@ -77,6 +77,32 @@ async function jsonCall<T>(system: string, user: string, maxTokens = 4096): Prom
   return parseJsonLoose<T>(text);
 }
 
+export interface AuditImage { media_type: string; data: string }
+
+/** Vision variant — same JSON discipline, with images attached to the user turn. */
+async function jsonCallVision<T>(system: string, user: string, images: AuditImage[], maxTokens = 2500): Promise<T> {
+  if (!isMarketingConfigured()) throw new Error('AI not configured');
+  // Typed loosely: the 0.27 SDK doesn't export ContentBlockParam.
+  const content: Anthropic.MessageParam['content'] = [
+    ...images.map((im) => ({
+      type: 'image' as const,
+      source: { type: 'base64' as const, media_type: im.media_type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: im.data },
+    })),
+    { type: 'text' as const, text: user },
+  ];
+  const res = await client.messages.create({
+    model: MARKETING_MODEL,
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: 'user', content }],
+  });
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+  return parseJsonLoose<T>(text);
+}
+
 const LANG_RULE =
   'Мова відповіді: українська за замовчуванням; якщо бізнес-профіль заповнено англійською — відповідай англійською. ' +
   'Пиши конкретно і по суті, як практикуючий маркетолог, без загальних фраз. ' +
@@ -172,6 +198,35 @@ export function extractBusinessProfile(
     (known && Object.keys(known).length ? `Вже відомо: ${JSON.stringify(known)}\n\n` : '') +
     `Людина розповіла:\n${userText}\n\nОнови профіль.`;
   return jsonCall<ProfileExtraction>(system, user, 1500);
+}
+
+// ── Content audit (Claude Vision — analyse the client's OWN content) ──────────
+// User uploads screenshots of their profile / posts. We give an honest, specific
+// audit of THEIR content tied to their business: what works, what's weak, and
+// concrete fixes. This is the "we actually help you" moment.
+
+export interface ContentAudit {
+  summary: string;                            // загальне враження
+  score: number;                              // 0-100 (умовна оцінка контенту)
+  strengths: string[];                        // що працює
+  weaknesses: string[];                       // конкретні слабкі місця
+  fixes: Array<{ what: string; why: string }>; // що виправити і чому
+}
+
+export function auditContent(profileCtx: string, images: AuditImage[]): Promise<ContentAudit> {
+  const system =
+    'Ти — старший маркетолог, який робить ЧЕСНИЙ аудит контенту клієнта (на зображеннях — його ' +
+    'власні пости / профіль / креативи). Не хвали заради ввічливості — знаходь конкретні слабкі місця ' +
+    'і давай точні, здійсненні поради, ПРИВ’ЯЗАНІ до того, що реально видно на зображеннях. ' +
+    'Оцінюй під бізнес клієнта. ' +
+    LANG_RULE +
+    ' Схема JSON: {"summary": string, "score": number (0-100), "strengths": string[], ' +
+    '"weaknesses": string[], "fixes": [{"what": string, "why": string}]}. ' +
+    'weaknesses і fixes — найважливіше: 3-6 пунктів, конкретно про ЦЕЙ контент, не загально.';
+  const user =
+    `Дані про бізнес:\n${profileCtx}\n\nНа зображеннях — контент цього клієнта. ` +
+    'Зроби чесний аудит: що працює, що слабко, що саме виправити.';
+  return jsonCallVision<ContentAudit>(system, user, images);
 }
 
 // ── Campaign strategy (goal-first — the v2 concept) ───────────────────────────
