@@ -2170,6 +2170,7 @@
             </div>
             <div class="ob-status" id="tfStatus"></div>
           </div>
+          <div id="tfToday"></div>
           <div id="tfFeed"></div>
         </div>
 
@@ -13518,6 +13519,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
     var actions = '<div class="card"><div class="card-title" style="margin-bottom:12px;">Швидкі дії</div>'
       + '<div class="oc-goal-grid">'
+      + '<button class="oc-goal" onclick="showScreen(\'trends\',null)"><span class="ic">🔥</span><span class="t">Тренди</span><span class="s">що залітає + що постити сьогодні</span></button>'
       + '<button class="oc-goal" onclick="showScreen(\'campaign\',null)"><span class="ic">🎯</span><span class="t">Просування</span><span class="s">ціль → стратегія → матеріали</span></button>'
       + '<button class="oc-goal" onclick="showScreen(\'research\',null)"><span class="ic">🔎</span><span class="t">Дослідження ринку</span><span class="s">що працює в ніші</span></button>'
       + '<button class="oc-goal" onclick="showScreen(\'audit\',null)"><span class="ic">🔍</span><span class="t">Розбір контенту</span><span class="s">слабкі місця + фікси</span></button>'
@@ -13568,6 +13570,88 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   var FREE_VISIBLE = 3;      // freemium: first N videos fully open on the free plan
   var all = [];              // last fetched batch
+  var anMap = {};            // videoId → analysis (for «Зберегти в кампанію»)
+  var lastQuery = '';
+
+  function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function rid() { return 'tf' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36); }
+
+  // ── «Що запостити сьогодні» — Octo's daily pick, cached per day+niche ───────
+  function todayKey(q) {
+    var d = new Date();
+    var day = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    return 'octo_tf_today_' + wsId() + '_' + day + '_' + q.toLowerCase();
+  }
+
+  function adaptHtml(a, vid) {
+    return '<div style="margin-top:6px;">' + esc(a.adapt.idea) + '</div>'
+      + '<div style="margin-top:6px;"><b>🪝 Хук:</b> ' + esc(a.adapt.hook) + '</div>'
+      + '<ol style="margin:8px 0 0 18px;padding:0;">' + (a.adapt.script || []).map(function (s) { return '<li style="margin-bottom:4px;">' + esc(s) + '</li>'; }).join('') + '</ol>'
+      + (a.adapt.caption ? '<div style="margin-top:8px;"><b>Підпис:</b> ' + esc(a.adapt.caption) + '</div>' : '')
+      + '<button class="btn btn-primary" style="margin-top:12px;padding:8px 16px;font-size:13px;" onclick="octoTfSave(\'' + vid + '\')">💾 Зберегти в кампанію</button>'
+      + '<span class="tf-savedmsg" id="tfSaved-' + vid + '" style="margin-left:10px;font-size:12.5px;color:var(--green);"></span>';
+  }
+
+  function renderToday(q) {
+    var box = $('tfToday'); if (!box || !all.length) return;
+    // freshest hit: top views among the last 30 days, else overall top
+    var recent = all.filter(function (v) { return v.created && (Date.now() - new Date(v.created).getTime()) < 30 * 86400000; });
+    var pick = (recent.length ? recent : all).slice().sort(function (a, b) { return b.views - a.views; })[0];
+    if (!pick) return;
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem(todayKey(q)) || 'null'); } catch (e) {}
+
+    function paint(a) {
+      anMap[pick.id] = a;
+      box.innerHTML = '<div class="card ob-res" style="border-color:rgba(108,99,255,.4);background:linear-gradient(135deg,rgba(108,99,255,.10),transparent);">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+        + '<img src="assets/octo_idea.png" style="width:38px;height:38px;object-fit:contain;flex:none;">'
+        + '<div><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;">Octo радить</div>'
+        + '<div class="card-title" style="margin:0;">📅 Що запостити сьогодні</div></div></div>'
+        + '<div style="font-size:12px;color:var(--text4);margin-bottom:6px;">На основі ролика з ' + fmt(pick.views) + ' переглядів (' + (pick.created ? fmtDate(pick.created) : '') + ') · <a href="' + esc(pick.url) + '" target="_blank" rel="noopener" style="color:var(--accent2);">оригінал</a></div>'
+        + '<div style="font-size:13.5px;">' + adaptHtml(a, pick.id) + '</div>'
+        + '</div>';
+    }
+
+    if (cached && cached.videoId === pick.id && cached.analysis) { paint(cached.analysis); return; }
+    box.innerHTML = '<div class="card"><div class="ob-status ob-busy" style="display:flex;"><span class="ob-spin"></span> Octo готує ідею поста на сьогодні…</div></div>';
+    fetch('/api/trends/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify({ video: pick, profile: bizProfile() }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        try { localStorage.setItem(todayKey(q), JSON.stringify({ videoId: pick.id, analysis: d.analysis })); } catch (e) {}
+        paint(d.analysis);
+      })
+      .catch(function () { box.innerHTML = ''; });
+  }
+
+  // ── Save an adapted idea into «Мої кампанії» ────────────────────────────────
+  window.octoTfSave = function (videoId) {
+    var a = anMap[videoId]; if (!a || !window.octoCampaigns) return;
+    var v = null; all.forEach(function (x) { if (x.id === videoId) v = x; });
+    var material = {
+      title: 'Ідея з тренду',
+      summary: a.adapt.idea,
+      items: [{ label: '🪝 Хук', text: a.adapt.hook }].concat(
+        (a.adapt.script || []).map(function (s, i) { return { label: 'Кадр ' + (i + 1), text: s }; })),
+      cta: a.adapt.caption || '',
+    };
+    // Attach to the latest campaign, or open a dedicated «Ідеї з трендів» one.
+    var list = window.octoCampaigns.all();
+    var c = list.filter(function (x) { return x.name === 'Ідеї з трендів'; })[0] || list[0];
+    if (!c) {
+      c = { id: rid(), name: 'Ідеї з трендів', goal: 'Контент із трендів', details: '',
+        strategy: null, materials: [], status: 'active', createdAt: Date.now(), updatedAt: Date.now() };
+    }
+    c.materials.push({ id: rid(), type: 'trend_idea', title: 'Ідея з тренду' + (v ? ' (' + fmt(v.views) + ' переглядів)' : ''), output: material, createdAt: Date.now() });
+    c.updatedAt = Date.now();
+    window.octoCampaigns.upsert(c);
+    var m = $('tfSaved-' + videoId);
+    if (m) m.innerHTML = '✅ У «' + esc(c.name) + '» — <a href="#" style="color:var(--accent2);" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\');return false;">відкрити</a>';
+    if (window.renderDashV2) window.renderDashV2();
+  };
 
   function status(kind, msg) {
     var el = $('tfStatus'); if (!el) return;
@@ -13588,6 +13672,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (d) {
         all = d.videos || [];
+        lastQuery = q;
         if (btn) btn.disabled = false;
         status(null, '');
         // language filter options from the batch
@@ -13595,6 +13680,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         $('tfLang').innerHTML = '<option value="all">Мова: всі</option>' + Object.keys(langs).sort().map(function (l) { return '<option value="' + esc(l) + '">' + esc(l) + '</option>'; }).join('');
         $('tfFilters').style.display = all.length ? 'flex' : 'none';
         window.octoTrendsRender();
+        renderToday(q);   // Octo's «що запостити сьогодні» pick
       })
       .catch(function (e) {
         if (btn) btn.disabled = false;
@@ -13658,6 +13744,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (d) {
         var a = d.analysis;
+        anMap[v.id] = a;
         btn.style.display = 'none';
         $('tfAn' + i).innerHTML = '<div class="tf-an">'
           + '<div style="font-weight:800;">Чому залетів</div><ul>' + (a.why_viral || []).map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>'
@@ -13666,10 +13753,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           + '<div style="margin-top:4px;"><b>👉 CTA:</b> ' + esc(a.cta) + '</div>'
           + (a.score_notes ? '<div style="margin-top:4px;color:var(--text3);font-size:12.5px;">📊 ' + esc(a.score_notes) + '</div>' : '')
           + '<div class="tf-adapt"><div style="font-weight:800;color:var(--accent2);">🐙 Як це зробити ТОБІ</div>'
-          + '<div style="margin-top:6px;">' + esc(a.adapt.idea) + '</div>'
-          + '<div style="margin-top:6px;"><b>Хук:</b> ' + esc(a.adapt.hook) + '</div>'
-          + '<ol style="margin:8px 0 0 18px;padding:0;">' + (a.adapt.script || []).map(function (s) { return '<li style="margin-bottom:4px;">' + esc(s) + '</li>'; }).join('') + '</ol>'
-          + (a.adapt.caption ? '<div style="margin-top:8px;"><b>Підпис:</b> ' + esc(a.adapt.caption) + '</div>' : '')
+          + adaptHtml(a, v.id)
           + (a.adapt.why_fits ? '<div style="margin-top:6px;font-size:12.5px;color:var(--text3);"><b>Чому спрацює у тебе:</b> ' + esc(a.adapt.why_fits) + '</div>' : '')
           + '</div></div>';
       })
@@ -13679,7 +13763,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       });
   }
 
-  // Prefill the query from the business profile when entering the screen.
+  // Octo already knows the business → the feed loads itself on entry
+  // (server cache makes repeat visits instant). The search stays for
+  // exploring other niches.
   var _os = window.showScreen;
   if (typeof _os === 'function') {
     window.showScreen = function (id, nav) {
@@ -13690,6 +13776,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           var b = window.octoBiz && window.octoBiz.get && window.octoBiz.get();
           if (b && b.niche) q.value = b.niche;
         }
+        if (q && q.value && !all.length) window.octoTrendsRun();
       }
     };
   }
