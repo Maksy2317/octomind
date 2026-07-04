@@ -8,7 +8,7 @@ import { optionalIdentity } from '../middleware/identity';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import { getTrendFeed, isTrendsConfigured } from '../services/trends';
-import { analyzeViralVideo, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
+import { analyzeViralVideo, generateTrendQueries, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
 
 export const trendsRouter = Router();
 
@@ -24,8 +24,11 @@ async function resolveCtx(req: Request): Promise<{ ctx: string; profileId: strin
   return { ctx: profileToContext(req.body?.profile || null), profileId: null };
 }
 
-// POST /api/trends/feed  — { query: string, force?: boolean }
-// Returns the cached-or-fresh viral batch for the niche keywords.
+// POST /api/trends/feed  — { query: string, intent?: 'selling'|'expert'|'fun'|'raw', force?, profile? }
+// The marketing move happens BEFORE the scrape: a raw niche word in TikTok
+// search returns whatever is loudest (memes). So unless intent is 'raw',
+// Octo first crafts 3 targeted queries for the user's intent, then scrapes
+// them all in one actor run. Falls back to the raw word if the AI step fails.
 trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunction) => {
   if (!isTrendsConfigured()) {
     res.status(503).json({ error: 'Стрічка трендів не налаштована (APIFY_TOKEN відсутній)' });
@@ -38,8 +41,23 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
   }
   try {
     const force = req.body?.force === true;
-    const feed = await getTrendFeed(query, force);
-    res.json(feed);
+    const intent = typeof req.body?.intent === 'string' ? req.body.intent : 'selling';
+
+    let queries: string[] = [query];
+    if (intent !== 'raw' && isMarketingConfigured()) {
+      try {
+        const { ctx } = await resolveCtx(req);
+        const expanded = await generateTrendQueries(ctx, query, intent);
+        if (Array.isArray(expanded.queries) && expanded.queries.length) {
+          queries = expanded.queries.map((q) => String(q).slice(0, 60)).slice(0, 3);
+        }
+      } catch (e) {
+        console.warn('[Trends] Query expansion failed, using raw query:', (e as Error).message?.slice(0, 120));
+      }
+    }
+
+    const feed = await getTrendFeed(queries, force);
+    res.json({ ...feed, queries });
   } catch (err) {
     next(err);
   }

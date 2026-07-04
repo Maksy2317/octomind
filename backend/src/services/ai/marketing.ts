@@ -421,6 +421,33 @@ export function generateMaterial(
   return jsonCall<GeneratedMaterial>(system, user, 2500);
 }
 
+// ── Trend search queries (the marketer decides WHAT to search) ────────────────
+// A raw niche word fed into TikTok search returns whatever is loudest — usually
+// memes. Octo instead crafts targeted queries for the user's INTENT (how do
+// peers sell / expert content / fun), so the feed matches what they came for.
+const TREND_INTENTS: Record<string, string> = {
+  selling: 'відео, де представники цієї ніші ПРОДАЮТЬ: презентації товару/послуги/обʼєкта, огляди й тури, до/після, кейси клієнтів, оффери, заклики записатись/купити',
+  expert: 'експертний контент ніші: поради, лайфхаки, розбори помилок, «що треба знати перед...», відповіді на питання клієнтів',
+  fun: 'розважальний і мемний контент ніші: гумор, скетчі, тренди, ситуації з клієнтами',
+};
+
+export function generateTrendQueries(
+  profileCtx: string,
+  topic: string,
+  intent: string,
+): Promise<{ queries: string[] }> {
+  const goal = TREND_INTENTS[intent] || TREND_INTENTS.selling;
+  const system =
+    'Ти — SMM-дослідник. Придумай 3 короткі пошукові запити для пошуку відео в TikTok. ' +
+    `Мета: знайти ${goal}. ` +
+    'ВАЖЛИВО: запити мають бути про ВКАЗАНУ НІШУ/ТЕМУ (це те, що користувач явно попросив). ' +
+    'Контекст бізнесу використовуй лише як підказку про географію та мову — НЕ підміняй ним тему. ' +
+    'Запити — мовою, якою такий контент реально публікують (для укр/рос ринку можеш дати запити обома мовами; для широких тем — англійською теж). ' +
+    '2-4 слова кожен, БЕЗ хештегів і лапок. Поверни ЛИШЕ JSON: {"queries":["...","...","..."]}.';
+  const user = `НІША/ТЕМА (шукаємо саме про це): ${topic}\n\nКонтекст бізнесу (лише гео/мова):\n${profileCtx}`;
+  return jsonCall<{ queries: string[] }>(system, user, 300);
+}
+
 // ── Viral video analysis (trend feed: «чому залетів» + adaptation) ────────────
 // Input is the video's metadata (caption, metrics, duration, hashtags) — we
 // never download the video itself. The breakdown explains the mechanics

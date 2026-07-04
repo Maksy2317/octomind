@@ -99,15 +99,21 @@ function normalize(v: Record<string, any>): TrendVideo | null {
 }
 
 /**
- * Fetch the trend feed for a search query (niche keywords). Cached on disk.
+ * Fetch the trend feed for one or more search queries (the scraper accepts
+ * several natively — one run, one bill). Cached on disk per query-set.
  * `force` bypasses the cache (used by an explicit refresh, rate-limit upstream).
  */
-export async function getTrendFeed(query: string, force = false): Promise<{
+export async function getTrendFeed(queries: string | string[], force = false): Promise<{
   videos: TrendVideo[];
   fetchedAt: number;
   fromCache: boolean;
 }> {
-  const key = `tiktok:${query.trim().toLowerCase()}`;
+  const list = (Array.isArray(queries) ? queries : [queries])
+    .map((q) => q.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  if (!list.length) throw new Error('No search queries');
+  const key = `tiktok:${list.map((q) => q.toLowerCase()).sort().join('|')}`;
   if (!force) {
     const hit = readCache(key);
     if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) {
@@ -116,8 +122,9 @@ export async function getTrendFeed(query: string, force = false): Promise<{
   }
 
   const input = {
-    searchQueries: [query],
-    resultsPerPage: RESULTS_PER_QUERY,
+    searchQueries: list,
+    // Keep total volume (and cost) roughly constant however many queries run.
+    resultsPerPage: Math.max(10, Math.ceil(RESULTS_PER_QUERY / list.length)),
     searchSection: '/video',
     maxProfilesPerQuery: 1,
   };
@@ -140,9 +147,12 @@ export async function getTrendFeed(query: string, force = false): Promise<{
     throw new Error(`Apify ${res.status}: ${body.slice(0, 200)}`);
   }
   const items = (await res.json()) as Array<Record<string, any>>;
+  const seen = new Set<string>();
   const videos = (Array.isArray(items) ? items : [])
     .map(normalize)
     .filter((v): v is TrendVideo => Boolean(v))
+    // several queries can surface the same video — dedup by id
+    .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
     .sort((a, b) => b.views - a.views);
   writeCache(key, videos);
   return { videos, fetchedAt: Date.now(), fromCache: false };

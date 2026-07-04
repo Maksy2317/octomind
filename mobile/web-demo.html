@@ -2124,6 +2124,9 @@
         <!-- ═══ ТРЕНДИ (viral feed: real TikTok data + AI breakdown) ═══ -->
         <div class="screen" id="trends">
           <style>
+            .tf-intent { background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+              border-radius:20px; padding:7px 13px; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+            .tf-intent.active { background:rgba(108,99,255,.18); border-color:var(--accent); color:var(--text); }
             .tf-filters { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
             .tf-filters select { background:var(--surface2); border:1px solid var(--border); color:var(--text);
               border-radius:10px; padding:8px 10px; font:inherit; font-size:12.5px; outline:none; }
@@ -2150,10 +2153,17 @@
                 <div class="card-sub" style="margin:0;">Реальні вірусні ролики у твоїй ніші — з переглядами й датами. Octo розбере, чому залетіло, і адаптує під тебе.</div>
               </div>
             </div>
-            <div style="display:flex;gap:8px;margin-top:12px;">
+            <div id="tfIntents" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
+              <button class="tf-intent active" data-intent="selling" onclick="octoTrendsIntent(this)">📈 Як продають</button>
+              <button class="tf-intent" data-intent="expert" onclick="octoTrendsIntent(this)">🎓 Експертний контент</button>
+              <button class="tf-intent" data-intent="fun" onclick="octoTrendsIntent(this)">😂 Меми й розваги</button>
+              <button class="tf-intent" data-intent="raw" onclick="octoTrendsIntent(this)">🔍 Просто за словом</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
               <input id="tfQuery" class="ob-input" style="margin-top:0;flex:1;" placeholder="Ніша або ключові слова, напр.: барбершоп">
               <button class="btn btn-primary" id="tfBtn" style="padding:10px 16px;white-space:nowrap;flex:none;" onclick="octoTrendsRun()">Знайти</button>
             </div>
+            <div id="tfQueriesUsed" style="display:none;font-size:12px;color:var(--text4);margin-top:8px;"></div>
             <div class="tf-filters" id="tfFilters" style="display:none;">
               <select id="tfViews" onchange="octoTrendsRender()">
                 <option value="0">Перегляди: всі</option><option value="100000">100K+</option>
@@ -13660,19 +13670,32 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + esc(msg);
   }
 
+  var curIntent = 'selling';
+  window.octoTrendsIntent = function (btn) {
+    document.querySelectorAll('.tf-intent').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    curIntent = btn.dataset.intent;
+    if (($('tfQuery').value || '').trim()) window.octoTrendsRun();   // re-search with the new intent
+  };
+
   window.octoTrendsRun = function () {
     var q = ($('tfQuery').value || '').trim();
     if (!q) { status('err', 'Напиши нішу або ключові слова.'); return; }
     var btn = $('tfBtn'); if (btn) btn.disabled = true;
-    status('busy', 'Octo збирає вірусні ролики (10-30 сек)…');
+    status('busy', curIntent === 'raw' ? 'Octo збирає вірусні ролики (10-30 сек)…' : 'Octo придумує, що шукати, і збирає ролики (15-40 сек)…');
+    var qu = $('tfQueriesUsed'); if (qu) qu.style.display = 'none';
     fetch('/api/trends/feed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
-      body: JSON.stringify({ query: q }),
+      body: JSON.stringify({ query: q, intent: curIntent, profile: bizProfile() }),
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (d) {
         all = d.videos || [];
-        lastQuery = q;
+        lastQuery = q + ':' + curIntent;
+        if (qu && d.queries && d.queries.length > 1) {
+          qu.style.display = '';
+          qu.innerHTML = '🐙 Octo шукав: ' + d.queries.map(function (x) { return '<b>' + esc(x) + '</b>'; }).join(' · ');
+        }
         if (btn) btn.disabled = false;
         status(null, '');
         // language filter options from the batch
@@ -13680,7 +13703,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         $('tfLang').innerHTML = '<option value="all">Мова: всі</option>' + Object.keys(langs).sort().map(function (l) { return '<option value="' + esc(l) + '">' + esc(l) + '</option>'; }).join('');
         $('tfFilters').style.display = all.length ? 'flex' : 'none';
         window.octoTrendsRender();
-        renderToday(q);   // Octo's «що запостити сьогодні» pick
+        renderToday(lastQuery);   // Octo's «що запостити сьогодні» pick (keyed by query+intent)
       })
       .catch(function (e) {
         if (btn) btn.disabled = false;
