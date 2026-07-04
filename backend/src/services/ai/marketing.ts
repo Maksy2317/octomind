@@ -421,6 +421,43 @@ export function generateMaterial(
   return jsonCall<GeneratedMaterial>(system, user, 2500);
 }
 
+// ── Own-page audit (real metrics, not screenshots) ────────────────────────────
+// The user's OWN latest videos with views/likes/dates go in; out comes an
+// honest read: what works for THEM specifically, what flops, and what to make
+// next. This is the data-driven upgrade of the screenshot audit.
+export interface PageAudit {
+  summary: string;          // 2-3 речення чесного висновку
+  score: number;            // 0-100 — наскільки контент працює на бізнес-ціль
+  what_works: string[];     // патерни, які реально заходять (з цифр)
+  weak_spots: string[];     // що просідає і чому
+  top_videos: Array<{ text: string; views: number; why: string }>;  // до 3
+  fixes: Array<{ what: string; why: string }>;
+  next_ideas: Array<{ idea: string; hook: string }>;  // 3 ідеї в стилі того, що працює
+}
+
+export function auditOwnPage(
+  profileCtx: string,
+  author: Record<string, unknown> | null,
+  videos: Array<Record<string, unknown>>,
+): Promise<PageAudit> {
+  const system =
+    'Ти — аналітик контенту й маркетолог. Тобі дають ОСТАННІ ролики сторінки бізнесу з реальними метриками ' +
+    '(перегляди, лайки, коментарі, шери, дати, тривалість). Зроби чесний розбір САМЕ ЦІЄЇ сторінки: ' +
+    'знайди патерни у цифрах (які формати/теми/хуки заходять, які провалюються, стабільність виходу постів), ' +
+    'без загальних порад — усе з доказами з даних. score: 0-100, чесно. ' +
+    'next_ideas — 3 ідеї наступних роликів, що підсилюють те, що ВЖЕ працює в цієї сторінки. ' +
+    LANG_RULE +
+    ' Пиши стисло: кожен пункт 1-2 речення. ' +
+    'Схема JSON: {"summary":str,"score":num,"what_works":[str],"weak_spots":[str],' +
+    '"top_videos":[{"text":str,"views":num,"why":str}],"fixes":[{"what":str,"why":str}],' +
+    '"next_ideas":[{"idea":str,"hook":str}]}. Максимум 4 what_works, 3 weak_spots, 3 top_videos, 3 fixes, 3 next_ideas.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\n` +
+    (author ? `Сторінка: ${JSON.stringify(author)}\n\n` : '') +
+    `Останні ролики (${videos.length}):\n${JSON.stringify(videos.slice(0, 15))}\n\nЗроби розбір.`;
+  return jsonCall<PageAudit>(system, user, 3500);
+}
+
 // ── Trend search queries (the marketer decides WHAT to search) ────────────────
 // A raw niche word fed into TikTok search returns whatever is loudest — usually
 // memes. Octo instead crafts targeted queries for the user's INTENT (how do

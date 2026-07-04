@@ -7,8 +7,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { optionalIdentity } from '../middleware/identity';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
-import { getTrendFeed, isTrendsConfigured } from '../services/trends';
-import { analyzeViralVideo, generateTrendQueries, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
+import { getTrendFeed, getProfileVideos, isTrendsConfigured } from '../services/trends';
+import { analyzeViralVideo, generateTrendQueries, auditOwnPage, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
 
 export const trendsRouter = Router();
 
@@ -58,6 +58,53 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
 
     const feed = await getTrendFeed(queries, force);
     res.json({ ...feed, queries });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/trends/page-audit  — { handle: "@нік" | url, profile? }
+// The user's OWN page: scrape latest videos with real metrics → honest AI
+// breakdown (what works for THEM, what flops, what to make next).
+trendsRouter.post('/page-audit', async (req: Request, res: Response, next: NextFunction) => {
+  if (!isTrendsConfigured()) {
+    res.status(503).json({ error: 'Аналіз сторінки не налаштований (APIFY_TOKEN відсутній)' });
+    return;
+  }
+  if (!isMarketingConfigured()) {
+    res.status(503).json({ error: 'AI не налаштований (ANTHROPIC_API_KEY відсутній)' });
+    return;
+  }
+  const handle = typeof req.body?.handle === 'string' ? req.body.handle.trim().slice(0, 120) : '';
+  if (!handle) {
+    res.status(400).json({ error: 'Вкажи @нік сторінки TikTok' });
+    return;
+  }
+  try {
+    const page = await getProfileVideos(handle);
+    if (!page.videos.length) {
+      res.status(404).json({ error: 'Не знайшов роликів на цій сторінці — перевір нік (без пробілів, як у TikTok)' });
+      return;
+    }
+    const { ctx, profileId } = await resolveCtx(req);
+    // Strip to analysis-relevant fields (CDN urls just waste tokens).
+    const slim = page.videos.map((v) => ({
+      text: v.text.slice(0, 200), views: v.views, likes: v.likes, comments: v.comments,
+      shares: v.shares, created: v.created, duration: v.duration, hashtags: v.hashtags,
+    }));
+    const audit = await auditOwnPage(ctx, page.author as unknown as Record<string, unknown>, slim);
+    if (req.userId) {
+      try {
+        await createGeneration({
+          userId: req.userId,
+          businessProfileId: profileId,
+          type: 'page_audit',
+          input: { handle, author: page.author } as unknown as Record<string, unknown>,
+          output: audit as unknown as Record<string, unknown>,
+        });
+      } catch { /* non-fatal */ }
+    }
+    res.json({ audit, author: page.author, videos: page.videos, fromCache: page.fromCache });
   } catch (err) {
     next(err);
   }

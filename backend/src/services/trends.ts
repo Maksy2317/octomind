@@ -98,6 +98,65 @@ function normalize(v: Record<string, any>): TrendVideo | null {
   };
 }
 
+/** Author stats extracted from the profile scrape (for the page audit). */
+export interface PageAuthor {
+  handle: string;
+  name: string | null;
+  followers: number;
+  total_likes: number;
+  bio: string | null;
+}
+
+/**
+ * Fetch a TikTok profile's latest videos (the user's OWN page) for the
+ * content audit. Same actor, `profiles` input instead of search. Cached.
+ */
+export async function getProfileVideos(handle: string, force = false): Promise<{
+  videos: TrendVideo[];
+  author: PageAuthor | null;
+  fetchedAt: number;
+  fromCache: boolean;
+}> {
+  const clean = handle.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/i, '').split(/[/?]/)[0];
+  if (!clean) throw new Error('Порожній нік');
+  const key = `tiktok-profile:${clean.toLowerCase()}`;
+  if (!force) {
+    const hit = readCache(key) as any;
+    if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) {
+      return { videos: hit.videos, author: hit.author ?? null, fetchedAt: hit.fetchedAt, fromCache: true };
+    }
+  }
+
+  const input = { profiles: [clean], resultsPerPage: 20, profileSorting: 'latest' };
+  const res = await fetch(
+    `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) },
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    const stale = readCache(key) as any;
+    if (stale) return { videos: stale.videos, author: stale.author ?? null, fetchedAt: stale.fetchedAt, fromCache: true };
+    throw new Error(`Apify ${res.status}: ${body.slice(0, 200)}`);
+  }
+  const items = (await res.json()) as Array<Record<string, any>>;
+  const videos = (Array.isArray(items) ? items : [])
+    .map(normalize)
+    .filter((v): v is TrendVideo => Boolean(v))
+    .sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+  const am = (Array.isArray(items) && items[0]?.authorMeta) || {};
+  const author: PageAuthor | null = videos.length ? {
+    handle: clean,
+    name: am.nickName ? String(am.nickName) : null,
+    followers: Number(am.fans) || 0,
+    total_likes: Number(am.heart) || 0,
+    bio: am.signature ? String(am.signature).slice(0, 300) : null,
+  } : null;
+  try {
+    fs.writeFileSync(cachePath(key), JSON.stringify({ fetchedAt: Date.now(), videos, author }));
+  } catch { /* non-fatal */ }
+  return { videos, author, fetchedAt: Date.now(), fromCache: false };
+}
+
 /**
  * Fetch the trend feed for one or more search queries (the scraper accepts
  * several natively — one run, one bill). Cached on disk per query-set.
