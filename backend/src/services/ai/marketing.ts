@@ -406,6 +406,29 @@ export function generateMaterial(
   return jsonCall<GeneratedMaterial>(system, user, 2500);
 }
 
+// ── Material editing via dialog (Rule 3: no manual editors — words only) ──────
+// Takes the CURRENT material JSON + the client's instruction, returns the same
+// JSON shape with revised content. Shape-preserving so any material type works.
+export function editMaterial(
+  profileCtx: string,
+  material: unknown,
+  instruction: string,
+  label?: string,
+): Promise<Record<string, unknown>> {
+  const system =
+    'Ти — маркетолог-редактор. Клієнт дає готовий матеріал (JSON) і побажання, що змінити. ' +
+    'Переріб ВМІСТ матеріалу згідно з побажанням, але поверни JSON ТОЧНО тієї ж структури ' +
+    '(ті самі ключі й типи, та сама кількість полів верхнього рівня; масиви можуть змінити довжину, якщо це логічно). ' +
+    'Не додавай нових ключів, не коментуй. ' +
+    LANG_RULE;
+  const user =
+    `Бізнес:\n${profileCtx}\n\n` +
+    (label ? `Матеріал: ${label}\n` : '') +
+    `Поточний матеріал (JSON):\n${JSON.stringify(material)}\n\n` +
+    `Побажання клієнта: ${instruction}\n\nПоверни оновлений JSON.`;
+  return jsonCall<Record<string, unknown>>(system, user, 3000);
+}
+
 // ── 3. Marketing text ─────────────────────────────────────────────────────────
 
 export interface MarketingText {

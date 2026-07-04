@@ -9,7 +9,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial,
+  extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -236,6 +236,30 @@ marketingRouter.post('/material', async (req: Request, res: Response, next: Next
       output: material as unknown as Record<string, unknown>, profileId,
     });
     res.json({ material });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/edit  — revise a material by instruction (dialog editing).
+// Body: { material: object, instruction: string, label?: string, profile? }
+marketingRouter.post('/edit', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const instruction = typeof req.body?.instruction === 'string' ? req.body.instruction.slice(0, 1000) : '';
+  const material = req.body?.material;
+  if (!instruction.trim() || !material || typeof material !== 'object') {
+    res.status(400).json({ error: 'Потрібні material (обʼєкт) і instruction (що змінити)' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const label = typeof req.body?.label === 'string' ? req.body.label.slice(0, 120) : undefined;
+    const revised = await editMaterial(ctx, material, instruction, label);
+    await logGeneration(req, {
+      type: 'edit', input: { instruction, label: label ?? null },
+      output: revised, profileId,
+    });
+    res.json({ material: revised });
   } catch (err) {
     next(err);
   }

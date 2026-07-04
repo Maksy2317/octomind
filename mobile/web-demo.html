@@ -1768,6 +1768,10 @@
 
         <!-- Dashboard -->
         <div class="screen active" id="dashboard">
+          <!-- v2 dashboard: campaigns + Octo advice (rendered by JS) -->
+          <div id="dashV2"></div>
+          <!-- Legacy dashboard kept hidden so old render code stays harmless -->
+          <div id="dashLegacy" style="display:none;">
           <!-- Setup banner — shown until account profile is configured -->
           <div id="dashSetupBanner" style="display:none;"></div>
 
@@ -1840,6 +1844,7 @@
               <div class="fb tip"><span>🎯</span><span data-i18n="tip3">Профілі з єдиним візуальним стилем отримують на 40% більше підписників. Використовуй наші шаблони.</span></div>
             </div>
           </div>
+          </div><!-- /dashLegacy -->
         </div>
 
         <!-- Ask Octo -->
@@ -13237,9 +13242,49 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + ((o.hashtags || []).length ? '<div class="ob-tags" style="margin-top:8px;">' + o.hashtags.map(esc).join(' ') + '</div>' : '')
       + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '');
   };
-  function renderMaterial(m) {
-    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + '</div></div></div>' + window.octoRenderMaterialBody(m.output) + '</div>';
+  function renderMaterial(m, campaignId) {
+    // Dialog editing (Rule 3): describe the change in words — Octo redoes it.
+    var editRow = '<div style="display:flex;gap:8px;margin-top:14px;">'
+      + '<input class="ob-input" id="ed-' + m.id + '" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити? напр.: коротше, без емодзі, акцент на ціні">'
+      + '<button class="btn btn-primary" style="padding:9px 14px;font-size:13px;white-space:nowrap;flex:none;" onclick="octoEditMaterial(\'' + campaignId + '\',\'' + m.id + '\',this)">Змінити</button></div>'
+      + '<div class="ob-status" id="edst-' + m.id + '"></div>';
+    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + (m.edited ? ' · відредаговано' : '') + '</div></div></div>' + window.octoRenderMaterialBody(m.output) + editRow + '</div>';
   }
+
+  window.octoEditMaterial = function (campaignId, materialId, btn) {
+    var inp = document.getElementById('ed-' + materialId);
+    var st = document.getElementById('edst-' + materialId);
+    var instruction = (inp && inp.value || '').trim();
+    if (!instruction) { if (st) { st.className = 'ob-status ob-err'; st.textContent = 'Напиши, що змінити.'; } return; }
+    var c = window.octoCampaigns.get(campaignId); if (!c) return;
+    var m = (c.materials || []).filter(function (x) { return x.id === materialId; })[0]; if (!m) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo переробляє…'; }
+    var dev = 'biz_' + String((typeof getActiveWsId === 'function') ? getActiveWsId() : 'default').replace(/[^A-Za-z0-9_-]/g, '-');
+    while (dev.length < 8) dev += '0';
+    var prof = {};
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get();
+      ['business_name','niche','description','target_audience','geo','usp','goal','tone'].forEach(function (k) { if (b[k]) prof[k] = b[k]; });
+    }
+    fetch('/api/marketing/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': dev.slice(0, 128) },
+      body: JSON.stringify({ profile: prof, material: m.output, instruction: instruction, label: m.title }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        m.prev = m.output;            // keep previous version just in case
+        m.output = d.material;
+        m.edited = true;
+        c.updatedAt = Date.now();
+        window.octoCampaigns.upsert(c);
+        window.octoOpenCampaign(campaignId);   // re-render with the new content
+      })
+      .catch(function (e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Змінити'; }
+        if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message); }
+      });
+  };
 
   window.octoOpenCampaign = function (id) {
     var el = $('cmpList'); if (!el) return;
@@ -13254,8 +13299,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '')
       + (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '') + '</div>';
     var mats = (c.materials && c.materials.length)
-      ? c.materials.map(renderMaterial).join('')
-      : '<div class="card" style="text-align:center;color:var(--text4);font-size:13px;padding:18px;">Матеріалів ще нема. Повернись у «Просування» → «Створити тексти».</div>';
+      ? c.materials.map(function (m) { return renderMaterial(m, c.id); }).join('')
+      : '<div class="card" style="text-align:center;color:var(--text4);font-size:13px;padding:18px;">Матеріалів ще нема. Повернись у «Просування» → «Створити весь пакет».</div>';
     el.innerHTML = '<button class="oc-back" style="background:none;border:none;color:var(--text3);font:inherit;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;" onclick="octoCampaignsBack()">← усі кампанії</button>'
       + '<div class="card"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🎯</div>'
       + '<div style="flex:1;"><div class="card-title" style="margin:0;">' + esc(c.name) + '</div><div class="card-sub" style="margin:0;">створено ' + fmtDate(c.createdAt) + ' · ' + (c.materials ? c.materials.length : 0) + ' матеріалів</div></div>'
@@ -13276,6 +13321,91 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     window.showScreen = function (id, el) { _os(id, el); if (id === 'campaigns') renderList(); };
   }
   document.addEventListener('DOMContentLoaded', function () { if ($('cmpList')) renderList(); });
+})();
+</script>
+
+<!-- ═══ ОГЛЯД v2 — кампанії + порада Octo (marketer's home) ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); };
+  var fmtDate = function (ts) { try { var d = new Date(ts); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2); } catch (e) { return ''; } };
+
+  // Deterministic "Octo радить" — based on where the user is in the journey.
+  // (Free & instant; the AI-powered weekly version is Phase D.)
+  function advice(biz, camps) {
+    if (!biz) return { icon: '👋', text: 'Почнімо зі знайомства — розкажи Octo про свій бізнес, і все далі буде під тебе.', btn: 'Познайомитись', screen: 'onboard' };
+    if (!biz.market_research) return { icon: '🔎', text: 'Octo ще не дослідив твій ринок. 1-2 хвилини — і стратегії стануть точнішими, з реальними трендами ніші.', btn: 'Дослідити ринок', screen: 'research' };
+    if (!camps.length) return { icon: '🎯', text: 'Ринок вивчено — час діяти. Постав першу бізнес-ціль, і Octo збере стратегію та матеріали.', btn: 'Створити просування', screen: 'campaign' };
+    var last = camps[0];
+    if (!last.materials || !last.materials.length) return { icon: '📦', text: 'У кампанії «' + esc(last.name) + '» є стратегія, але ще нема матеріалів. Доробимо пакет?', btn: 'Догенерувати матеріали', screen: 'campaign' };
+    return { icon: '📅', text: 'Кампанія «' + esc(last.name) + '» готова (' + last.materials.length + ' матеріалів). Наступний крок — опублікувати і запланувати контент на тиждень.', btn: 'Контент-план', screen: 'calendar' };
+  }
+
+  window.renderDashV2 = function () {
+    var el = $('dashV2'); if (!el) return;
+    var biz = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || null;
+    var bizSet = window.octoBiz && window.octoBiz.isSet && window.octoBiz.isSet();
+    var camps = (window.octoCampaigns && window.octoCampaigns.all) ? window.octoCampaigns.all() : [];
+    var totalMats = camps.reduce(function (n, c) { return n + ((c.materials || []).length); }, 0);
+    var a = advice(bizSet ? biz : null, camps);
+
+    // Hero
+    var hero = '<div class="card" style="background:linear-gradient(135deg,#1A1040,#12121E);border-color:#6C63FF44;">'
+      + '<div style="display:flex;align-items:center;gap:14px;">'
+      + '<img src="assets/octo_happy.png" style="width:56px;height:56px;object-fit:contain;flex:none;">'
+      + '<div style="flex:1;"><div style="font-size:16px;font-weight:800;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '! 🐙' : 'Привіт! Я Octo — твій AI-маркетолог 🐙') + '</div>'
+      + '<div style="font-size:12.5px;color:var(--text3);margin-top:2px;">' + (bizSet ? esc([biz.niche, biz.geo].filter(Boolean).join(' · ')) : 'Розкажи про бізнес — і почнемо просування') + '</div></div></div></div>';
+
+    // Advice card
+    var adv = '<div class="card" style="border-color:rgba(108,99,255,.35);">'
+      + '<div style="display:flex;gap:12px;align-items:flex-start;">'
+      + '<div style="font-size:24px;flex:none;">' + a.icon + '</div>'
+      + '<div style="flex:1;"><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Octo радить</div>'
+      + '<div style="font-size:14px;color:var(--text2);">' + a.text + '</div>'
+      + '<button class="btn btn-primary" style="margin-top:12px;padding:9px 16px;font-size:13px;" onclick="showScreen(\'' + a.screen + '\',null)">' + a.btn + ' →</button></div></div></div>';
+
+    // Campaigns
+    var campHtml;
+    if (!camps.length) {
+      campHtml = '';
+    } else {
+      campHtml = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+        + '<div class="card-title" style="margin:0;">📁 Активні кампанії</div>'
+        + '<button onclick="showScreen(\'campaigns\',null)" style="background:none;border:none;color:var(--accent2);font-size:12.5px;font-weight:700;cursor:pointer;">усі →</button></div>'
+        + camps.slice(0, 3).map(function (c) {
+          return '<div class="cmp-card" style="margin-bottom:8px;" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\')">'
+            + '<div class="cmp-top"><div class="cmp-name" style="font-size:14px;">' + esc(c.name) + '</div>'
+            + '<span class="cmp-badge">' + (c.materials || []).length + ' матер.</span></div>'
+            + '<div class="cmp-meta">' + esc((c.strategy && c.strategy.offer || '').slice(0, 70)) + ' · ' + fmtDate(c.createdAt) + '</div></div>';
+        }).join('') + '</div>';
+    }
+
+    // Quick stats + actions
+    var stats = '<div class="stats-grid" style="margin-bottom:16px;">'
+      + '<div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-value">' + camps.length + '</div><div class="stat-label">Кампаній</div></div>'
+      + '<div class="stat-card"><div class="stat-icon">📦</div><div class="stat-value">' + totalMats + '</div><div class="stat-label">Матеріалів</div></div>'
+      + '<div class="stat-card"><div class="stat-icon">🧠</div><div class="stat-value">' + (bizSet ? '✓' : '—') + '</div><div class="stat-label">Octo знає бізнес</div></div>'
+      + '<div class="stat-card"><div class="stat-icon">🔎</div><div class="stat-value">' + (biz && biz.market_research ? '✓' : '—') + '</div><div class="stat-label">Ринок досліджено</div></div></div>';
+
+    var actions = '<div class="card"><div class="card-title" style="margin-bottom:12px;">Швидкі дії</div>'
+      + '<div class="oc-goal-grid">'
+      + '<button class="oc-goal" onclick="showScreen(\'campaign\',null)"><span class="ic">🎯</span><span class="t">Просування</span><span class="s">ціль → стратегія → матеріали</span></button>'
+      + '<button class="oc-goal" onclick="showScreen(\'research\',null)"><span class="ic">🔎</span><span class="t">Дослідження ринку</span><span class="s">що працює в ніші</span></button>'
+      + '<button class="oc-goal" onclick="showScreen(\'audit\',null)"><span class="ic">🔍</span><span class="t">Розбір контенту</span><span class="s">слабкі місця + фікси</span></button>'
+      + '<button class="oc-goal" onclick="showScreen(\'trend\',null)"><span class="ic">💡</span><span class="t">Ідея з тренду</span><span class="s">референс → сценарій</span></button>'
+      + '</div></div>';
+
+    el.innerHTML = hero + adv + stats + campHtml + actions;
+  };
+
+  var _os = window.showScreen;
+  if (typeof _os === 'function') {
+    window.showScreen = function (id, nav) { _os(id, nav); if (id === 'dashboard') window.renderDashV2(); };
+  }
+  document.addEventListener('DOMContentLoaded', function () { window.renderDashV2(); });
+  window.addEventListener('load', function () { setTimeout(function () { window.renderDashV2(); }, 150); });
 })();
 </script>
 
