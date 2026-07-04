@@ -12662,7 +12662,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     { id: 'promo',     ic: '🎉', t: 'Акція / подія',            s: 'спецпропозиція' },
   ];
 
-  const MAT_ICON = { ad_text:'📢', caption:'✍️', headlines:'🔤', stories:'📲', carousel:'🖼️', image:'🎨', video:'🎬', post:'📝', content_plan:'📅' };
+  const MAT_ICON = { ad_text:'📢', caption:'✍️', headlines:'🔤', stories:'📲', reels:'🎬', tiktok:'🎵', carousel:'🖼️', image:'🎨', video:'🎥', post:'📝', content_plan:'📅' };
+  // Text-based materials we can generate now; visual/video types come later.
+  const GENERATABLE = { post:1, ad_text:1, caption:1, headlines:1, stories:1, reels:1, tiktok:1, content_plan:1 };
+  var curStrategy = null;
 
   const $ = (id) => document.getElementById(id);
   let chosen = null;
@@ -12749,9 +12752,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   };
 
   function renderStrategy(s) {
-    var mats = (s.recommended_materials || []).map(function (m) {
-      return '<div class="oc-mat"><span class="mi">' + (MAT_ICON[m.type] || '•') + '</span><div>' +
-        '<div class="ml">' + esc(m.label) + '</div><div class="mw">' + esc(m.why) + '</div></div></div>';
+    curStrategy = s;
+    var mats = (s.recommended_materials || []).map(function (m, i) {
+      var right = GENERATABLE[m.type]
+        ? '<button class="btn btn-primary oc-genbtn" style="padding:6px 12px;font-size:12px;white-space:nowrap;flex:none;" data-i="' + i + '">Створити</button>'
+        : '<span style="font-size:11px;color:var(--text4);white-space:nowrap;flex:none;">🔒 скоро</span>';
+      return '<div class="oc-mat" style="align-items:center;"><span class="mi">' + (MAT_ICON[m.type] || '•') + '</span>' +
+        '<div style="flex:1;"><div class="ml">' + esc(m.label) + '</div><div class="mw">' + esc(m.why) + '</div></div>' + right + '</div>';
     }).join('');
     var card = document.createElement('div');
     card.className = 'card ob-res';
@@ -12766,36 +12773,35 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' +
       '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' +
       sec('Octo пропонує створити', mats) +
-      '<button class="btn btn-primary" id="ocMakeTextBtn" style="width:100%;margin-top:16px;">✍️ Створити тексти під цю стратегію</button>' +
+      '<button class="btn btn-primary" id="ocMakeAllBtn" style="width:100%;margin-top:16px;">✨ Створити весь пакет</button>' +
       '<div class="ob-status" id="ocMatStatus" style="margin-top:10px;"></div>';
     $('ocResult').appendChild(card);
-    $('ocMakeTextBtn').onclick = function () { makeText(s); };
+    card.querySelectorAll('.oc-genbtn').forEach(function (b) {
+      b.onclick = function () { var m = s.recommended_materials[Number(b.dataset.i)]; makeMaterial(m.type, m.label, b); };
+    });
+    $('ocMakeAllBtn').onclick = function () { makeAll(s); };
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function renderText(t) {
-    var variants = t.variants || [];
-    var vars = variants.map(function (v, i) {
-      return '<div class="ob-variant"><button class="ob-copy" data-c="' + i + '">⧉ копіювати</button>' +
-        '<span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>' +
-        (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '') +
-        ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
-    }).join('');
+  function renderMaterialCard(label, icon, material) {
     var card = document.createElement('div');
     card.className = 'card ob-res';
-    card.innerHTML =
-      '<div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">Готові тексти</div>' +
-      '<div class="card-sub" style="margin:0;">3 варіанти під стратегію</div></div></div>' + vars +
-      (t.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(t.cta) + '</div>' : '');
+    card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">' + (icon || '✍️') + '</div><div><div class="card-title" style="margin:0;">' + esc(material.title || label) + '</div><div class="card-sub" style="margin:0;">' + esc(label) + '</div></div></div>' + window.octoRenderMaterialBody(material);
     $('ocResult').appendChild(card);
-    card.querySelectorAll('.ob-copy').forEach(function (btn) {
-      btn.onclick = function () {
-        var v = variants[Number(btn.dataset.c)]; if (!v) return;
-        var full = v.text + (v.caption ? '\n\n' + v.caption : '') + ((v.hashtags || []).length ? '\n' + v.hashtags.join(' ') : '');
-        navigator.clipboard.writeText(full).then(function () { btn.textContent = '✓ скопійовано'; setTimeout(function () { btn.textContent = '⧉ копіювати'; }, 1600); });
-      };
-    });
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function makeMaterial(type, label, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    return api('/api/marketing/material', { profile: bizProfile(), strategy: curStrategy, type: type, label: label }).then(function (r) {
+      renderMaterialCard(label, MAT_ICON[type] || '✍️', r.material);
+      try { if (window.octoCampaignAddMaterial) window.octoCampaignAddMaterial(type, label, r.material); } catch (e) {}
+      if (btn) { btn.textContent = '✓'; btn.classList.remove('btn-primary'); btn.style.opacity = '.6'; }
+    }).catch(function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Створити'; }
+      var st = $('ocMatStatus'); if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
+      throw e;
+    });
   }
 
   window.octoCampaignStrategy = async function () {
@@ -12818,21 +12824,18 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     btn.disabled = false;
   };
 
-  function makeText(strategy) {
-    var mb = $('ocMakeTextBtn'); if (mb) mb.disabled = true;
-    var st = $('ocMatStatus');
-    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Пишу тексти…'; }
+  async function makeAll(s) {
     setStep('materials');
-    var brief = 'Ціль: ' + (chosen ? chosen.t : '') + '. Оффер: ' + strategy.offer +
-      '. Ключове повідомлення: ' + strategy.key_message + '. CTA: ' + strategy.cta + '.';
-    var body = { profile: bizProfile(), brief: brief };
-    api('/api/marketing/text', body).then(function (r) {
-      if (st) { st.className = 'ob-status'; st.textContent = ''; }
-      renderText(r.text);
-      try { if (window.octoCampaignAddMaterial) window.octoCampaignAddMaterial('text', 'Рекламні тексти', r.text); } catch (e) {}
-    }).catch(function (e) {
-      if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
-    }).finally(function () { if (mb) mb.disabled = false; });
+    var btn = $('ocMakeAllBtn'); if (btn) btn.disabled = true;
+    var st = $('ocMatStatus');
+    var mats = (s.recommended_materials || []).filter(function (m) { return GENERATABLE[m.type]; });
+    for (var i = 0; i < mats.length; i++) {
+      if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Створюю: ' + esc(mats[i].label) + ' (' + (i + 1) + '/' + mats.length + ')…'; }
+      try { await makeMaterial(mats[i].type, mats[i].label, null); } catch (e) { /* keep going */ }
+    }
+    document.querySelectorAll('#ocResult .oc-genbtn').forEach(function (b) { b.disabled = true; b.textContent = '✓'; b.classList.remove('btn-primary'); b.style.opacity = '.6'; });
+    if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Створити ще раз'; }
   }
 
   // Gate the campaign behind knowing the business (Understand → then campaigns).
@@ -13214,17 +13217,28 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   // ── Render: single campaign (strategy + all materials in one place) ─────────
-  function renderText(t) {
-    var vars = (t.variants || []).map(function (v) {
-      return '<div class="ob-variant"><span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>'
-        + (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '')
-        + ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
+  // Shared material renderer — handles the generic GeneratedMaterial shape
+  // (items/cta/hashtags) AND the legacy text-variants shape. Global so both the
+  // Просування flow and this library reuse it.
+  window.octoRenderMaterialBody = function (o) {
+    if (!o) return '';
+    if (o.variants) { // legacy text material
+      return (o.variants || []).map(function (v) {
+        return '<div class="ob-variant"><span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>'
+          + (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '')
+          + ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
+      }).join('') + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '');
+    }
+    var items = (o.items || []).map(function (it) {
+      return '<div class="ob-variant">' + (it.label ? '<span class="ob-angle">' + esc(it.label) + '</span>' : '') + '<p>' + esc(it.text) + '</p></div>';
     }).join('');
-    return vars + (t.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(t.cta) + '</div>' : '');
-  }
+    return (o.summary ? '<p style="color:var(--text3);font-size:13px;margin-bottom:8px;">' + esc(o.summary) + '</p>' : '')
+      + items
+      + ((o.hashtags || []).length ? '<div class="ob-tags" style="margin-top:8px;">' + o.hashtags.map(esc).join(' ') + '</div>' : '')
+      + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '');
+  };
   function renderMaterial(m) {
-    var body = (m.type === 'text') ? renderText(m.output) : '<pre style="white-space:pre-wrap;font-size:13px;color:var(--text2);">' + esc(JSON.stringify(m.output, null, 2)) + '</pre>';
-    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + '</div></div></div>' + body + '</div>';
+    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + '</div></div></div>' + window.octoRenderMaterialBody(m.output) + '</div>';
   }
 
   window.octoOpenCampaign = function (id) {

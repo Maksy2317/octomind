@@ -366,6 +366,46 @@ export function generateCampaignStrategy(
   return jsonCall<CampaignStrategy>(system, user, 3000);
 }
 
+// ── Material generation (the proposed pack, one item at a time) ───────────────
+// Generic shape that renders for any text-based material type.
+export interface GeneratedMaterial {
+  title: string;
+  summary?: string;
+  items: Array<{ label?: string; text: string }>;
+  cta?: string;
+  hashtags?: string[];
+}
+
+const MATERIAL_GUIDE: Record<string, string> = {
+  post:         'готовий пост для стрічки (Instagram/Facebook): один сильний текст. items=[{text: пост}].',
+  ad_text:      'рекламний текст для таргету/оголошення: 2 варіанти. items=[{label:"Варіант A", text}, ...].',
+  caption:      'підпис під фото/Reels: 3 варіанти різних кутів. items=[{label:кут, text}].',
+  headlines:    '5-7 заголовків/хуків для A/B-тесту. items=[{text: заголовок}, ...].',
+  stories:      'сценарій Stories: 5-7 екранів послідовно. items=[{label:"Екран 1", text}, ...].',
+  reels:        'сценарій Reels: хук + кроки + фінал. items=[{label:"Хук (0-2с)", text}, {label:"Крок", text}, ...].',
+  tiktok:       'сценарій TikTok: хук + кроки. items=[{label, text}, ...].',
+  content_plan: 'контент-план на тиждень: 5-7 днів. items=[{label:"Пн", text: тема + формат}, ...].',
+};
+
+export function generateMaterial(
+  profileCtx: string,
+  strategy: unknown,
+  type: string,
+  label: string,
+): Promise<GeneratedMaterial> {
+  const guide = MATERIAL_GUIDE[type] || 'готовий матеріал під опис. items=[{text}].';
+  const system =
+    'Ти — маркетолог-копірайтер. Створюєш ОДИН конкретний матеріал під стратегію кампанії, ' +
+    `тип: «${label}». Що зробити: ${guide} Додай hashtags і cta, де доречно. ` +
+    LANG_RULE +
+    ' Схема JSON: {"title": string, "summary": string, "items": [{"label": string, "text": string}], ' +
+    '"cta": string, "hashtags": string[]}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nСтратегія:\n${JSON.stringify(strategy)}\n\n` +
+    `Зроби матеріал: ${label} (${type}).`;
+  return jsonCall<GeneratedMaterial>(system, user, 2500);
+}
+
 // ── 3. Marketing text ─────────────────────────────────────────────────────────
 
 export interface MarketingText {

@@ -9,7 +9,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, auditContent, researchNiche, adaptTrend,
+  extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -212,6 +212,30 @@ marketingRouter.post('/strategy', async (req: Request, res: Response, next: Next
       output: strategy as unknown as Record<string, unknown>, profileId,
     });
     res.json({ strategy });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/material  — generate one proposed material under a strategy.
+// Body: { type: string, label: string, strategy?: object, profile? }
+marketingRouter.post('/material', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const type = typeof req.body?.type === 'string' ? req.body.type.slice(0, 40) : '';
+  const label = typeof req.body?.label === 'string' ? req.body.label.slice(0, 120) : type;
+  if (!type.trim()) {
+    res.status(400).json({ error: 'Вкажи тип матеріалу (type)' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const strategy = req.body?.strategy ?? null;
+    const material = await generateMaterial(ctx, strategy, type, label);
+    await logGeneration(req, {
+      type: 'material:' + type, input: { type, label, strategy },
+      output: material as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ material });
   } catch (err) {
     next(err);
   }
