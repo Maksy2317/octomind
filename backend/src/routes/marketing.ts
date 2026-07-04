@@ -14,7 +14,7 @@ import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
   extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
-  generateImageBrief,
+  generateImageBrief, generateBrandKit,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -279,6 +279,52 @@ async function renderAdImage(prompt: string): Promise<{ buf: Buffer; ext: string
   throw new Error('Генерація зображень недоступна — перевір STABILITY_API_KEY / OPENAI_API_KEY');
 }
 
+// Persist a generated image under uploads/output/gen and return its served URL.
+function saveGenImage(buf: Buffer, ext: string): string {
+  const outputDir = process.env.OUTPUT_DIR
+    ? path.resolve(process.env.OUTPUT_DIR)
+    : path.resolve(process.cwd(), 'uploads/output');
+  const genDir = path.join(outputDir, 'gen');
+  fs.mkdirSync(genDir, { recursive: true });
+  const name = `img_${randomUUID()}.${ext}`;
+  fs.writeFileSync(path.join(genDir, name), buf);
+  return `/output/gen/${name}`;
+}
+
+// POST /api/marketing/brand  — Octo derives a brand identity from the business:
+// palette (with reasoning), tone, tagline, and a rendered logo. Saved to the
+// profile client-side so every later material inherits the style.
+// Body: { profile? }   (logo render is best-effort; kit still returns without it)
+marketingRouter.post('/brand', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const kit = await generateBrandKit(ctx);
+
+    // Render the logo — best-effort; a failed image must not lose the kit.
+    let logo_url: string | null = null;
+    if ((process.env.STABILITY_API_KEY || process.env.OPENAI_API_KEY) && kit.logo_prompt) {
+      try {
+        const { buf, ext } = await renderAdImage(
+          kit.logo_prompt + ' Flat minimal vector logo, iconic, centered, no text, no words, no letters.',
+        );
+        logo_url = saveGenImage(buf, ext);
+      } catch (e) {
+        console.warn('[Brand] Logo render failed:', (e as Error).message);
+      }
+    }
+
+    const brand = { ...kit, logo_url };
+    await logGeneration(req, {
+      type: 'brand', input: {},
+      output: brand as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ brand });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/marketing/image  — ad image: Claude decides the concept (brief),
 // then an image model renders it. Saved under uploads/output/gen/ (survives
 // the 48h cleanup sweep, which skips subdirectories). Returns a served URL.
@@ -303,14 +349,7 @@ marketingRouter.post('/image', async (req: Request, res: Response, next: NextFun
     );
 
     // 3. Save under output/gen (served statically at /output/gen/...).
-    const outputDir = process.env.OUTPUT_DIR
-      ? path.resolve(process.env.OUTPUT_DIR)
-      : path.resolve(process.cwd(), 'uploads/output');
-    const genDir = path.join(outputDir, 'gen');
-    fs.mkdirSync(genDir, { recursive: true });
-    const name = `img_${randomUUID()}.${ext}`;
-    fs.writeFileSync(path.join(genDir, name), buf);
-    const url = `/output/gen/${name}`;
+    const url = saveGenImage(buf, ext);
 
     const material = {
       title: label,

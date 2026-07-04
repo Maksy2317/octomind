@@ -1713,6 +1713,10 @@
       </div>
 
       <div class="nav-label" data-i18n="nav_create">Студія</div>
+      <div class="nav-item" onclick="showScreen('brand',this)">
+        <span class="nav-icon">🎨</span> <span data-i18n="nav_brand">Бренд-стиль</span>
+        <span class="nav-badge new">New</span>
+      </div>
       <div class="nav-item" onclick="showScreen('caption',this)">
         <span class="nav-icon">✍️</span> Тексти
       </div>
@@ -2111,6 +2115,22 @@
             <div class="ob-status" id="trStatus"></div>
           </div>
           <div id="trResult"></div>
+        </div>
+
+        <!-- ═══ БРЕНД-СТИЛЬ (Octo derives identity from the business) ═══ -->
+        <div class="screen" id="brand">
+          <div class="card">
+            <div class="on-hero">
+              <img src="assets/octo_happy.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <div>
+                <div class="card-title" style="margin:0;">🎨 Бренд-стиль</div>
+                <div class="card-sub" style="margin:0;">Octo сам підбере кольори, тон, слоган і лого під твій бізнес — і всі майбутні матеріали будуть у цьому стилі.</div>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="brBtn" style="width:100%;margin-top:14px;" onclick="octoBrandRun()">✨ Створити бренд-стиль</button>
+            <div class="ob-status" id="brStatus"></div>
+          </div>
+          <div id="brResult"></div>
         </div>
 
         <!-- Стратегія — marketing brain (legacy, поза меню) -->
@@ -3684,6 +3704,7 @@
     campaigns: ['screen_campaigns', 'screen_campaigns_sub'],
     research:  ['screen_research',  'screen_research_sub'],
     trend:     ['screen_trend',     'screen_trend_sub'],
+    brand:     ['screen_brand',     'screen_brand_sub'],
     onboard:   ['screen_onboard',   'screen_onboard_sub'],
     audit:     ['screen_audit',     'screen_audit_sub'],
     analyzer:  ['screen_analyzer',  'screen_analyzer_sub'],
@@ -4325,9 +4346,10 @@
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
       screen_campaign:'Продвижение 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
       nav_campaigns:'Мои кампании', screen_campaigns:'Мои кампании 📁', screen_campaigns_sub:'Стратегия и все материалы в одном месте',
-      nav_trend:'Идея из тренда', nav_tools:'Инструменты AI', nav_research:'Исследование рынка', nav_audit:'Разбор контента',
+      nav_trend:'Идея из тренда', nav_tools:'Инструменты AI', nav_research:'Исследование рынка', nav_audit:'Разбор контента', nav_brand:'Бренд-стиль',
       screen_research:'Исследование рынка 🔎', screen_research_sub:'Octo найдёт, что работает в твоей нише',
       screen_trend:'Идея из тренда 💡', screen_trend_sub:'Референс → оригинальный сценарий под твой бизнес',
+      screen_brand:'Бренд-стиль 🎨', screen_brand_sub:'Octo подберёт цвета, тон и лого под твой бизнес',
       screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
       screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
@@ -4413,9 +4435,10 @@
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
       screen_campaign:'Просування 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
       nav_campaigns:'Мої кампанії', screen_campaigns:'Мої кампанії 📁', screen_campaigns_sub:'Стратегія і всі матеріали в одному місці',
-      nav_trend:'Ідея з тренду', nav_tools:'Інструменти AI', nav_research:'Дослідження ринку', nav_audit:'Розбір контенту',
+      nav_trend:'Ідея з тренду', nav_tools:'Інструменти AI', nav_research:'Дослідження ринку', nav_audit:'Розбір контенту', nav_brand:'Бренд-стиль',
       screen_research:'Дослідження ринку 🔎', screen_research_sub:'Octo знайде, що працює у твоїй ніші',
       screen_trend:'Ідея з тренду 💡', screen_trend_sub:'Референс → оригінальний сценарій під твій бізнес',
+      screen_brand:'Бренд-стиль 🎨', screen_brand_sub:'Octo підбере кольори, тон і лого під твій бізнес',
       screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
       screen_audit:'Розбір контенту 🔍', screen_audit_sub:'Завантаж пости — Octo покаже слабкі місця і що виправити',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
@@ -4501,9 +4524,10 @@
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
       screen_campaign:'Promotion 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
       nav_campaigns:'My campaigns', screen_campaigns:'My campaigns 📁', screen_campaigns_sub:'Strategy and all materials in one place',
-      nav_trend:'Trend idea', nav_tools:'AI tools', nav_research:'Market research', nav_audit:'Content audit',
+      nav_trend:'Trend idea', nav_tools:'AI tools', nav_research:'Market research', nav_audit:'Content audit', nav_brand:'Brand style',
       screen_research:'Market research 🔎', screen_research_sub:'Octo finds what works in your niche',
       screen_trend:'Trend idea 💡', screen_trend_sub:'Reference → original script for your business',
+      screen_brand:'Brand style 🎨', screen_brand_sub:'Octo picks colors, tone and a logo for your business',
       screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
       screen_audit:'Content audit 🔍', screen_audit_sub:'Upload posts — Octo shows weak spots and what to fix',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
@@ -12696,7 +12720,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   function bizProfile() {
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get(), o = {};
-      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research']
+      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','brand']
         .forEach(function (k) { if (b[k]) o[k] = b[k]; });
       if (Object.keys(o).length) return o;
     }
@@ -13438,6 +13462,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<button class="oc-goal" onclick="showScreen(\'research\',null)"><span class="ic">🔎</span><span class="t">Дослідження ринку</span><span class="s">що працює в ніші</span></button>'
       + '<button class="oc-goal" onclick="showScreen(\'audit\',null)"><span class="ic">🔍</span><span class="t">Розбір контенту</span><span class="s">слабкі місця + фікси</span></button>'
       + '<button class="oc-goal" onclick="showScreen(\'trend\',null)"><span class="ic">💡</span><span class="t">Ідея з тренду</span><span class="s">референс → сценарій</span></button>'
+      + '<button class="oc-goal" onclick="showScreen(\'brand\',null)"><span class="ic">🎨</span><span class="t">Бренд-стиль</span><span class="s">кольори, тон, лого</span></button>'
       + '</div></div>';
 
     el.innerHTML = hero + adv + stats + campHtml + actions;
@@ -13449,6 +13474,104 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
   document.addEventListener('DOMContentLoaded', function () { window.renderDashV2(); });
   window.addEventListener('load', function () { setTimeout(function () { window.renderDashV2(); }, 150); });
+})();
+</script>
+
+<!-- ═══ БРЕНД-СТИЛЬ — Octo derives identity, saves to profile, all materials inherit it ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function deviceId() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+  function bizProfile() {
+    var o = {};
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get();
+      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
+    }
+    return o;
+  }
+
+  // Readable-contrast text color for a swatch (so the hex label stays legible).
+  function textOn(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim()); if (!m) return '#fff';
+    var n = parseInt(m[1], 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#111' : '#fff';
+  }
+
+  function render(brand) {
+    var pal = (brand.palette || []).map(function (c) {
+      return '<div style="flex:1;min-width:120px;background:' + esc(c.hex) + ';color:' + textOn(c.hex) + ';border-radius:12px;padding:14px 12px;">'
+        + '<div style="font-weight:800;font-size:14px;">' + esc(c.name || '') + '</div>'
+        + '<div style="font-size:12px;opacity:.85;font-family:monospace;margin-top:2px;">' + esc(c.hex) + '</div>'
+        + '<div style="font-size:11px;opacity:.8;margin-top:4px;">' + esc(c.role || '') + '</div></div>';
+    }).join('');
+    var why = (brand.palette || []).filter(function (c) { return c.why; }).map(function (c) {
+      return '<div style="font-size:12.5px;color:var(--text3);margin-top:5px;"><b style="color:var(--text2);">' + esc(c.name) + ':</b> ' + esc(c.why) + '</div>';
+    }).join('');
+    var pers = (brand.personality || []).map(function (w) {
+      return '<span style="display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;margin:3px 4px 0 0;">' + esc(w) + '</span>';
+    }).join('');
+    var logo = brand.logo_url
+      ? '<div style="text-align:center;"><img src="' + esc(brand.logo_url) + '" style="width:150px;height:150px;object-fit:contain;background:#fff;border-radius:16px;padding:10px;border:1px solid var(--border);"><div style="font-size:11px;color:var(--text4);margin-top:6px;">чернетка лого — Octo може перемалювати на прохання</div></div>'
+      : '';
+
+    $('brResult').innerHTML =
+      '<div class="card ob-res"><div class="card-title" style="margin-bottom:10px;">🎨 Твій бренд-стиль</div>'
+      + (brand.tagline ? '<div style="font-size:17px;font-weight:800;text-align:center;margin:6px 0 14px;">«' + esc(brand.tagline) + '»</div>' : '')
+      + (logo ? '<div style="margin-bottom:16px;">' + logo + '</div>' : '')
+      + '<div style="font-size:12px;font-weight:700;color:var(--text4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Палітра</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + pal + '</div>'
+      + (why ? '<div style="margin-top:12px;">' + why + '</div>' : '')
+      + (brand.tone ? '<div style="margin-top:14px;font-size:13px;"><b>Тон голосу:</b> ' + esc(brand.tone) + '</div>' : '')
+      + (pers ? '<div style="margin-top:10px;">' + pers + '</div>' : '')
+      + '<div class="ob-cta" style="margin-top:16px;">✅ Стиль збережено. Тепер банери й контент Octo робитиме в цих кольорах і тоні.</div>'
+      + '</div>';
+  }
+
+  window.octoBrandRun = function () {
+    if (!(window.octoBiz && window.octoBiz.isSet && window.octoBiz.isSet())) {
+      var st0 = $('brStatus'); if (st0) { st0.className = 'ob-status ob-err'; st0.textContent = 'Спершу познайомся з Octo (розкажи про бізнес) — і повертайся.'; }
+      return;
+    }
+    var btn = $('brBtn'), st = $('brStatus');
+    if (btn) btn.disabled = true;
+    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo придумує бренд і малює лого (до 30 сек)…'; }
+    fetch('/api/marketing/brand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify({ profile: bizProfile() }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        if (window.octoBiz) window.octoBiz.merge({ brand: d.brand });
+        if (st) { st.className = 'ob-status'; st.textContent = ''; }
+        if (btn) { btn.disabled = false; btn.textContent = '🔁 Переробити бренд-стиль'; }
+        render(d.brand);
+        if (window.renderDashV2) window.renderDashV2();
+      })
+      .catch(function (e) {
+        if (btn) btn.disabled = false;
+        if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message); }
+      });
+  };
+
+  // On entering the screen, show the saved brand if there is one.
+  var _os = window.showScreen;
+  if (typeof _os === 'function') {
+    window.showScreen = function (id, nav) {
+      _os(id, nav);
+      if (id === 'brand') {
+        var b = window.octoBiz && window.octoBiz.get && window.octoBiz.get();
+        if (b && b.brand) { render(b.brand); var bt = $('brBtn'); if (bt) bt.textContent = '🔁 Переробити бренд-стиль'; }
+      }
+    };
+  }
 })();
 </script>
 

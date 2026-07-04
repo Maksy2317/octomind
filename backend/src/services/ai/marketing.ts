@@ -25,6 +25,20 @@ export function isMarketingConfigured(): boolean {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
+/** Flatten a saved brand kit into one prompt-friendly line (colors + tone). */
+function brandToLine(brand: unknown): string {
+  if (!brand || typeof brand !== 'object') return '';
+  const b = brand as Record<string, unknown>;
+  const parts: string[] = [];
+  const pal = Array.isArray(b.palette) ? (b.palette as Array<Record<string, unknown>>) : [];
+  if (pal.length) {
+    parts.push('кольори ' + pal.map((c) => `${c.hex}${c.name ? ' (' + c.name + ')' : ''}`).join(', '));
+  }
+  if (b.tagline) parts.push(`слоган «${b.tagline}»`);
+  if (b.tone) parts.push(`тон: ${b.tone}`);
+  return parts.join('; ');
+}
+
 /** Render the saved business profile into a compact, prompt-friendly block. */
 export function profileToContext(p: BusinessProfile | null | Record<string, unknown>): string {
   if (!p) return '(бізнес-профіль ще не заповнено)';
@@ -40,6 +54,7 @@ export function profileToContext(p: BusinessProfile | null | Record<string, unkn
     ['Ціль', src.goal],
     ['Тон', src.tone],
     ['Дослідження ринку', src.market_research],
+    ['Бренд-стиль', brandToLine(src.brand)],
   ];
   const lines = fields
     .filter(([, v]) => v != null && String(v).trim() !== '')
@@ -404,6 +419,35 @@ export function generateMaterial(
     `Бізнес:\n${profileCtx}\n\nСтратегія:\n${JSON.stringify(strategy)}\n\n` +
     `Зроби матеріал: ${label} (${type}).`;
   return jsonCall<GeneratedMaterial>(system, user, 2500);
+}
+
+// ── Brand kit (identity is a marketing decision, not a color picker) ──────────
+// Octo derives a coherent visual identity FROM the business — palette with a
+// stated role & reasoning, a tone of voice, a tagline, and a logo concept the
+// image model can render. Per the constitution: a decision with "чому", not a
+// shelf of swatches to fiddle with.
+export interface BrandColor { hex: string; name: string; role: string; why: string; }
+export interface BrandKit {
+  palette: BrandColor[];   // 3-4 кольори: основний, акцент, фон, текст
+  tone: string;            // тон голосу бренду
+  tagline: string;         // короткий слоган
+  logo_concept: string;    // опис лого людською мовою
+  logo_prompt: string;     // англ. промпт для image-моделі (емблема, БЕЗ тексту)
+  personality: string[];   // 3-4 слова-характеристики бренду
+}
+
+export function generateBrandKit(profileCtx: string): Promise<BrandKit> {
+  const system =
+    'Ти — бренд-дизайнер. На основі бізнесу побудуй цілісний бренд-стиль. ' +
+    'Палітра — 3-4 кольори (основний, акцент, фон, текст) у HEX, з роллю та поясненням «чому саме він». ' +
+    'Кольори мають пасувати ніші, аудиторії та емоції бренду (не рандомні). ' +
+    'logo_prompt — англійською: проста векторна емблема/іконка (flat vector logo, minimal, iconic), ' +
+    'БЕЗ тексту й літер, на нейтральному фоні, у дусі палітри. ' +
+    LANG_RULE +
+    ' Схема JSON: {"palette":[{"hex":"#RRGGBB","name":str,"role":str,"why":str}],' +
+    '"tone":str,"tagline":str,"logo_concept":str,"logo_prompt":str,"personality":[str]}.';
+  const user = `Бізнес:\n${profileCtx}\n\nЗроби бренд-стиль.`;
+  return jsonCall<BrandKit>(system, user, 1500);
 }
 
 // ── Ad image brief (the marketing decision BEHIND the image) ──────────────────
