@@ -421,6 +421,42 @@ export function generateMaterial(
   return jsonCall<GeneratedMaterial>(system, user, 2500);
 }
 
+// ── Viral video analysis (trend feed: «чому залетів» + adaptation) ────────────
+// Input is the video's metadata (caption, metrics, duration, hashtags) — we
+// never download the video itself. The breakdown explains the mechanics
+// (hook/format/CTA) and, given the business profile, adapts the idea for THEM.
+export interface ViralAnalysis {
+  why_viral: string[];       // 3-5 причин, чому ролик залетів
+  hook: string;              // як працює перший кадр/фраза
+  format: string;            // формат ролика (до/після, гумор, туторіал...)
+  cta: string;               // що глядача просять зробити (явно чи ні)
+  score_notes: string;       // що кажуть цифри (лайки/перегляди/шери)
+  adapt: {                   // адаптація під бізнес користувача
+    idea: string;
+    hook: string;
+    script: string[];        // 3-6 кроків-кадрів
+    caption: string;
+    why_fits: string;
+  };
+}
+
+export function analyzeViralVideo(
+  profileCtx: string,
+  video: Record<string, unknown>,
+): Promise<ViralAnalysis> {
+  const system =
+    'Ти — аналітик вірусного контенту й маркетолог. Тобі дають метадані ролика ' +
+    '(опис, перегляди, лайки, коментарі, шери, тривалість, хештеги). Розбери, ЧОМУ він залетів — ' +
+    'механіка хука, формат, утримання, CTA — і зроби АДАПТАЦІЮ ідеї під бізнес клієнта ' +
+    '(оригінальну, не копію; інший бізнес — інша подача). Пиши конкретно, без води. ' +
+    LANG_RULE +
+    ' Схема JSON: {"why_viral":[str],"hook":str,"format":str,"cta":str,"score_notes":str,' +
+    '"adapt":{"idea":str,"hook":str,"script":[str],"caption":str,"why_fits":str}}.';
+  const user =
+    `Бізнес клієнта:\n${profileCtx}\n\nМетадані ролика:\n${JSON.stringify(video)}\n\nРозбери і адаптуй.`;
+  return jsonCall<ViralAnalysis>(system, user, 2000);
+}
+
 // ── Brand kit (identity is a marketing decision, not a color picker) ──────────
 // Octo derives a coherent visual identity FROM the business — palette with a
 // stated role & reasoning, a tone of voice, a tagline, and a logo concept the

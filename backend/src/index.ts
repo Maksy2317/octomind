@@ -14,6 +14,7 @@ import { calendarRouter } from './routes/calendar';
 import { pushRouter, sendPushToAll, fireScheduledReminders, loadSubscriptionsFromDB } from './routes/push';
 import { profileRouter } from './routes/profile';
 import { marketingRouter } from './routes/marketing';
+import { trendsRouter } from './routes/trends';
 import { errorHandler } from './middleware/errorHandler';
 import { cleanupOldFiles } from './services/cleanup';
 
@@ -60,6 +61,8 @@ app.use(helmet({
       'script-src-attr': ["'unsafe-inline'"],
       'style-src': ["'self'", 'https:', "'unsafe-inline'"],
       'connect-src': ["'self'", 'https:'],
+      // Trend feed embeds the official TikTok/Instagram players (iframes).
+      'frame-src': ["'self'", 'https://www.tiktok.com', 'https://www.instagram.com'],
     },
   },
 }));
@@ -118,6 +121,7 @@ app.use('/api/calendar', calendarRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/marketing', marketingRouter);
+app.use('/api/trends', trendsRouter);
 
 // ── Per-post scheduled reminders (every minute) ──────────────────────────────
 cron.schedule('* * * * *', async () => {
