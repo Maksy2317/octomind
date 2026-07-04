@@ -59,23 +59,50 @@ function parseJsonLoose<T>(text: string): T {
   if (start === -1 || end === -1 || end < start) {
     throw new Error('AI did not return JSON');
   }
-  return JSON.parse(candidate.slice(start, end + 1)) as T;
+  const slice = candidate.slice(start, end + 1);
+  try {
+    return JSON.parse(slice) as T;
+  } catch {
+    // Repair the most common model issues: raw control chars (literal newlines/
+    // tabs inside string values are invalid JSON) and trailing commas.
+    const repaired = slice
+      .replace(/[\u0000-\u001F]+/g, ' ')
+      .replace(/,(\s*[}\]])/g, '$1');
+    return JSON.parse(repaired) as T;
+  }
+}
+
+const textOf = (res: Anthropic.Message): string =>
+  res.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
+
+/** Parse JSON from a text-producing call, retrying once on malformed output. */
+async function parseWithRetry<T>(make: () => Promise<string>): Promise<T> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const text = await make();
+    try {
+      return parseJsonLoose<T>(text);
+    } catch (e) {
+      if (attempt === 1) {
+        console.warn('[AI] JSON parse failed twice:', (e as Error).message, '| head:', text.slice(0, 200));
+        throw new Error('AI повернув невалідний формат. Спробуй ще раз.');
+      }
+    }
+  }
+  throw new Error('AI повернув невалідний формат. Спробуй ще раз.'); // unreachable
 }
 
 /** One structured call to Claude that returns a parsed JSON object. */
 async function jsonCall<T>(system: string, user: string, maxTokens = 4096): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
-  const res = await client.messages.create({
-    model: MARKETING_MODEL,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: 'user', content: user }],
+  return parseWithRetry<T>(async () => {
+    const res = await client.messages.create({
+      model: MARKETING_MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content: user }],
+    });
+    return textOf(res);
   });
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-  return parseJsonLoose<T>(text);
 }
 
 export interface AuditImage { media_type: string; data: string }
@@ -83,31 +110,30 @@ export interface AuditImage { media_type: string; data: string }
 /** Vision variant — same JSON discipline, with images attached to the user turn. */
 async function jsonCallVision<T>(system: string, user: string, images: AuditImage[], maxTokens = 2500): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
-  // Typed loosely: the 0.27 SDK doesn't export ContentBlockParam.
-  const content: Anthropic.MessageParam['content'] = [
-    ...images.map((im) => ({
-      type: 'image' as const,
-      source: { type: 'base64' as const, media_type: im.media_type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: im.data },
-    })),
-    { type: 'text' as const, text: user },
-  ];
-  const res = await client.messages.create({
-    model: MARKETING_MODEL,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: 'user', content }],
+  return parseWithRetry<T>(async () => {
+    // Typed loosely: the 0.27 SDK doesn't export ContentBlockParam.
+    const content: Anthropic.MessageParam['content'] = [
+      ...images.map((im) => ({
+        type: 'image' as const,
+        source: { type: 'base64' as const, media_type: im.media_type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: im.data },
+      })),
+      { type: 'text' as const, text: user },
+    ];
+    const res = await client.messages.create({
+      model: MARKETING_MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content }],
+    });
+    return textOf(res);
   });
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-  return parseJsonLoose<T>(text);
 }
 
 const LANG_RULE =
   'Мова відповіді: українська за замовчуванням; якщо бізнес-профіль заповнено англійською — відповідай англійською. ' +
   'Пиши конкретно і по суті, як практикуючий маркетолог, без загальних фраз. ' +
-  'Поверни ЛИШЕ валідний JSON без пояснень і markdown.';
+  'Поверни ЛИШЕ валідний JSON (мініфікований, без markdown, без тексту до/після). ' +
+  'Усередині рядкових значень екрануй лапки та переноси рядків за правилами JSON; не став переносів рядків усередині значень.';
 
 // ── 1. Analysis ───────────────────────────────────────────────────────────────
 
@@ -178,19 +204,17 @@ const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_u
 
 async function jsonCallSearch<T>(system: string, user: string, maxTokens = 3000): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
-  const res = await client.messages.create({
-    model: MARKETING_MODEL,
-    max_tokens: maxTokens,
-    system,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tools: [WEB_SEARCH_TOOL] as any,
-    messages: [{ role: 'user', content: user }],
+  return parseWithRetry<T>(async () => {
+    const res = await client.messages.create({
+      model: MARKETING_MODEL,
+      max_tokens: maxTokens,
+      system,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tools: [WEB_SEARCH_TOOL] as any,
+      messages: [{ role: 'user', content: user }],
+    });
+    return textOf(res);
   });
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-  return parseJsonLoose<T>(text);
 }
 
 // ── Niche/market research (real, via web search) ──────────────────────────────
