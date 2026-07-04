@@ -4,12 +4,17 @@
 // is up, every step logs a row in `generations` (the business-memory data moat).
 
 import { Router, Request, Response, NextFunction } from 'express';
+import OpenAI from 'openai';
+import fs from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import { optionalIdentity } from '../middleware/identity';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
   extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  generateImageBrief,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -233,6 +238,89 @@ marketingRouter.post('/material', async (req: Request, res: Response, next: Next
     const material = await generateMaterial(ctx, strategy, type, label);
     await logGeneration(req, {
       type: 'material:' + type, input: { type, label, strategy },
+      output: material as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ material });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Image rendering with provider fallback ────────────────────────────────────
+// Stability first (working key), DALL-E as fallback. Returns image bytes + ext.
+async function renderAdImage(prompt: string): Promise<{ buf: Buffer; ext: string }> {
+  const stab = process.env.STABILITY_API_KEY;
+  if (stab) {
+    try {
+      const fd = new FormData();
+      fd.append('prompt', prompt);
+      fd.append('output_format', 'jpeg');   // ~10x smaller files than png
+      fd.append('aspect_ratio', '1:1');
+      const r = await fetch('https://api.stability.ai/v2beta/stable-image/generate/core', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${stab}`, Accept: 'image/*' },
+        body: fd,
+      });
+      if (r.ok) return { buf: Buffer.from(await r.arrayBuffer()), ext: 'jpg' };
+      console.warn('[Image] Stability failed:', r.status, (await r.text()).slice(0, 200));
+    } catch (e) {
+      console.warn('[Image] Stability error:', (e as Error).message);
+    }
+  }
+  if (process.env.OPENAI_API_KEY) {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const img = await openai.images.generate({
+      model: 'dall-e-3', prompt, n: 1, size: '1024x1024',
+      response_format: 'b64_json', quality: 'standard',
+    });
+    const b64 = img.data?.[0]?.b64_json;
+    if (b64) return { buf: Buffer.from(b64, 'base64'), ext: 'png' };
+  }
+  throw new Error('Генерація зображень недоступна — перевір STABILITY_API_KEY / OPENAI_API_KEY');
+}
+
+// POST /api/marketing/image  — ad image: Claude decides the concept (brief),
+// then an image model renders it. Saved under uploads/output/gen/ (survives
+// the 48h cleanup sweep, which skips subdirectories). Returns a served URL.
+// Body: { label?: string, strategy?: object, profile? }
+marketingRouter.post('/image', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  if (!process.env.STABILITY_API_KEY && !process.env.OPENAI_API_KEY) {
+    res.status(503).json({ error: 'Генерація зображень не налаштована (потрібен STABILITY_API_KEY або OPENAI_API_KEY)' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const label = typeof req.body?.label === 'string' ? req.body.label.slice(0, 120) : 'Рекламне зображення';
+    const strategy = req.body?.strategy ?? null;
+
+    // 1. The marketing decision (what to show and why) — Claude.
+    const brief = await generateImageBrief(ctx, strategy, label);
+
+    // 2. Render — Stability (primary) → DALL-E (fallback).
+    const { buf, ext } = await renderAdImage(
+      brief.image_prompt + ' No text, no words, no letters in the image.',
+    );
+
+    // 3. Save under output/gen (served statically at /output/gen/...).
+    const outputDir = process.env.OUTPUT_DIR
+      ? path.resolve(process.env.OUTPUT_DIR)
+      : path.resolve(process.cwd(), 'uploads/output');
+    const genDir = path.join(outputDir, 'gen');
+    fs.mkdirSync(genDir, { recursive: true });
+    const name = `img_${randomUUID()}.${ext}`;
+    fs.writeFileSync(path.join(genDir, name), buf);
+    const url = `/output/gen/${name}`;
+
+    const material = {
+      title: label,
+      url,
+      concept: brief.concept,
+      overlay_text: brief.overlay_text,
+      why: brief.why,
+    };
+    await logGeneration(req, {
+      type: 'image', input: { label, strategy },
       output: material as unknown as Record<string, unknown>, profileId,
     });
     res.json({ material });

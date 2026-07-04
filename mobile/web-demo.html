@@ -12759,7 +12759,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   function renderStrategy(s) {
     curStrategy = s;
     var mats = (s.recommended_materials || []).map(function (m, i) {
-      var right = GENERATABLE[m.type]
+      var can = GENERATABLE[m.type] || m.type === 'image' || m.type === 'banner';
+      var right = can
         ? '<button class="btn btn-primary oc-genbtn" style="padding:6px 12px;font-size:12px;white-space:nowrap;flex:none;" data-i="' + i + '">Створити</button>'
         : '<span style="font-size:11px;color:var(--text4);white-space:nowrap;flex:none;">🔒 скоро</span>';
       return '<div class="oc-mat" style="align-items:center;"><span class="mi">' + (MAT_ICON[m.type] || '•') + '</span>' +
@@ -12782,7 +12783,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       '<div class="ob-status" id="ocMatStatus" style="margin-top:10px;"></div>';
     $('ocResult').appendChild(card);
     card.querySelectorAll('.oc-genbtn').forEach(function (b) {
-      b.onclick = function () { var m = s.recommended_materials[Number(b.dataset.i)]; makeMaterial(m.type, m.label, b); };
+      b.onclick = function () {
+        var m = s.recommended_materials[Number(b.dataset.i)];
+        if (m.type === 'image' || m.type === 'banner') makeImage(m.label, b);
+        else makeMaterial(m.type, m.label, b);
+      };
     });
     $('ocMakeAllBtn').onclick = function () { makeAll(s); };
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -12794,6 +12799,22 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">' + (icon || '✍️') + '</div><div><div class="card-title" style="margin:0;">' + esc(material.title || label) + '</div><div class="card-sub" style="margin:0;">' + esc(label) + '</div></div></div>' + window.octoRenderMaterialBody(material);
     $('ocResult').appendChild(card);
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function makeImage(label, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    var st = $('ocMatStatus');
+    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Малюю зображення (до 30 сек)…'; }
+    return api('/api/marketing/image', { profile: bizProfile(), strategy: curStrategy, label: label }).then(function (r) {
+      if (st) { st.className = 'ob-status'; st.textContent = ''; }
+      renderMaterialCard(label, '🎨', r.material);
+      try { if (window.octoCampaignAddMaterial) window.octoCampaignAddMaterial('image', label, r.material); } catch (e) {}
+      if (btn) { btn.textContent = '✓'; btn.classList.remove('btn-primary'); btn.style.opacity = '.6'; }
+    }).catch(function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Створити'; }
+      if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
+      throw e;
+    });
   }
 
   function makeMaterial(type, label, btn) {
@@ -12833,10 +12854,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     setStep('materials');
     var btn = $('ocMakeAllBtn'); if (btn) btn.disabled = true;
     var st = $('ocMatStatus');
-    var mats = (s.recommended_materials || []).filter(function (m) { return GENERATABLE[m.type]; });
+    var mats = (s.recommended_materials || []).filter(function (m) { return GENERATABLE[m.type] || m.type === 'image' || m.type === 'banner'; });
     for (var i = 0; i < mats.length; i++) {
       if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Створюю: ' + esc(mats[i].label) + ' (' + (i + 1) + '/' + mats.length + ')…'; }
-      try { await makeMaterial(mats[i].type, mats[i].label, null); } catch (e) { /* keep going */ }
+      try {
+        if (mats[i].type === 'image' || mats[i].type === 'banner') await makeImage(mats[i].label, null);
+        else await makeMaterial(mats[i].type, mats[i].label, null);
+      } catch (e) { /* keep going */ }
     }
     document.querySelectorAll('#ocResult .oc-genbtn').forEach(function (b) { b.disabled = true; b.textContent = '✓'; b.classList.remove('btn-primary'); b.style.opacity = '.6'; });
     if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
@@ -13227,6 +13251,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   // Просування flow and this library reuse it.
   window.octoRenderMaterialBody = function (o) {
     if (!o) return '';
+    if (o.url) { // image material: rendered picture + overlay copy + reasoning
+      return '<img src="' + esc(o.url) + '" style="width:100%;border-radius:12px;border:1px solid var(--border);" alt="">'
+        + (o.overlay_text ? '<div class="ob-cta" style="margin-top:10px;">🅰️ <b>Текст поверх:</b> ' + esc(o.overlay_text) + '</div>' : '')
+        + (o.concept ? '<p style="font-size:13px;color:var(--text3);margin-top:8px;">' + esc(o.concept) + '</p>' : '')
+        + (o.why ? '<div class="ob-why"><b>Чому цей візуал:</b> ' + esc(o.why) + '</div>' : '')
+        + '<a href="' + esc(o.url) + '" download style="display:inline-block;margin-top:10px;font-size:13px;color:var(--accent2);font-weight:700;">⬇️ Завантажити PNG</a>';
+    }
     if (o.variants) { // legacy text material
       return (o.variants || []).map(function (v) {
         return '<div class="ob-variant"><span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>'

@@ -406,6 +406,35 @@ export function generateMaterial(
   return jsonCall<GeneratedMaterial>(system, user, 2500);
 }
 
+// ── Ad image brief (the marketing decision BEHIND the image) ──────────────────
+// Per the constitution: the image is a consequence of a decision. Claude first
+// decides WHAT the banner should communicate, then we hand the visual prompt
+// to the image model. Overlay text is returned separately (image models are
+// bad at text), so the client gets copy to place on top.
+export interface ImageBrief {
+  concept: string;       // що показуємо і чому (людською мовою)
+  image_prompt: string;  // англомовний промпт для image-моделі, БЕЗ тексту в кадрі
+  overlay_text: string;  // короткий текст, який варто накласти поверх
+  why: string;           // чому цей візуал спрацює під ціль
+}
+
+export function generateImageBrief(
+  profileCtx: string,
+  strategy: unknown,
+  label: string,
+): Promise<ImageBrief> {
+  const system =
+    'Ти — арт-директор і маркетолог. Придумай рекламний банер/зображення під стратегію кампанії. ' +
+    'Спочатку РІШЕННЯ: що саме показати, щоб влучити в аудиторію та оффер. ' +
+    'image_prompt — англійською, фотореалістичний або стильний, детальний, і ОБОВ’ЯЗКОВО "no text, no words, no letters" ' +
+    '(текст поверх додасть клієнт). overlay_text — 3-7 слів мовою бізнесу. ' +
+    LANG_RULE +
+    ' Схема JSON: {"concept": string, "image_prompt": string, "overlay_text": string, "why": string}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nСтратегія:\n${JSON.stringify(strategy)}\n\nМатеріал: ${label}. Зроби бриф на зображення.`;
+  return jsonCall<ImageBrief>(system, user, 1200);
+}
+
 // ── Material editing via dialog (Rule 3: no manual editors — words only) ──────
 // Takes the CURRENT material JSON + the client's instruction, returns the same
 // JSON shape with revised content. Shape-preserving so any material type works.
