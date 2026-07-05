@@ -1,10 +1,15 @@
 // Thin typed PostgREST client for Supabase.
 // Mirrors the raw-fetch pattern already used in routes/push.ts — no supabase-js,
-// no ORM, zero new dependencies. The backend uses the service key and enforces
-// per-user isolation itself, so RLS is off for MVP (see db/schema.sql).
+// no ORM, zero new dependencies.
+//
+// The backend is a trusted server, so it authenticates with the SERVICE_ROLE
+// key (bypasses RLS). The anon key (SUPABASE_KEY) is for the browser and is
+// blocked by RLS on writes — using it here caused silent "42501 RLS violation"
+// and no rows were persisted. Prefer the service key; fall back to anon so
+// reads still work if the service key isn't set yet.
 
 const SB_URL = process.env.SUPABASE_URL || '';
-const SB_KEY = process.env.SUPABASE_KEY || '';
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || '';
 
 export function isDbConfigured(): boolean {
   return Boolean(SB_URL && SB_KEY);
