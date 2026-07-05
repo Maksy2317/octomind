@@ -587,6 +587,39 @@ export function generateImageBrief(
   return jsonCall<ImageBrief>(system, user, 1200);
 }
 
+// ── Campaign → calendar schedule (the Launch step of the cycle) ───────────────
+// Octo decides WHEN each ready material should go out and why — order,
+// weekday, time — based on the strategy and platform habits. The client gets
+// a ready week, not a pile of files.
+export interface CampaignSchedule {
+  summary: string;   // 1-2 речення: логіка розкладу
+  schedule: Array<{
+    material_index: number;  // індекс у переданому списку матеріалів
+    day_offset: number;      // 1 = завтра, 2 = післязавтра... (максимум 10)
+    time: string;            // "HH:MM" за місцевим часом аудиторії
+    note: string;            // коротка примітка для календаря
+    why: string;             // чому цей матеріал саме в цей день/час
+  }>;
+}
+
+export function scheduleCampaign(
+  profileCtx: string,
+  strategy: unknown,
+  materials: Array<{ index: number; type: string; title: string }>,
+): Promise<CampaignSchedule> {
+  const system =
+    'Ти — SMM-стратег. Тобі дають готові матеріали кампанії. Розклади їх по днях на найближчий тиждень ' +
+    '(day_offset: 1-7, де 1 — завтра): що виходить першим і чому, у який день тижня і час такий контент ' +
+    'працює найкраще (враховуй тип: Stories щодня вдень, продажні пости в пік, Reels увечері/вихідні). ' +
+    'Кожен матеріал — рівно один раз. time у форматі "HH:MM". ' +
+    LANG_RULE +
+    ' Схема JSON: {"summary":str,"schedule":[{"material_index":num,"day_offset":num,"time":"HH:MM","note":str,"why":str}]}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nСтратегія:\n${JSON.stringify(strategy)}\n\n` +
+    `Матеріали:\n${JSON.stringify(materials)}\n\nРозклади їх.`;
+  return jsonCall<CampaignSchedule>(system, user, 1500);
+}
+
 // ── Material editing via dialog (Rule 3: no manual editors — words only) ──────
 // Takes the CURRENT material JSON + the client's instruction, returns the same
 // JSON shape with revised content. Shape-preserving so any material type works.

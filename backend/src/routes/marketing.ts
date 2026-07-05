@@ -14,7 +14,7 @@ import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
   extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
-  generateImageBrief, generateBrandKit,
+  generateImageBrief, generateBrandKit, scheduleCampaign,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -363,6 +363,29 @@ marketingRouter.post('/image', async (req: Request, res: Response, next: NextFun
       output: material as unknown as Record<string, unknown>, profileId,
     });
     res.json({ material });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/schedule  — «розкласти по днях»: Octo decides when each
+// campaign material goes out (day/time/why) for the next week.
+// Body: { strategy?: object, materials: [{index,type,title}], profile? }
+marketingRouter.post('/schedule', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const materials = Array.isArray(req.body?.materials) ? req.body.materials.slice(0, 20) : [];
+  if (!materials.length) {
+    res.status(400).json({ error: 'Нема матеріалів для розкладу — спершу створи їх у кампанії' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const plan = await scheduleCampaign(ctx, req.body?.strategy ?? null, materials);
+    await logGeneration(req, {
+      type: 'schedule', input: { materials },
+      output: plan as unknown as Record<string, unknown>, profileId,
+    });
+    res.json(plan);
   } catch (err) {
     next(err);
   }

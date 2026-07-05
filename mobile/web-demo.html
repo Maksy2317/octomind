@@ -10104,6 +10104,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }
   }
 
+  // Exposed for the campaign «Розкласти по днях» flow (writes to the same
+  // localStorage store from another script, then needs render + push sync).
+  window.calRender = calRender;
+  window.calSyncReminders = calSyncReminders;
+
   function calCheckReminders() {
     const now = new Date();
     const key = calKey(now.getFullYear(), now.getMonth(), now.getDate());
@@ -13505,7 +13510,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<div class="card"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🎯</div>'
       + '<div style="flex:1;"><div class="card-title" style="margin:0;">' + esc(c.name) + '</div><div class="card-sub" style="margin:0;">створено ' + fmtDate(c.createdAt) + ' · ' + (c.materials ? c.materials.length : 0) + ' матеріалів</div></div>'
       + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="showScreen(\'campaign\',null)">➕ Ще матеріали</button></div>'
-      + '<button style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:11px;padding:10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;" onclick="octoExportCampaign(\'' + c.id + '\',this)">📋 Експортувати все (копія + .txt)</button></div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px;">'
+      + ((c.materials && c.materials.length)
+        ? '<button class="btn btn-primary" style="flex:1;padding:10px;font-size:13px;" onclick="octoScheduleCampaign(\'' + c.id + '\',this)">📅 Розкласти по днях</button>'
+        : '')
+      + '<button style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:11px;padding:10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;" onclick="octoExportCampaign(\'' + c.id + '\',this)">📋 Експортувати все</button></div>'
+      + '<div class="ob-status" id="csch-' + c.id + '"></div></div>'
       + strategyCard + mats;
     window.scrollTo(0, 0);
   };
@@ -13573,6 +13583,65 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     // …and copy to clipboard as a bonus
     try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (e) {}
     if (btn) { var t = btn.textContent; btn.textContent = '✅ Скопійовано + .txt'; setTimeout(function () { btn.textContent = t; }, 2500); }
+  };
+
+  // ── «Розкласти по днях»: Octo schedules ready materials into the calendar
+  // (dates + times + push reminders) — the Launch step of the cycle ───────────
+  var CAL_TYPE_MAP = { stories: 'stories', reels: 'reels', tiktok: 'reels', video: 'video' };
+
+  window.octoScheduleCampaign = function (campaignId, btn) {
+    var c = window.octoCampaigns.get(campaignId);
+    if (!c || !c.materials || !c.materials.length) return;
+    var st = document.getElementById('csch-' + campaignId);
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo планує тиждень публікацій…'; }
+    var mats = c.materials.map(function (m, i) { return { index: i, type: m.type || 'post', title: m.title || 'Матеріал' }; });
+    var dev = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (dev.length < 8) dev += '0';
+    var prof = {};
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get();
+      ['business_name','niche','description','target_audience','geo','goal','tone','page_style'].forEach(function (k) { if (b[k]) prof[k] = b[k]; });
+    }
+    fetch('/api/marketing/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': dev.slice(0, 128) },
+      body: JSON.stringify({ profile: prof, strategy: c.strategy || null, materials: mats }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (plan) {
+        // Write into the calendar store (same shape the calendar screen uses).
+        var key = 'octo_calendar_' + wsId();
+        var data = {};
+        try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+        var added = 0;
+        (plan.schedule || []).forEach(function (it) {
+          var m = c.materials[Number(it.material_index)];
+          if (!m) return;
+          var off = Math.min(10, Math.max(1, Number(it.day_offset) || 1));
+          var d = new Date(); d.setDate(d.getDate() + off);
+          var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+          if (!data[k]) data[k] = [];
+          data[k].push({
+            type: CAL_TYPE_MAP[m.type] || 'post',
+            note: (m.title || 'Матеріал') + (it.note ? ' — ' + it.note : ''),
+            time: /^\d{1,2}:\d{2}$/.test(it.time || '') ? it.time : '11:00',
+            reminder: true,
+          });
+          added++;
+        });
+        try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
+        try { window.calSyncReminders && window.calSyncReminders(); } catch (e) {}
+        if (btn) { btn.textContent = '✅ ' + added + ' у плані'; }
+        if (st) {
+          st.className = 'ob-status ob-ok';
+          st.innerHTML = '📅 ' + esc(plan.summary || ('Заплановано ' + added + ' публікацій на тиждень.'))
+            + ' <a href="#" style="color:var(--accent2);font-weight:700;" onclick="showScreen(\'calendar\',null);try{window.calRender&&window.calRender();}catch(e){};return false;">Відкрити контент-план →</a>';
+        }
+      })
+      .catch(function (e) {
+        if (btn) { btn.disabled = false; btn.textContent = '📅 Розкласти по днях'; }
+        if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
+      });
   };
 
   // Dialog-edit the campaign's saved strategy (same /edit endpoint as materials).
