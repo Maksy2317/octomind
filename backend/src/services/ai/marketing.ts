@@ -11,6 +11,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { BusinessProfile, BusinessProfileInput } from '../db/models';
+import { llmCall, Provider, isAnyConfigured } from './provider';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -20,7 +21,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 export const MARKETING_MODEL = process.env.MARKETING_MODEL || 'claude-haiku-4-5';
 
 export function isMarketingConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return isAnyConfigured();
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -107,41 +108,23 @@ async function parseWithRetry<T>(make: () => Promise<string>): Promise<T> {
   throw new Error('AI повернув невалідний формат. Спробуй ще раз.'); // unreachable
 }
 
-/** One structured call to Claude that returns a parsed JSON object. */
-async function jsonCall<T>(system: string, user: string, maxTokens = 4096): Promise<T> {
+/** One structured call to the active LLM provider → parsed JSON object. */
+async function jsonCall<T>(system: string, user: string, maxTokens = 4096, provider?: Provider): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
   return parseWithRetry<T>(async () => {
-    const res = await client.messages.create({
-      model: MARKETING_MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: user }],
-    });
-    return textOf(res);
+    const res = await llmCall(system, user, { maxTokens, provider });
+    return res.text;
   });
 }
 
 export interface AuditImage { media_type: string; data: string }
 
 /** Vision variant — same JSON discipline, with images attached to the user turn. */
-async function jsonCallVision<T>(system: string, user: string, images: AuditImage[], maxTokens = 2500): Promise<T> {
+async function jsonCallVision<T>(system: string, user: string, images: AuditImage[], maxTokens = 2500, provider?: Provider): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
   return parseWithRetry<T>(async () => {
-    // Typed loosely: the 0.27 SDK doesn't export ContentBlockParam.
-    const content: Anthropic.MessageParam['content'] = [
-      ...images.map((im) => ({
-        type: 'image' as const,
-        source: { type: 'base64' as const, media_type: im.media_type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: im.data },
-      })),
-      { type: 'text' as const, text: user },
-    ];
-    const res = await client.messages.create({
-      model: MARKETING_MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content }],
-    });
-    return textOf(res);
+    const res = await llmCall(system, user, { images, maxTokens, provider });
+    return res.text;
   });
 }
 
@@ -363,6 +346,7 @@ export function generateCampaignStrategy(
   profileCtx: string,
   goal: string,
   details?: string,
+  provider?: Provider,
 ): Promise<CampaignStrategy> {
   const system =
     'Ти — AI-маркетолог. Користувач ставить БІЗНЕС-ЦІЛЬ (не «зроби файл»). ' +
@@ -379,7 +363,7 @@ export function generateCampaignStrategy(
     `Дані про бізнес:\n${profileCtx}\n\nБізнес-ціль користувача: ${goal}` +
     (details ? `\nДеталі: ${details}` : '') +
     '\n\nЗроби стратегію під цю ціль і запропонуй набір матеріалів.';
-  return jsonCall<CampaignStrategy>(system, user, 3000);
+  return jsonCall<CampaignStrategy>(system, user, 3000, provider);
 }
 
 // ── Material generation (the proposed pack, one item at a time) ───────────────

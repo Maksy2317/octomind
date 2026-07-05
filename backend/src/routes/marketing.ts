@@ -222,6 +222,31 @@ marketingRouter.post('/strategy', async (req: Request, res: Response, next: Next
   }
 });
 
+// POST /api/marketing/ab  — same strategy through BOTH providers, side by side.
+// Dev/decision tool: compare Ukrainian quality of Haiku vs Gemini Flash.
+// Body: { goal, details?, profile? }
+marketingRouter.post('/ab', async (req: Request, res: Response, next: NextFunction) => {
+  const goal = typeof req.body?.goal === 'string' ? req.body.goal.slice(0, 400) : '';
+  if (!goal.trim()) { res.status(400).json({ error: 'Вкажи бізнес-ціль (goal)' }); return; }
+  try {
+    const { ctx } = await resolveContext(req);
+    const details = typeof req.body?.details === 'string' ? req.body.details.slice(0, 2000) : undefined;
+    const run = async (provider: 'anthropic' | 'gemini') => {
+      const t0 = Date.now();
+      try {
+        const strategy = await generateCampaignStrategy(ctx, goal, details, provider);
+        return { provider, ok: true, ms: Date.now() - t0, strategy };
+      } catch (e) {
+        return { provider, ok: false, ms: Date.now() - t0, error: (e as Error).message.slice(0, 200) };
+      }
+    };
+    const [anthropic, gemini] = await Promise.all([run('anthropic'), run('gemini')]);
+    res.json({ anthropic, gemini });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/marketing/material  — generate one proposed material under a strategy.
 // Body: { type: string, label: string, strategy?: object, profile? }
 marketingRouter.post('/material', async (req: Request, res: Response, next: NextFunction) => {
