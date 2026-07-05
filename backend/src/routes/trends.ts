@@ -104,12 +104,20 @@ trendsRouter.post('/page-audit', async (req: Request, res: Response, next: NextF
       return;
     }
     const { ctx, profileId } = await resolveCtx(req);
+    // Same 12h server cache: one page audit per handle+business per half-day.
+    const auditKey = `pa:${handle.toLowerCase()}:${String((req.body?.profile || {}).business_name || '')}`;
+    const cachedAudit = kvGet<Record<string, unknown>>(auditKey, 12 * 3_600_000);
+    if (cachedAudit) {
+      res.json({ audit: cachedAudit, author: page.author, videos: page.videos, fromCache: true });
+      return;
+    }
     // Strip to analysis-relevant fields (CDN urls just waste tokens).
     const slim = page.videos.map((v) => ({
       text: v.text.slice(0, 200), views: v.views, likes: v.likes, comments: v.comments,
       shares: v.shares, created: v.created, duration: v.duration, hashtags: v.hashtags,
     }));
     const audit = await auditOwnPage(ctx, page.author as unknown as Record<string, unknown>, slim);
+    kvSet(auditKey, audit as unknown as Record<string, unknown>);
     if (req.userId) {
       try {
         await createGeneration({
@@ -148,7 +156,14 @@ trendsRouter.post('/analyze', async (req: Request, res: Response, next: NextFunc
       comments: v.comments, shares: v.shares, duration: v.duration,
       created: v.created, author: v.author, hashtags: v.hashtags,
     };
+    // Server-side 24h cache: the same video for the same business costs ONE
+    // Claude call no matter how many devices/reloads ask (клієнтський кеш у
+    // localStorage губиться між браузерами — цей ні).
+    const cacheKey = `an:${String(v.id || v.url || '')}:${String((req.body?.profile || {}).business_name || '')}`;
+    const hit = kvGet<Record<string, unknown>>(cacheKey, 24 * 3_600_000);
+    if (hit) { res.json({ analysis: hit, fromCache: true }); return; }
     const analysis = await analyzeViralVideo(ctx, meta);
+    kvSet(cacheKey, analysis);
     // Best-effort persistence (same pattern as marketing routes).
     if (req.userId) {
       try {
