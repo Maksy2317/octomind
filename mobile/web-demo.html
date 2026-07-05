@@ -13504,11 +13504,76 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     el.innerHTML = '<button class="oc-back" style="background:none;border:none;color:var(--text3);font:inherit;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;" onclick="octoCampaignsBack()">← усі кампанії</button>'
       + '<div class="card"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🎯</div>'
       + '<div style="flex:1;"><div class="card-title" style="margin:0;">' + esc(c.name) + '</div><div class="card-sub" style="margin:0;">створено ' + fmtDate(c.createdAt) + ' · ' + (c.materials ? c.materials.length : 0) + ' матеріалів</div></div>'
-      + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="showScreen(\'campaign\',null)">➕ Ще матеріали</button></div></div>'
+      + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="showScreen(\'campaign\',null)">➕ Ще матеріали</button></div>'
+      + '<button style="width:100%;margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:11px;padding:10px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;" onclick="octoExportCampaign(\'' + c.id + '\',this)">📋 Експортувати все (копія + .txt)</button></div>'
       + strategyCard + mats;
     window.scrollTo(0, 0);
   };
   window.octoCampaignsBack = function () { renderList(); };
+
+  // ── Export: the whole campaign as plain text (hand it to an SMM person,
+  // paste into Notion/Docs — no AI, no server) ────────────────────────────────
+  function materialToText(m) {
+    var o = m.output || {};
+    var L = ['── ' + (m.title || 'Матеріал') + ' ──'];
+    if (o.link) { // trend video bookmark
+      if (o.text) L.push(o.text);
+      L.push('Ролик: ' + o.link + (o.views_label ? ' (' + o.views_label + ' переглядів)' : ''));
+      return L.join('\n');
+    }
+    if (o.url) { // image
+      if (o.concept) L.push(o.concept);
+      if (o.overlay_text) L.push('Текст поверх: ' + o.overlay_text);
+      L.push('Зображення: ' + (location.origin || '') + o.url);
+      return L.join('\n');
+    }
+    if (o.summary) L.push(o.summary);
+    (o.items || []).forEach(function (it) {
+      L.push((it.label ? it.label + ': ' : '') + (it.text || ''));
+    });
+    (o.variants || []).forEach(function (v, i) { L.push('Варіант ' + (i + 1) + ': ' + (typeof v === 'string' ? v : JSON.stringify(v))); });
+    if (o.cta) L.push('CTA: ' + o.cta);
+    if (Array.isArray(o.hashtags) && o.hashtags.length) L.push(o.hashtags.map(function (h) { return (String(h)[0] === '#' ? h : '#' + h); }).join(' '));
+    return L.join('\n');
+  }
+
+  function campaignToText(c) {
+    var s = c.strategy || {};
+    var L = ['📁 ' + c.name + '  (OctoMind, ' + fmtDate(c.createdAt) + ')', ''];
+    if (s.offer) {
+      L.push('=== СТРАТЕГІЯ ===');
+      if (s.goal) L.push('Ціль: ' + s.goal);
+      if (s.audience) L.push('Аудиторія: ' + s.audience);
+      if (s.problem) L.push('Проблема клієнта: ' + s.problem);
+      if (Array.isArray(s.benefits) && s.benefits.length) L.push('Переваги: ' + s.benefits.join('; '));
+      L.push('Оффер: ' + s.offer);
+      if (s.key_message) L.push('Ключове повідомлення: ' + s.key_message);
+      if (s.cta) L.push('Заклик до дії: ' + s.cta);
+      L.push('');
+    }
+    if (c.materials && c.materials.length) {
+      L.push('=== МАТЕРІАЛИ (' + c.materials.length + ') ===');
+      c.materials.forEach(function (m) { L.push('', materialToText(m)); });
+    }
+    return L.join('\n');
+  }
+
+  window.octoExportCampaign = function (id, btn) {
+    var c = window.octoCampaigns.get(id); if (!c) return;
+    var text = campaignToText(c);
+    // download as .txt (works everywhere)…
+    try {
+      var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (c.name || 'campaign').replace(/[^\p{L}\p{N} _-]/gu, '').trim().replace(/\s+/g, '_') + '.txt';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    } catch (e) {}
+    // …and copy to clipboard as a bonus
+    try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (e) {}
+    if (btn) { var t = btn.textContent; btn.textContent = '✅ Скопійовано + .txt'; setTimeout(function () { btn.textContent = t; }, 2500); }
+  };
 
   // Dialog-edit the campaign's saved strategy (same /edit endpoint as materials).
   window.octoEditCampaignStrategy = function (campaignId, btn) {

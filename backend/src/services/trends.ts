@@ -14,7 +14,12 @@ import path from 'path';
 import crypto from 'crypto';
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN || '';
+// TikTok search actor is switchable without a deploy: TRENDS_ACTOR=apidojo on
+// Railway flips to the ~30x cheaper actor ($0.30/1000 vs ~$10/1000 measured).
+// Default stays clockworks (battle-tested) until the August live-data check.
+const USE_APIDOJO = process.env.TRENDS_ACTOR === 'apidojo';
 const ACTOR = 'clockworks~tiktok-scraper';
+const APIDOJO_ACTOR = 'apidojo~tiktok-scraper';
 // Instagram source (official actor, ~$1.90/1000): built from documented output
 // schema, NOT yet run against live data (credits exhausted) — enable with
 // TRENDS_IG_ENABLED=1 after a real-data field check in August.
@@ -185,6 +190,32 @@ export async function getProfileVideos(handle: string, force = false): Promise<{
   return { videos, author, fetchedAt: Date.now(), fromCache: false };
 }
 
+/** Normalize an apidojo/tiktok-scraper item (documented output schema). */
+function normalizeApidojo(v: Record<string, any>): TrendVideo | null {
+  const id = String(v.id || '');
+  const url = String(v.postPage || '');
+  if (!id || !url) return null;
+  const vid = v.video || {};
+  const ch = v.channel || {};
+  return {
+    id,
+    platform: 'tiktok',
+    url,
+    text: String(v.title || ''),
+    lang: null,
+    views: Number(v.views) || 0,
+    likes: Number(v.likes) || 0,
+    comments: Number(v.comments) || 0,
+    shares: Number(v.shares) || 0,
+    created: v.uploadedAtFormatted ? String(v.uploadedAtFormatted) : null,
+    duration: vid.duration != null ? Math.round(Number(vid.duration)) : null,
+    author: ch.username ? String(ch.username) : null,
+    author_name: ch.name ? String(ch.name) : null,
+    cover: vid.cover ? String(vid.cover) : null,
+    hashtags: [],
+  };
+}
+
 /** Normalize an Instagram hashtag-scraper item (documented output schema). */
 function normalizeIG(v: Record<string, any>): TrendVideo | null {
   const id = String(v.id || v.shortCode || '');
@@ -237,20 +268,26 @@ export async function getTrendFeed(
   }
 
   const perQuery = Math.max(10, Math.ceil(RESULTS_PER_QUERY / list.length));
-  const actor = platform === 'instagram' ? IG_ACTOR : ACTOR;
+  const actor = platform === 'instagram' ? IG_ACTOR : (USE_APIDOJO ? APIDOJO_ACTOR : ACTOR);
   const input = platform === 'instagram'
     ? {
       hashtags: list.map((q) => q.replace(/^#/, '').replace(/\s+/g, '')),
       resultsType: 'reels',
       resultsLimit: perQuery,
     }
-    : {
-      searchQueries: list,
-      // Keep total volume (and cost) roughly constant however many queries run.
-      resultsPerPage: perQuery,
-      searchSection: '/video',
-      maxProfilesPerQuery: 1,
-    };
+    : USE_APIDOJO
+      ? {
+        keywords: list,
+        maxItems: perQuery * list.length,
+        sortType: 'RELEVANCE',
+      }
+      : {
+        searchQueries: list,
+        // Keep total volume (and cost) roughly constant however many queries run.
+        resultsPerPage: perQuery,
+        searchSection: '/video',
+        maxProfilesPerQuery: 1,
+      };
   const res = await fetch(
     `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
     {
@@ -271,8 +308,9 @@ export async function getTrendFeed(
   }
   const items = (await res.json()) as Array<Record<string, any>>;
   const seen = new Set<string>();
+  const normalizer = platform === 'instagram' ? normalizeIG : (USE_APIDOJO ? normalizeApidojo : normalize);
   const videos = (Array.isArray(items) ? items : [])
-    .map(platform === 'instagram' ? normalizeIG : normalize)
+    .map(normalizer)
     .filter((v): v is TrendVideo => Boolean(v))
     // several queries can surface the same video — dedup by id
     .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
