@@ -561,6 +561,43 @@ export function generateBrandKit(profileCtx: string): Promise<BrandKit> {
   return jsonCall<BrandKit>(system, user, 1500);
 }
 
+// ── Video storyboard (scenes for the ffmpeg-assembled ad video) ───────────────
+// Octo writes a scene-by-scene plan. Each scene = a background scene (rendered
+// by Stability, product composited on top client-side) + on-screen text +
+// camera motion + duration. No AI video model — motion is ffmpeg Ken Burns.
+export interface VideoStoryboard {
+  concept: string;         // ідея ролика одним реченням
+  scenes: Array<{
+    background_prompt: string;  // англ. промпт тла (порожня сцена, no text)
+    on_screen_text: string;     // короткий текст на кадр (мовою бізнесу)
+    motion: 'zoom_in' | 'zoom_out' | 'pan_left' | 'pan_right';
+    seconds: number;            // тривалість сцени
+    product_zone: 'center' | 'left' | 'right';
+  }>;
+  cta: string;
+}
+
+export function generateVideoStoryboard(
+  profileCtx: string,
+  product: Record<string, unknown>,
+  concept: Record<string, unknown>,
+  opts: { style: string; ratio: string; totalSeconds: number; scenes: number },
+): Promise<VideoStoryboard> {
+  const system =
+    'Ти — режисер коротких рекламних роликів. Склади сторіборд на ' + opts.totalSeconds + ' секунд ' +
+    'з ' + opts.scenes + ' сцен для товару. Кожна сцена: background_prompt (АНГЛ., порожня сцена/середовище ' +
+    'БЕЗ товару і БЕЗ тексту — товар накладемо поверх; "empty scene, no product, no text"), ' +
+    'on_screen_text (2-5 слів мовою бізнесу — гачок, вигода, ціна, CTA по ходу), motion (рух камери), ' +
+    'seconds (сума = ' + opts.totalSeconds + '), product_zone. Перша сцена — сильний гачок, остання — CTA/пекшот. ' +
+    LANG_RULE +
+    ' Схема JSON: {"concept":str,"scenes":[{"background_prompt":str,"on_screen_text":str,' +
+    '"motion":"zoom_in"|"zoom_out"|"pan_left"|"pan_right","seconds":num,"product_zone":"center"|"left"|"right"}],"cta":str}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nТовар:\n${JSON.stringify(product)}\n\nКонцепція:\n${JSON.stringify(concept)}\n\n` +
+    `Стиль: ${opts.style}. Формат: ${opts.ratio}. Тривалість: ${opts.totalSeconds} сек, ${opts.scenes} сцени.`;
+  return jsonCall<VideoStoryboard>(system, user, 1800);
+}
+
 // ── Ad image brief (the marketing decision BEHIND the image) ──────────────────
 // Per the constitution: the image is a consequence of a decision. Claude first
 // decides WHAT the banner should communicate, then we hand the visual prompt

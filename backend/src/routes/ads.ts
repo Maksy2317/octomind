@@ -16,8 +16,10 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import {
   analyseProductImages, generateAdConcepts, generateAdBackground, generateAdPackTexts,
+  generateVideoStoryboard,
   profileToContext, isMarketingConfigured, AuditImage,
 } from '../services/ai/marketing';
+import { assembleVideo, isFfmpegReady, VideoScene, Motion } from '../services/ads/adVideo';
 
 export const adsRouter = Router();
 
@@ -142,16 +144,21 @@ adsRouter.post('/background', async (req: Request, res: Response, next: NextFunc
     res.status(503).json({ error: 'Генерація зображень не налаштована (STABILITY_API_KEY відсутній)' });
     return;
   }
+  // direct_prompt path: caller already has the scene prompt (storyboard) — skip
+  // the Gemini brief and render it straight (saves a call + latency per scene).
+  const directPrompt = typeof req.body?.direct_prompt === 'string' ? req.body.direct_prompt.slice(0, 600) : '';
   const { product, concept } = req.body || {};
-  if (!product || !concept) { res.status(400).json({ error: 'Потрібні product і concept' }); return; }
+  if (!directPrompt && (!product || !concept)) { res.status(400).json({ error: 'Потрібні product і concept' }); return; }
   try {
     const { ctx, profileId } = await resolveCtx(req);
     const ratio = ['1:1', '9:16', '4:5', '16:9'].includes(req.body?.ratio) ? req.body.ratio : '1:1';
-    const brief = await generateAdBackground(ctx, product, concept, {
-      style: String(req.body?.style || 'Premium').slice(0, 40),
-      ratio,
-      variant: typeof req.body?.variant === 'string' ? req.body.variant.slice(0, 120) : undefined,
-    });
+    const brief = directPrompt
+      ? { image_prompt: directPrompt, product_zone: (['center', 'left', 'right'].includes(req.body?.product_zone) ? req.body.product_zone : 'center') as 'center' | 'left' | 'right', overlay_text: '', why: '' }
+      : await generateAdBackground(ctx, product, concept, {
+        style: String(req.body?.style || 'Premium').slice(0, 40),
+        ratio,
+        variant: typeof req.body?.variant === 'string' ? req.body.variant.slice(0, 120) : undefined,
+      });
     const fd = new FormData();
     fd.append('prompt', brief.image_prompt + ' Empty scene, no product, no text, no words, no letters.');
     fd.append('output_format', 'jpeg');
@@ -164,7 +171,7 @@ adsRouter.post('/background', async (req: Request, res: Response, next: NextFunc
     if (!r.ok) throw new Error(`Stability ${r.status}: ${(await r.text()).slice(0, 180)}`);
     const url = saveImage(Buffer.from(await r.arrayBuffer()), 'jpg');
     const out = { url, product_zone: brief.product_zone || 'center', overlay_text: brief.overlay_text, why: brief.why };
-    await logGen(req, 'ad_background', { concept: (concept as any).name }, out, profileId);
+    await logGen(req, 'ad_background', { concept: (concept as any)?.name ?? null, direct: Boolean(directPrompt) }, out, profileId);
     res.json(out);
   } catch (err) { next(err); }
 });
@@ -183,6 +190,70 @@ adsRouter.post('/texts', async (req: Request, res: Response, next: NextFunction)
     await logGen(req, 'ad_texts', { concept: (concept as any).name }, texts, profileId);
     res.json({ texts });
   } catch (err) { next(err); }
+});
+
+// POST /api/ads/storyboard — { product, concept, style, ratio, seconds, scenes, profile? }
+adsRouter.post('/storyboard', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardAI(res)) return;
+  const { product, concept } = req.body || {};
+  if (!product || !concept) { res.status(400).json({ error: 'Потрібні product і concept' }); return; }
+  try {
+    const { ctx, profileId } = await resolveCtx(req);
+    const total = Math.min(30, Math.max(6, Number(req.body?.seconds) || 10));
+    const nScenes = Math.min(5, Math.max(2, Number(req.body?.scenes) || (total <= 6 ? 3 : total <= 10 ? 4 : 5)));
+    const board = await generateVideoStoryboard(ctx, product, concept, {
+      style: String(req.body?.style || 'Dynamic').slice(0, 40),
+      ratio: String(req.body?.ratio || '9:16').slice(0, 10),
+      totalSeconds: total, scenes: nScenes,
+    });
+    await logGen(req, 'ad_storyboard', { seconds: total }, board, profileId);
+    res.json({ storyboard: board });
+  } catch (err) { next(err); }
+});
+
+// POST /api/ads/video — assemble scene stills into an mp4 (ffmpeg, no AI model).
+// Body: { scenes: [{ image_base64, seconds, motion }], ratio, music? }
+adsRouter.post('/video', async (req: Request, res: Response, next: NextFunction) => {
+  if (!isFfmpegReady()) { res.status(503).json({ error: 'Відео-рушій недоступний (ffmpeg)' }); return; }
+  const rawScenes = Array.isArray(req.body?.scenes) ? req.body.scenes : [];
+  if (!rawScenes.length) { res.status(400).json({ error: 'Нема сцен для збірки' }); return; }
+
+  const ratio = ['9:16', '1:1', '4:5', '16:9'].includes(req.body?.ratio) ? req.body.ratio : '9:16';
+  const dims: Record<string, [number, number]> = { '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350], '16:9': [1920, 1080] };
+  const [width, height] = dims[ratio];
+
+  const genPath = genDir();
+  const tmp = path.join(genPath, `vtmp_${randomUUID()}`);
+  fs.mkdirSync(tmp, { recursive: true });
+  const validMotion = new Set<Motion>(['zoom_in', 'zoom_out', 'pan_left', 'pan_right', 'none']);
+  try {
+    const scenes: VideoScene[] = [];
+    for (let i = 0; i < Math.min(8, rawScenes.length); i++) {
+      const s = rawScenes[i] || {};
+      const data = typeof s.image_base64 === 'string' ? s.image_base64.replace(/^data:[^,]+,/, '') : '';
+      if (!data) continue;
+      const p = path.join(tmp, `s${i}.png`);
+      fs.writeFileSync(p, Buffer.from(data, 'base64'));
+      scenes.push({
+        image: p,
+        duration: Math.min(8, Math.max(1.5, Number(s.seconds) || 3)),
+        motion: (validMotion.has(s.motion) ? s.motion : 'zoom_in') as Motion,
+      });
+    }
+    if (!scenes.length) { res.status(400).json({ error: 'Сцени без зображень' }); return; }
+
+    const name = `vid_${randomUUID()}.mp4`;
+    const out = path.join(genPath, name);
+    await assembleVideo({ scenes, width, height, fps: 25, fade: 0.5, audio: null, out });
+
+    const { profileId } = await resolveCtx(req);
+    await logGen(req, 'ad_video', { scenes: scenes.length, ratio }, { url: `/output/gen/${name}` }, profileId);
+    res.json({ url: `/output/gen/${name}` });
+  } catch (err) {
+    next(err);
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* ignore */ }
+  }
 });
 
 // POST /api/ads/save — { data_base64 } → { url }
