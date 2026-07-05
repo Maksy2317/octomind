@@ -2151,7 +2151,11 @@
             .pa-step .n { width:18px; height:18px; border-radius:50%; background:var(--surface3); display:grid; place-items:center; font-size:10px; }
             .pa-step.on { border-color:var(--accent); color:var(--text); background:rgba(108,99,255,.1); }
             .pa-step.on .n { background:var(--accent); color:#fff; }
-            .pa-step.done { color:var(--green); }
+            .pa-step.done { color:var(--green); cursor:pointer; }
+            .pa-step.done:hover { border-color:var(--green); }
+            .pa-back { background:none; border:none; color:var(--text3); font:inherit; font-size:13px; font-weight:700;
+              cursor:pointer; padding:0; margin-bottom:12px; }
+            .pa-back:hover { color:var(--text); }
             .pa-thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
             .pa-thumb { position:relative; width:82px; height:82px; border-radius:12px; overflow:hidden; border:2px solid var(--border); cursor:pointer; }
             .pa-thumb img { width:100%; height:100%; object-fit:cover; }
@@ -2201,6 +2205,7 @@
 
           <!-- Step 2: confirm product info -->
           <div id="paStep2" style="display:none;">
+            <button class="pa-back" onclick="paGoStep(1)">← Назад до фото</button>
             <div class="card">
               <div class="card-title">✅ Перевір дані товару</div>
               <div class="card-sub">Octo не вигадує: поля з <span class="warn" style="color:#FFC107;">⚠️ перевір</span> — ті, у яких він не впевнений.</div>
@@ -2214,6 +2219,7 @@
 
           <!-- Step 3: goal / platform / style / format -->
           <div id="paStep3" style="display:none;">
+            <button class="pa-back" onclick="paGoStep(2)">← Назад до даних товару</button>
             <div class="card">
               <div class="card-title">🎯 Ціль реклами</div>
               <div class="pa-chips" id="paGoals"></div>
@@ -2230,6 +2236,7 @@
 
           <!-- Step 4: concepts -->
           <div id="paStep4" style="display:none;">
+            <button class="pa-back" onclick="paGoStep(3)">← Назад до цілі та стилю</button>
             <div class="card">
               <div class="card-title">💡 Обери концепцію</div>
               <div class="card-sub">3 різні рекламні кути під твою ціль. Далі Octo зробить креативи саме за обраною.</div>
@@ -2239,12 +2246,14 @@
 
           <!-- Step 5: results -->
           <div id="paStep5" style="display:none;">
+            <button class="pa-back" onclick="paGoStep(4)">← Назад до концепцій</button>
             <div class="card">
               <div class="card-title">✨ Створення креативів</div>
               <div class="ob-status" id="paSt5"></div>
               <div id="paProgress" style="font-size:13px;color:var(--text3);margin-top:8px;"></div>
             </div>
             <div id="paResults"></div>
+            <button class="btn" id="paRestartBtn" style="width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:11px;font-weight:700;border-radius:12px;cursor:pointer;" onclick="paReset()">🔄 Почати спочатку (новий товар)</button>
           </div>
         </div>
 
@@ -14020,19 +14029,36 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     ['price', 'Ціна'], ['discount', 'Знижка'], ['website', 'Сайт / посилання'], ['cta', 'Заклик до дії'],
   ];
 
+  var curStep = 1;
   function renderSteps(cur) {
     $('paSteps').innerHTML = STEPS.map(function (s, i) {
-      var cls = (i + 1) === cur ? 'pa-step on' : ((i + 1) < cur ? 'pa-step done' : 'pa-step');
-      return '<div class="' + cls + '"><span class="n">' + ((i + 1) < cur ? '✓' : (i + 1)) + '</span>' + s + '</div>';
+      var n = i + 1;
+      var cls = n === cur ? 'pa-step on' : (n < cur ? 'pa-step done' : 'pa-step');
+      // passed steps are clickable — jump back to any of them
+      var click = n < cur ? ' onclick="paGoStep(' + n + ')"' : '';
+      return '<div class="' + cls + '"' + click + '><span class="n">' + (n < cur ? '✓' : n) + '</span>' + s + '</div>';
     }).join('');
   }
 
   window.paGoStep = function (n) {
-    if (n === 3 && !PA.product) collectForm();
+    // moving to step 3+ — re-collect the product form so edits (incl. on a
+    // repeat visit) are always captured.
+    if (n >= 3 && document.getElementById('paF_product_name')) collectForm();
+    curStep = n;
     for (var i = 1; i <= 5; i++) { var el = $('paStep' + i); if (el) el.style.display = (i === n) ? '' : 'none'; }
     renderSteps(n);
     if (n === 3) renderChips();
     window.scrollTo(0, 0);
+  };
+
+  // Start over: wipe wizard state and return to photo upload.
+  window.paReset = function () {
+    PA = { photos: [], mainIdx: 0, analysis: null, product: null, goal: null, platform: null, ratio: '1:1', style: null, format: 'pack', concepts: [], concept: null, cutoutUrl: null };
+    ['paThumbs', 'paForm', 'paConcepts', 'paResults', 'paProgress'].forEach(function (id) { var el = $(id); if (el) el.innerHTML = ''; });
+    ['paSt1', 'paSt3', 'paSt5'].forEach(function (id) { var el = $(id); if (el) { el.className = 'ob-status'; el.textContent = ''; } });
+    var ab = $('paAnalyzeBtn'); if (ab) ab.style.display = 'none';
+    paGoStep(1);
+    renderMyProducts();
   };
 
   // ── Step 1: photos ──────────────────────────────────────────────────────────
