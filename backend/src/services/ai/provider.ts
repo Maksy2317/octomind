@@ -100,8 +100,19 @@ export async function llmCall(
 
   const t0 = Date.now();
   try {
-    const text = await run(primary);
-    return { text, provider: primary, model: primary === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+    try {
+      const text = await run(primary);
+      return { text, provider: primary, model: primary === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+    } catch (e1) {
+      // Gemini free tier is 10 req/min — bursts trip 429 constantly. A short
+      // wait usually clears it; only then fall through to the other provider.
+      if (/429/.test((e1 as Error).message)) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const text = await run(primary);
+        return { text, provider: primary, model: primary === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+      }
+      throw e1;
+    }
   } catch (e) {
     // Resilience: if the primary provider errors (rate limit, outage, no
     // balance) and the OTHER is configured, fall back to it once. An explicit
