@@ -1694,6 +1694,10 @@
         <span class="nav-icon">🎯</span> Просування
         <span class="nav-badge">AI</span>
       </div>
+      <div class="nav-item" onclick="showScreen('prodads',this)">
+        <span class="nav-icon">📦</span> <span data-i18n="nav_prodads">Реклама товару</span>
+        <span class="nav-badge new">New</span>
+      </div>
       <div class="nav-item" onclick="showScreen('campaigns',this)">
         <span class="nav-icon">💡</span> <span data-i18n="nav_campaigns">Мої ідеї</span>
       </div>
@@ -2136,6 +2140,112 @@
             <div class="ob-status" id="trStatus"></div>
           </div>
           <div id="trResult"></div>
+        </div>
+
+        <!-- ═══ РЕКЛАМА ТОВАРУ (AI Product Ads, Phase C1) ═══ -->
+        <div class="screen" id="prodads">
+          <style>
+            .pa-steps { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+            .pa-step { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border);
+              border-radius:20px; padding:5px 12px 5px 6px; font-size:11.5px; font-weight:700; color:var(--text4); }
+            .pa-step .n { width:18px; height:18px; border-radius:50%; background:var(--surface3); display:grid; place-items:center; font-size:10px; }
+            .pa-step.on { border-color:var(--accent); color:var(--text); background:rgba(108,99,255,.1); }
+            .pa-step.on .n { background:var(--accent); color:#fff; }
+            .pa-step.done { color:var(--green); }
+            .pa-thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+            .pa-thumb { position:relative; width:82px; height:82px; border-radius:12px; overflow:hidden; border:2px solid var(--border); cursor:pointer; }
+            .pa-thumb img { width:100%; height:100%; object-fit:cover; }
+            .pa-thumb.main { border-color:var(--accent); }
+            .pa-thumb .x { position:absolute; top:2px; right:2px; background:#000a; color:#fff; border:none; border-radius:50%;
+              width:20px; height:20px; font-size:11px; cursor:pointer; line-height:1; }
+            .pa-thumb .star { position:absolute; bottom:2px; left:2px; font-size:12px; text-shadow:0 0 4px #000; }
+            .pa-chip { background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:20px;
+              padding:8px 14px; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
+            .pa-chip.on { background:rgba(108,99,255,.18); border-color:var(--accent); color:var(--text); }
+            .pa-chips { display:flex; gap:7px; flex-wrap:wrap; margin-top:8px; }
+            .pa-field { margin-top:10px; }
+            .pa-field label { font-size:11.5px; font-weight:700; color:var(--text4); display:flex; gap:6px; align-items:center; }
+            .pa-field .warn { color:#FFC107; font-size:10.5px; font-weight:700; }
+            .pa-concept { border:2px solid var(--border); border-radius:14px; padding:14px; margin-top:10px; cursor:pointer; background:var(--surface); }
+            .pa-concept:hover, .pa-concept.on { border-color:var(--accent); background:rgba(108,99,255,.06); }
+            .pa-result-img { width:100%; border-radius:12px; border:1px solid var(--border); display:block; }
+          </style>
+
+          <div class="pa-steps" id="paSteps"></div>
+
+          <!-- Step 1: photos -->
+          <div id="paStep1">
+            <div class="card">
+              <div class="on-hero">
+                <img src="assets/octo_laptop.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+                <div>
+                  <div class="card-title" style="margin:0;">📦 Фото товару</div>
+                  <div class="card-sub" style="margin:0;">Завантаж 1-5 фото (товар, упаковка, у використанні). Octo збереже вигляд товару 1-в-1 — лого й упаковку не змінюємо.</div>
+                </div>
+              </div>
+              <input type="file" id="paFiles" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
+              <div class="au-drop" id="paDrop" style="margin-top:12px;">
+                <div class="ai">📷</div>
+                <div style="font-weight:700;margin-top:6px;">Обрати або перетягнути фото</div>
+                <div style="font-size:12px;color:var(--text4);margin-top:2px;">JPG · PNG · WEBP · до 5 шт · ⭐ = головне</div>
+              </div>
+              <div class="pa-thumbs" id="paThumbs"></div>
+              <button class="btn btn-primary" id="paAnalyzeBtn" style="width:100%;margin-top:14px;display:none;">🔍 Проаналізувати товар</button>
+              <div class="ob-status" id="paSt1"></div>
+            </div>
+            <div class="card" id="paMyProducts" style="display:none;">
+              <div class="card-title" style="margin-bottom:10px;">🗂 Мої товари</div>
+              <div id="paMyProductsList"></div>
+            </div>
+          </div>
+
+          <!-- Step 2: confirm product info -->
+          <div id="paStep2" style="display:none;">
+            <div class="card">
+              <div class="card-title">✅ Перевір дані товару</div>
+              <div class="card-sub">Octo не вигадує: поля з <span class="warn" style="color:#FFC107;">⚠️ перевір</span> — ті, у яких він не впевнений.</div>
+              <div id="paForm"></div>
+              <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="paGoStep(3)">Далі →</button>
+                <button style="flex:none;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:11px;padding:10px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;" onclick="paSaveProduct(this)">💾 Зберегти товар</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: goal / platform / style / format -->
+          <div id="paStep3" style="display:none;">
+            <div class="card">
+              <div class="card-title">🎯 Ціль реклами</div>
+              <div class="pa-chips" id="paGoals"></div>
+              <div class="card-title" style="margin-top:18px;">📱 Площадка</div>
+              <div class="pa-chips" id="paPlatforms"></div>
+              <div class="card-title" style="margin-top:18px;">🎨 Стиль</div>
+              <div class="pa-chips" id="paStyles"></div>
+              <div class="card-title" style="margin-top:18px;">📦 Формат</div>
+              <div class="pa-chips" id="paFormats"></div>
+              <button class="btn btn-primary" id="paConceptsBtn" style="width:100%;margin-top:18px;">💡 Отримати 3 концепції</button>
+              <div class="ob-status" id="paSt3"></div>
+            </div>
+          </div>
+
+          <!-- Step 4: concepts -->
+          <div id="paStep4" style="display:none;">
+            <div class="card">
+              <div class="card-title">💡 Обери концепцію</div>
+              <div class="card-sub">3 різні рекламні кути під твою ціль. Далі Octo зробить креативи саме за обраною.</div>
+              <div id="paConcepts"></div>
+            </div>
+          </div>
+
+          <!-- Step 5: results -->
+          <div id="paStep5" style="display:none;">
+            <div class="card">
+              <div class="card-title">✨ Створення креативів</div>
+              <div class="ob-status" id="paSt5"></div>
+              <div id="paProgress" style="font-size:13px;color:var(--text3);margin-top:8px;"></div>
+            </div>
+            <div id="paResults"></div>
+          </div>
         </div>
 
         <!-- ═══ ТРЕНДИ (viral feed: real TikTok data + AI breakdown) ═══ -->
@@ -3794,6 +3904,7 @@
     research:  ['screen_research',  'screen_research_sub'],
     trend:     ['screen_trend',     'screen_trend_sub'],
     trends:    ['screen_trends',    'screen_trends_sub'],
+    prodads:   ['screen_prodads',   'screen_prodads_sub'],
     brand:     ['screen_brand',     'screen_brand_sub'],
     onboard:   ['screen_onboard',   'screen_onboard_sub'],
     audit:     ['screen_audit',     'screen_audit_sub'],
@@ -4441,6 +4552,7 @@
       screen_trend:'Идея из тренда 💡', screen_trend_sub:'Референс → оригинальный сценарий под твой бизнес',
       screen_brand:'Бренд-стиль 🎨', screen_brand_sub:'Octo подберёт цвета, тон и лого под твой бизнес',
       nav_trends:'Тренды', screen_trends:'Тренды 🔥', screen_trends_sub:'Вирусные ролики твоей ниши — с разбором, почему залетело',
+      nav_prodads:'Реклама товара', screen_prodads:'Реклама товара 📦', screen_prodads_sub:'Фото товара → готовые креативы, тексты и концепции',
       screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
       screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
       nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
@@ -4531,6 +4643,7 @@
       screen_trend:'Ідея з тренду 💡', screen_trend_sub:'Референс → оригінальний сценарій під твій бізнес',
       screen_brand:'Бренд-стиль 🎨', screen_brand_sub:'Octo підбере кольори, тон і лого під твій бізнес',
       nav_trends:'Тренди', screen_trends:'Тренди 🔥', screen_trends_sub:'Вірусні ролики твоєї ніші — з розбором, чому залетіло',
+      nav_prodads:'Реклама товару', screen_prodads:'Реклама товару 📦', screen_prodads_sub:'Фото товару → готові креативи, тексти й концепції',
       screen_onboard:'Знайомство 👋', screen_onboard_sub:'Розкажи про бізнес — Octo запам’ятає і працюватиме під тебе',
       screen_audit:'Розбір контенту 🔍', screen_audit_sub:'Завантаж пости — Octo покаже слабкі місця і що виправити',
       nav_profile_item:'Особистий кабінет', nav_settings_item:'Налаштування', nav_upgrade:'Upgrade to Pro',
@@ -4621,6 +4734,7 @@
       screen_trend:'Trend idea 💡', screen_trend_sub:'Reference → original script for your business',
       screen_brand:'Brand style 🎨', screen_brand_sub:'Octo picks colors, tone and a logo for your business',
       nav_trends:'Trends', screen_trends:'Trends 🔥', screen_trends_sub:'Viral videos in your niche — with a breakdown of why they work',
+      nav_prodads:'Product Ads', screen_prodads:'Product Ads 📦', screen_prodads_sub:'Product photo → ready creatives, copy and concepts',
       screen_onboard:'Let’s meet 👋', screen_onboard_sub:'Tell Octo about your business — it remembers and works for you',
       screen_audit:'Content audit 🔍', screen_audit_sub:'Upload posts — Octo shows weak spots and what to fix',
       nav_profile_item:'My Profile', nav_settings_item:'Settings', nav_upgrade:'Upgrade to Pro',
@@ -13847,6 +13961,417 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
   document.addEventListener('DOMContentLoaded', function () { window.renderDashV2(); });
   window.addEventListener('load', function () { setTimeout(function () { window.renderDashV2(); }, 150); });
+})();
+</script>
+
+<!-- ═══ РЕКЛАМА ТОВАРУ — AI Product Ads C1: аналіз → концепції → композитні креативи ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function deviceId() {
+    var id = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+  function bizProfile() {
+    var o = {};
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get();
+      ['business_name','niche','description','target_audience','geo','usp','goal','tone','brand','page_style'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
+    }
+    return o;
+  }
+  function api(path, body) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify(body || {}),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); });
+  }
+  function status(id, kind, msg) {
+    var el = $(id); if (!el) return;
+    if (!msg) { el.className = 'ob-status'; el.textContent = ''; return; }
+    el.className = 'ob-status ob-' + kind;
+    el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + msg;
+  }
+  function rid() { return 'pa' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36); }
+
+  // ── Wizard state ────────────────────────────────────────────────────────────
+  var PA = { photos: [], mainIdx: 0, analysis: null, product: null, goal: null, platform: null, ratio: '1:1', style: null, format: 'pack', concepts: [], concept: null, cutoutUrl: null };
+
+  var STEPS = ['Фото', 'Товар', 'Ціль і стиль', 'Концепції', 'Креативи'];
+  var GOALS = ['Запуск товару', 'Збільшити продажі', 'Впізнаваність бренду', 'Спецпропозиція', 'Сезонна акція', 'Контент для соцмереж', 'Картка для маркетплейсу', 'Ретаргетинг'];
+  var PLATFORMS = [
+    { n: 'Instagram Feed', r: '1:1' }, { n: 'Instagram Stories', r: '9:16' }, { n: 'Instagram Post 4:5', r: '4:5' },
+    { n: 'TikTok', r: '9:16' }, { n: 'Facebook Ads', r: '1:1' }, { n: 'Сайт / банер', r: '16:9' }, { n: 'Маркетплейс', r: '1:1' },
+  ];
+  var STYLES = ['Minimal', 'Premium', 'Luxury', 'Dynamic', 'Natural', 'Tech', 'Eco', 'Playful', 'UGC'];
+  var FORMATS = [
+    { id: 'pack', n: '⭐ Повний пакет', s: '2 креативи + всі тексти', on: true },
+    { id: 'static', n: '🖼 Тільки зображення', s: '2 креативи', on: true },
+    { id: 'video', n: '🎬 Відео', s: 'скоро — у розробці', on: false },
+  ];
+  var FIELDS = [
+    ['product_name', 'Назва товару'], ['category', 'Категорія'], ['brand', 'Бренд'],
+    ['description', 'Опис'], ['main_benefit', 'Головна вигода'], ['target_audience', 'Аудиторія'],
+    ['price', 'Ціна'], ['discount', 'Знижка'], ['website', 'Сайт / посилання'], ['cta', 'Заклик до дії'],
+  ];
+
+  function renderSteps(cur) {
+    $('paSteps').innerHTML = STEPS.map(function (s, i) {
+      var cls = (i + 1) === cur ? 'pa-step on' : ((i + 1) < cur ? 'pa-step done' : 'pa-step');
+      return '<div class="' + cls + '"><span class="n">' + ((i + 1) < cur ? '✓' : (i + 1)) + '</span>' + s + '</div>';
+    }).join('');
+  }
+
+  window.paGoStep = function (n) {
+    if (n === 3 && !PA.product) collectForm();
+    for (var i = 1; i <= 5; i++) { var el = $('paStep' + i); if (el) el.style.display = (i === n) ? '' : 'none'; }
+    renderSteps(n);
+    if (n === 3) renderChips();
+    window.scrollTo(0, 0);
+  };
+
+  // ── Step 1: photos ──────────────────────────────────────────────────────────
+  function downscale(file, max, q) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        var k = Math.min(1, max / Math.max(img.width, img.height));
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL('image/jpeg', q || 0.9));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  function addFiles(files) {
+    var list = Array.prototype.slice.call(files).filter(function (f) { return /image\/(jpeg|png|webp)/.test(f.type); }).slice(0, 5 - PA.photos.length);
+    if (!list.length) return;
+    Promise.all(list.map(function (f) { return downscale(f, 1280, 0.9); })).then(function (urls) {
+      urls.forEach(function (u) { PA.photos.push(u); });
+      renderThumbs();
+    });
+  }
+
+  function renderThumbs() {
+    $('paThumbs').innerHTML = PA.photos.map(function (u, i) {
+      return '<div class="pa-thumb' + (i === PA.mainIdx ? ' main' : '') + '" data-i="' + i + '">'
+        + '<img src="' + u + '"><button class="x" data-x="' + i + '">✕</button>'
+        + (i === PA.mainIdx ? '<span class="star">⭐</span>' : '') + '</div>';
+    }).join('');
+    $('paAnalyzeBtn').style.display = PA.photos.length ? '' : 'none';
+    $('paThumbs').querySelectorAll('.pa-thumb').forEach(function (t) {
+      t.onclick = function (e) {
+        if (e.target.dataset.x != null) { PA.photos.splice(Number(e.target.dataset.x), 1); PA.mainIdx = 0; }
+        else { PA.mainIdx = Number(t.dataset.i); }
+        renderThumbs();
+      };
+    });
+  }
+
+  function toImagePayload(dataUrl) {
+    return { media_type: 'image/jpeg', data: dataUrl.split(',')[1] };
+  }
+
+  function analyze() {
+    var btn = $('paAnalyzeBtn'); btn.disabled = true;
+    status('paSt1', 'busy', 'Octo роздивляється товар (10-20 сек)…');
+    api('/api/ads/analyze', { images: PA.photos.map(toImagePayload), profile: bizProfile() })
+      .then(function (d) {
+        btn.disabled = false; status('paSt1', null);
+        PA.analysis = d.analysis;
+        renderForm(d.analysis);
+        paGoStep(2);
+      })
+      .catch(function (e) { btn.disabled = false; status('paSt1', 'err', '⚠️ ' + esc(e.message)); });
+  }
+
+  // ── Step 2: form ────────────────────────────────────────────────────────────
+  function renderForm(a) {
+    var confirm = {}; (a.fields_to_confirm || []).forEach(function (f) { confirm[String(f)] = 1; });
+    $('paForm').innerHTML = FIELDS.map(function (f) {
+      var val = a[f[0]] != null ? a[f[0]] : '';
+      var warn = confirm[f[0]] || (!val && (f[0] === 'brand' || f[0] === 'product_name'));
+      return '<div class="pa-field"><label>' + f[1] + (warn ? ' <span class="warn">⚠️ перевір</span>' : '') + '</label>'
+        + '<input class="ob-input" style="margin-top:4px;" id="paF_' + f[0] + '" value="' + esc(val) + '"></div>';
+    }).join('')
+    + (a.visible_text ? '<div class="pa-field"><label>Напис на упаковці (не змінюємо)</label><div style="font-size:13px;color:var(--text3);margin-top:4px;">«' + esc(a.visible_text) + '»</div></div>' : '')
+    + (a.confidence != null ? '<div style="font-size:11.5px;color:var(--text4);margin-top:10px;">Впевненість аналізу: ' + a.confidence + '%</div>' : '');
+  }
+
+  function collectForm() {
+    var p = {};
+    FIELDS.forEach(function (f) { var el = $('paF_' + f[0]); if (el && el.value.trim()) p[f[0]] = el.value.trim(); });
+    if (PA.analysis) {
+      ['visible_text', 'colors', 'shape', 'packaging', 'use_case', 'benefits', 'visual_keywords'].forEach(function (k) { if (PA.analysis[k]) p[k] = PA.analysis[k]; });
+    }
+    PA.product = p;
+    return p;
+  }
+
+  // ── My Products (localStorage, lightweight) ────────────────────────────────
+  function productsKey() { return 'octo_products_' + wsId(); }
+  function productsAll() { try { return JSON.parse(localStorage.getItem(productsKey()) || '[]'); } catch (e) { return []; } }
+
+  window.paSaveProduct = function (btn) {
+    collectForm();
+    var main = PA.photos[PA.mainIdx];
+    var fin = function (thumb) {
+      var all = productsAll();
+      all.unshift({ id: rid(), savedAt: Date.now(), thumb: thumb || null, cutout_url: PA.cutoutUrl || null, analysis: PA.analysis, product: PA.product });
+      try { localStorage.setItem(productsKey(), JSON.stringify(all.slice(0, 12))); } catch (e) {}
+      if (btn) { btn.textContent = '✅ Збережено'; setTimeout(function () { btn.textContent = '💾 Зберегти товар'; }, 2000); }
+      renderMyProducts();
+    };
+    if (main) {
+      var img = new Image();
+      img.onload = function () {
+        var cv = document.createElement('canvas'); var k = 200 / Math.max(img.width, img.height);
+        cv.width = img.width * k; cv.height = img.height * k;
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        fin(cv.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = main;
+    } else fin(null);
+  };
+
+  function renderMyProducts() {
+    var all = productsAll();
+    $('paMyProducts').style.display = all.length ? '' : 'none';
+    $('paMyProductsList').innerHTML = all.map(function (p) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;" data-id="' + p.id + '">'
+        + (p.thumb ? '<img src="' + p.thumb + '" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none;">' : '<div style="width:44px;height:44px;border-radius:10px;background:var(--surface3);display:grid;place-items:center;flex:none;">📦</div>')
+        + '<div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">' + esc((p.product && p.product.product_name) || 'Товар') + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text4);">' + esc((p.product && p.product.category) || '') + '</div></div>'
+        + '<span style="font-size:12px;color:var(--accent2);font-weight:700;">Створити рекламу →</span></div>';
+    }).join('');
+    $('paMyProductsList').querySelectorAll('[data-id]').forEach(function (row) {
+      row.onclick = function () {
+        var p = productsAll().filter(function (x) { return x.id === row.dataset.id; })[0];
+        if (!p) return;
+        PA.analysis = p.analysis; PA.product = p.product; PA.cutoutUrl = p.cutout_url; PA.photos = []; PA.mainIdx = 0;
+        renderForm(p.analysis || p.product || {});
+        paGoStep(2);
+      };
+    });
+  }
+
+  // ── Step 3: chips ───────────────────────────────────────────────────────────
+  function chipRow(elId, items, get, set, isOn) {
+    $(elId).innerHTML = items.map(function (it, i) {
+      var label = typeof it === 'string' ? it : it.n;
+      var dis = (typeof it === 'object' && it.on === false);
+      return '<button class="pa-chip' + (isOn(it) ? ' on' : '') + '" data-i="' + i + '"' + (dis ? ' style="opacity:.45;"' : '') + '>' + esc(label) + (dis ? ' 🔒' : '') + '</button>';
+    }).join('');
+    $(elId).querySelectorAll('.pa-chip').forEach(function (b) {
+      b.onclick = function () {
+        var it = items[Number(b.dataset.i)];
+        if (typeof it === 'object' && it.on === false) return;
+        set(it); renderChips();
+      };
+    });
+  }
+
+  function renderChips() {
+    if (!PA.goal) PA.goal = GOALS[1];
+    if (!PA.platform) { PA.platform = PLATFORMS[0].n; PA.ratio = PLATFORMS[0].r; }
+    if (!PA.style) PA.style = (PA.analysis && PA.analysis.recommended_styles && PA.analysis.recommended_styles[0]) || 'Premium';
+    chipRow('paGoals', GOALS, null, function (g) { PA.goal = g; }, function (g) { return g === PA.goal; });
+    chipRow('paPlatforms', PLATFORMS, null, function (p) { PA.platform = p.n; PA.ratio = p.r; }, function (p) { return p.n === PA.platform; });
+    chipRow('paStyles', STYLES, null, function (s) { PA.style = s; }, function (s) { return s === PA.style; });
+    chipRow('paFormats', FORMATS, null, function (f) { PA.format = f.id; }, function (f) { return f.id === PA.format; });
+  }
+
+  function getConcepts() {
+    collectForm();
+    var btn = $('paConceptsBtn'); btn.disabled = true;
+    status('paSt3', 'busy', 'Octo придумує 3 рекламні концепції (15-25 сек)…');
+    api('/api/ads/concepts', { product: PA.product, goal: PA.goal, platform: PA.platform, ratio: PA.ratio, style: PA.style, format: PA.format, profile: bizProfile() })
+      .then(function (d) {
+        btn.disabled = false; status('paSt3', null);
+        PA.concepts = d.concepts || [];
+        $('paConcepts').innerHTML = PA.concepts.map(function (c, i) {
+          return '<div class="pa-concept" data-i="' + i + '">'
+            + '<div style="font-weight:800;font-size:15px;">' + (i + 1) + '. ' + esc(c.name) + '</div>'
+            + '<div style="font-size:13px;color:var(--text2);margin-top:6px;">' + esc(c.idea) + '</div>'
+            + '<div style="font-size:12.5px;margin-top:8px;"><b>🪝 Хук:</b> ' + esc(c.hook) + '</div>'
+            + '<div style="font-size:12.5px;margin-top:3px;"><b>🖼 Візуал:</b> ' + esc(c.visual) + '</div>'
+            + '<div style="font-size:12.5px;margin-top:3px;color:var(--text3);"><b>Чому:</b> ' + esc(c.why) + '</div>'
+            + '<button class="btn btn-primary" style="margin-top:12px;padding:8px 18px;font-size:13px;">Обрати цю →</button></div>';
+        }).join('');
+        $('paConcepts').querySelectorAll('.pa-concept').forEach(function (card) {
+          card.onclick = function () { PA.concept = PA.concepts[Number(card.dataset.i)]; paGoStep(5); runGeneration(); };
+        });
+        paGoStep(4);
+      })
+      .catch(function (e) { btn.disabled = false; status('paSt3', 'err', '⚠️ ' + esc(e.message)); });
+  }
+
+  // ── Step 5: generation (cutout → backgrounds → canvas composite → save) ────
+  function progress(msg) { var el = $('paProgress'); if (el) el.innerHTML += '<div>✓ ' + msg + '</div>'; }
+
+  function brandAccent() {
+    try { var b = window.octoBiz.get(); var p = b && b.brand && b.brand.palette; if (p) { var acc = p.filter(function (c) { return /акцент|accent/i.test(c.role || ''); })[0] || p[0]; return acc.hex; } } catch (e) {}
+    return '#6C63FF';
+  }
+
+  // Compose: generated background + ORIGINAL product cutout + headline text.
+  function compose(bgUrl, cutUrl, zone, text) {
+    return new Promise(function (resolve, reject) {
+      var bg = new Image(), cut = new Image(), loaded = 0;
+      function go() {
+        if (++loaded < 2) return;
+        try {
+          var W = Math.min(bg.naturalWidth, 1536), H = Math.round(W * bg.naturalHeight / bg.naturalWidth);
+          var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+          var ctx = cv.getContext('2d');
+          ctx.drawImage(bg, 0, 0, W, H);
+          // product: ~58% of canvas height, anchored to lower third
+          var ph = H * 0.58, pw = ph * cut.naturalWidth / cut.naturalHeight;
+          if (pw > W * 0.8) { pw = W * 0.8; ph = pw * cut.naturalHeight / cut.naturalWidth; }
+          var px = zone === 'left' ? W * 0.08 : (zone === 'right' ? W - pw - W * 0.08 : (W - pw) / 2);
+          var py = H * 0.92 - ph;
+          ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = W * 0.02; ctx.shadowOffsetY = W * 0.008;
+          ctx.drawImage(cut, px, py, pw, ph);
+          ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+          // headline band
+          if (text) {
+            var fs = Math.round(W / 13);
+            ctx.font = '800 ' + fs + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            var words = text.split(' '), lines = [''], li = 0;
+            words.forEach(function (w) {
+              if (ctx.measureText(lines[li] + ' ' + w).width > W * 0.86 && lines[li]) { lines[++li] = w; }
+              else lines[li] = (lines[li] ? lines[li] + ' ' : '') + w;
+            });
+            lines = lines.slice(0, 2);
+            var bandH = fs * 1.5 * lines.length + fs * 0.8;
+            ctx.fillStyle = brandAccent() + 'D9';
+            var by = H * 0.045;
+            if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(W * 0.05, by, W * 0.9, bandH, fs * 0.4); ctx.fill(); }
+            else ctx.fillRect(W * 0.05, by, W * 0.9, bandH);
+            ctx.fillStyle = '#fff';
+            lines.forEach(function (ln, i) { ctx.fillText(ln, W / 2, by + bandH / 2 + (i - (lines.length - 1) / 2) * fs * 1.4); });
+          }
+          resolve(cv.toDataURL('image/png'));
+        } catch (e) { reject(e); }
+      }
+      bg.onload = go; cut.onload = go;
+      bg.onerror = reject; cut.onerror = reject;
+      bg.src = bgUrl; cut.src = cutUrl;
+    });
+  }
+
+  async function runGeneration() {
+    var stId = 'paSt5';
+    $('paProgress').innerHTML = ''; $('paResults').innerHTML = '';
+    try {
+      // 1. cutout of the ORIGINAL (identity preservation)
+      if (!PA.cutoutUrl) {
+        status(stId, 'busy', 'Вирізаю товар з фону (оригінал 1-в-1)…');
+        var cut = await api('/api/ads/cutout', { image: toImagePayload(PA.photos[PA.mainIdx]) });
+        PA.cutoutUrl = cut.url;
+        progress('Товар вирізано — лого й упаковка збережені');
+      }
+      // 2. texts (needed for pack; cheap) — run before visuals so headline exists
+      var texts = null;
+      if (PA.format === 'pack') {
+        status(stId, 'busy', 'Пишу рекламні тексти…');
+        texts = (await api('/api/ads/texts', { product: PA.product, concept: PA.concept, goal: PA.goal, platform: PA.platform, profile: bizProfile() })).texts;
+        progress('Тексти готові');
+      }
+      // 3. two background variants → composite each
+      var variants = [null, 'інший настрій світла і ракурс сцени'];
+      var images = [];
+      for (var i = 0; i < variants.length; i++) {
+        status(stId, 'busy', 'Створюю креатив ' + (i + 1) + ' з 2 (тло + композиція)…');
+        var bg = await api('/api/ads/background', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, variant: variants[i], profile: bizProfile() });
+        var headline = (texts && texts.headline) || bg.overlay_text || PA.concept.on_image_text || '';
+        var dataUrl = await compose(bg.url, PA.cutoutUrl, bg.product_zone, headline);
+        var saved = await api('/api/ads/save', { data_base64: dataUrl });
+        images.push({ url: saved.url, why: bg.why, headline: headline });
+        progress('Креатив ' + (i + 1) + ' готовий');
+      }
+      status(stId, 'ok', '✅ Готово! Все нижче — і вже збережено в «Мої ідеї».');
+      renderResults(images, texts);
+      saveToIdeas(images, texts);
+    } catch (e) {
+      status(stId, 'err', '⚠️ ' + esc(e.message) + ' <a href="#" style="color:var(--accent2);" onclick="runGeneration();return false;">Спробувати ще</a>');
+    }
+  }
+  window.runGeneration = runGeneration;
+
+  function renderResults(images, texts) {
+    var html = images.map(function (im, i) {
+      return '<div class="card ob-res"><div class="card-title" style="margin-bottom:8px;">Креатив ' + String.fromCharCode(65 + i) + ' · ' + esc(PA.ratio) + '</div>'
+        + '<img class="pa-result-img" src="' + esc(im.url) + '">'
+        + (im.why ? '<div class="ob-why" style="margin-top:10px;"><b>Чому цей візуал:</b> ' + esc(im.why) + '</div>' : '')
+        + '<a href="' + esc(im.url) + '" download style="display:inline-block;margin-top:10px;font-size:13px;color:var(--accent2);font-weight:700;">⬇️ Завантажити PNG</a></div>';
+    }).join('');
+    if (texts) {
+      html += '<div class="card ob-res"><div class="card-title">📝 Тексти реклами</div>'
+        + '<div class="ob-headline" style="font-size:16px;margin-top:8px;">' + esc(texts.headline) + '</div>'
+        + '<p style="font-size:13.5px;color:var(--text2);margin-top:8px;">' + esc(texts.primary_text) + '</p>'
+        + '<div style="font-size:13px;margin-top:6px;"><b>Коротко:</b> ' + esc(texts.short_description) + '</div>'
+        + '<div class="ob-cta" style="margin-top:8px;">🎬 <b>CTA:</b> ' + esc(texts.cta) + '</div>'
+        + '<div style="font-size:13px;margin-top:10px;"><b>Підпис:</b><br>' + esc(texts.caption) + '</div>'
+        + (texts.hashtags ? '<div style="font-size:12.5px;color:var(--accent2);margin-top:8px;">' + texts.hashtags.map(function (h) { return esc(h[0] === '#' ? h : '#' + h); }).join(' ') + '</div>' : '')
+        + (texts.hooks ? '<div style="font-size:13px;margin-top:10px;"><b>🪝 Хуки для відео/сторіс:</b><ul style="margin:6px 0 0 18px;">' + texts.hooks.map(function (h) { return '<li style="margin-bottom:3px;">' + esc(h) + '</li>'; }).join('') + '</ul></div>' : '')
+        + '</div>';
+    }
+    html += '<div class="card"><button class="btn btn-primary" style="width:100%;" onclick="paGoStep(3)">🔁 Інша ціль / стиль / концепція</button></div>';
+    $('paResults').innerHTML = html;
+  }
+
+  function saveToIdeas(images, texts) {
+    if (!window.octoCampaigns) return;
+    var name = 'Реклама: ' + ((PA.product && PA.product.product_name) || 'товар');
+    var all = window.octoCampaigns.all();
+    var c = all.filter(function (x) { return x.name === name; })[0];
+    if (!c) c = { id: rid(), name: name, goal: PA.goal, details: '', strategy: null, materials: [], status: 'active', createdAt: Date.now(), updatedAt: Date.now() };
+    images.forEach(function (im, i) {
+      c.materials.push({ id: rid(), type: 'image', title: 'Креатив ' + String.fromCharCode(65 + i) + ' (' + PA.ratio + ')', output: { title: 'Креатив', url: im.url, overlay_text: im.headline, why: im.why }, createdAt: Date.now() });
+    });
+    if (texts) {
+      c.materials.push({
+        id: rid(), type: 'ad_text', title: 'Тексти реклами',
+        output: { title: 'Тексти реклами', summary: texts.headline, items: [
+          { label: 'Основний текст', text: texts.primary_text }, { label: 'Коротко', text: texts.short_description },
+          { label: 'Підпис', text: texts.caption }].concat((texts.hooks || []).map(function (h, i) { return { label: 'Хук ' + (i + 1), text: h }; })),
+          cta: texts.cta, hashtags: texts.hashtags || [] },
+        createdAt: Date.now(),
+      });
+    }
+    c.updatedAt = Date.now();
+    window.octoCampaigns.upsert(c);
+    if (window.renderDashV2) try { window.renderDashV2(); } catch (e) {}
+  }
+
+  // ── Wiring ──────────────────────────────────────────────────────────────────
+  function init() {
+    var drop = $('paDrop'), input = $('paFiles');
+    if (!drop) return;
+    drop.onclick = function () { input.click(); };
+    input.onchange = function (e) { addFiles(e.target.files); input.value = ''; };
+    ['dragover', 'dragenter'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.style.borderColor = ''; }); });
+    drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+    $('paAnalyzeBtn').onclick = analyze;
+    $('paConceptsBtn').onclick = getConcepts;
+    renderSteps(1);
+    renderMyProducts();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  window.addEventListener('load', function () { setTimeout(init, 100); });
 })();
 </script>
 

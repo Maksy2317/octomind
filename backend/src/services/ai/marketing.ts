@@ -587,6 +587,130 @@ export function generateImageBrief(
   return jsonCall<ImageBrief>(system, user, 1200);
 }
 
+// ═══ AI PRODUCT ADS (Phase C1) ═════════════════════════════════════════════
+// Фото товару → аналіз → концепції → статичні креативи + текстовий пак.
+// Ключове правило зі спека: НЕ ВИГАДУВАТИ властивості товару; непевні поля
+// повертати у fields_to_confirm. Ідентичність товару зберігається компонуванням
+// вирізаного ОРИГІНАЛУ поверх згенерованого тла (тло генерується БЕЗ товару).
+
+export interface ProductAnalysis {
+  product_name: string;
+  category: string;
+  brand: string;
+  description: string;
+  main_benefit: string;
+  colors: string[];
+  visible_text: string;
+  shape: string;
+  packaging: string;
+  target_audience: string;
+  use_case: string;
+  benefits: string[];
+  visual_keywords: string[];
+  recommended_styles: string[];
+  confidence: number;              // 0-100 загальна впевненість
+  fields_to_confirm: string[];     // назви полів, у яких AI не впевнений
+}
+
+export function analyseProductImages(images: AuditImage[]): Promise<ProductAnalysis> {
+  const system =
+    'Ти — товарний аналітик. Розглянь фото товару і поверни структурований аналіз. ' +
+    'КРИТИЧНО: не вигадуй. Пиши лише те, що реально видно або впевнено випливає з фото. ' +
+    'Якщо властивість не видно чи ти не впевнений — постав порожній рядок або обережне припущення ' +
+    'і ДОДАЙ назву поля у fields_to_confirm. visible_text — перепиши написи з упаковки ДОСЛІВНО, не редагуй. ' +
+    LANG_RULE +
+    ' Схема JSON: {"product_name":str,"category":str,"brand":str,"description":str,"main_benefit":str,' +
+    '"colors":[str],"visible_text":str,"shape":str,"packaging":str,"target_audience":str,"use_case":str,' +
+    '"benefits":[str],"visual_keywords":[str],"recommended_styles":[str],"confidence":num,"fields_to_confirm":[str]}.';
+  return jsonCallVision<ProductAnalysis>(system, 'Проаналізуй цей товар за фото.', images, 2000);
+}
+
+export interface AdConcept {
+  name: string;          // назва концепції
+  idea: string;          // головна ідея
+  angle: string;         // рекламний кут
+  hook: string;          // хук
+  visual: string;        // опис візуальної сцени (для тла)
+  on_image_text: string; // короткий текст на креатив (3-6 слів)
+  cta: string;
+  why: string;           // чому це влучить у ціль/аудиторію
+}
+
+export function generateAdConcepts(
+  profileCtx: string,
+  product: Record<string, unknown>,
+  opts: { goal: string; platform: string; ratio: string; style: string; format: string },
+): Promise<{ concepts: AdConcept[] }> {
+  const system =
+    'Ти — креативний директор перформанс-реклами. Створи 3 РІЗНІ рекламні концепції під товар і ціль ' +
+    '(різні кути: напр. вигода / емоція / соціальний доказ / оффер). Кожна — конкретна, не загальна. ' +
+    'visual — сцена ТЛА для товару (середовище, поверхня, світло, настрій) БЕЗ згадки самого товару в кадрі: ' +
+    'оригінальне фото товару буде накладено поверх. on_image_text — 3-6 слів мовою бізнесу. ' +
+    LANG_RULE +
+    ' Схема JSON: {"concepts":[{"name":str,"idea":str,"angle":str,"hook":str,"visual":str,' +
+    '"on_image_text":str,"cta":str,"why":str}]} — рівно 3 концепції.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nТовар:\n${JSON.stringify(product)}\n\n` +
+    `Ціль реклами: ${opts.goal}\nПлощадка: ${opts.platform} (${opts.ratio})\nСтиль: ${opts.style}\nФормат: ${opts.format}\n\nДай 3 концепції.`;
+  return jsonCall<{ concepts: AdConcept[] }>(system, user, 2200);
+}
+
+export interface AdBackgroundBrief {
+  image_prompt: string;   // англ. промпт тла (порожня сцена під товар, без тексту)
+  product_zone: 'center' | 'left' | 'right';  // де лишити місце під товар
+  overlay_text: string;
+  why: string;
+}
+
+export function generateAdBackground(
+  profileCtx: string,
+  product: Record<string, unknown>,
+  concept: Record<string, unknown>,
+  opts: { style: string; ratio: string; variant?: string },
+): Promise<AdBackgroundBrief> {
+  const system =
+    'Ти — арт-директор продуктової реклами. Опиши ТЛО для рекламного креативу. ' +
+    'ВАЖЛИВО: у кадрі НЕМАЄ товару — лише сцена (поверхня/п\'єдестал/середовище, світло, атмосфера), ' +
+    'композиційно з вільною зоною під товар (product_zone). image_prompt — англійською, фотореалістичний, ' +
+    'детальний, і обов\'язково "empty surface, no product, no text, no words, no letters". ' +
+    (opts.variant ? `Зроби варіацію: ${opts.variant}. ` : '') +
+    LANG_RULE +
+    ' Схема JSON: {"image_prompt":str,"product_zone":"center"|"left"|"right","overlay_text":str,"why":str}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nТовар:\n${JSON.stringify(product)}\n\nКонцепція:\n${JSON.stringify(concept)}\n\n` +
+    `Стиль: ${opts.style}. Формат кадру: ${opts.ratio}.`;
+  return jsonCall<AdBackgroundBrief>(system, user, 900);
+}
+
+export interface AdPackTexts {
+  headline: string;
+  primary_text: string;
+  short_description: string;
+  cta: string;
+  caption: string;
+  hashtags: string[];
+  hooks: string[];
+}
+
+export function generateAdPackTexts(
+  profileCtx: string,
+  product: Record<string, unknown>,
+  concept: Record<string, unknown>,
+  opts: { goal: string; platform: string },
+): Promise<AdPackTexts> {
+  const system =
+    'Ти — перформанс-копірайтер. Напиши повний текстовий пак реклами під товар, концепцію і площадку: ' +
+    'headline (до 40 знаків), primary_text (2-4 речення, продає вигоду), short_description (1 речення), ' +
+    'cta, caption (готовий підпис для посту з емодзі), hashtags (5-8), hooks (3 різні перші фрази). ' +
+    LANG_RULE +
+    ' Схема JSON: {"headline":str,"primary_text":str,"short_description":str,"cta":str,"caption":str,' +
+    '"hashtags":[str],"hooks":[str]}.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nТовар:\n${JSON.stringify(product)}\n\nКонцепція:\n${JSON.stringify(concept)}\n\n` +
+    `Ціль: ${opts.goal}. Площадка: ${opts.platform}.`;
+  return jsonCall<AdPackTexts>(system, user, 1500);
+}
+
 // ── Weekly advice (the seed of the "постійний маркетолог", Phase D) ───────────
 // Once a week Octo looks at everything it knows — campaigns, calendar, page
 // patterns, what's missing — and gives ONE concrete push for this week.
