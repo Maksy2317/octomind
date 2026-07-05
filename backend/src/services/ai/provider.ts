@@ -69,6 +69,10 @@ async function geminiJson(system: string, user: string, images: LlmImage[], maxT
       maxOutputTokens: maxTokens,
       temperature: 0.7,
       responseMimeType: 'application/json',   // Gemini returns clean JSON
+      // Gemini 2.5 Flash "thinks" by default — reasoning tokens eat the output
+      // budget (truncated JSON) AND are billed. Off: faster, cheaper, fits
+      // maxTokens. Our structured tasks don't need chain-of-thought.
+      thinkingConfig: { thinkingBudget: 0 },
     },
   };
   const r = await fetch(
@@ -89,13 +93,25 @@ export async function llmCall(
   user: string,
   opts: { images?: LlmImage[]; maxTokens?: number; provider?: Provider } = {},
 ): Promise<LlmResult> {
-  const provider = opts.provider || defaultProvider();
+  const primary = opts.provider || defaultProvider();
   const images = opts.images || [];
   const maxTokens = opts.maxTokens || 4096;
-  const model = provider === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL;
+  const run = (p: Provider) => (p === 'gemini' ? geminiJson : anthropicJson)(system, user, images, maxTokens);
+
   const t0 = Date.now();
-  const text = provider === 'gemini'
-    ? await geminiJson(system, user, images, maxTokens)
-    : await anthropicJson(system, user, images, maxTokens);
-  return { text, provider, model, ms: Date.now() - t0 };
+  try {
+    const text = await run(primary);
+    return { text, provider: primary, model: primary === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+  } catch (e) {
+    // Resilience: if the primary provider errors (rate limit, outage, no
+    // balance) and the OTHER is configured, fall back to it once. An explicit
+    // per-call provider (A/B test) opts out — we want its true result.
+    const other: Provider = primary === 'gemini' ? 'anthropic' : 'gemini';
+    if (!opts.provider && providerConfigured(other)) {
+      console.warn(`[AI] ${primary} failed (${(e as Error).message.slice(0, 100)}) → fallback ${other}`);
+      const text = await run(other);
+      return { text, provider: other, model: other === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+    }
+    throw e;
+  }
 }
