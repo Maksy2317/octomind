@@ -67,25 +67,44 @@ export function profileToContext(p: BusinessProfile | null | Record<string, unkn
   return (lines.length ? lines.join('\n') : '(профіль порожній)') + extra;
 }
 
-/** Extract a JSON object from a model response that may be fenced or prefixed. */
+/**
+ * Extract a JSON object from a model response that may be fenced, prefixed, or
+ * (Gemini quirk) wrapped in an array. Callers expect a single object; if the
+ * model returns `[{...}]` or `[{...},{...}]` we take the first object.
+ */
+function unwrapJson<T>(v: unknown): T {
+  if (Array.isArray(v)) {
+    const first = v.find((x) => x && typeof x === 'object');
+    if (first) return first as T;
+  }
+  return v as T;
+}
+
 function parseJsonLoose<T>(text: string): T {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1] : text;
-  const start = candidate.indexOf('{');
-  const end = candidate.lastIndexOf('}');
+  const candidate = (fenced ? fenced[1] : text).trim();
+
+  // Gemini (responseMimeType: json) returns clean JSON — try the whole thing.
+  try { return unwrapJson<T>(JSON.parse(candidate)); } catch { /* fall through */ }
+
+  // Claude-style: grab the outermost bracket pair (object OR array).
+  const oStart = candidate.indexOf('{'), aStart = candidate.indexOf('[');
+  const useArr = aStart !== -1 && (oStart === -1 || aStart < oStart);
+  const start = useArr ? aStart : oStart;
+  const end = useArr ? candidate.lastIndexOf(']') : candidate.lastIndexOf('}');
   if (start === -1 || end === -1 || end < start) {
     throw new Error('AI did not return JSON');
   }
   const slice = candidate.slice(start, end + 1);
   try {
-    return JSON.parse(slice) as T;
+    return unwrapJson<T>(JSON.parse(slice));
   } catch {
     // Repair the most common model issues: raw control chars (literal newlines/
     // tabs inside string values are invalid JSON) and trailing commas.
     const repaired = slice
       .replace(/[\u0000-\u001F]+/g, ' ')
       .replace(/,(\s*[}\]])/g, '$1');
-    return JSON.parse(repaired) as T;
+    return unwrapJson<T>(JSON.parse(repaired));
   }
 }
 

@@ -66,7 +66,10 @@ async function geminiJson(system: string, user: string, images: LlmImage[], maxT
     system_instruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts }],
     generationConfig: {
-      maxOutputTokens: maxTokens,
+      // Headroom: our maxTokens were tuned for Haiku; Gemini can be more verbose
+      // in Ukrainian and occasionally truncated JSON mid-object (→ parse error).
+      // Output tokens on Flash are cheap ($0.60/M), so give a generous floor.
+      maxOutputTokens: Math.max(maxTokens, 2048),
       temperature: 0.7,
       responseMimeType: 'application/json',   // Gemini returns clean JSON
       // Gemini 2.5 Flash "thinks" by default — reasoning tokens eat the output
@@ -84,6 +87,9 @@ async function geminiJson(system: string, user: string, images: LlmImage[], maxT
   const cand = data?.candidates?.[0];
   const text = (cand?.content?.parts || []).map((p: any) => p.text || '').join('');
   if (!text) throw new Error('Gemini returned empty response' + (cand?.finishReason ? ` (${cand.finishReason})` : ''));
+  // Truncated mid-JSON → surface it so parseWithRetry retries instead of
+  // trying to parse an incomplete object.
+  if (cand?.finishReason === 'MAX_TOKENS') throw new Error('Gemini output truncated (MAX_TOKENS)');
   return text;
 }
 
