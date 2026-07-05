@@ -14,7 +14,7 @@ import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
   extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
-  generateImageBrief, generateBrandKit, scheduleCampaign,
+  generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
 } from '../services/ai/marketing';
@@ -363,6 +363,24 @@ marketingRouter.post('/image', async (req: Request, res: Response, next: NextFun
       output: material as unknown as Record<string, unknown>, profileId,
     });
     res.json({ material });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/weekly  — порада тижня (клієнт кешує на тиждень).
+// Body: { state: {campaigns, calendar_next7, has_research, ...}, profile? }
+marketingRouter.post('/weekly', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const state = (req.body?.state && typeof req.body.state === 'object') ? req.body.state : {};
+    const advice = await weeklyAdvice(ctx, state as Record<string, unknown>);
+    await logGeneration(req, {
+      type: 'weekly', input: { state } as Record<string, unknown>,
+      output: advice as unknown as Record<string, unknown>, profileId,
+    });
+    res.json(advice);
   } catch (err) {
     next(err);
   }

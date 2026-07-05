@@ -587,6 +587,32 @@ export function generateImageBrief(
   return jsonCall<ImageBrief>(system, user, 1200);
 }
 
+// ── Weekly advice (the seed of the "постійний маркетолог", Phase D) ───────────
+// Once a week Octo looks at everything it knows — campaigns, calendar, page
+// patterns, what's missing — and gives ONE concrete push for this week.
+export interface WeeklyAdvice {
+  headline: string;   // порада тижня, одним реченням
+  why: string;        // чому саме це і саме зараз (з прив'язкою до стану)
+  actions: Array<{ label: string; screen: string }>;  // 1-3 кроки-кнопки
+}
+
+export function weeklyAdvice(
+  profileCtx: string,
+  state: Record<string, unknown>,
+): Promise<WeeklyAdvice> {
+  const system =
+    'Ти — особистий маркетолог малого бізнесу. Раз на тиждень дивишся на стан справ і даєш ОДНУ головну ' +
+    'пораду тижня: конкретну і дієву, прив\'язану до стану (що вже є, чого бракує, що застоялось, що варто ' +
+    'повторити). Без загальних фраз типу «будьте активними». ' +
+    'Для actions.screen обирай ЛИШЕ з: campaign (нове просування), campaigns (мої ідеї/матеріали), ' +
+    'trends (тренди), research (дослідження ринку), audit (аналіз сторінки), brand (бренд-стиль), ' +
+    'calendar (контент-план). ' +
+    LANG_RULE +
+    ' Схема JSON: {"headline":str,"why":str,"actions":[{"label":str,"screen":str}]} — максимум 3 actions.';
+  const user = `Бізнес:\n${profileCtx}\n\nСтан справ:\n${JSON.stringify(state)}\n\nДай пораду тижня.`;
+  return jsonCall<WeeklyAdvice>(system, user, 700);
+}
+
 // ── Campaign → calendar schedule (the Launch step of the cycle) ───────────────
 // Octo decides WHEN each ready material should go out and why — order,
 // weekday, time — based on the strategy and platform habits. The client gets

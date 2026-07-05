@@ -13725,8 +13725,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<div style="flex:1;"><div style="font-size:16px;font-weight:800;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '! 🐙' : 'Привіт! Я Octo — твій AI-маркетолог 🐙') + '</div>'
       + '<div style="font-size:12.5px;color:var(--text3);margin-top:2px;">' + (bizSet ? esc([biz.niche, biz.geo].filter(Boolean).join(' · ')) : 'Розкажи про бізнес — і почнемо просування') + '</div></div></div></div>';
 
-    // Advice card
-    var adv = '<div class="card" style="border-color:rgba(108,99,255,.35);">'
+    // Advice card (id'd so the weekly AI advice can take over asynchronously)
+    var adv = '<div class="card" id="dashAdvice" style="border-color:rgba(108,99,255,.35);">'
       + '<div style="display:flex;gap:12px;align-items:flex-start;">'
       + '<div style="font-size:24px;flex:none;">' + a.icon + '</div>'
       + '<div style="flex:1;"><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Octo радить</div>'
@@ -13767,7 +13767,79 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '</div></div>';
 
     el.innerHTML = hero + adv + stats + campHtml + actions;
+    ensureWeekly(biz, bizSet, camps);
   };
+
+  // ── Порада тижня (№28 lite): once the basics are in place, the static
+  // journey advice is replaced by an AI look at the ACTUAL state. Cached per
+  // ISO-week per workspace → ~1 виклик (цент) на тиждень на бізнес. ──────────
+  var weeklyInFlight = false;
+
+  function wsIdD() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function weekKey() {
+    var d = new Date();
+    var onejan = new Date(d.getFullYear(), 0, 1);
+    var week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+    return 'octo_weekly_' + wsIdD() + '_' + d.getFullYear() + 'w' + week;
+  }
+
+  function paintWeekly(w) {
+    var card = document.getElementById('dashAdvice'); if (!card) return;
+    var ok = { campaign:1, campaigns:1, trends:1, research:1, audit:1, brand:1, calendar:1 };
+    var btns = (w.actions || []).filter(function (x) { return ok[x.screen]; }).slice(0, 3)
+      .map(function (x) { return '<button class="btn btn-primary" style="margin:10px 8px 0 0;padding:8px 14px;font-size:12.5px;" onclick="showScreen(\'' + x.screen + '\',null)">' + esc(x.label) + '</button>'; })
+      .join('');
+    card.innerHTML = '<div style="display:flex;gap:12px;align-items:flex-start;">'
+      + '<div style="font-size:24px;flex:none;">🧠</div>'
+      + '<div style="flex:1;"><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Порада тижня від Octo</div>'
+      + '<div style="font-size:14.5px;font-weight:800;">' + esc(w.headline) + '</div>'
+      + '<div style="font-size:13px;color:var(--text3);margin-top:5px;">' + esc(w.why) + '</div>'
+      + btns + '</div></div>';
+  }
+
+  function ensureWeekly(biz, bizSet, camps) {
+    // AI advice makes sense only after the journey basics exist.
+    if (!bizSet || !camps.length) return;
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem(weekKey()) || 'null'); } catch (e) {}
+    if (cached && cached.headline) { paintWeekly(cached); return; }
+    if (weeklyInFlight) return;
+    weeklyInFlight = true;
+    // Compact state snapshot — what Octo "sees" this week.
+    var calCount = 0;
+    try {
+      var cal = JSON.parse(localStorage.getItem('octo_calendar_' + wsIdD()) || '{}');
+      var now = new Date();
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(now); d.setDate(now.getDate() + i);
+        var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        calCount += (cal[k] || []).length;
+      }
+    } catch (e) {}
+    var state = {
+      campaigns: camps.slice(0, 6).map(function (c) { return { name: c.name, materials: (c.materials || []).length, updated_days_ago: Math.round((Date.now() - (c.updatedAt || c.createdAt || Date.now())) / 86400000) }; }),
+      posts_planned_next_7d: calCount,
+      has_research: !!biz.market_research,
+      has_brand: !!biz.brand,
+      has_page_audit: !!biz.page_style,
+      tiktok_handle: biz.tiktok_handle || null,
+    };
+    var dev = 'biz_' + String(wsIdD()).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (dev.length < 8) dev += '0';
+    var prof = {};
+    ['business_name','niche','description','target_audience','geo','goal','tone','brand','page_style'].forEach(function (k) { if (biz[k]) prof[k] = biz[k]; });
+    fetch('/api/marketing/weekly', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': dev.slice(0, 128) },
+      body: JSON.stringify({ profile: prof, state: state }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (w) {
+        weeklyInFlight = false;
+        try { localStorage.setItem(weekKey(), JSON.stringify(w)); } catch (e) {}
+        paintWeekly(w);
+      })
+      .catch(function () { weeklyInFlight = false; /* static advice stays */ });
+  }
 
   var _os = window.showScreen;
   if (typeof _os === 'function') {
