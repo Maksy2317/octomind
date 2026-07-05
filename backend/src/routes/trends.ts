@@ -7,7 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { optionalIdentity } from '../middleware/identity';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
-import { getTrendFeed, getProfileVideos, isTrendsConfigured, kvGet, kvSet } from '../services/trends';
+import { getTrendFeed, getProfileVideos, isTrendsConfigured, isInstagramEnabled, kvGet, kvSet } from '../services/trends';
 import { analyzeViralVideo, generateTrendQueries, auditOwnPage, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
 
 export const trendsRouter = Router();
@@ -39,6 +39,13 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
     res.status(400).json({ error: 'Вкажи нішу або ключові слова (query)' });
     return;
   }
+  const platform: 'tiktok' | 'instagram' = req.body?.platform === 'instagram' ? 'instagram' : 'tiktok';
+  if (platform === 'instagram' && !isInstagramEnabled()) {
+    // Built against the documented actor schema but not yet verified on live
+    // data (credits). Flip TRENDS_IG_ENABLED=1 after the August field check.
+    res.status(503).json({ error: 'Instagram-джерело вже готове й увімкнеться на початку серпня 🚀 Поки що обери TikTok.' });
+    return;
+  }
   try {
     const force = req.body?.force === true;
     const intent = typeof req.body?.intent === 'string' ? req.body.intent : 'selling';
@@ -48,14 +55,14 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
       // Pin the expansion for 24h: same niche+intent → same queries → same
       // scrape-cache key. Without this every search re-rolls the queries and
       // pays for a fresh scrape.
-      const expKey = `exp:${intent}:${query.toLowerCase()}`;
+      const expKey = `exp:${platform}:${intent}:${query.toLowerCase()}`;
       const pinned = kvGet<string[]>(expKey, 24 * 3_600_000);
       if (pinned && pinned.length) {
         queries = pinned;
       } else {
         try {
           const { ctx } = await resolveCtx(req);
-          const expanded = await generateTrendQueries(ctx, query, intent);
+          const expanded = await generateTrendQueries(ctx, query, intent, platform);
           if (Array.isArray(expanded.queries) && expanded.queries.length) {
             queries = expanded.queries.map((q) => String(q).slice(0, 60)).slice(0, 3);
             kvSet(expKey, queries);
@@ -66,8 +73,8 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
       }
     }
 
-    const feed = await getTrendFeed(queries, force);
-    res.json({ ...feed, queries });
+    const feed = await getTrendFeed(queries, force, platform);
+    res.json({ ...feed, queries, platform });
   } catch (err) {
     next(err);
   }

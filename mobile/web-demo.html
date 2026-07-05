@@ -2170,7 +2170,11 @@
                 <div class="card-sub" style="margin:0;">Реальні вірусні ролики у твоїй ніші — з переглядами й датами. Octo розбере, чому залетіло, і адаптує під тебе.</div>
               </div>
             </div>
-            <div id="tfIntents" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
+            <div id="tfPlatforms" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
+              <button class="tf-intent active" data-platform="tiktok" onclick="octoTrendsPlatform(this)">🎵 TikTok</button>
+              <button class="tf-intent" data-platform="instagram" onclick="octoTrendsPlatform(this)">📸 Instagram <span style="font-size:10px;opacity:.7;">серпень</span></button>
+            </div>
+            <div id="tfIntents" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
               <button class="tf-intent active" data-intent="selling" onclick="octoTrendsIntent(this)">📈 Як продають</button>
               <button class="tf-intent" data-intent="expert" onclick="octoTrendsIntent(this)">🎓 Експертний контент</button>
               <button class="tf-intent" data-intent="fun" onclick="octoTrendsIntent(this)">😂 Меми й розваги</button>
@@ -13722,12 +13726,18 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   var curIntent = 'selling';
-  // Just select the intent — search starts ONLY on «Знайти» (user feedback:
-  // nothing should fire before the button is pressed).
+  var curPlatform = 'tiktok';
+  // Just select the intent/platform — search starts ONLY on «Знайти» (user
+  // feedback: nothing should fire before the button is pressed).
   window.octoTrendsIntent = function (btn) {
-    document.querySelectorAll('.tf-intent').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('#tfIntents .tf-intent').forEach(function (b) { b.classList.remove('active'); });
     btn.classList.add('active');
     curIntent = btn.dataset.intent;
+  };
+  window.octoTrendsPlatform = function (btn) {
+    document.querySelectorAll('#tfPlatforms .tf-intent').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    curPlatform = btn.dataset.platform;
   };
 
   // Full reset: clean slate — no leftover videos, advice or filters.
@@ -13764,7 +13774,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     fetch('/api/trends/feed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
-      body: JSON.stringify({ query: q, intent: curIntent, profile: bizProfile(), force: force === true && isPro() }),
+      body: JSON.stringify({ query: q, intent: curIntent, platform: curPlatform, profile: bizProfile(), force: force === true && isPro() }),
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (d) {
         all = d.videos || [];
@@ -13837,15 +13847,18 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var pro = isPro();
     el.innerHTML = '<div class="tf-grid">' + list.map(function (v, i) {
       var unlocked = pro || i < FREE_VISIBLE;
+      var embedSrc = v.platform === 'instagram'
+        ? esc(String(v.url).replace(/\/?$/, '/') + 'embed/')
+        : 'https://www.tiktok.com/embed/v2/' + esc(v.id);
       var media = unlocked
-        ? '<iframe class="tf-embed" loading="lazy" src="https://www.tiktok.com/embed/v2/' + esc(v.id) + '" allow="encrypted-media;" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>'
+        ? '<iframe class="tf-embed" loading="lazy" src="' + embedSrc + '" allow="encrypted-media;" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>'
         : '<div class="tf-lockbox">' + (v.cover ? '<img src="' + esc(v.cover) + '" alt="" onerror="this.style.display=\'none\'">' : '')
           + '<div class="tf-lockovl"><div style="font-size:30px;">🔒</div>'
           + '<div style="font-weight:800;">Відкрий усі тренди з Pro</div>'
           + '<div style="font-size:12px;color:var(--text3);">' + fmt(v.views) + ' переглядів чекають на тебе</div>'
           + '<button class="btn btn-primary" style="padding:8px 18px;font-size:13px;" onclick="showScreen(\'pricing\',null)">Розблокувати</button></div></div>';
       var body = '<div class="tf-body">'
-        + '<div class="tf-metrics"><span>👁 ' + fmt(v.views) + '</span><span>❤️ ' + fmt(v.likes) + '</span><span>💬 ' + fmt(v.comments) + '</span><span>↗️ ' + fmt(v.shares) + '</span></div>'
+        + '<div class="tf-metrics"><span>👁 ' + fmt(v.views) + '</span><span>❤️ ' + fmt(v.likes) + '</span><span>💬 ' + fmt(v.comments) + '</span>' + (v.shares ? '<span>↗️ ' + fmt(v.shares) + '</span>' : '') + '</div>'
         + '<div class="tf-meta">' + (v.created ? fmtDate(v.created) + ' · ' : '') + (v.duration != null ? v.duration + ' сек · ' : '') + (v.lang || '') + (v.author ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener" style="color:var(--accent2);">@' + esc(v.author) + '</a>' : '') + '</div>'
         + (v.text ? '<div class="tf-text">' + esc(v.text) + '</div>' : '')
         + (unlocked

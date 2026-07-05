@@ -15,6 +15,14 @@ import crypto from 'crypto';
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN || '';
 const ACTOR = 'clockworks~tiktok-scraper';
+// Instagram source (official actor, ~$1.90/1000): built from documented output
+// schema, NOT yet run against live data (credits exhausted) — enable with
+// TRENDS_IG_ENABLED=1 after a real-data field check in August.
+const IG_ACTOR = 'apify~instagram-hashtag-scraper';
+
+export function isInstagramEnabled(): boolean {
+  return process.env.TRENDS_IG_ENABLED === '1';
+}
 const CACHE_TTL_MS = Number(process.env.TRENDS_CACHE_TTL_HOURS || 12) * 3_600_000;
 const RESULTS_PER_QUERY = Number(process.env.TRENDS_RESULTS_PER_QUERY || 25);
 
@@ -24,7 +32,7 @@ export function isTrendsConfigured(): boolean {
 
 export interface TrendVideo {
   id: string;
-  platform: 'tiktok';
+  platform: 'tiktok' | 'instagram';
   url: string;            // canonical watch URL
   text: string;           // caption
   lang: string | null;    // textLanguage from TikTok
@@ -177,12 +185,40 @@ export async function getProfileVideos(handle: string, force = false): Promise<{
   return { videos, author, fetchedAt: Date.now(), fromCache: false };
 }
 
+/** Normalize an Instagram hashtag-scraper item (documented output schema). */
+function normalizeIG(v: Record<string, any>): TrendVideo | null {
+  const id = String(v.id || v.shortCode || '');
+  const url = String(v.url || '');
+  if (!id || !url) return null;
+  return {
+    id,
+    platform: 'instagram',
+    url,
+    text: String(v.caption || ''),
+    lang: null,
+    views: Number(v.videoPlayCount) || Number(v.videoViewCount) || 0,
+    likes: Math.max(0, Number(v.likesCount) || 0),   // -1 means hidden
+    comments: Number(v.commentsCount) || 0,
+    shares: 0,                                        // IG не віддає шери
+    created: v.timestamp ? String(v.timestamp) : null,
+    duration: v.videoDuration != null ? Math.round(Number(v.videoDuration)) : null,
+    author: v.ownerUsername ? String(v.ownerUsername) : null,
+    author_name: v.ownerFullName ? String(v.ownerFullName) : null,
+    cover: v.displayUrl ? String(v.displayUrl) : null,
+    hashtags: Array.isArray(v.hashtags) ? v.hashtags.map(String).slice(0, 8) : [],
+  };
+}
+
 /**
  * Fetch the trend feed for one or more search queries (the scraper accepts
- * several natively — one run, one bill). Cached on disk per query-set.
+ * several natively — one run, one bill). Cached on disk per platform+query-set.
  * `force` bypasses the cache (used by an explicit refresh, rate-limit upstream).
  */
-export async function getTrendFeed(queries: string | string[], force = false): Promise<{
+export async function getTrendFeed(
+  queries: string | string[],
+  force = false,
+  platform: 'tiktok' | 'instagram' = 'tiktok',
+): Promise<{
   videos: TrendVideo[];
   fetchedAt: number;
   fromCache: boolean;
@@ -192,7 +228,7 @@ export async function getTrendFeed(queries: string | string[], force = false): P
     .filter(Boolean)
     .slice(0, 4);
   if (!list.length) throw new Error('No search queries');
-  const key = `tiktok:${list.map((q) => q.toLowerCase()).sort().join('|')}`;
+  const key = `${platform}:${list.map((q) => q.toLowerCase()).sort().join('|')}`;
   if (!force) {
     const hit = readCache(key);
     if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) {
@@ -200,15 +236,23 @@ export async function getTrendFeed(queries: string | string[], force = false): P
     }
   }
 
-  const input = {
-    searchQueries: list,
-    // Keep total volume (and cost) roughly constant however many queries run.
-    resultsPerPage: Math.max(10, Math.ceil(RESULTS_PER_QUERY / list.length)),
-    searchSection: '/video',
-    maxProfilesPerQuery: 1,
-  };
+  const perQuery = Math.max(10, Math.ceil(RESULTS_PER_QUERY / list.length));
+  const actor = platform === 'instagram' ? IG_ACTOR : ACTOR;
+  const input = platform === 'instagram'
+    ? {
+      hashtags: list.map((q) => q.replace(/^#/, '').replace(/\s+/g, '')),
+      resultsType: 'reels',
+      resultsLimit: perQuery,
+    }
+    : {
+      searchQueries: list,
+      // Keep total volume (and cost) roughly constant however many queries run.
+      resultsPerPage: perQuery,
+      searchSection: '/video',
+      maxProfilesPerQuery: 1,
+    };
   const res = await fetch(
-    `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
+    `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -228,7 +272,7 @@ export async function getTrendFeed(queries: string | string[], force = false): P
   const items = (await res.json()) as Array<Record<string, any>>;
   const seen = new Set<string>();
   const videos = (Array.isArray(items) ? items : [])
-    .map(normalize)
+    .map(platform === 'instagram' ? normalizeIG : normalize)
     .filter((v): v is TrendVideo => Boolean(v))
     // several queries can surface the same video — dedup by id
     .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))

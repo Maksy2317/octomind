@@ -473,10 +473,16 @@ export function generateTrendQueries(
   profileCtx: string,
   topic: string,
   intent: string,
+  platform: 'tiktok' | 'instagram' = 'tiktok',
 ): Promise<{ queries: string[] }> {
   const goal = TREND_INTENTS[intent] || TREND_INTENTS.selling;
+  // Instagram search is hashtag-based (Meta's keyword search is weak) —
+  // so for IG Octo crafts hashtags instead of search phrases.
+  const what = platform === 'instagram'
+    ? 'Придумай 3 популярні хештеги для пошуку Reels в Instagram (одне слово без пробілів кожен, без символу #). '
+    : 'Придумай 3 короткі пошукові запити для пошуку відео в TikTok. ';
   const system =
-    'Ти — SMM-дослідник. Придумай 3 короткі пошукові запити для пошуку відео в TikTok. ' +
+    'Ти — SMM-дослідник. ' + what +
     `Мета: знайти ${goal}. ` +
     'ВАЖЛИВО: запити мають бути про ВКАЗАНУ НІШУ/ТЕМУ (це те, що користувач явно попросив). ' +
     'Контекст бізнесу використовуй лише як підказку про географію, мову і стиль контенту, який уже працює у клієнта ' +
