@@ -12907,6 +12907,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       '<div class="ob-headline" style="font-size:17px;margin-top:14px;">' + esc(s.offer) + '</div>' +
       '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' +
       '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' +
+      // Rule 3: the strategy is edited the same way as materials — in words.
+      '<div style="display:flex;gap:8px;margin-top:14px;">' +
+      '<input class="ob-input oc-strat-edit" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити у стратегії? напр.: агресивніший оффер, інша аудиторія">' +
+      '<button class="btn btn-primary oc-strat-editbtn" style="padding:9px 14px;font-size:13px;white-space:nowrap;flex:none;">Змінити</button></div>' +
+      '<div class="ob-status oc-strat-editst"></div>' +
       sec('Octo пропонує створити', mats) +
       '<button class="btn btn-primary" id="ocMakeAllBtn" style="width:100%;margin-top:16px;">✨ Створити весь пакет</button>' +
       '<div class="ob-status" id="ocMatStatus" style="margin-top:10px;"></div>';
@@ -12918,6 +12923,28 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         else makeMaterial(m.type, m.label, b);
       };
     });
+    var seBtn = card.querySelector('.oc-strat-editbtn');
+    seBtn.onclick = function () {
+      var inp = card.querySelector('.oc-strat-edit'), st = card.querySelector('.oc-strat-editst');
+      var instruction = (inp.value || '').trim();
+      if (!instruction) { st.className = 'ob-status ob-err'; st.textContent = 'Напиши, що змінити.'; return; }
+      seBtn.disabled = true; seBtn.textContent = '…';
+      st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo переробляє стратегію…';
+      api('/api/marketing/edit', { profile: bizProfile(), material: s, instruction: instruction, label: 'Стратегія просування' })
+        .then(function (r) {
+          // persist into the saved campaign, then re-render the card in place
+          try {
+            var cid = window.octoCampaigns && window.octoCampaigns.current;
+            if (cid) { var c = window.octoCampaigns.get(cid); if (c) { c.strategy = r.material; c.updatedAt = Date.now(); window.octoCampaigns.upsert(c); } }
+          } catch (e) {}
+          card.remove();
+          renderStrategy(r.material);
+        })
+        .catch(function (e) {
+          seBtn.disabled = false; seBtn.textContent = 'Змінити';
+          st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message;
+        });
+    };
     $('ocMakeAllBtn').onclick = function () { makeAll(s); };
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -13463,7 +13490,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + sec('Переваги', chips(s.benefits, 'good'))
       + (s.offer ? '<div class="ob-headline" style="font-size:17px;margin-top:14px;">' + esc(s.offer) + '</div>' : '')
       + (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '')
-      + (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '') + '</div>';
+      + (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '')
+      + (s.offer
+        ? '<div style="display:flex;gap:8px;margin-top:14px;">'
+          + '<input class="ob-input" id="cse-' + c.id + '" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити у стратегії?">'
+          + '<button class="btn btn-primary" style="padding:9px 14px;font-size:13px;white-space:nowrap;flex:none;" onclick="octoEditCampaignStrategy(\'' + c.id + '\',this)">Змінити</button></div>'
+          + '<div class="ob-status" id="csest-' + c.id + '"></div>'
+        : '')
+      + '</div>';
     var mats = (c.materials && c.materials.length)
       ? c.materials.map(function (m) { return renderMaterial(m, c.id); }).join('')
       : '<div class="card" style="text-align:center;color:var(--text4);font-size:13px;padding:18px;">Матеріалів ще нема. Повернись у «Просування» → «Створити весь пакет».</div>';
@@ -13475,6 +13509,39 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     window.scrollTo(0, 0);
   };
   window.octoCampaignsBack = function () { renderList(); };
+
+  // Dialog-edit the campaign's saved strategy (same /edit endpoint as materials).
+  window.octoEditCampaignStrategy = function (campaignId, btn) {
+    var inp = document.getElementById('cse-' + campaignId);
+    var st = document.getElementById('csest-' + campaignId);
+    var instruction = (inp && inp.value || '').trim();
+    if (!instruction) { if (st) { st.className = 'ob-status ob-err'; st.textContent = 'Напиши, що змінити.'; } return; }
+    var c = window.octoCampaigns.get(campaignId); if (!c || !c.strategy) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo переробляє стратегію…'; }
+    var dev = 'biz_' + String((typeof getActiveWsId === 'function') ? getActiveWsId() : 'default').replace(/[^A-Za-z0-9_-]/g, '-');
+    while (dev.length < 8) dev += '0';
+    var prof = {};
+    if (window.octoBiz && window.octoBiz.get()) {
+      var b = window.octoBiz.get();
+      ['business_name','niche','description','target_audience','geo','usp','goal','tone','brand','page_style'].forEach(function (k) { if (b[k]) prof[k] = b[k]; });
+    }
+    fetch('/api/marketing/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': dev.slice(0, 128) },
+      body: JSON.stringify({ profile: prof, material: c.strategy, instruction: instruction, label: 'Стратегія просування' }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        c.strategy = d.material;
+        c.updatedAt = Date.now();
+        window.octoCampaigns.upsert(c);
+        window.octoOpenCampaign(campaignId);
+      })
+      .catch(function (e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Змінити'; }
+        if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
+      });
+  };
   window.octoDeleteCampaign = function (id) {
     if (!confirm('Видалити цю кампанію?')) return;
     window.octoCampaigns.remove(id);
@@ -14195,12 +14262,24 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + rows + '</div>';
   };
 
-  // Chat and everything else read the ONE profile.
+  // Chat and everything else read the ONE profile — including what Octo
+  // learned along the way (brand kit, own-page patterns, market research),
+  // so Ask Octo answers like a marketer who actually knows this business.
   window.buildProfileContext = function () {
     var b = window.octoBiz.get(); if (!b) return null;
     var m = { business_name:'Business', niche:'Niche', description:'What they sell', target_audience:'Audience', geo:'Location', price_segment:'Price segment', usp:'USP', goal:'Goal', tone:'Tone/style', platforms:'Platforms', lang:'Language', tov:'Tone of Voice' };
     var L = [];
     Object.keys(m).forEach(function (k) { if (b[k]) L.push(m[k] + ': ' + b[k]); });
+    if (b.brand) {
+      var br = b.brand, parts = [];
+      if (br.tagline) parts.push('слоган «' + br.tagline + '»');
+      if (Array.isArray(br.palette) && br.palette.length) parts.push('кольори: ' + br.palette.map(function (c) { return c.hex + (c.name ? ' (' + c.name + ')' : ''); }).join(', '));
+      if (br.tone) parts.push('тон бренду: ' + br.tone);
+      if (parts.length) L.push('Brand style: ' + parts.join('; '));
+    }
+    if (b.tiktok_handle) L.push('TikTok page: @' + b.tiktok_handle);
+    if (b.page_style) L.push('What already works on their page: ' + b.page_style);
+    if (b.market_research) L.push('Market research summary: ' + String(b.market_research).slice(0, 600));
     return L.length ? L.join('\n') : null;
   };
 
