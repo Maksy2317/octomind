@@ -123,6 +123,27 @@ app.use('/api/profile', profileRouter);
 app.use('/api/marketing', marketingRouter);
 app.use('/api/trends', trendsRouter);
 
+// ── Seed the trends cache ─────────────────────────────────────────────────────
+// Railway's filesystem is ephemeral: every deploy wipes uploads/, and with it
+// the scraped trend feeds. Seed files (committed snapshots) restore the cache
+// on boot, so cached niches keep working even with zero Apify credits — the
+// scrape path 403s and getTrendFeed falls back to these as stale cache.
+try {
+  const seedDir = path.resolve(process.cwd(), 'seed/trends');
+  const trendsDir = path.join(outputDir, 'trends');
+  if (fs.existsSync(seedDir)) {
+    fs.mkdirSync(trendsDir, { recursive: true });
+    let copied = 0;
+    for (const f of fs.readdirSync(seedDir)) {
+      const dest = path.join(trendsDir, f);
+      if (!fs.existsSync(dest)) { fs.copyFileSync(path.join(seedDir, f), dest); copied++; }
+    }
+    if (copied) console.log(`[Seed] Trends cache seeded: ${copied} files`);
+  }
+} catch (e) {
+  console.warn('[Seed] Trends seeding failed:', (e as Error).message);
+}
+
 // ── Per-post scheduled reminders (every minute) ──────────────────────────────
 cron.schedule('* * * * *', async () => {
   try { await fireScheduledReminders(); } catch (e) { console.error('[CRON] fireScheduledReminders failed:', e); }
