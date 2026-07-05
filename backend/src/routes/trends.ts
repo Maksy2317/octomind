@@ -7,7 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { optionalIdentity } from '../middleware/identity';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
-import { getTrendFeed, getProfileVideos, isTrendsConfigured } from '../services/trends';
+import { getTrendFeed, getProfileVideos, isTrendsConfigured, kvGet, kvSet } from '../services/trends';
 import { analyzeViralVideo, generateTrendQueries, auditOwnPage, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
 
 export const trendsRouter = Router();
@@ -45,14 +45,24 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
 
     let queries: string[] = [query];
     if (intent !== 'raw' && isMarketingConfigured()) {
-      try {
-        const { ctx } = await resolveCtx(req);
-        const expanded = await generateTrendQueries(ctx, query, intent);
-        if (Array.isArray(expanded.queries) && expanded.queries.length) {
-          queries = expanded.queries.map((q) => String(q).slice(0, 60)).slice(0, 3);
+      // Pin the expansion for 24h: same niche+intent → same queries → same
+      // scrape-cache key. Without this every search re-rolls the queries and
+      // pays for a fresh scrape.
+      const expKey = `exp:${intent}:${query.toLowerCase()}`;
+      const pinned = kvGet<string[]>(expKey, 24 * 3_600_000);
+      if (pinned && pinned.length) {
+        queries = pinned;
+      } else {
+        try {
+          const { ctx } = await resolveCtx(req);
+          const expanded = await generateTrendQueries(ctx, query, intent);
+          if (Array.isArray(expanded.queries) && expanded.queries.length) {
+            queries = expanded.queries.map((q) => String(q).slice(0, 60)).slice(0, 3);
+            kvSet(expKey, queries);
+          }
+        } catch (e) {
+          console.warn('[Trends] Query expansion failed, using raw query:', (e as Error).message?.slice(0, 120));
         }
-      } catch (e) {
-        console.warn('[Trends] Query expansion failed, using raw query:', (e as Error).message?.slice(0, 120));
       }
     }
 

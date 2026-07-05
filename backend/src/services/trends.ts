@@ -98,6 +98,26 @@ function normalize(v: Record<string, any>): TrendVideo | null {
   };
 }
 
+// ── Tiny generic KV cache (same dir) ─────────────────────────────────────────
+// Used to pin the AI-expanded search queries for 24h: Claude's output varies
+// run-to-run, and every new query set = new cache key = a fresh PAID scrape.
+// Pinning the expansion keeps cache keys stable and the Apify bill flat.
+export function kvGet<T>(key: string, maxAgeMs: number): T | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(cachePath('kv:' + key), 'utf8'));
+    if (raw && Date.now() - raw.fetchedAt < maxAgeMs) return raw.value as T;
+  } catch { /* miss */ }
+  return null;
+}
+
+export function kvSet(key: string, value: unknown): void {
+  try {
+    fs.writeFileSync(cachePath('kv:' + key), JSON.stringify({ fetchedAt: Date.now(), value }));
+  } catch (e) {
+    console.warn('[Trends] KV write failed:', (e as Error).message);
+  }
+}
+
 /** Author stats extracted from the profile scrape (for the page audit). */
 export interface PageAuthor {
   handle: string;

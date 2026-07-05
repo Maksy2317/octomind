@@ -1695,7 +1695,7 @@
         <span class="nav-badge">AI</span>
       </div>
       <div class="nav-item" onclick="showScreen('campaigns',this)">
-        <span class="nav-icon">📁</span> <span data-i18n="nav_campaigns">Мої кампанії</span>
+        <span class="nav-icon">💡</span> <span data-i18n="nav_campaigns">Мої ідеї</span>
       </div>
 
       <div class="nav-label" data-i18n="nav_tools">Інструменти AI</div>
@@ -2179,6 +2179,7 @@
             <div style="display:flex;gap:8px;margin-top:10px;">
               <input id="tfQuery" class="ob-input" style="margin-top:0;flex:1;" placeholder="Ніша або ключові слова, напр.: барбершоп">
               <button class="btn btn-primary" id="tfBtn" style="padding:10px 16px;white-space:nowrap;flex:none;" onclick="octoTrendsRun()">Знайти</button>
+              <button title="Скинути все" style="flex:none;background:var(--surface2);border:1px solid var(--border);color:var(--text3);border-radius:11px;padding:10px 13px;font:inherit;font-size:13px;cursor:pointer;" onclick="octoTrendsReset()">✖️</button>
             </div>
             <div id="tfQueriesUsed" style="display:none;font-size:12px;color:var(--text4);margin-top:8px;"></div>
             <div class="tf-filters" id="tfFilters" style="display:none;">
@@ -4430,7 +4431,7 @@
       nav_main:'Главное', nav_create:'Студия', nav_account:'Аккаунт', nav_overview:'Обзор',
       screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
       screen_campaign:'Продвижение 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
-      nav_campaigns:'Мои кампании', screen_campaigns:'Мои кампании 📁', screen_campaigns_sub:'Стратегия и все материалы в одном месте',
+      nav_campaigns:'Мои идеи', screen_campaigns:'Мои идеи 💡', screen_campaigns_sub:'Стратегии, материалы и сохранённые идеи в одном месте',
       nav_trend:'Идея из тренда', nav_tools:'Инструменты AI', nav_research:'Исследование рынка', nav_audit:'Разбор контента', nav_brand:'Бренд-стиль',
       screen_research:'Исследование рынка 🔎', screen_research_sub:'Octo найдёт, что работает в твоей нише',
       screen_trend:'Идея из тренда 💡', screen_trend_sub:'Референс → оригинальный сценарий под твой бизнес',
@@ -4520,7 +4521,7 @@
       nav_main:'Головне', nav_create:'Студія', nav_account:'Акаунт', nav_overview:'Огляд',
       screen_strategy:'Стратегія 📋', screen_strategy_sub:'Аналіз бізнесу, офер і план просування',
       screen_campaign:'Просування 🎯', screen_campaign_sub:'Постав бізнес-ціль — Octo зробить стратегію і матеріали',
-      nav_campaigns:'Мої кампанії', screen_campaigns:'Мої кампанії 📁', screen_campaigns_sub:'Стратегія і всі матеріали в одному місці',
+      nav_campaigns:'Мої ідеї', screen_campaigns:'Мої ідеї 💡', screen_campaigns_sub:'Стратегії, матеріали і збережені ідеї в одному місці',
       nav_trend:'Ідея з тренду', nav_tools:'Інструменти AI', nav_research:'Дослідження ринку', nav_audit:'Розбір контенту', nav_brand:'Бренд-стиль',
       screen_research:'Дослідження ринку 🔎', screen_research_sub:'Octo знайде, що працює у твоїй ніші',
       screen_trend:'Ідея з тренду 💡', screen_trend_sub:'Референс → оригінальний сценарій під твій бізнес',
@@ -4610,7 +4611,7 @@
       nav_main:'Main', nav_create:'Studio', nav_account:'Account', nav_overview:'Overview',
       screen_strategy:'Strategy 📋', screen_strategy_sub:'Business analysis, offer and promotion plan',
       screen_campaign:'Promotion 🎯', screen_campaign_sub:'Set a business goal — Octo builds the strategy and materials',
-      nav_campaigns:'My campaigns', screen_campaigns:'My campaigns 📁', screen_campaigns_sub:'Strategy and all materials in one place',
+      nav_campaigns:'My ideas', screen_campaigns:'My ideas 💡', screen_campaigns_sub:'Strategies, materials and saved ideas in one place',
       nav_trend:'Trend idea', nav_tools:'AI tools', nav_research:'Market research', nav_audit:'Content audit', nav_brand:'Brand style',
       screen_research:'Market research 🔎', screen_research_sub:'Octo finds what works in your niche',
       screen_trend:'Trend idea 💡', screen_trend_sub:'Reference → original script for your business',
@@ -13335,7 +13336,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var b = document.createElement('div');
     b.className = 'card';
     b.style.cssText = 'border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);display:flex;align-items:center;gap:12px;';
-    b.innerHTML = '<div style="font-size:20px;">✅</div><div style="flex:1;font-size:13.5px;color:var(--text2);">Збережено в <b>«Мої кампанії»</b> — стратегія і всі матеріали в одному місці.</div>'
+    b.innerHTML = '<div style="font-size:20px;">✅</div><div style="flex:1;font-size:13.5px;color:var(--text2);">Збережено в <b>«Мої ідеї»</b> — стратегія і всі матеріали в одному місці.</div>'
       + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;white-space:nowrap;" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\')">📁 Відкрити</button>';
     wrap.insertBefore(b, wrap.firstChild);
   };
@@ -13375,6 +13376,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   // Просування flow and this library reuse it.
   window.octoRenderMaterialBody = function (o) {
     if (!o) return '';
+    if (o.link) { // saved trend video (bookmark): metrics + link out
+      return (o.cover ? '<img src="' + esc(o.cover) + '" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;border:1px solid var(--border);" alt="" onerror="this.style.display=\'none\'">' : '')
+        + (o.text ? '<p style="font-size:13px;color:var(--text2);margin-top:8px;">' + esc(o.text) + '</p>' : '')
+        + '<div style="font-size:12.5px;color:var(--text3);margin-top:6px;font-weight:700;">👁 ' + esc(o.views_label || '') + (o.author ? ' · @' + esc(o.author) : '') + '</div>'
+        + '<a href="' + esc(o.link) + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:13px;color:var(--accent2);font-weight:700;">▶️ Дивитись у TikTok</a>';
+    }
     if (o.url) { // image material: rendered picture + overlay copy + reasoning
       return '<img src="' + esc(o.url) + '" style="width:100%;border-radius:12px;border:1px solid var(--border);" alt="">'
         + (o.overlay_text ? '<div class="ob-cta" style="margin-top:10px;">🅰️ <b>Текст поверх:</b> ' + esc(o.overlay_text) + '</div>' : '')
@@ -13527,7 +13534,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       campHtml = '';
     } else {
       campHtml = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<div class="card-title" style="margin:0;">📁 Активні кампанії</div>'
+        + '<div class="card-title" style="margin:0;">💡 Мої ідеї</div>'
         + '<button onclick="showScreen(\'campaigns\',null)" style="background:none;border:none;color:var(--accent2);font-size:12.5px;font-weight:700;cursor:pointer;">усі →</button></div>'
         + camps.slice(0, 3).map(function (c) {
           return '<div class="cmp-card" style="margin-bottom:8px;" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\')">'
@@ -13582,7 +13589,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var o = {};
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get();
-      ['business_name','niche','description','target_audience','geo','usp','goal','tone','brand'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
+      ['business_name','niche','description','target_audience','geo','usp','goal','tone','brand','page_style'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
     }
     return o;
   }
@@ -13621,9 +13628,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   function renderToday(q) {
     var box = $('tfToday'); if (!box || !all.length) return;
-    // freshest hit: top views among the last 30 days, else overall top
-    var recent = all.filter(function (v) { return v.created && (Date.now() - new Date(v.created).getTime()) < 30 * 86400000; });
-    var pick = (recent.length ? recent : all).slice().sort(function (a, b) { return b.views - a.views; })[0];
+    // freshest STRONG hit: top views among the last 30 days, but only if it's
+    // actually viral (100K+) — otherwise advise from the overall top instead
+    // of some random 2K-views video that just happens to be recent.
+    var byViews = function (a, b) { return b.views - a.views; };
+    var recent = all.filter(function (v) { return v.created && (Date.now() - new Date(v.created).getTime()) < 30 * 86400000; })
+      .sort(byViews);
+    var pick = (recent.length && recent[0].views >= 100000) ? recent[0] : all.slice().sort(byViews)[0];
     if (!pick) return;
     var cached = null;
     try { cached = JSON.parse(localStorage.getItem(todayKey(q)) || 'null'); } catch (e) {}
@@ -13654,7 +13665,35 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       .catch(function () { box.innerHTML = ''; });
   }
 
-  // ── Save an adapted idea into «Мої кампанії» ────────────────────────────────
+  // ── Bookmark a trend video itself into «Мої ідеї» ───────────────────────────
+  function ideasCampaign() {
+    var list = window.octoCampaigns.all();
+    var c = list.filter(function (x) { return x.name === 'Ідеї з трендів'; })[0] || list[0];
+    if (!c) {
+      c = { id: rid(), name: 'Ідеї з трендів', goal: 'Контент із трендів', details: '',
+        strategy: null, materials: [], status: 'active', createdAt: Date.now(), updatedAt: Date.now() };
+    }
+    return c;
+  }
+
+  function saveVideo(v, i, btn) {
+    if (!v || !window.octoCampaigns) return;
+    var c = ideasCampaign();
+    c.materials.push({
+      id: rid(), type: 'trend_video',
+      title: '🔖 Ролик-референс (' + fmt(v.views) + ' переглядів)',
+      output: { link: v.url, text: (v.text || '').slice(0, 160), views_label: fmt(v.views), author: v.author, cover: v.cover },
+      createdAt: Date.now(),
+    });
+    c.updatedAt = Date.now();
+    window.octoCampaigns.upsert(c);
+    if (btn) { btn.textContent = '✅'; btn.disabled = true; }
+    var st = $('tfBk' + i);
+    if (st) { st.className = 'ob-status ob-ok'; st.innerHTML = 'У «' + esc(c.name) + '» — <a href="#" style="color:var(--accent2);" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\');return false;">відкрити</a>'; }
+    if (window.renderDashV2) window.renderDashV2();
+  }
+
+  // ── Save an adapted idea into «Мої ідеї» ────────────────────────────────────
   window.octoTfSave = function (videoId) {
     var a = anMap[videoId]; if (!a || !window.octoCampaigns) return;
     var v = null; all.forEach(function (x) { if (x.id === videoId) v = x; });
@@ -13666,12 +13705,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       cta: a.adapt.caption || '',
     };
     // Attach to the latest campaign, or open a dedicated «Ідеї з трендів» one.
-    var list = window.octoCampaigns.all();
-    var c = list.filter(function (x) { return x.name === 'Ідеї з трендів'; })[0] || list[0];
-    if (!c) {
-      c = { id: rid(), name: 'Ідеї з трендів', goal: 'Контент із трендів', details: '',
-        strategy: null, materials: [], status: 'active', createdAt: Date.now(), updatedAt: Date.now() };
-    }
+    var c = ideasCampaign();
     c.materials.push({ id: rid(), type: 'trend_idea', title: 'Ідея з тренду' + (v ? ' (' + fmt(v.views) + ' переглядів)' : ''), output: material, createdAt: Date.now() });
     c.updatedAt = Date.now();
     window.octoCampaigns.upsert(c);
@@ -13688,11 +13722,25 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   var curIntent = 'selling';
+  // Just select the intent — search starts ONLY on «Знайти» (user feedback:
+  // nothing should fire before the button is pressed).
   window.octoTrendsIntent = function (btn) {
     document.querySelectorAll('.tf-intent').forEach(function (b) { b.classList.remove('active'); });
     btn.classList.add('active');
     curIntent = btn.dataset.intent;
-    if (($('tfQuery').value || '').trim()) window.octoTrendsRun();   // re-search with the new intent
+  };
+
+  // Full reset: clean slate — no leftover videos, advice or filters.
+  window.octoTrendsReset = function () {
+    all = []; anMap = {}; lastQuery = '';
+    ['tfToday', 'tfFeed', 'tfQueriesUsed'].forEach(function (id) { var el = $(id); if (el) el.innerHTML = ''; });
+    var qu = $('tfQueriesUsed'); if (qu) qu.style.display = 'none';
+    var f = $('tfFilters'); if (f) f.style.display = 'none';
+    ['tfViews', 'tfPeriod'].forEach(function (id) { var el = $(id); if (el) el.value = '0'; });
+    var d = $('tfDur'); if (d) d.value = 'all';
+    var l = $('tfLang'); if (l) l.value = 'all';
+    var q = $('tfQuery'); if (q) { q.value = ''; q.focus(); }
+    status(null, '');
   };
 
   window.octoTrendsRun = function () {
@@ -13700,6 +13748,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (!q) { status('err', 'Напиши нішу або ключові слова.'); return; }
     var btn = $('tfBtn'); if (btn) btn.disabled = true;
     status('busy', curIntent === 'raw' ? 'Octo збирає вірусні ролики (10-30 сек)…' : 'Octo придумує, що шукати, і збирає ролики (15-40 сек)…');
+    // Fresh search = fresh page: no leftover videos or yesterday's advice.
+    var tEl = $('tfToday'); if (tEl) tEl.innerHTML = '';
+    var fEl = $('tfFeed'); if (fEl) fEl.innerHTML = '';
+    var flt = $('tfFilters'); if (flt) flt.style.display = 'none';
     var qu = $('tfQueriesUsed'); if (qu) qu.style.display = 'none';
     fetch('/api/trends/feed', {
       method: 'POST',
@@ -13709,6 +13761,19 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       .then(function (d) {
         all = d.videos || [];
         lastQuery = q + ':' + curIntent;
+        // Variety day-to-day: videos the user has already seen get demoted to
+        // the end of the feed, so each visit leads with something new.
+        try {
+          var seenKey = 'octo_tf_seen_' + wsId();
+          var seen = JSON.parse(localStorage.getItem(seenKey) || '[]');
+          var seenSet = {}; seen.forEach(function (id) { seenSet[id] = 1; });
+          var fresh = all.filter(function (v) { return !seenSet[v.id]; });
+          var old = all.filter(function (v) { return seenSet[v.id]; });
+          all = fresh.concat(old);
+          // remember what we're about to show (cap the list so it never bloats)
+          var upd = seen.concat(fresh.slice(0, 30).map(function (v) { return v.id; }));
+          localStorage.setItem(seenKey, JSON.stringify(upd.slice(-500)));
+        } catch (e) {}
         if (qu && d.queries && d.queries.length > 1) {
           qu.style.display = '';
           qu.innerHTML = '🐙 Octo шукав: ' + d.queries.map(function (x) { return '<b>' + esc(x) + '</b>'; }).join(' · ');
@@ -13765,13 +13830,21 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         + '<div class="tf-metrics"><span>👁 ' + fmt(v.views) + '</span><span>❤️ ' + fmt(v.likes) + '</span><span>💬 ' + fmt(v.comments) + '</span><span>↗️ ' + fmt(v.shares) + '</span></div>'
         + '<div class="tf-meta">' + (v.created ? fmtDate(v.created) + ' · ' : '') + (v.duration != null ? v.duration + ' сек · ' : '') + (v.lang || '') + (v.author ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener" style="color:var(--accent2);">@' + esc(v.author) + '</a>' : '') + '</div>'
         + (v.text ? '<div class="tf-text">' + esc(v.text) + '</div>' : '')
-        + (unlocked ? '<button class="btn btn-primary tf-anbtn" data-i="' + i + '" style="width:100%;margin-top:12px;padding:9px;font-size:13px;">🧠 Чому залетів + адаптуй під мене</button><div class="tf-anbox" id="tfAn' + i + '"></div>' : '')
+        + (unlocked
+          ? '<div style="display:flex;gap:8px;margin-top:12px;">'
+            + '<button class="btn btn-primary tf-anbtn" data-i="' + i + '" style="flex:1;padding:9px;font-size:13px;">🧠 Чому залетів + адаптуй</button>'
+            + '<button class="tf-bkbtn" data-i="' + i + '" title="Зберегти ролик у «Мої ідеї»" style="flex:none;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:11px;padding:9px 13px;font:inherit;font-size:14px;cursor:pointer;">🔖</button>'
+            + '</div><div class="ob-status" id="tfBk' + i + '"></div><div class="tf-anbox" id="tfAn' + i + '"></div>'
+          : '')
         + '</div>';
       return '<div class="tf-card">' + media + body + '</div>';
     }).join('') + '</div>';
 
     el.querySelectorAll('.tf-anbtn').forEach(function (b) {
       b.onclick = function () { analyze(list[Number(b.dataset.i)], Number(b.dataset.i), b); };
+    });
+    el.querySelectorAll('.tf-bkbtn').forEach(function (b) {
+      b.onclick = function () { saveVideo(list[Number(b.dataset.i)], Number(b.dataset.i), b); };
     });
   };
 
@@ -13818,7 +13891,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       .then(function (d) {
         if (btn) btn.disabled = false;
         if (st) { st.className = 'ob-status'; st.textContent = ''; }
-        try { window.octoBiz && window.octoBiz.merge({ tiktok_handle: handle.replace(/^@/, '') }); } catch (e) {}
+        // Remember the handle AND the page's proven patterns — from now on
+        // trend search and adaptations are tailored to what works for THEM.
+        try {
+          window.octoBiz && window.octoBiz.merge({
+            tiktok_handle: handle.replace(/^@/, ''),
+            page_style: (d.audit.what_works || []).slice(0, 3).join('; ').slice(0, 400),
+          });
+        } catch (e) {}
         renderPageAudit(d);
       })
       .catch(function (e) {
