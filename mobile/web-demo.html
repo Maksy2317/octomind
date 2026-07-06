@@ -14171,10 +14171,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (main) {
       var img = new Image();
       img.onload = function () {
-        var cv = document.createElement('canvas'); var k = 200 / Math.max(img.width, img.height);
-        cv.width = img.width * k; cv.height = img.height * k;
+        // 640px: big enough to serve as the re-render reference photo later
+        var cv = document.createElement('canvas'); var k = Math.min(1, 640 / Math.max(img.width, img.height));
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
         cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        fin(cv.toDataURL('image/jpeg', 0.75));
+        fin(cv.toDataURL('image/jpeg', 0.8));
       };
       img.src = main;
     } else fin(null);
@@ -14194,7 +14195,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       row.onclick = function () {
         var p = productsAll().filter(function (x) { return x.id === row.dataset.id; })[0];
         if (!p) return;
-        PA.analysis = p.analysis; PA.product = p.product; PA.cutoutUrl = p.cutout_url; PA.photos = []; PA.mainIdx = 0;
+        PA.analysis = p.analysis; PA.product = p.product; PA.cutoutUrl = p.cutout_url;
+        PA.photos = p.thumb ? [p.thumb] : []; PA.mainIdx = 0;   // saved photo = re-render reference
+        renderThumbs();
         renderForm(p.analysis || p.product || {});
         paGoStep(2);
       };
@@ -14461,34 +14464,29 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var stId = 'paSt5';
     $('paProgress').innerHTML = ''; $('paResults').innerHTML = '';
     try {
-      // 1. cutout of the ORIGINAL (identity preservation)
-      if (!PA.cutoutUrl) {
-        status(stId, 'busy', 'Вирізаю товар з фону (оригінал 1-в-1)…');
-        var cut = await api('/api/ads/cutout', { image: toImagePayload(PA.photos[PA.mainIdx]) });
-        PA.cutoutUrl = cut.url;
-        progress('Товар вирізано — лого й упаковка збережені');
-      }
-      // 2. the "AI thinks first" step — photographer's shoot plan (2 scenes)
+      // 1. the "AI thinks first" step — photographer's shoot plan (2 scenes)
       status(stId, 'busy', 'Octo продумує зйомку: сцени, світло, композиція…');
       var plan = (await api('/api/ads/shoot-plan', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, profile: bizProfile() })).plan;
       var kinds = { studio: '📸 Студійне фото', lifestyle: '🌆 Лайфстайл' };
       (plan.scenes || []).forEach(function (s) { progress((kinds[s.kind] || s.kind) + ': ' + esc(s.title)); });
-      // 3. texts (needed for pack + ad creative headline)
+      // 2. texts (needed for pack + ad creative headline)
       var texts = null;
       if (PA.format === 'pack') {
         status(stId, 'busy', 'Пишу рекламні тексти…');
         texts = (await api('/api/ads/texts', { product: PA.product, concept: PA.concept, goal: PA.goal, platform: PA.platform, profile: bizProfile() })).texts;
         progress('Тексти готові');
       }
-      // 4. render both scenes: clean photos WITHOUT text (Aidentika step-2 style)
+      // 3. TRUE AI product photography: the model re-renders a complete new
+      // photograph of THIS product in each scene (no cutout, no compositing —
+      // real light, shadows, floor contact, perspective).
+      var negText = ' Do not include: ';
       var images = [];
       for (var i = 0; i < plan.scenes.length; i++) {
         var sc = plan.scenes[i];
         status(stId, 'busy', 'Знімаю: ' + esc(sc.title) + ' (' + (i + 1) + ' з ' + plan.scenes.length + ')…');
-        var bg = await api('/api/ads/background', { direct_prompt: sc.image_prompt, negative: sc.negative_prompt || '', product_zone: sc.product_zone, ratio: PA.ratio });
-        var dataUrl = await compose(bg.url, PA.cutoutUrl, sc.product_zone);
-        var saved = await api('/api/ads/save', { data_base64: dataUrl });
-        images.push({ url: saved.url, why: sc.why, kind: sc.kind, title: (kinds[sc.kind] || '') + (sc.title ? ' · ' + sc.title : ''), dataUrl: dataUrl });
+        var fullPrompt = sc.image_prompt + (sc.negative_prompt ? (negText + sc.negative_prompt + '.') : '');
+        var rendered = await api('/api/ads/render-scene', { image: toImagePayload(PA.photos[PA.mainIdx]), prompt: fullPrompt, ratio: PA.ratio });
+        images.push({ url: rendered.url, why: sc.why, kind: sc.kind, title: (kinds[sc.kind] || '') + (sc.title ? ' · ' + sc.title : ''), dataUrl: rendered.url });
         progress((kinds[sc.kind] || 'Фото') + ' готове');
       }
       // 5. designed AD creative (Aidentika step-3) — built on the lifestyle

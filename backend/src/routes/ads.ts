@@ -278,6 +278,53 @@ adsRouter.post('/video', async (req: Request, res: Response, next: NextFunction)
   }
 });
 
+// POST /api/ads/render-scene — TRUE AI product photography (no compositing).
+// Gemini image model takes the ORIGINAL product photo + a scene description and
+// re-renders a complete new photograph of that exact product in the scene:
+// real lighting, shadows, floor contact, perspective, reflections.
+// Body: { image: {media_type, data}, prompt, ratio? } → { url }
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+
+adsRouter.post('/render-scene', async (req: Request, res: Response, next: NextFunction) => {
+  const gKey = process.env.GOOGLE_API_KEY;
+  if (!gKey) { res.status(503).json({ error: 'Рендер сцен не налаштований (GOOGLE_API_KEY відсутній)' }); return; }
+  const images = pickImages(req.body, 2);
+  const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.slice(0, 1500) : '';
+  if (!images.length || !prompt) { res.status(400).json({ error: 'Потрібні фото товару (image) і опис сцени (prompt)' }); return; }
+  try {
+    const ratio = ['1:1', '9:16', '4:5', '16:9'].includes(req.body?.ratio) ? req.body.ratio : '1:1';
+    const ratioHint = ratio === '9:16' ? 'Vertical 9:16 portrait format.'
+      : ratio === '16:9' ? 'Wide 16:9 landscape format.'
+      : ratio === '4:5' ? 'Vertical 4:5 portrait format.' : 'Square 1:1 format.';
+    const body = {
+      contents: [{
+        role: 'user',
+        parts: [
+          ...images.map((im) => ({ inline_data: { mime_type: im.media_type, data: im.data } })),
+          { text: prompt + ' ' + ratioHint },
+        ],
+      }],
+      generationConfig: { responseModalities: ['IMAGE'] },
+    };
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${gKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    );
+    if (!r.ok) throw new Error(`Gemini image ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    const data = await r.json() as any;
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const imgPart = parts.find((p: any) => p.inlineData || p.inline_data);
+    if (!imgPart) throw new Error('Модель не повернула зображення' + (data?.candidates?.[0]?.finishReason ? ` (${data.candidates[0].finishReason})` : ''));
+    const payload = imgPart.inlineData || imgPart.inline_data;
+    const ext = /png/i.test(payload.mimeType || payload.mime_type || '') ? 'png' : 'jpg';
+    const url = saveImage(Buffer.from(payload.data, 'base64'), ext);
+
+    const { profileId } = await resolveCtx(req);
+    await logGen(req, 'ad_scene_render', { prompt: prompt.slice(0, 200), ratio }, { url }, profileId);
+    res.json({ url });
+  } catch (err) { next(err); }
+});
+
 // POST /api/ads/save — { data_base64 } → { url }
 // Persists the client-side canvas composite (bg + original cutout + text).
 adsRouter.post('/save', async (req: Request, res: Response, next: NextFunction) => {
