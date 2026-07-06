@@ -2346,14 +2346,15 @@
         <!-- ═══ ТРЕНДИ (viral feed: real TikTok data + AI breakdown) ═══ -->
         <div class="screen" id="trends">
           <style>
-            .tf-intent { background:var(--surface2); border:1px solid var(--border); color:var(--text2);
-              border-radius:20px; padding:7px 13px; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; }
-            .tf-intent.active { background:rgba(108,99,255,.18); border-color:var(--accent); color:var(--text); }
+            .tf-intent { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.1); color:#a2a2c6;
+              border-radius:12px; padding:10px 15px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; }
+            .tf-intent:hover { border-color:var(--acc-line); }
+            .tf-intent.active { background:rgba(139,123,255,.16); border-color:#8B7BFF; color:#fff; }
             .tf-filters { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
             .tf-filters select { background:var(--surface2); border:1px solid var(--border); color:var(--text);
               border-radius:10px; padding:8px 10px; font:inherit; font-size:12.5px; outline:none; }
             .tf-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; margin-top:14px; }
-            .tf-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+            .tf-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:18px; overflow:hidden; }
             .tf-embed { width:100%; height:560px; border:none; display:block; background:#000; }
             .tf-lockbox { position:relative; height:360px; background:#0b0b14; }
             .tf-lockbox img { width:100%; height:100%; object-fit:cover; filter:blur(14px) brightness(.55); }
