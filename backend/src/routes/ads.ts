@@ -16,7 +16,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import {
   analyseProductImages, generateAdConcepts, generateAdBackground, generateAdPackTexts,
-  generateVideoStoryboard,
+  generateVideoStoryboard, generateAdShootPlan,
   profileToContext, isMarketingConfigured, AuditImage,
 } from '../services/ai/marketing';
 import { assembleVideo, isFfmpegReady, VideoScene, Motion } from '../services/ads/adVideo';
@@ -161,6 +161,9 @@ adsRouter.post('/background', async (req: Request, res: Response, next: NextFunc
       });
     const fd = new FormData();
     fd.append('prompt', brief.image_prompt + ' Empty scene, no product, no text, no words, no letters.');
+    // hard "no competitors in frame" rule — the shoot plan supplies category words
+    const negative = typeof req.body?.negative === 'string' ? req.body.negative.slice(0, 300) : '';
+    fd.append('negative_prompt', (negative ? negative + ', ' : '') + 'text, words, letters, watermark, logo');
     fd.append('output_format', 'jpeg');
     fd.append('aspect_ratio', ratio === '4:5' ? '4:5' : ratio);
     const r = await fetch('https://api.stability.ai/v2beta/stable-image/generate/core', {
@@ -173,6 +176,25 @@ adsRouter.post('/background', async (req: Request, res: Response, next: NextFunc
     const out = { url, product_zone: brief.product_zone || 'center', overlay_text: brief.overlay_text, why: brief.why };
     await logGen(req, 'ad_background', { concept: (concept as any)?.name ?? null, direct: Boolean(directPrompt) }, out, profileId);
     res.json(out);
+  } catch (err) { next(err); }
+});
+
+// POST /api/ads/shoot-plan — { product, concept, style, ratio, profile? }
+// The "AI thinks first" step: a photographer's plan of 2 scenes (studio +
+// lifestyle), category-aware, no competing objects. Rendered via /background
+// with direct_prompt afterwards.
+adsRouter.post('/shoot-plan', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardAI(res)) return;
+  const { product, concept } = req.body || {};
+  if (!product || !concept) { res.status(400).json({ error: 'Потрібні product і concept' }); return; }
+  try {
+    const { ctx, profileId } = await resolveCtx(req);
+    const plan = await generateAdShootPlan(ctx, product, concept, {
+      style: String(req.body?.style || 'Premium').slice(0, 40),
+      ratio: String(req.body?.ratio || '1:1').slice(0, 10),
+    });
+    await logGen(req, 'ad_shoot_plan', { concept: (concept as any)?.name ?? null }, plan, profileId);
+    res.json({ plan });
   } catch (err) { next(err); }
 });
 

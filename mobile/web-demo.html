@@ -14275,20 +14275,45 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   // with a real contact shadow + a soft fading reflection, and blended into the
   // scene with a subtle glow — so it sits IN the scene, not pasted on top.
   // No text band (clean creative — the client adds copy themselves).
+  // Trim a cutout image to its visible (alpha > 8) bounding box — transparent
+  // margins around the product otherwise make it "float" above its shadow.
+  function trimAlpha(img) {
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x2 = c.getContext('2d'); x2.drawImage(img, 0, 0);
+    var d = x2.getImageData(0, 0, w, h).data;
+    var minX = w, minY = h, maxX = 0, maxY = 0;
+    for (var y = 0; y < h; y += 2) {
+      for (var x = 0; x < w; x += 2) {
+        if (d[(y * w + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX <= minX || maxY <= minY) return img;   // fully transparent? use as-is
+    var tw = maxX - minX + 1, th = maxY - minY + 1;
+    var out = document.createElement('canvas'); out.width = tw; out.height = th;
+    out.getContext('2d').drawImage(img, minX, minY, tw, th, 0, 0, tw, th);
+    return out;
+  }
+
   function compose(bgUrl, cutUrl, zone) {
     return new Promise(function (resolve, reject) {
-      var bg = new Image(), cut = new Image(), loaded = 0;
+      var bg = new Image(), cutRaw = new Image(), loaded = 0;
       function go() {
         if (++loaded < 2) return;
         try {
+          var cut = trimAlpha(cutRaw);   // exact product bounds → true grounding
+          var cutW = cut.width || cut.naturalWidth, cutH = cut.height || cut.naturalHeight;
           var W = Math.min(bg.naturalWidth, 1536), H = Math.round(W * bg.naturalHeight / bg.naturalWidth);
           var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
           var ctx = cv.getContext('2d');
           ctx.drawImage(bg, 0, 0, W, H);
 
           // Product hero: ~66% of canvas height, centered, base grounded low.
-          var ph = H * 0.66, pw = ph * cut.naturalWidth / cut.naturalHeight;
-          if (pw > W * 0.82) { pw = W * 0.82; ph = pw * cut.naturalHeight / cut.naturalWidth; }
+          var ph = H * 0.66, pw = ph * cutW / cutH;
+          if (pw > W * 0.82) { pw = W * 0.82; ph = pw * cutH / cutW; }
           var cx = zone === 'left' ? W * 0.34 : (zone === 'right' ? W * 0.66 : W * 0.5);
           var px = cx - pw / 2;
           var baseY = H * 0.90;          // where the product "stands"
@@ -14335,11 +14360,102 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           resolve(cv.toDataURL('image/png'));
         } catch (e) { reject(e); }
       }
-      bg.onload = go; cut.onload = go;
-      bg.onerror = reject; cut.onerror = reject;
-      bg.src = bgUrl; cut.src = cutUrl;
+      bg.onload = go; cutRaw.onload = go;
+      bg.onerror = reject; cutRaw.onerror = reject;
+      bg.src = bgUrl; cutRaw.src = cutUrl;
     });
   }
+
+  // Designed ad creative (OctoMind style, not a flat band): soft dark gradient
+  // top for readability, bold headline, small accent tag, and 2-3 "glass"
+  // benefit chips at the bottom — the Aidentika-grade step-3 look.
+  function adOverlay(baseDataUrl, headline, benefits, cta) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var W = img.naturalWidth, H = img.naturalHeight;
+          var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+          var ctx = cv.getContext('2d');
+          ctx.drawImage(img, 0, 0, W, H);
+
+          // top readability gradient (no band!)
+          var gTop = ctx.createLinearGradient(0, 0, 0, H * 0.34);
+          gTop.addColorStop(0, 'rgba(8,8,14,0.72)'); gTop.addColorStop(1, 'rgba(8,8,14,0)');
+          ctx.fillStyle = gTop; ctx.fillRect(0, 0, W, H * 0.34);
+          // bottom gradient for chips/cta
+          var gBot = ctx.createLinearGradient(0, H * 0.72, 0, H);
+          gBot.addColorStop(0, 'rgba(8,8,14,0)'); gBot.addColorStop(1, 'rgba(8,8,14,0.78)');
+          ctx.fillStyle = gBot; ctx.fillRect(0, H * 0.72, W, H * 0.28);
+
+          var acc = brandAccent();
+          var pad = W * 0.06;
+
+          // small accent tag (brand name or NEW)
+          var tag = ((PA.product && PA.product.brand) || 'NEW').toUpperCase().slice(0, 18);
+          var tagFs = Math.round(W / 42);
+          ctx.font = '800 ' + tagFs + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
+          var tw = ctx.measureText(tag).width;
+          ctx.fillStyle = acc;
+          if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(pad, pad, tw + tagFs * 1.6, tagFs * 2, tagFs); ctx.fill(); }
+          else ctx.fillRect(pad, pad, tw + tagFs * 1.6, tagFs * 2);
+          ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(tag, pad + tagFs * 0.8, pad + tagFs);
+
+          // headline — big, left-aligned, wrapped to 2 lines, soft shadow
+          if (headline) {
+            var fs = Math.round(W / 14);
+            ctx.font = '800 ' + fs + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
+            var words = headline.split(' '), lines = [''], li = 0;
+            words.forEach(function (w) {
+              if (ctx.measureText(lines[li] + ' ' + w).width > W * 0.86 && lines[li]) { lines[++li] = w; }
+              else lines[li] = (lines[li] ? lines[li] + ' ' : '') + w;
+            });
+            lines = lines.slice(0, 2);
+            ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = fs * 0.35; ctx.shadowOffsetY = fs * 0.06;
+            ctx.fillStyle = '#fff';
+            lines.forEach(function (ln, i) { ctx.fillText(ln, pad, pad + tagFs * 2 + fs * 0.9 + i * fs * 1.18); });
+            ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+          }
+
+          // benefit chips bottom-left (glass style)
+          var chipFs = Math.round(W / 36);
+          ctx.font = '700 ' + chipFs + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
+          var cy = H - pad - chipFs * 1.1;
+          (benefits || []).slice(0, 3).reverse().forEach(function (b) {
+            var label = '✓ ' + String(b).slice(0, 42);
+            var bw = ctx.measureText(label).width;
+            ctx.fillStyle = 'rgba(255,255,255,0.14)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = Math.max(1, W / 1000);
+            if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(pad, cy - chipFs * 1.05, bw + chipFs * 1.6, chipFs * 2.1, chipFs); ctx.fill(); ctx.stroke(); }
+            else { ctx.fillRect(pad, cy - chipFs * 1.05, bw + chipFs * 1.6, chipFs * 2.1); }
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText(label, pad + chipFs * 0.8, cy);
+            cy -= chipFs * 2.7;
+          });
+
+          // CTA pill bottom-right
+          if (cta) {
+            var cFs = Math.round(W / 34);
+            ctx.font = '800 ' + cFs + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
+            var cw = ctx.measureText(cta).width;
+            var cx0 = W - pad - cw - cFs * 1.8, cy0 = H - pad - cFs * 2.2;
+            ctx.fillStyle = acc;
+            if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx0, cy0, cw + cFs * 1.8, cFs * 2.2, cFs * 1.1); ctx.fill(); }
+            else ctx.fillRect(cx0, cy0, cw + cFs * 1.8, cFs * 2.2);
+            ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+            ctx.fillText(cta, cx0 + cFs * 0.9, cy0 + cFs * 1.1);
+          }
+
+          resolve(cv.toDataURL('image/png'));
+        } catch (e) { reject(e); }
+      };
+      img.onerror = reject;
+      img.src = baseDataUrl;
+    });
+  }
+
+  function paIsPro() { try { return (localStorage.getItem('octo_plan') || 'free') === 'pro'; } catch (e) { return false; } }
 
   async function runGeneration() {
     var stId = 'paSt5';
@@ -14352,27 +14468,48 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         PA.cutoutUrl = cut.url;
         progress('Товар вирізано — лого й упаковка збережені');
       }
-      // 2. texts (needed for pack; cheap) — run before visuals so headline exists
+      // 2. the "AI thinks first" step — photographer's shoot plan (2 scenes)
+      status(stId, 'busy', 'Octo продумує зйомку: сцени, світло, композиція…');
+      var plan = (await api('/api/ads/shoot-plan', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, profile: bizProfile() })).plan;
+      var kinds = { studio: '📸 Студійне фото', lifestyle: '🌆 Лайфстайл' };
+      (plan.scenes || []).forEach(function (s) { progress((kinds[s.kind] || s.kind) + ': ' + esc(s.title)); });
+      // 3. texts (needed for pack + ad creative headline)
       var texts = null;
       if (PA.format === 'pack') {
         status(stId, 'busy', 'Пишу рекламні тексти…');
         texts = (await api('/api/ads/texts', { product: PA.product, concept: PA.concept, goal: PA.goal, platform: PA.platform, profile: bizProfile() })).texts;
         progress('Тексти готові');
       }
-      // 3. two background variants → composite each
-      var variants = [null, 'інший настрій світла і ракурс сцени'];
+      // 4. render both scenes: clean photos WITHOUT text (Aidentika step-2 style)
       var images = [];
-      for (var i = 0; i < variants.length; i++) {
-        status(stId, 'busy', 'Створюю креатив ' + (i + 1) + ' з 2 (тло + композиція)…');
-        var bg = await api('/api/ads/background', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, variant: variants[i], profile: bizProfile() });
-        var dataUrl = await compose(bg.url, PA.cutoutUrl, bg.product_zone);
+      for (var i = 0; i < plan.scenes.length; i++) {
+        var sc = plan.scenes[i];
+        status(stId, 'busy', 'Знімаю: ' + esc(sc.title) + ' (' + (i + 1) + ' з ' + plan.scenes.length + ')…');
+        var bg = await api('/api/ads/background', { direct_prompt: sc.image_prompt, negative: sc.negative_prompt || '', product_zone: sc.product_zone, ratio: PA.ratio });
+        var dataUrl = await compose(bg.url, PA.cutoutUrl, sc.product_zone);
         var saved = await api('/api/ads/save', { data_base64: dataUrl });
-        images.push({ url: saved.url, why: bg.why, headline: (texts && texts.headline) || '' });
-        progress('Креатив ' + (i + 1) + ' готовий');
+        images.push({ url: saved.url, why: sc.why, kind: sc.kind, title: (kinds[sc.kind] || '') + (sc.title ? ' · ' + sc.title : ''), dataUrl: dataUrl });
+        progress((kinds[sc.kind] || 'Фото') + ' готове');
+      }
+      // 5. designed AD creative (Aidentika step-3) — built on the lifestyle
+      // shot with a tasteful overlay (gradient + benefit chips, no flat band).
+      var adCreative = null;
+      if (PA.format === 'pack') {
+        try {
+          status(stId, 'busy', 'Верстаю рекламний креатив…');
+          var base = images.filter(function (im) { return im.kind === 'lifestyle'; })[0] || images[0];
+          var benefits = [];
+          if (PA.product.main_benefit) benefits.push(PA.product.main_benefit);
+          (PA.product.benefits || []).forEach(function (b) { if (benefits.length < 3 && benefits.indexOf(b) === -1) benefits.push(b); });
+          var adUrl = await adOverlay(base.dataUrl, (texts && texts.headline) || '', benefits.slice(0, 3), (texts && texts.cta) || '');
+          var savedAd = await api('/api/ads/save', { data_base64: adUrl });
+          adCreative = { url: savedAd.url };
+          progress('Рекламний креатив готовий');
+        } catch (e) { /* ad creative optional */ }
       }
       status(stId, 'ok', '✅ Готово! Все нижче — і вже збережено в «Мої ідеї».');
-      renderResults(images, texts);
-      saveToIdeas(images, texts);
+      renderResults(images, texts, adCreative);
+      saveToIdeas(images, texts, adCreative);
     } catch (e) {
       status(stId, 'err', '⚠️ ' + esc(e.message) + ' <a href="#" style="color:var(--accent2);" onclick="runGeneration();return false;">Спробувати ще</a>');
     }
@@ -14442,13 +14579,30 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (window.renderDashV2) try { window.renderDashV2(); } catch (e) {}
   }
 
-  function renderResults(images, texts) {
+  function renderResults(images, texts, adCreative) {
     var html = images.map(function (im, i) {
-      return '<div class="card ob-res"><div class="card-title" style="margin-bottom:8px;">Креатив ' + String.fromCharCode(65 + i) + ' · ' + esc(PA.ratio) + '</div>'
+      return '<div class="card ob-res"><div class="card-title" style="margin-bottom:8px;">' + esc(im.title || ('Креатив ' + String.fromCharCode(65 + i))) + ' · ' + esc(PA.ratio) + '</div>'
         + '<img class="pa-result-img" src="' + esc(im.url) + '">'
-        + (im.why ? '<div class="ob-why" style="margin-top:10px;"><b>Чому цей візуал:</b> ' + esc(im.why) + '</div>' : '')
+        + (im.why ? '<div class="ob-why" style="margin-top:10px;"><b>Чому ця сцена:</b> ' + esc(im.why) + '</div>' : '')
         + '<a href="' + esc(im.url) + '" download style="display:inline-block;margin-top:10px;font-size:13px;color:var(--accent2);font-weight:700;">⬇️ Завантажити PNG</a></div>';
     }).join('');
+    // Designed ad creative — Pro feature (Aidentika's "step 3")
+    if (adCreative) {
+      if (paIsPro()) {
+        html += '<div class="card ob-res"><div class="card-title" style="margin-bottom:8px;">🪄 Рекламний креатив (з текстом і CTA) · ' + esc(PA.ratio) + '</div>'
+          + '<img class="pa-result-img" src="' + esc(adCreative.url) + '">'
+          + '<a href="' + esc(adCreative.url) + '" download style="display:inline-block;margin-top:10px;font-size:13px;color:var(--accent2);font-weight:700;">⬇️ Завантажити PNG</a></div>';
+      } else {
+        html += '<div class="card ob-res"><div class="card-title" style="margin-bottom:8px;">🪄 Рекламний креатив (з текстом і CTA)</div>'
+          + '<div style="position:relative;border-radius:12px;overflow:hidden;">'
+          + '<img class="pa-result-img" src="' + esc(adCreative.url) + '" style="filter:blur(16px) brightness(.6);">'
+          + '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:16px;">'
+          + '<div style="font-size:30px;">🔒</div><div style="font-weight:800;">Готова верстка — у Pro</div>'
+          + '<div style="font-size:12.5px;color:var(--text3);">Хедлайн, переваги і CTA вже накладені дизайном</div>'
+          + '<button class="btn btn-primary" style="padding:8px 18px;font-size:13px;" onclick="showScreen(\'pricing\',null)">Відкрити Pro</button>'
+          + '</div></div></div>';
+      }
+    }
     if (texts) {
       html += '<div class="card ob-res"><div class="card-title">📝 Тексти реклами</div>'
         + '<div class="ob-headline" style="font-size:16px;margin-top:8px;">' + esc(texts.headline) + '</div>'
@@ -14464,15 +14618,18 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     $('paResults').innerHTML = html;
   }
 
-  function saveToIdeas(images, texts) {
+  function saveToIdeas(images, texts, adCreative) {
     if (!window.octoCampaigns) return;
     var name = 'Реклама: ' + ((PA.product && PA.product.product_name) || 'товар');
     var all = window.octoCampaigns.all();
     var c = all.filter(function (x) { return x.name === name; })[0];
     if (!c) c = { id: rid(), name: name, goal: PA.goal, details: '', strategy: null, materials: [], status: 'active', createdAt: Date.now(), updatedAt: Date.now() };
     images.forEach(function (im, i) {
-      c.materials.push({ id: rid(), type: 'image', title: 'Креатив ' + String.fromCharCode(65 + i) + ' (' + PA.ratio + ')', output: { title: 'Креатив', url: im.url, overlay_text: im.headline, why: im.why }, createdAt: Date.now() });
+      c.materials.push({ id: rid(), type: 'image', title: (im.title || 'Креатив ' + String.fromCharCode(65 + i)) + ' (' + PA.ratio + ')', output: { title: im.title || 'Креатив', url: im.url, why: im.why }, createdAt: Date.now() });
     });
+    if (adCreative && paIsPro()) {
+      c.materials.push({ id: rid(), type: 'image', title: '🪄 Рекламний креатив (' + PA.ratio + ')', output: { title: 'Рекламний креатив', url: adCreative.url }, createdAt: Date.now() });
+    }
     if (texts) {
       c.materials.push({
         id: rid(), type: 'ad_text', title: 'Тексти реклами',

@@ -728,6 +728,59 @@ export function generateAdBackground(
   return jsonCall<AdBackgroundBrief>(system, user, 900);
 }
 
+// ── Shoot plan (Aidentika-style pack: studio + lifestyle, thought-first) ──────
+// One Gemini call plans BOTH scenes like a real photographer would: category-
+// aware (furniture stands on a floor, drinks on a podium, cosmetics on stone),
+// and — critically — the scene must NOT contain objects that compete with or
+// duplicate the product's category (the "chair lost next to a table" bug).
+export interface AdShootPlan {
+  scenes: Array<{
+    kind: 'studio' | 'lifestyle';
+    title: string;           // коротка назва сцени українською (для прогресу/картки)
+    image_prompt: string;    // англ. промпт тла БЕЗ товару
+    negative_prompt: string; // англ. — чого НЕ має бути (категорія товару + конкуренти)
+    product_zone: 'center' | 'left' | 'right';
+    ground: 'floor' | 'podium' | 'table';   // де стоятиме товар
+    why: string;             // чому ця сцена продає (українською)
+  }>;
+}
+
+export function generateAdShootPlan(
+  profileCtx: string,
+  product: Record<string, unknown>,
+  concept: Record<string, unknown>,
+  opts: { style: string; ratio: string },
+): Promise<AdShootPlan> {
+  const system =
+    'Ти — продуктовий фотограф і арт-директор преміум-реклами. Сплануй зйомку товару: рівно 2 сцени. ' +
+    'СЦЕНА 1 kind="studio": чистий студійний фон (seamless backdrop, мʼяке студійне світло, легкий градієнт, ' +
+    'кольори гармоніюють з товаром/брендом, підлога-поверхня з делікатним відображенням). Мінімалізм, без пропсів. ' +
+    'СЦЕНА 2 kind="lifestyle": атмосферна ЩІЛЬНА ВІНЬЄТКА-ФОН, НЕ широка кімната і НЕ мебльований інтерʼєр! ' +
+    'Це close-up фрагмент середовища (кут кімнати з порожньою стіною і рослиною збоку, фактурна поверхня, ' +
+    'мілка глибина різкості, розмите тло), який слугує ФОНОМ: товар потім займе ~2/3 висоти кадру, ' +
+    'тому сцена мусить виглядати природно з ВЕЛИКИМ товаром впритул до камери. ' +
+    'Атмосфера під категорію і стиль: енергетик — темна динаміка/бризки/неон; меблі — порожній куток, ' +
+    'деревʼяна підлога, стіна, мʼяке віконне світло; косметика — камінь/шовк/вода; їжа — свіжість/пар. ' +
+    'ЗАЛІЗНІ ПРАВИЛА для обох image_prompt (англійською, фотореалістично, детально: світло, матеріали, настрій): ' +
+    '1) сцена БЕЗ товару — закінчуй "empty space for product, no [категорія товару], no text, no words, no letters"; ' +
+    '2) ЖОДНИХ обʼєктів тієї ж категорії, що товар, і жодних великих обʼєктів, які конкурують за увагу ' +
+    '(якщо товар стілець — у кадрі НЕ МАЄ бути столів/крісел/диванів; якщо напій — інших пляшок/банок); ' +
+    '3) композиція: вільна центральна зона під товар, краї темніші/мʼякші за центр; ' +
+    '4) масштаб і перспектива зони мають відповідати ground (floor = рівень підлоги для меблів/взуття, ' +
+    'podium/table = пʼєдестал чи стільниця для дрібних товарів). ' +
+    'Для кожної сцени дай ще negative_prompt (АНГЛІЙСЬКОЮ): перелічи обʼєкти, яких НЕ має бути в кадрі — ' +
+    'обовʼязково категорію самого товару та всі схожі/конкурентні предмети ' +
+    '(напр. для стільця: "chair, armchair, stool, sofa, table, bench, furniture"; ' +
+    'для напою: "can, bottle, cup, glass, drink"). ' +
+    LANG_RULE +
+    ' Схема JSON: {"scenes":[{"kind":"studio"|"lifestyle","title":str,"image_prompt":str,"negative_prompt":str,' +
+    '"product_zone":"center"|"left"|"right","ground":"floor"|"podium"|"table","why":str}]} — рівно 2 сцени.';
+  const user =
+    `Бізнес:\n${profileCtx}\n\nТовар:\n${JSON.stringify(product)}\n\nКонцепція:\n${JSON.stringify(concept)}\n\n` +
+    `Стиль: ${opts.style}. Формат кадру: ${opts.ratio}. Сплануй 2 сцени.`;
+  return jsonCall<AdShootPlan>(system, user, 1600);
+}
+
 export interface AdPackTexts {
   headline: string;
   primary_text: string;
