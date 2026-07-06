@@ -9987,16 +9987,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           ${isToday ? '⚡ ' : ''}${dayLabel}
         </div>`;
       posts.forEach((p, i) => {
-        const timeIcon = CAL_TIME_ICONS[p.time] || '';
-        html += `<div class="cal-post-item" style="cursor:default;">
-          <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
-          <span style="font-size:13px;font-weight:700;">${CAL_TYPE_ICONS[p.type]||''} ${p.type}</span>
-          ${p.time ? `<span style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time}</span>` : ''}
-          ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${p.note}</span>` : '<span style="flex:1;"></span>'}
-          <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text4);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
-          <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="${p.reminder?'Нагадування увімкнено':'Увімкнути нагадування'}">🔔</button>
-          <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
-        </div>`;
+        html += calPostRow(p, key, i);
       });
       html += '</div>';
     }
@@ -10279,19 +10270,52 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       el.innerHTML = '<p style="font-size:13px;color:var(--text4);margin-bottom:8px;">Немає запланованих публікацій</p>';
       return;
     }
-    el.innerHTML = posts.map((p, i) => {
-      const timeIcon = CAL_TIME_ICONS[p.time] || '';
-      return `<div class="cal-post-item">
-        <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
-        <span style="font-size:13px;font-weight:700;color:var(--text2);">${CAL_TYPE_ICONS[p.type]||''} ${p.type}</span>
-        ${p.time ? `<span style="font-size:11px;color:var(--accent2);font-weight:600;">${timeIcon} ${p.time}</span>` : ''}
-        ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${p.note}</span>` : '<span style="flex:1;"></span>'}
-        <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
-        <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="${p.reminder?'Нагадування увімкнено':'Увімкнути нагадування'}">🔔</button>
+    el.innerHTML = posts.map((p, i) => calPostRow(p, key, i)).join('');
+  }
+
+  // One post row — rich when it carries a generated material (thumbnail +
+  // status pill + «опубліковано» toggle), compact for plain planner notes.
+  function calPostRow(p, key, i) {
+    const timeIcon = CAL_TIME_ICONS[p.time] || '';
+    const published = p.status === 'published';
+    const esc2 = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]);
+    if (p.mat) {
+      const m = p.mat;
+      const mIcon = { image:'🖼', video:'🎬', ad_text:'📝', trend_idea:'💡', trend_video:'🔖', stories:'📲', reels:'🎬', post:'📝' };
+      const thumb = m.thumb
+        ? `<img src="${esc2(m.thumb)}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none;">`
+        : `<div style="width:44px;height:44px;border-radius:10px;background:var(--surface3);display:grid;place-items:center;flex:none;font-size:20px;">${mIcon[m.mtype]||'📄'}</div>`;
+      return `<div class="cal-post-item" style="align-items:center;${published?'opacity:.55;':''}">
+        ${thumb}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${published?'text-decoration:line-through;':''}">${esc2(m.title)}</div>
+          <div style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time||''} · ${published?'<span style=\"color:var(--green);font-weight:700;\">✓ опубліковано</span>':'<span style=\"color:var(--accent2);font-weight:700;\">заплановано</span>'}</div>
+        </div>
+        <button onclick="calTogglePublished('${key}',${i})" title="${published?'Повернути в заплановані':'Позначити опублікованим'}" style="background:none;border:1px solid ${published?'var(--green)':'var(--border)'};border-radius:8px;color:${published?'var(--green)':'var(--text4)'};font-size:14px;padding:4px 8px;cursor:pointer;">✓</button>
+        <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="Нагадування">🔔</button>
         <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
       </div>`;
-    }).join('');
+    }
+    return `<div class="cal-post-item" style="cursor:default;">
+      <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
+      <span style="font-size:13px;font-weight:700;">${CAL_TYPE_ICONS[p.type]||''} ${p.type}</span>
+      ${p.time ? `<span style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time}</span>` : ''}
+      ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${esc2(p.note)}</span>` : '<span style="flex:1;"></span>'}
+      <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text4);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
+      <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="${p.reminder?'Нагадування увімкнено':'Увімкнути нагадування'}">🔔</button>
+      <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
+    </div>`;
   }
+
+  window.calTogglePublished = function (key, idx) {
+    const data = calLoad();
+    if (!data[key] || !data[key][idx]) return;
+    data[key][idx].status = data[key][idx].status === 'published' ? 'scheduled' : 'published';
+    calSave(data);
+    calRenderDayPosts(key);
+    if (calListMode) calRenderList();
+    calRender();
+  };
 
   function calOpenCaption(type, note) {
     // Jump to Caption AI with the post idea pre-filled
@@ -13581,8 +13605,22 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<input class="ob-input" id="ed-' + m.id + '" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити? напр.: коротше, без емодзі, акцент на ціні">'
       + '<button class="btn btn-primary" style="padding:9px 14px;font-size:13px;white-space:nowrap;flex:none;" onclick="octoEditMaterial(\'' + campaignId + '\',\'' + m.id + '\',this)">Змінити</button></div>'
       + '<div class="ob-status" id="edst-' + m.id + '"></div>';
-    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + (m.edited ? ' · відредаговано' : '') + '</div></div></div>' + window.octoRenderMaterialBody(m.output) + editRow + '</div>';
+    var o = m.output || {};
+    var scheduleBtn = '<button style="margin-top:12px;background:var(--surface2);border:1px solid var(--accent);color:var(--text);border-radius:11px;padding:9px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;" onclick="octoScheduleMaterial(\'' + campaignId + '\',\'' + m.id + '\')">📅 Запланувати публікацію</button>';
+    return '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">' + esc(m.title) + '</div><div class="card-sub" style="margin:0;">' + fmtDate(m.createdAt) + (m.edited ? ' · відредаговано' : '') + '</div></div></div>' + window.octoRenderMaterialBody(o) + '<div>' + scheduleBtn + '</div>' + editRow + '</div>';
   }
+
+  // Send a saved material into the calendar via the schedule modal.
+  window.octoScheduleMaterial = function (campaignId, materialId) {
+    var c = window.octoCampaigns.get(campaignId); if (!c) return;
+    var m = (c.materials || []).filter(function (x) { return x.id === materialId; })[0]; if (!m) return;
+    var o = m.output || {};
+    window.octoOpenSchedule({
+      title: m.title || 'Матеріал', mtype: m.type,
+      thumb: o.url || o.cover || '', url: o.url || o.video_url || o.link || '',
+      video_url: o.video_url || '', campaignId: campaignId, materialId: materialId,
+    });
+  };
 
   window.octoEditMaterial = function (campaignId, materialId, btn) {
     var inp = document.getElementById('ed-' + materialId);
@@ -14664,6 +14702,121 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
   document.addEventListener('DOMContentLoaded', init);
   window.addEventListener('load', function () { setTimeout(init, 100); });
+})();
+</script>
+
+<!-- ═══ ПЛАНУВАННЯ ПУБЛІКАЦІЙ — schedule any generated material into the calendar ═══ -->
+<script>
+(function () {
+  'use strict';
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function calKeyOf(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+  // Shared calendar store (same key the calendar screen uses).
+  window.octoCalStore = {
+    key: function () { return 'octo_calendar_' + wsId(); },
+    load: function () { try { return JSON.parse(localStorage.getItem(this.key()) || '{}'); } catch (e) { return {}; } },
+    save: function (d) { try { localStorage.setItem(this.key(), JSON.stringify(d)); } catch (e) {} },
+    add: function (dateKey, post) {
+      var d = this.load();
+      if (!d[dateKey]) d[dateKey] = [];
+      d[dateKey].push(post);
+      d[dateKey].sort(function (a, b) { return (a.time || '99:99').localeCompare(b.time || '99:99'); });
+      this.save(d);
+      try { if (window.calRender) window.calRender(); } catch (e) {}
+      try { if (window.calSyncReminders) window.calSyncReminders(); } catch (e) {}
+    },
+  };
+
+  // Count scheduled (not yet published) upcoming posts — for badges.
+  window.octoScheduledCount = function () {
+    var d = window.octoCalStore.load(), n = 0, today = new Date(); today.setHours(0, 0, 0, 0);
+    Object.keys(d).forEach(function (k) {
+      var parts = k.split('-'); var dt = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+      if (dt >= today) (d[k] || []).forEach(function (p) { if (p.status !== 'published') n++; });
+    });
+    return n;
+  };
+
+  // ── Schedule modal — any screen calls octoOpenSchedule(payload) ─────────────
+  // payload: { title, thumb?, mtype?, url?, video_url?, note?, campaignId?, materialId? }
+  var ov;
+  function ensureModal() {
+    if (ov) return;
+    ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(6,6,12,.7);backdrop-filter:blur(3px);z-index:10000;display:none;align-items:flex-end;justify-content:center;';
+    ov.innerHTML =
+      '<div id="schCard" style="background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:20px 18px 26px;box-shadow:0 -10px 40px #000a;">'
+      + '<div style="width:38px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>'
+      + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">'
+      + '<div id="schThumb" style="width:52px;height:52px;border-radius:12px;background:var(--surface3);flex:none;display:grid;place-items:center;font-size:22px;overflow:hidden;"></div>'
+      + '<div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em;">Запланувати публікацію</div>'
+      + '<div id="schTitle" style="font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div></div></div>'
+      + '<div style="display:flex;gap:10px;">'
+      + '<div style="flex:1;"><label style="font-size:11.5px;font-weight:700;color:var(--text4);">Дата</label><input type="date" id="schDate" class="ob-input" style="margin-top:4px;"></div>'
+      + '<div style="flex:none;width:120px;"><label style="font-size:11.5px;font-weight:700;color:var(--text4);">Час</label><input type="time" id="schTime" class="ob-input" style="margin-top:4px;" value="11:00"></div>'
+      + '</div>'
+      + '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;cursor:pointer;"><input type="checkbox" id="schRemind" checked style="width:18px;height:18px;"> 🔔 Нагадати в день публікації</label>'
+      + '<div id="schQuick" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;"></div>'
+      + '<div style="display:flex;gap:8px;margin-top:18px;">'
+      + '<button id="schCancel" style="flex:none;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:12px;padding:12px 18px;font:inherit;font-weight:700;cursor:pointer;">Скасувати</button>'
+      + '<button id="schGo" class="btn btn-primary" style="flex:1;">📅 Запланувати</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (e) { if (e.target === ov) hide(); });
+    ov.querySelector('#schCancel').onclick = hide;
+    // quick date chips
+    var q = ov.querySelector('#schQuick');
+    [['Завтра', 1], ['Через 2 дні', 2], ['Субота', 'sat'], ['Наст. тиждень', 7]].forEach(function (it) {
+      var b = document.createElement('button');
+      b.className = 'pa-chip'; b.style.cssText = 'padding:6px 11px;font-size:12px;';
+      b.textContent = it[0];
+      b.onclick = function () {
+        var d = new Date(); d.setHours(0, 0, 0, 0);
+        if (it[1] === 'sat') { d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7)); }
+        else d.setDate(d.getDate() + it[1]);
+        ov.querySelector('#schDate').value = calKeyOf(d);
+      };
+      q.appendChild(b);
+    });
+  }
+  function hide() { if (ov) ov.style.display = 'none'; }
+
+  window.octoOpenSchedule = function (payload) {
+    ensureModal();
+    var mIcon = { image: '🖼', video: '🎬', ad_text: '📝', trend_idea: '💡', trend_video: '🔖', stories: '📲', reels: '🎬' };
+    var th = ov.querySelector('#schThumb');
+    if (payload.thumb || payload.url) th.innerHTML = '<img src="' + esc(payload.thumb || payload.url) + '" style="width:100%;height:100%;object-fit:cover;">';
+    else th.textContent = mIcon[payload.mtype] || '📄';
+    ov.querySelector('#schTitle').textContent = payload.title || 'Матеріал';
+    var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+    ov.querySelector('#schDate').value = calKeyOf(tmr);
+    ov.querySelector('#schTime').value = '11:00';
+    ov.querySelector('#schRemind').checked = true;
+    ov.querySelector('#schGo').onclick = function () {
+      var dateKey = ov.querySelector('#schDate').value;
+      var time = ov.querySelector('#schTime').value || '11:00';
+      if (!dateKey) return;
+      var typeMap = { video: 'reels', trend_video: 'reels', stories: 'stories', reels: 'reels', ad_text: 'caption' };
+      window.octoCalStore.add(dateKey, {
+        type: typeMap[payload.mtype] || 'post',
+        note: payload.title || '',
+        time: time,
+        reminder: ov.querySelector('#schRemind').checked,
+        status: 'scheduled',
+        mat: {
+          title: payload.title || 'Матеріал', mtype: payload.mtype || 'post',
+          thumb: payload.thumb || payload.url || '', url: payload.url || payload.video_url || '',
+          campaignId: payload.campaignId || null, materialId: payload.materialId || null,
+        },
+      });
+      hide();
+      if (typeof octoToast === 'function') octoToast('📅 Заплановано на ' + dateKey + ' ' + time);
+      else { try { var t = document.createElement('div'); t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:20px;z-index:10001;'; t.textContent = '📅 Заплановано на ' + dateKey + ' ' + time; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600); } catch (e) {} }
+      if (window.renderDashV2) try { window.renderDashV2(); } catch (e) {}
+    };
+    ov.style.display = 'flex';
+  };
 })();
 </script>
 
