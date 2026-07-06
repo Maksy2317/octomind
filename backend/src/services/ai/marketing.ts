@@ -749,7 +749,7 @@ export function generateAdShootPlan(
   profileCtx: string,
   product: Record<string, unknown>,
   concept: Record<string, unknown>,
-  opts: { style: string; ratio: string },
+  opts: { style: string; ratio: string; sceneWish?: string },
 ): Promise<AdShootPlan> {
   const system =
     'Ти — продуктовий фотограф преміум-реклами. Сплануй зйомку товару: рівно 2 сцени. ' +
@@ -767,6 +767,10 @@ export function generateAdShootPlan(
     'СЦЕНА 1 kind="studio": чиста студія (seamless backdrop, мʼяке студійне світло, делікатне відображення на поверхні). ' +
     'СЦЕНА 2 kind="lifestyle": природне середовище, де товар реально живе; товар — головний герой кадру, ' +
     'без обʼєктів тієї ж категорії поруч (для стільця — жодних інших стільців/столів/диванів). ' +
+    (opts.sceneWish
+      ? 'ПОБАЖАННЯ КОРИСТУВАЧА ДО СЦЕНИ (ОБОВʼЯЗКОВО втіли його в lifestyle-сцені, професійно адаптувавши ' +
+        'композицію, світло і настрій під нього): «' + opts.sceneWish + '». '
+      : '') +
     'У negative_prompt перелічи англійською, чого НЕ має бути (конкурентні предмети, text, words, watermark). ' +
     LANG_RULE +
     ' Схема JSON: {"scenes":[{"kind":"studio"|"lifestyle","title":str,"image_prompt":str,"negative_prompt":str,' +

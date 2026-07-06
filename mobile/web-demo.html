@@ -2233,6 +2233,9 @@
                 <div class="card-title" style="margin-top:18px;">⏱ Тривалість відео</div>
                 <div class="pa-chips" id="paDurations"></div>
               </div>
+              <div class="card-title" style="margin-top:18px;">💭 Своя ідея сцени <span style="font-size:11px;font-weight:600;color:var(--text4);">· необовʼязково</span></div>
+              <input id="paSceneWish" class="ob-input" style="margin-top:8px;" placeholder="напр.: на тлі гір на світанку · на мармуровому столі біля моря · у неоновому місті вночі">
+              <div style="font-size:11.5px;color:var(--text4);margin-top:6px;">Octo втілить це у лайфстайл-фото. Порожньо — сам підбере сцену під товар і стиль.</div>
               <button class="btn btn-primary" id="paConceptsBtn" style="width:100%;margin-top:18px;">💡 Отримати 3 концепції</button>
               <div class="ob-status" id="paSt3"></div>
             </div>
@@ -14066,6 +14069,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     PA = { photos: [], mainIdx: 0, analysis: null, product: null, goal: null, platform: null, ratio: '1:1', style: null, format: 'pack', concepts: [], concept: null, cutoutUrl: null };
     ['paThumbs', 'paForm', 'paConcepts', 'paResults', 'paProgress'].forEach(function (id) { var el = $(id); if (el) el.innerHTML = ''; });
     ['paSt1', 'paSt3', 'paSt5'].forEach(function (id) { var el = $(id); if (el) { el.className = 'ob-status'; el.textContent = ''; } });
+    var sw = $('paSceneWish'); if (sw) sw.value = '';
     var ab = $('paAnalyzeBtn'); if (ab) ab.style.display = 'none';
     paGoStep(1);
     renderMyProducts();
@@ -14466,7 +14470,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     try {
       // 1. the "AI thinks first" step — photographer's shoot plan (2 scenes)
       status(stId, 'busy', 'Octo продумує зйомку: сцени, світло, композиція…');
-      var plan = (await api('/api/ads/shoot-plan', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, profile: bizProfile() })).plan;
+      var sceneWish = (($('paSceneWish') || {}).value || '').trim();
+      var plan = (await api('/api/ads/shoot-plan', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, scene_wish: sceneWish, profile: bizProfile() })).plan;
       var kinds = { studio: '📸 Студійне фото', lifestyle: '🌆 Лайфстайл' };
       (plan.scenes || []).forEach(function (s) { progress((kinds[s.kind] || s.kind) + ': ' + esc(s.title)); });
       // 2. texts (needed for pack + ad creative headline)

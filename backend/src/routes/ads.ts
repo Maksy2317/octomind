@@ -192,6 +192,7 @@ adsRouter.post('/shoot-plan', async (req: Request, res: Response, next: NextFunc
     const plan = await generateAdShootPlan(ctx, product, concept, {
       style: String(req.body?.style || 'Premium').slice(0, 40),
       ratio: String(req.body?.ratio || '1:1').slice(0, 10),
+      sceneWish: typeof req.body?.scene_wish === 'string' ? req.body.scene_wish.trim().slice(0, 300) : undefined,
     });
     await logGen(req, 'ad_shoot_plan', { concept: (concept as any)?.name ?? null }, plan, profileId);
     res.json({ plan });
