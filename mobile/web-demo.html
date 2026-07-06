@@ -10291,8 +10291,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${published?'text-decoration:line-through;':''}">${esc2(m.title)}</div>
           <div style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time||''} · ${published?'<span style=\"color:var(--green);font-weight:700;\">✓ опубліковано</span>':'<span style=\"color:var(--accent2);font-weight:700;\">заплановано</span>'}</div>
         </div>
+        ${published?'':`<button onclick="calPublishHelper('${key}',${i})" title="Опублікувати: копіює текст + відкриває фото" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;">▶️ Постити</button>`}
         <button onclick="calTogglePublished('${key}',${i})" title="${published?'Повернути в заплановані':'Позначити опублікованим'}" style="background:none;border:1px solid ${published?'var(--green)':'var(--border)'};border-radius:8px;color:${published?'var(--green)':'var(--text4)'};font-size:14px;padding:4px 8px;cursor:pointer;">✓</button>
-        <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="Нагадування">🔔</button>
         <button class="cal-post-del" onclick="calDeletePost('${key}',${i})">✕</button>
       </div>`;
     }
@@ -10315,6 +10315,36 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     calRenderDayPosts(key);
     if (calListMode) calRenderList();
     calRender();
+  };
+
+  // Publish helper: we can't auto-post (no platform integration), but we make
+  // manual posting one tap — copy the caption/text, open the image, so the user
+  // just pastes into Instagram/TikTok. Then offers to mark it published.
+  window.calPublishHelper = function (key, idx) {
+    const data = calLoad();
+    const p = data[key] && data[key][idx];
+    if (!p || !p.mat) return;
+    // pull the full material (caption/hashtags) from its campaign, if linked
+    let text = p.mat.title || '';
+    try {
+      if (p.mat.campaignId && p.mat.materialId && window.octoCampaigns) {
+        const c = window.octoCampaigns.get(p.mat.campaignId);
+        const m = c && (c.materials || []).filter((x) => x.id === p.mat.materialId)[0];
+        const o = m && m.output;
+        if (o) {
+          const lines = [];
+          if (o.summary) lines.push(o.summary);
+          (o.items || []).forEach((it) => { if (/підпис|caption|текст/i.test(it.label || '')) lines.push(it.text); });
+          if (o.caption) lines.push(o.caption);
+          if (Array.isArray(o.hashtags) && o.hashtags.length) lines.push(o.hashtags.map((h) => (String(h)[0] === '#' ? h : '#' + h)).join(' '));
+          if (lines.length) text = lines.join('\n\n');
+        }
+      }
+    } catch (e) {}
+    try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
+    if (p.mat.url) { try { window.open(p.mat.url, '_blank'); } catch (e) {} }
+    const done = confirm('📋 Текст скопійовано, фото відкрито в новій вкладці.\n\nВстав у Instagram/TikTok і опублікуй.\n\nПозначити цю публікацію опублікованою?');
+    if (done) window.calTogglePublished(key, idx);
   };
 
   function calOpenCaption(type, note) {
@@ -13782,10 +13812,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       body: JSON.stringify({ profile: prof, strategy: c.strategy || null, materials: mats }),
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (plan) {
-        // Write into the calendar store (same shape the calendar screen uses).
-        var key = 'octo_calendar_' + wsId();
-        var data = {};
-        try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+        // Schedule the REAL materials (with thumbnail + status) via octoCalStore.
         var added = 0;
         (plan.schedule || []).forEach(function (it) {
           var m = c.materials[Number(it.material_index)];
@@ -13793,17 +13820,21 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           var off = Math.min(10, Math.max(1, Number(it.day_offset) || 1));
           var d = new Date(); d.setDate(d.getDate() + off);
           var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-          if (!data[k]) data[k] = [];
-          data[k].push({
+          var o = m.output || {};
+          window.octoCalStore.add(k, {
             type: CAL_TYPE_MAP[m.type] || 'post',
             note: (m.title || 'Матеріал') + (it.note ? ' — ' + it.note : ''),
             time: /^\d{1,2}:\d{2}$/.test(it.time || '') ? it.time : '11:00',
             reminder: true,
+            status: 'scheduled',
+            mat: {
+              title: m.title || 'Матеріал', mtype: m.type || 'post',
+              thumb: o.url || o.cover || '', url: o.url || o.video_url || o.link || '',
+              campaignId: campaignId, materialId: m.id,
+            },
           });
           added++;
         });
-        try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
-        try { window.calSyncReminders && window.calSyncReminders(); } catch (e) {}
         if (btn) { btn.textContent = '✅ ' + added + ' у плані'; }
         if (st) {
           st.className = 'ob-status ob-ok';
