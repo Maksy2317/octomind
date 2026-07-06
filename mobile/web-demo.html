@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OctoMind — AI Marketing Assistant</title>
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#1a0d30">
+  <meta name="theme-color" content="#07070f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="OctoMind">
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
-  <!-- Ubuntu font for overlay preview (bold weight only) -->
+  <!-- Fonts: Manrope (body) + Unbounded (display) + Ubuntu (overlay preview) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&family=Ubuntu:wght@700&display=swap" rel="stylesheet">
   <!-- TensorFlow.js + BodyPix — pixel-perfect person segmentation -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0/dist/body-pix.min.js" crossorigin="anonymous"></script>
@@ -31,19 +32,51 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --bg: #0A0A14;
-      --surface: #12121E;
-      --surface2: #1A1A2E;
-      --surface3: #222238;
-      --border: #2A2A4A;
+      --bg: #07070f;
+      --surface: #12121c;
+      --surface2: #191924;
+      --surface3: #21212e;
+      --border: rgba(255,255,255,.09);
       --accent: #6C63FF;
-      --accent2: #A78BFA;
-      --green: #4CAF50;
-      --text: #FFFFFF;
-      --text2: #C8C8E8;
-      --text3: #8B8BA7;
-      --text4: #5A5A7A;
+      --accent2: #B5A8FF;
+      --green: #3FD07A;
+      --text: #F4F3FF;
+      --text2: #DDDCF5;
+      --text3: #9A9AC4;
+      --text4: #5D5D80;
+      --grad: linear-gradient(135deg, #8B7BFF, #6C63FF);
+      --glow: 0 12px 26px -10px rgba(108,99,255,.75);
+      --acc-soft: rgba(139,123,255,.1);
+      --acc-line: rgba(139,123,255,.32);
     }
+
+    /* ── Design-system animations (з Claude Design) ── */
+    @keyframes omUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes omFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @keyframes omSpin { to { transform: rotate(360deg); } }
+    @keyframes omPulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+    @keyframes omDot { 0%,80%,100% { transform: translateY(0) scale(.7); opacity: .4; } 40% { transform: translateY(-6px) scale(1); opacity: 1; } }
+    /* Хмаринка роздумів: три пульсуючі крапки */
+    .om-dots { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 14px; background: rgba(139,123,255,.14); border: 1px solid rgba(139,123,255,.28); }
+    .om-dots span { width: 8px; height: 8px; border-radius: 50%; background: #b5a8ff; animation: omDot 1.2s ease-in-out infinite; }
+    .om-dots span:nth-child(2) { animation-delay: .18s; }
+    .om-dots span:nth-child(3) { animation-delay: .36s; }
+    /* Маскот-лоадер */
+    .om-loader { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 48px 0; animation: omUp .3s ease both; }
+    .om-loader img { width: 140px; height: 140px; object-fit: contain; animation: omFloat 4.5s ease-in-out infinite; filter: drop-shadow(0 14px 24px rgba(20,10,50,.55)); margin: 6px 0 8px; }
+    .om-loader h3 { font-size: 19px; font-weight: 800; margin-bottom: 8px; }
+    .om-loader .om-status { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; animation: omPulse 1.4s ease-in-out infinite; font-size: 14px; font-weight: 700; color: #c9c9ee; }
+    .om-loader .om-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #8B7BFF; }
+    .om-bar { width: 320px; max-width: 80vw; height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .om-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #8B7BFF, #6C63FF); transition: width .35s ease; box-shadow: 0 0 18px rgba(108,99,255,.6); }
+    .om-loader .om-pct { font-size: 13px; font-weight: 700; color: #8B7BFF; margin-top: 10px; }
+    /* Порожній стан */
+    .om-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 56px 20px; border-radius: 22px; border: 1px dashed rgba(255,255,255,.14); background: rgba(255,255,255,.02); }
+    .om-empty img { width: 140px; height: 140px; object-fit: contain; margin-bottom: 6px; filter: drop-shadow(0 12px 20px rgba(20,10,50,.5)); }
+    .om-empty h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .om-empty p { font-size: 14px; line-height: 1.5; color: var(--text3); max-width: 400px; margin-bottom: 20px; }
+    /* Eyebrow-заголовок секції */
+    .om-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: #7c7ca6; margin: 0 2px 12px; }
 
     /* ── LIGHT MODE ── */
     body.light-mode {
@@ -93,8 +126,8 @@
     body.light-mode .tag { background: var(--surface3); color: var(--text3); }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(1100px 600px at 72% -10%, rgba(108,99,255,.14), transparent 60%), var(--bg);
       color: var(--text);
       min-height: 100vh;
     }
@@ -210,8 +243,8 @@
       align-items: center;
       gap: 10px;
     }
-    .quiz-option:hover { border-color: var(--accent); background: #1A1A3A; color: var(--text); }
-    .quiz-option.selected { border-color: var(--accent); background: #1E1E40; color: var(--text); }
+    .quiz-option:hover { border-color: var(--accent); background: rgba(139,123,255,.1); color: var(--text); }
+    .quiz-option.selected { border-color: var(--accent); background: rgba(139,123,255,.14); color: var(--text); }
     .quiz-option-icon { font-size: 20px; }
 
     /* Final quiz screen */
@@ -239,7 +272,7 @@
     }
     .quiz-result-item:last-child { border-bottom: none; }
     .quiz-needs {
-      background: linear-gradient(135deg, #1A1A3A, #12122A);
+      background: linear-gradient(150deg, rgba(139,123,255,.14), rgba(56,189,248,.04));
       border: 1px solid var(--accent);
       border-radius: 16px;
       padding: 20px;
@@ -255,7 +288,7 @@
       color: var(--text2);
     }
     .quiz-cta {
-      background: linear-gradient(135deg, var(--accent), #9B6EFF);
+      background: var(--grad);
       border: none;
       border-radius: 16px;
       padding: 18px;
@@ -277,12 +310,12 @@
     }
 
     .sidebar {
-      width: 250px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
+      width: 264px;
+      background: rgba(255,255,255,.015);
+      border-right: 1px solid rgba(255,255,255,.07);
       display: flex;
       flex-direction: column;
-      padding: 20px 14px;
+      padding: 22px 14px 16px;
       position: fixed;
       height: 100vh;
       overflow-y: auto;
@@ -296,24 +329,25 @@
       margin-bottom: 28px;
     }
     .sidebar-octo { font-size: 32px; }
-    .sidebar-brand h2 { font-size: 16px; font-weight: 900; }
-    .sidebar-brand h2 span { color: var(--accent2); }
-    .sidebar-brand p { font-size: 10px; color: var(--text4); margin-top: 1px; }
+    .sidebar-brand h2 { font-size: 17px; font-weight: 700; font-family: 'Unbounded', 'Manrope', sans-serif; letter-spacing: -.01em; }
+    .sidebar-brand h2 span { color: var(--text); }
+    .sidebar-brand p { font-size: 10.5px; font-weight: 600; color: #8f8fb6; margin-top: 2px; }
 
-    .nav-label { font-size: 10px; color: var(--text4); text-transform: uppercase; letter-spacing: 1px; padding: 0 10px; margin: 16px 0 6px; }
+    .nav-label { font-size: 10px; font-weight: 800; color: var(--text4); text-transform: uppercase; letter-spacing: .16em; padding: 0 10px; margin: 16px 0 8px; }
     .nav-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px; border-radius: 10px; cursor: pointer;
-      transition: all 0.2s; font-size: 13px; color: var(--text3); margin-bottom: 2px;
+      display: flex; align-items: center; gap: 11px;
+      padding: 10.5px 12px; border-radius: 12px; cursor: pointer;
+      transition: all 0.2s; font-size: 13.5px; font-weight: 700; color: #a2a2c6; margin-bottom: 2px;
     }
-    .nav-item:hover { background: var(--surface2); color: var(--text2); }
-    .nav-item.active { background: var(--accent); color: white; }
+    .nav-item:hover { background: rgba(255,255,255,.05); color: var(--text2); }
+    .nav-item.active { background: linear-gradient(135deg, rgba(139,123,255,.9), rgba(108,99,255,.9)); color: white; box-shadow: 0 10px 22px -10px rgba(108,99,255,.8); }
     .nav-icon { font-size: 17px; width: 20px; text-align: center; }
     .nav-badge {
-      margin-left: auto; background: var(--accent); color: white;
-      font-size: 9px; padding: 2px 6px; border-radius: 8px; font-weight: 700;
+      margin-left: auto; background: rgba(139,123,255,.22); color: #c9bcff;
+      font-size: 9.5px; padding: 3px 7px; border-radius: 7px; font-weight: 800;
     }
-    .nav-badge.new { background: #FF6EC7; }
+    .nav-badge.new { background: rgba(139,123,255,.22); color: #c9bcff; }
+    .nav-item.active .nav-badge { background: rgba(255,255,255,.22); color: #fff; }
 
     .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
     .plan-box {
@@ -324,13 +358,15 @@
     .plan-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .plan-bar-fill { height: 100%; background: var(--accent); width: 30%; }
 
-    .main { margin-left: 250px; flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .main { margin-left: 264px; flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     .topbar {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(rgba(7,7,15,.94) 70%, rgba(7,7,15,.75));
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      padding: 16px 28px 13px; display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0;
     }
-    .topbar-left h1 { font-size: 18px; font-weight: 800; }
+    .topbar-left h1 { font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
     .topbar-left p { font-size: 12px; color: var(--text3); margin-top: 2px; }
     .topbar-octo {
       display: flex; align-items: center; gap: 8px;
@@ -350,20 +386,20 @@
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     /* Cards & shared */
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+    .card { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 18px; padding: 20px; margin-bottom: 16px; }
     .card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
     .card-sub { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
 
     .btn {
-      padding: 11px 18px; border: none; border-radius: 10px;
-      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
-      display: inline-flex; align-items: center; gap: 6px;
+      padding: 12px 19px; border: none; border-radius: 13px;
+      font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+      display: inline-flex; align-items: center; gap: 7px; font-family: inherit;
     }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-primary:disabled { background: var(--border); cursor: not-allowed; }
-    .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
-    .btn-secondary:hover { background: var(--surface3); }
+    .btn-primary { background: var(--grad); color: white; box-shadow: var(--glow); }
+    .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn-primary:disabled { background: var(--surface3); box-shadow: none; color: var(--text4); cursor: not-allowed; transform: none; }
+    .btn-secondary { background: transparent; color: var(--text2); border: 1px solid rgba(255,255,255,.14); }
+    .btn-secondary:hover { background: var(--surface2); }
     .btn-full { width: 100%; justify-content: center; }
     .btn-sm { padding: 8px 14px; font-size: 12px; }
 
@@ -419,18 +455,18 @@
 
     /* Dashboard */
     .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+    .stat-card { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 18px; padding: 18px; }
     .stat-icon { font-size: 22px; margin-bottom: 8px; }
-    .stat-value { font-size: 26px; font-weight: 800; margin-bottom: 3px; }
+    .stat-value { font-size: 26px; font-weight: 800; margin-bottom: 3px; font-family: 'Unbounded', 'Manrope', sans-serif; }
     .stat-label { font-size: 11px; color: var(--text3); }
     .stat-change { font-size: 10px; color: var(--green); margin-top: 3px; }
 
     .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
     .tool-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 18px;
       padding: 18px; cursor: pointer; transition: all 0.2s;
     }
-    .tool-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .tool-card:hover { border-color: var(--acc-line); transform: translateY(-2px); box-shadow: 0 14px 30px -16px rgba(108,99,255,.55); }
     .tool-icon { font-size: 28px; margin-bottom: 10px; }
     .tool-name { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
     .tool-desc { font-size: 12px; color: var(--text3); line-height: 1.5; margin-bottom: 10px; }
@@ -445,7 +481,7 @@
     }
     .chat-octo-avatar {
       width: 48px; height: 48px; border-radius: 50%;
-      background: linear-gradient(135deg, #6C63FF, #A78BFA);
+      background: linear-gradient(135deg, #8B7BFF, #6C63FF);
       display: flex; align-items: center; justify-content: center;
       font-size: 26px; flex-shrink: 0;
       box-shadow: 0 4px 16px #6C63FF44;
@@ -463,13 +499,13 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 16px; flex-shrink: 0; background: var(--surface2);
     }
-    .msg.ai .msg-avatar { background: linear-gradient(135deg, #6C63FF, #A78BFA); }
+    .msg.ai .msg-avatar { background: linear-gradient(135deg, #8B7BFF, #6C63FF); }
     .msg-bubble {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 14px; padding: 11px 14px; font-size: 13px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 18px 18px 18px 5px; padding: 12px 15px; font-size: 13.5px;
       line-height: 1.6; color: var(--text2);
     }
-    .msg.user .msg-bubble { background: var(--accent); border-color: var(--accent); color: white; }
+    .msg.user .msg-bubble { background: var(--grad); border-color: transparent; color: white; border-radius: 18px 18px 5px 18px; box-shadow: 0 10px 24px -10px rgba(108,99,255,.6); }
     .msg-time { font-size: 10px; color: var(--text4); margin-top: 3px; }
 
     .chat-input-area { border-top: 1px solid var(--border); padding-top: 14px; }
@@ -544,8 +580,8 @@
 
     .fb-list { display: flex; flex-direction: column; gap: 7px; }
     .fb { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border-radius: 10px; font-size: 12px; color: var(--text2); line-height: 1.5; }
-    .fb.good { background: #1A2A1A; border: 1px solid #2A4A2A; }
-    .fb.bad { background: #2A1A1A; border: 1px solid #4A2A2A; }
+    .fb.good { background: rgba(63,208,122,.08); border: 1px solid rgba(63,208,122,.25); }
+    .fb.bad { background: rgba(255,107,107,.07); border: 1px solid rgba(255,107,107,.28); }
     .fb.tip { background: var(--surface2); border: 1px solid var(--border); }
 
     /* Video */
@@ -579,10 +615,11 @@
     }
 
     .dropzone {
-      border: 2px dashed var(--border); border-radius: 14px; padding: 40px 20px;
+      border: 1.5px dashed rgba(139,123,255,.4); border-radius: 20px; padding: 40px 20px;
+      background: rgba(139,123,255,.05);
       text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 14px;
     }
-    .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: #12123A; transform: scale(1.01); }
+    .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: rgba(139,123,255,.1); transform: scale(1.005); }
     .dropzone h3 { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
     .dropzone p { font-size: 12px; color: var(--text3); }
 
@@ -591,7 +628,7 @@
       background: var(--surface2); border: 2px solid var(--border);
       border-radius: 12px; padding: 14px; cursor: pointer; text-align: center; transition: all 0.2s;
     }
-    .fc:hover, .fc.selected { border-color: var(--accent); background: #1A1A3A; }
+    .fc:hover, .fc.selected { border-color: var(--accent); background: rgba(139,123,255,.12); }
     .fc-icon { font-size: 26px; margin-bottom: 6px; }
     .fc-name { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
     .fc-meta { font-size: 10px; color: var(--text3); }
@@ -780,7 +817,7 @@
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 18px; padding: 22px; position: relative;
     }
-    .pcard.popular { border-color: var(--accent); background: linear-gradient(135deg,#1A1A3A,#12121E); }
+    .pcard.popular { border-color: var(--acc-line); background: linear-gradient(150deg,rgba(139,123,255,.14),rgba(56,189,248,.04)); }
     .pop-badge {
       position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
       background: var(--accent); color: white; font-size: 10px; font-weight: 700;
@@ -856,7 +893,7 @@
     }
     .auth-input:focus { border-color: var(--accent); }
     .auth-btn {
-      width: 100%; background: linear-gradient(135deg, var(--accent), #9B6EFF);
+      width: 100%; background: var(--grad);
       border: none; border-radius: 14px; padding: 16px; font-size: 15px;
       font-weight: 800; color: white; cursor: pointer; margin-top: 4px;
       box-shadow: 0 8px 24px #6C63FF44; transition: all 0.2s;
@@ -867,7 +904,7 @@
     .auth-divider::before { left:0; } .auth-divider::after { right:0; }
     .auth-skip { text-align: center; margin-top: 14px; font-size: 13px; color: var(--text3); }
     .auth-skip a { color: var(--accent2); cursor: pointer; text-decoration: none; }
-    .auth-error { background: #2A1A1A; border: 1px solid #4A2A2A; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #ff7a7a; margin-bottom: 12px; display: none; }
+    .auth-error { background: rgba(255,107,107,.07); border: 1px solid rgba(255,107,107,.3); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #ff7a7a; margin-bottom: 12px; display: none; }
     .auth-google-btn {
       width: 100%; background: #fff; border: 1.5px solid #e0e0e0;
       border-radius: 14px; padding: 14px; font-size: 14px; font-weight: 700;
@@ -911,6 +948,7 @@
         transform: translateX(-100%);
         transition: transform 0.3s ease;
         z-index: 100;
+        background: #0c0c16;
       }
       .sidebar.open { transform: translateX(0); }
       .main { margin-left: 0; }
@@ -918,6 +956,10 @@
       .tools-grid, .pgrid2 { grid-template-columns: 1fr; }
       .topbar { padding: 12px 16px; }
       .content { padding: 16px; }
+      .topbar-ai-pill { display: none !important; }
+      #syncBadge { display: none; }
+      .topbar-left p { display: none; }
+      .topbar-left h1 { font-size: 17px; }
     }
 
     /* ── CAPTION AI ── */
@@ -1507,7 +1549,7 @@
 <div class="auth-overlay" id="authOverlay" style="display:none">
   <div class="auth-box">
     <div class="auth-logo">
-      <img src="assets/octo_happy.png" alt="Octo">
+      <img src="assets/new/A16.png" alt="Octo">
       <h2>Octo<span>Mind</span></h2>
       <p>AI Marketing Assistant</p>
     </div>
@@ -1533,7 +1575,7 @@
 <div id="quizWrap" style="display:none;">
   <div class="quiz-box">
     <div class="quiz-logo">
-      <img class="octo-img" src="assets/octo_happy.png" alt="Octo">
+      <img class="octo-img" src="assets/new/A16.png" alt="Octo">
       <h1>Octo<span>Mind</span></h1>
       <p>AI Marketing Assistant — давай познакомимся</p>
     </div>
@@ -1568,7 +1610,7 @@
     <!-- Q1 reaction -->
     <div class="quiz-card" id="q1r">
       <div class="octo-reaction">
-        <span class="octo-face"><img src="assets/octo_search.png" style="width:28px;height:28px;object-fit:contain;"></span>
+        <span class="octo-face"><img src="assets/new/A09.png" style="width:28px;height:28px;object-fit:contain;"></span>
         <span class="octo-reaction-text">Окей, понял твою сферу… уже думаю, как тебе увеличить продажи 👀</span>
       </div>
       <div class="quiz-q-label">Вопрос 2 из 4</div>
@@ -1592,7 +1634,7 @@
     <!-- Q2 reaction -->
     <div class="quiz-card" id="q2r">
       <div class="octo-reaction">
-        <span class="octo-face"><img src="assets/octo_thumbsup.png" style="width:28px;height:28px;object-fit:contain;"></span>
+        <span class="octo-face"><img src="assets/new/A23.png" style="width:28px;height:28px;object-fit:contain;"></span>
         <span class="octo-reaction-text">Хорошо… фокус на результат. Значит будем давить туда, где быстрее всего рост 🚀</span>
       </div>
       <div class="quiz-q-label">Вопрос 3 из 4</div>
@@ -1616,7 +1658,7 @@
     <!-- Q3 reaction -->
     <div class="quiz-card" id="q3r">
       <div class="octo-reaction">
-        <span class="octo-face"><img src="assets/octo_idea.png" style="width:28px;height:28px;object-fit:contain;"></span>
+        <span class="octo-face"><img src="assets/new/A18.png" style="width:28px;height:28px;object-fit:contain;"></span>
         <span class="octo-reaction-text">Ага… вот где узкое место. Я как раз умею это закрывать 👌</span>
       </div>
       <div class="quiz-q-label">Вопрос 4 из 4</div>
@@ -1640,7 +1682,7 @@
     <!-- Final -->
     <div class="quiz-final" id="qfinal">
       <div class="quiz-final-header">
-        <img src="assets/octo_celebrate.png" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;">
+        <img src="assets/new/A11.png" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;">
         <h2>Я проанализировал твою ситуацию…</h2>
         <p>Вот что тебе нужно прямо сейчас</p>
       </div>
@@ -1675,10 +1717,10 @@
   <div class="app-layout">
     <nav class="sidebar">
       <div class="sidebar-logo">
-        <img class="sidebar-octo" src="assets/octo_magician.png" style="width:36px;height:36px;object-fit:contain;">
+        <img class="sidebar-octo" src="assets/new/A06.png" style="width:44px;height:44px;object-fit:contain;">
         <div class="sidebar-brand">
           <h2>Octo<span>Mind</span></h2>
-          <p>AI Marketing Assistant</p>
+          <p>AI-маркетолог</p>
         </div>
       </div>
 
@@ -1737,20 +1779,19 @@
         <span class="nav-icon">👤</span> <span data-i18n="nav_profile_item">Особистий кабінет</span>
       </div>
       <div class="nav-item" onclick="showScreen('pricing',this)">
-        <span class="nav-icon">💎</span> Pricing
+        <span class="nav-icon">💎</span> Тарифи
       </div>
       <div class="nav-item" onclick="showScreen('settings',this)">
         <span class="nav-icon">⚙️</span> <span data-i18n="nav_settings_item">Налаштування</span>
       </div>
 
-      <div class="sidebar-footer">
-        <div class="plan-box">
-          <h4 id="sidebarPlanLabel">Безкоштовний план</h4>
-          <p id="sidebarPlanCredits">0 з 10 Octo-запитів</p>
+      <div class="sidebar-footer" style="border-top:none;padding-top:20px;">
+        <div class="plan-box" id="sidebarPlanBox" style="position:relative;padding:14px;border-radius:16px;background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.06));border:1px solid rgba(139,123,255,.25);">
+          <img src="assets/new/A21.png" style="position:absolute;right:8px;top:-24px;width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 8px 12px rgba(10,5,30,.5));">
+          <h4 id="sidebarPlanLabel" style="font-size:13px;font-weight:800;">Безкоштовний план</h4>
+          <p id="sidebarPlanCredits" style="font-size:11.5px;color:#a6a6cc;">0 з 10 Octo-запитів</p>
           <div class="plan-bar"><div class="plan-bar-fill" id="sidebarPlanBar"></div></div>
-        </div>
-        <div class="nav-item" id="sidebarUpgradeBtn" onclick="showScreen('pricing',null)">
-          <span class="nav-icon">⬆️</span> <span data-i18n="nav_upgrade">Upgrade to Pro</span>
+          <button id="sidebarUpgradeBtn" onclick="showScreen('pricing',null)" style="width:100%;margin-top:10px;padding:9px;border:none;border-radius:10px;font:700 12px Manrope,sans-serif;color:#fff;background:var(--grad);cursor:pointer;" data-i18n="nav_upgrade">Upgrade to Pro</button>
         </div>
       </div>
     </nav>
@@ -1768,10 +1809,11 @@
             <p id="topSub">Твій маркетинг на одному екрані</p>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
           <span id="syncBadge" title="Синхронізація" style="font-size:16px;opacity:.35;cursor:default;transition:opacity .4s,color .4s;user-select:none;" onclick="window.syncFromCloud&&syncFromCloud()">☁</span>
-          <div class="topbar-octo" onclick="showScreen('advisor',null)">
-            <img src='assets/octo_thinking.png' style='width:20px;height:20px;object-fit:contain;'> Ask Octo
+          <span class="topbar-ai-pill" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:11px;background:rgba(63,208,122,.1);border:1px solid rgba(63,208,122,.22);font-size:12px;font-weight:700;color:#7ddb9f;"><span style="width:7px;height:7px;border-radius:50%;background:#3FD07A;animation:omPulse 2s ease-in-out infinite;"></span>AI активний</span>
+          <div class="topbar-octo" onclick="showScreen('advisor',null)" style="border:1px solid rgba(139,123,255,.35);background:rgba(139,123,255,.12);color:#e7e2ff;font-weight:700;border-radius:12px;padding:7px 15px 7px 9px;">
+            <img src='assets/new/A14.png' style='width:24px;height:24px;object-fit:contain;'> Ask Octo
           </div>
         </div>
       </div>
@@ -1791,7 +1833,7 @@
             <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value" id="ds_videos">0</div><div class="stat-label" data-i18n="stat_videos">Відео створено</div><div class="stat-change" id="ds_videos_ch">Ще не створювались</div></div>
             <div class="stat-card"><div class="stat-icon">🖼️</div><div class="stat-value" id="ds_carousels">0</div><div class="stat-label" data-i18n="stat_carousels">Каруселі</div><div class="stat-change" id="ds_carousels_ch">Ще не створювались</div></div>
             <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-value" id="ds_cal">0</div><div class="stat-label" id="ds_cal_label">Постів цього місяця</div><div class="stat-change" id="ds_cal_ch">Календар порожній</div></div>
-            <div class="stat-card"><div class="stat-icon"><img src="assets/octo_laptop.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value" id="ds_octo">0</div><div class="stat-label" data-i18n="stat_octo">Ask Octo запитів</div><div class="stat-change" id="ds_octo_ch">Ще не запитував</div></div>
+            <div class="stat-card"><div class="stat-icon"><img src="assets/new/A13.png" style="width:28px;height:28px;object-fit:contain;"></div><div class="stat-value" id="ds_octo">0</div><div class="stat-label" data-i18n="stat_octo">Ask Octo запитів</div><div class="stat-change" id="ds_octo_ch">Ще не запитував</div></div>
           </div>
           <!-- Next scheduled post -->
           <div id="ds_next_post" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;gap:12px;">
@@ -1805,7 +1847,7 @@
 
           <div class="card" style="margin-bottom:20px; background:linear-gradient(135deg,#1A1040,#12121E); border-color:#6C63FF44;">
             <div style="display:flex; align-items:center; gap:16px;">
-              <img src="assets/octo_happy.png" style="width:64px;height:64px;object-fit:contain;">
+              <img src="assets/new/A16.png" style="width:64px;height:64px;object-fit:contain;">
               <div style="flex:1;">
                 <div style="font-size:16px; font-weight:800; margin-bottom:4px;" data-i18n="dash_hi">Привіт! Я Octo — твій AI маркетолог</div>
                 <div style="font-size:13px; color:var(--text3); margin-bottom:12px;" data-i18n="dash_hi_sub">На основі твого квізу я вже знаю чим тобі допомогти. Запитай мене будь-що з маркетингу!</div>
@@ -1816,7 +1858,7 @@
 
           <div class="tools-grid">
             <div class="tool-card" onclick="showScreen('advisor',null)">
-              <div class="tool-icon"><img src="assets/octo_smart.png" style="width:36px;height:36px;object-fit:contain;"></div>
+              <div class="tool-icon"><img src="assets/new/A08.png" style="width:36px;height:36px;object-fit:contain;"></div>
               <div class="tool-name">Ask Octo</div>
               <div class="tool-desc" data-i18n="tool_octo_desc">Постав будь-яке питання з маркетингу — стратегія, підписи, контент-план, поради для зростання.</div>
               <span class="tool-tag" data-i18n="tool_chat_tag">Чат</span><span class="tool-tag" data-i18n="tool_strategy_tag">Стратегія</span><span class="tool-tag" data-i18n="tool_content_tag">Контент</span>
@@ -1863,7 +1905,7 @@
         <div class="screen" id="advisor">
           <div class="chat-wrap">
             <div class="chat-header">
-              <div class="chat-octo-avatar"><img src="assets/octo_laptop.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
+              <div class="chat-octo-avatar"><img src="assets/new/A13.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
               <div class="chat-octo-info">
                 <h3 data-i18n="chat_title">Octo — AI Маркетолог</h3>
                 <p data-i18n="chat_online">● Онлайн і готовий допомогти</p>
@@ -1875,7 +1917,7 @@
 
             <div class="chat-messages" id="chatMessages">
               <div class="msg ai">
-                <div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
+                <div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
                 <div>
                   <div class="msg-bubble">
                     Привіт! Я Octo — твій AI-маркетолог 🐙<br><br>
@@ -1925,7 +1967,7 @@
         <div class="screen" id="onboard">
           <div class="card">
             <div class="on-hero">
-              <img src="assets/octo_search.png" alt="Octo">
+              <img src="assets/new/A09.png" alt="Octo">
               <div>
                 <div class="card-title" style="margin:0;">Спершу познайомимось 👋</div>
                 <div class="card-sub" style="margin:0;">Розкажи про свій бізнес — Octo запам'ятає і далі все робитиме під тебе. Це не анкета: пиши вільно.</div>
@@ -1948,9 +1990,9 @@
 
         <!-- ═══ РОЗБІР КОНТЕНТУ (Claude Vision audit) ═══ -->
         <style>
-          .au-drop { border:2px dashed var(--border); border-radius:14px; padding:26px 16px; text-align:center; cursor:pointer;
+          .au-drop { border:1.5px dashed rgba(139,123,255,.4); background:rgba(139,123,255,.05); border-radius:20px; padding:30px 16px; text-align:center; cursor:pointer;
             transition:border-color .15s, background .15s; }
-          .au-drop:hover { border-color:var(--accent); background:rgba(108,99,255,.05); }
+          .au-drop:hover { border-color:var(--accent); background:rgba(139,123,255,.1); }
           .au-drop .ai { font-size:30px; }
           .au-thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
           .au-thumb { position:relative; width:72px; height:72px; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
@@ -1971,7 +2013,7 @@
           <!-- Own page by @handle: real metrics, not screenshots -->
           <div class="card">
             <div class="on-hero">
-              <img src="assets/octo_search.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <img src="assets/new/A09.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">📱 Аналіз твоєї сторінки TikTok</div>
                 <div class="card-sub" style="margin:0;">Дай @нік — Octo сам витягне твої ролики з реальними переглядами і чесно скаже: що працює, що ні, і що знімати далі.</div>
@@ -2040,7 +2082,7 @@
           <!-- Gate: shown until Octo knows the business -->
           <div class="card" id="ocGate" style="display:none;">
             <div class="on-hero">
-              <img src="assets/octo_thinking.png" alt="Octo" style="width:56px;height:56px;object-fit:contain;flex:none;">
+              <img src="assets/new/A02.png" alt="Octo" style="width:56px;height:56px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">Спершу познайомимось 👋</div>
                 <div class="card-sub" style="margin:0;">Octo ще не знає твій бізнес. Розкажи про нього — і просування буде точним, під тебе.</div>
@@ -2106,7 +2148,7 @@
         <div class="screen" id="research">
           <div class="card">
             <div class="on-hero">
-              <img src="assets/octo_search.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <img src="assets/new/A09.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">🔎 Дослідження ринку</div>
                 <div class="card-sub" style="margin:0;">Octo реально пошукає в інтернеті, що зараз працює у твоїй ніші — і врахує це в стратегіях.</div>
@@ -2122,7 +2164,7 @@
         <div class="screen" id="trend">
           <div class="card">
             <div class="on-hero">
-              <img src="assets/octo_idea.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <img src="assets/new/A18.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">💡 Ідея з тренду</div>
                 <div class="card-sub" style="margin:0;">Кинь посилання на TikTok/Reels + опиши, що там — Octo зробить <b>оригінальний</b> сценарій під твій бізнес (не копію).</div>
@@ -2181,7 +2223,7 @@
           <div id="paStep1">
             <div class="card">
               <div class="on-hero">
-                <img src="assets/octo_laptop.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+                <img src="assets/new/A19.png" alt="Octo" style="width:60px;height:60px;object-fit:contain;flex:none;filter:drop-shadow(0 10px 16px rgba(20,10,50,.5));">
                 <div>
                   <div class="card-title" style="margin:0;">📦 Фото товару</div>
                   <div class="card-sub" style="margin:0;">Завантаж 1-5 фото (товар, упаковка, у використанні). Octo збереже вигляд товару 1-в-1 — лого й упаковку не змінюємо.</div>
@@ -2189,9 +2231,14 @@
               </div>
               <input type="file" id="paFiles" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
               <div class="au-drop" id="paDrop" style="margin-top:12px;">
-                <div class="ai">📷</div>
-                <div style="font-weight:700;margin-top:6px;">Обрати або перетягнути фото</div>
-                <div style="font-size:12px;color:var(--text4);margin-top:2px;">JPG · PNG · WEBP · до 5 шт · ⭐ = головне</div>
+                <img src="assets/new/A04.png" style="width:70px;height:70px;object-fit:contain;">
+                <div style="font-weight:800;font-size:16px;margin-top:6px;">Обрати або перетягнути фото</div>
+                <div style="font-size:12.5px;color:#8f8fb6;margin-top:3px;">JPG · PNG · WEBP · до 5 шт · ⭐ = головне</div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;">
+                <span style="padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.05);font-size:11.5px;font-weight:600;color:#a6a6cc;">💡 Гарне світло</span>
+                <span style="padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.05);font-size:11.5px;font-weight:600;color:#a6a6cc;">📦 Товар повністю в кадрі</span>
+                <span style="padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.05);font-size:11.5px;font-weight:600;color:#a6a6cc;">🚫 Без сторонніх предметів</span>
               </div>
               <div class="pa-thumbs" id="paThumbs"></div>
               <button class="btn btn-primary" id="paAnalyzeBtn" style="width:100%;margin-top:14px;display:none;">🔍 Проаналізувати товар</button>
@@ -2290,7 +2337,7 @@
           </style>
           <div class="card">
             <div class="on-hero">
-              <img src="assets/octo_idea.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <img src="assets/new/A18.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">🔥 Тренди</div>
                 <div class="card-sub" style="margin:0;">Реальні вірусні ролики у твоїй ніші — з переглядами й датами. Octo розбере, чому залетіло, і адаптує під тебе.</div>
@@ -2336,7 +2383,7 @@
         <div class="screen" id="brand">
           <div class="card">
             <div class="on-hero">
-              <img src="assets/octo_happy.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+              <img src="assets/new/A16.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
               <div>
                 <div class="card-title" style="margin:0;">🎨 Бренд-стиль</div>
                 <div class="card-sub" style="margin:0;">Octo сам підбере кольори, тон, слоган і лого під твій бізнес — і всі майбутні матеріали будуть у цьому стилі.</div>
@@ -2356,10 +2403,11 @@
             .ob-input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
               border-radius:11px; padding:11px 13px; font:inherit; font-size:14px; outline:none; margin-top:10px; resize:vertical; }
             .ob-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,0.18); }
-            .ob-status { display:none; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:var(--text2); }
+            .ob-status { display:none; align-items:center; gap:9px; margin-top:12px; font-size:13px; font-weight:600; color:var(--text2); }
             .ob-status.ob-busy, .ob-status.ob-ok, .ob-status.ob-err { display:flex; }
+            .ob-status.ob-busy { padding:12px 15px; border-radius:14px; background:rgba(139,123,255,.09); border:1px solid rgba(139,123,255,.22); animation:omUp .25s ease both; }
             .ob-status.ob-ok { color:var(--green); } .ob-status.ob-err { color:#FF8A80; }
-            .ob-spin { width:15px; height:15px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--accent); animation:ob-spin .8s linear infinite; flex:none; }
+            .ob-spin { width:17px; height:17px; border-radius:50%; border:2.5px solid rgba(139,123,255,.25); border-top-color:#8B7BFF; animation:ob-spin .8s linear infinite; flex:none; }
             @keyframes ob-spin { to { transform:rotate(360deg); } }
             .ob-res { animation:ob-rise .4s ease both; } @keyframes ob-rise { from {opacity:0;transform:translateY(8px);} to {opacity:1;transform:none;} }
             .ob-rc-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
@@ -3294,7 +3342,7 @@
         <!-- Pricing -->
         <div class="screen" id="pricing">
           <div style="text-align:center;margin-bottom:28px;">
-            <img src="assets/octo_wizard.png" style="width:72px;height:72px;object-fit:contain;margin-bottom:10px;">
+            <img src="assets/new/A14.png" style="width:72px;height:72px;object-fit:contain;margin-bottom:10px;">
             <h2 style="font-size:26px;margin-bottom:6px;" data-i18n="pricing_title">Выбери свой план</h2>
             <p style="color:var(--text3);" data-i18n="pricing_sub">Начни бесплатно. Расти с OctoMind.</p>
           </div>
@@ -3348,12 +3396,12 @@
           <!-- INTERACTIVE SAVINGS CALCULATOR -->
           <div style="background:linear-gradient(135deg,#1a0a3e 0%,#0d0d20 100%);border:1px solid #6C63FF55;border-radius:24px;padding:28px;margin-bottom:32px;position:relative;overflow:hidden;">
             <div style="position:absolute;top:-60px;right:-60px;width:250px;height:250px;background:radial-gradient(circle,#6C63FF33 0%,transparent 70%);pointer-events:none;"></div>
-            <div style="position:absolute;bottom:-40px;left:-40px;width:180px;height:180px;background:radial-gradient(circle,#A78BFA22 0%,transparent 70%);pointer-events:none;"></div>
+            <div style="position:absolute;bottom:-40px;left:-40px;width:180px;height:180px;background:radial-gradient(circle,#B5A8FF22 0%,transparent 70%);pointer-events:none;"></div>
 
             <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
-              <img src="assets/octo_idea.png" style="width:60px;height:60px;object-fit:contain;">
+              <img src="assets/new/A18.png" style="width:60px;height:60px;object-fit:contain;">
               <div>
-                <div style="font-size:11px;color:#A78BFA;font-weight:800;letter-spacing:2px;text-transform:uppercase;">💸 Интерактивный калькулятор</div>
+                <div style="font-size:11px;color:#B5A8FF;font-weight:800;letter-spacing:2px;text-transform:uppercase;">💸 Интерактивный калькулятор</div>
                 <h3 style="font-size:20px;font-weight:900;margin-top:2px;">Сколько стоит твоя команда vs Octo?</h3>
               </div>
             </div>
@@ -3397,7 +3445,7 @@
 
             <!-- RESULT CARD -->
             <div style="background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(56,142,60,0.08));border:2px solid #4CAF5066;border-radius:18px;padding:20px;display:flex;align-items:center;gap:16px;">
-              <img src="assets/octo_celebrate.png" id="calcMascot" style="width:72px;height:72px;object-fit:contain;transition:transform 0.3s;flex-shrink:0;">
+              <img src="assets/new/A11.png" id="calcMascot" style="width:72px;height:72px;object-fit:contain;transition:transform 0.3s;flex-shrink:0;">
               <div style="flex:1;">
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
                   <span style="font-size:13px;color:#C8E6C9;font-weight:700;">Команда без Octo:</span>
@@ -3405,7 +3453,7 @@
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
                   <span style="font-size:13px;color:#C8E6C9;font-weight:700;">OctoMind Pro:</span>
-                  <span style="font-size:20px;font-weight:900;color:#A78BFA;">$19.99 / мес</span>
+                  <span style="font-size:20px;font-weight:900;color:#B5A8FF;">$19.99 / мес</span>
                 </div>
                 <div style="background:rgba(76,175,80,0.2);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
                   <div>
@@ -3422,7 +3470,7 @@
             </div>
 
             <div style="margin-top:16px;padding:14px;background:rgba(108,99,255,0.1);border-radius:12px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text2);">
-              <img src="assets/octo_smart.png" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;">
+              <img src="assets/new/A08.png" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;">
               <span><strong style="color:#fff;">Окупаемость:</strong> Один привлечённый клиент в месяц уже покрывает Pro в 5–10 раз. ROI с первого дня 🚀</span>
             </div>
           </div>
@@ -3499,7 +3547,7 @@
                   <h4>Поточний план</h4>
                   <p id="devPlanSub" style="font-size:11px;">Натисни щоб переключити</p>
                 </div>
-                <div id="devPlanBadge" style="font-size:11px;font-weight:800;background:rgba(108,99,255,0.2);color:#A78BFA;border:1px solid #6C63FF55;border-radius:8px;padding:4px 10px;flex-shrink:0;">FREE</div>
+                <div id="devPlanBadge" style="font-size:11px;font-weight:800;background:rgba(108,99,255,0.2);color:#B5A8FF;border:1px solid #6C63FF55;border-radius:8px;padding:4px 10px;flex-shrink:0;">FREE</div>
                 <div style="font-size:16px;color:var(--text4);flex-shrink:0;">›</div>
               </div>
             </div>
@@ -3509,7 +3557,7 @@
           <div style="margin-bottom:24px;">
             <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_language">🌐 Язык интерфейса</div>
             <div style="display:flex;gap:10px;">
-              <button id="lang-uk" onclick="setLang('uk')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#1A1A3A;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇺🇦 Українська</button>
+              <button id="lang-uk" onclick="setLang('uk')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--accent);background:rgba(139,123,255,.14);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇺🇦 Українська</button>
               <button id="lang-en" onclick="setLang('en')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇬🇧 English</button>
               <button id="lang-ru" onclick="setLang('ru')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">RU</button>
             </div>
@@ -4838,7 +4886,7 @@
       if (!btn) return;
       if (l === lang) {
         btn.style.borderColor = 'var(--accent)';
-        btn.style.background = '#1A1A3A';
+        btn.style.background = 'rgba(139,123,255,.14)';
         btn.style.color = '#fff';
       } else {
         btn.style.borderColor = 'var(--border)';
@@ -4857,6 +4905,24 @@
     document.querySelector('.sidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('open');
   }
+
+  // ── Дизайн-система: маскот-лоадер (хмаринка роздумів + октопус) ──
+  window.omLoaderHTML = function (img, title, sub) {
+    return '<div class="om-loader">' +
+      '<div class="om-dots"><span></span><span></span><span></span></div>' +
+      '<img src="assets/new/' + img + '.png" alt="">' +
+      '<h3>' + title + '</h3>' +
+      (sub ? '<div style="font-size:13px;color:var(--text3);font-weight:600;">' + sub + '</div>' : '') +
+      '</div>';
+  };
+  // Порожній стан з CTA
+  window.omEmptyHTML = function (img, title, text, ctaLabel, ctaOnclick) {
+    return '<div class="om-empty">' +
+      '<img src="assets/new/' + img + '.png" alt="">' +
+      '<h3>' + title + '</h3><p>' + text + '</p>' +
+      (ctaLabel ? '<button class="btn btn-primary" onclick="' + ctaOnclick + '">' + ctaLabel + '</button>' : '') +
+      '</div>';
+  };
 
   function showScreen(id, navEl) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -4922,7 +4988,7 @@
       if (m.role === 'user' && typeof m.content === 'string') {
         msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Вы</div></div></div>`;
       } else if (m.role === 'assistant' && typeof m.content === 'string') {
-        msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
+        msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
       }
     });
     msgs.scrollTop = msgs.scrollHeight;
@@ -5024,7 +5090,7 @@
 
     msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${bubbleHtml}</div><div class="msg-time">Вы • сейчас</div></div></div>`;
     const aiId = 'ai-' + Date.now();
-    msgs.innerHTML += `<div class="msg ai" id="${aiId}"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble" id="bubble-${aiId}"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
+    msgs.innerHTML += `<div class="msg ai" id="${aiId}"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble" id="bubble-${aiId}"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
     msgs.scrollTop = msgs.scrollHeight;
 
     try {
@@ -8794,7 +8860,7 @@
     widget.id = 'octoWidget';
     widget.innerHTML = `
       <div id="octoBody">
-        <img id="octoImg" src="assets/octo_happy.png" alt="Octo">
+        <img id="octoImg" src="assets/new/A16.png" alt="Octo">
         <div id="octoBubble"></div>
       </div>
     `;
@@ -8862,16 +8928,16 @@
     `;
     document.head.appendChild(style);
 
-    // Фразы маскота
+    // Фрази маскота
     const phrases = [
-      '👋 Привет! Чем помочь?',
-      '📈 Твой контент огонь!',
-      '🚀 Давай сделаем Reels?',
-      '💡 Есть идея для поста!',
-      '🎯 Хочешь контент-план?',
-      '🐙 Я всегда рядом!',
-      '✨ Проверь Profile Analyzer!',
-      '🔥 Тренды обновились!',
+      '👋 Привіт! Чим допомогти?',
+      '📈 Твій контент — вогонь!',
+      '🚀 Зробимо Reels?',
+      '💡 Є ідея для поста!',
+      '🎯 Хочеш контент-план?',
+      '🐙 Я завжди поруч!',
+      '✨ Глянь Розбір контенту!',
+      '🔥 Тренди оновилися!',
     ];
     let phraseIdx = 0;
     let bubbleTimer = null;
@@ -8916,7 +8982,7 @@
     }
 
     // Клик — показывает фразу и меняет маскота; двойной — прячет
-    const mascots = ['assets/octo_happy.png','assets/octo_thumbsup.png','assets/octo_celebrate.png','assets/octo_idea.png','assets/octo_search.png'];
+    const mascots = ['assets/new/A16.png','assets/new/A23.png','assets/new/A11.png','assets/new/A18.png','assets/new/A09.png'];
     let mascotIdx = 0;
     let lastClickTime = 0;
     widget.addEventListener('click', () => {
@@ -9018,7 +9084,7 @@
       if (document.getElementById('appWrap').style.display !== 'none' && !isAdvisorActive()) {
         widget.style.display = 'block';
         animateTilt();
-        setTimeout(() => showBubble('👋 Привет! Я Octo — кликни на меня!'), 1000);
+        setTimeout(() => showBubble('👋 Привіт! Я Octo — клікни на мене!'), 1000);
       }
     }, 500);
 
@@ -9108,7 +9174,7 @@
         if (m.role === 'user')
           msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Вы</div></div></div>`;
         else
-          msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/octo_wizard.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
+          msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
       });
       msgs.scrollTop = msgs.scrollHeight;
     }
@@ -9991,7 +10057,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       });
       html += '</div>';
     }
-    if (!hasAny) html = '<div style="text-align:center;padding:24px;color:var(--text4);font-size:13px;">Немає публікацій цього місяця</div>';
+    if (!hasAny) html = window.omEmptyHTML('A18', 'Черга порожня',
+      'Заплануй матеріали з «Моїх ідей» або попроси Octo скласти AI-план на тиждень — все з’явиться тут, за датами.',
+      '💡 До моїх ідей', "showScreen('campaigns',null)");
     el.innerHTML = html;
   }
 
@@ -12351,7 +12419,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       <div style="font-size:18px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Ліміт вичерпано</div>
       <div style="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">${fn}: ${used} з ${limit} використано цього місяця</div>
       <div style="background:rgba(108,99,255,.15);border:1px solid #6C63FF44;border-radius:14px;padding:14px;margin-bottom:20px;">
-        <div style="font-size:12px;font-weight:800;color:#A78BFA;margin-bottom:6px;">⚡ ${nextLabel}</div>
+        <div style="font-size:12px;font-weight:800;color:#B5A8FF;margin-bottom:6px;">⚡ ${nextLabel}</div>
         <div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.8;">${nextFeats}</div>
       </div>
       <button onclick="_octoSheetClose(); showScreen('pricing',null);" style="width:100%;padding:15px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;margin-bottom:10px;">
@@ -12404,7 +12472,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (badge) {
       badge.textContent = (PLAN_LABELS[plan]||plan).toUpperCase();
       badge.style.background = { guest:'rgba(100,100,100,.2)', free:'rgba(108,99,255,.2)', starter:'rgba(56,189,248,.2)', pro:'rgba(34,197,94,.2)' }[plan]||'';
-      badge.style.color = { guest:'#888', free:'#A78BFA', starter:'#38BDF8', pro:'#22c55e' }[plan]||'#A78BFA';
+      badge.style.color = { guest:'#888', free:'#B5A8FF', starter:'#38BDF8', pro:'#22c55e' }[plan]||'#B5A8FF';
     }
     if (sub) {
       const parts = [];
@@ -12887,7 +12955,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (!q) { $('onFollowWrap').style.display = 'none'; return; }
     $('onFollowWrap').style.display = '';
     $('onFollowWrap').innerHTML =
-      '<div class="card"><div class="on-hero"><img src="assets/octo_idea.png" style="width:44px;height:44px;object-fit:contain;flex:none;">' +
+      '<div class="card"><div class="on-hero"><img src="assets/new/A18.png" style="width:44px;height:44px;object-fit:contain;flex:none;">' +
       '<div class="card-sub" style="margin:0;color:var(--text);font-size:14px;">' + esc(q) + '</div></div>' +
       '<textarea id="onText2" class="ob-input" rows="2" placeholder="Відповідь Octo…"></textarea>' +
       '<button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="octoOnboardFollow()">Відповісти →</button></div>';
@@ -12898,7 +12966,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     $('onDone').style.display = '';
     $('onDone').innerHTML =
       '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);">' +
-      '<div class="on-hero"><img src="assets/octo_happy.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
+      '<div class="on-hero"><img src="assets/new/A16.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
       '<div><div class="card-title" style="margin:0;">✅ Octo тебе знає!</div>' +
       '<div class="card-sub" style="margin:0;">Далі — покажу, де у твоєму контенті слабкі місця, або одразу займемось просуванням.</div></div></div>' +
       '<button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen(\'research\',null)">🔎 Дослідити мій ринок →</button>' +
@@ -13180,16 +13248,19 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (!chosen) return;
     var btn = $('ocStrategyBtn'); btn.disabled = true;
     setStep('strategy');
-    status('busy', 'Octo будує стратегію під ціль…');
+    status('', '');
+    var ocBox = $('ocResult'); if (ocBox) ocBox.innerHTML = window.omLoaderHTML('A02', 'Octo аналізує задачу як маркетолог', 'Аудиторія, оффер, ключове повідомлення — до 30 сек');
     try {
       var body = { goal: chosen.t, profile: bizProfile() };
       var d = ($('ocDetails') || {}).value; if (d && d.trim()) body.details = d.trim();
       var r = await api('/api/marketing/strategy', body);
+      if (ocBox) ocBox.innerHTML = '';
       renderStrategy(r.strategy);
       try { if (window.octoCampaignSaveStrategy) window.octoCampaignSaveStrategy(chosen, (($('ocDetails') || {}).value || ''), r.strategy); } catch (e) {}
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
     } catch (e) {
+      if (ocBox) ocBox.innerHTML = '';
       status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
     }
     btn.disabled = false;
@@ -13431,9 +13502,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   window.octoResearchRun = function () {
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
     var btn = $('rsBtn'); btn.disabled = true;
-    $('rsResult').innerHTML = '';
-    status('rsStatus', 'busy', 'Octo шукає в інтернеті, що працює у твоїй ніші… (це може зайняти до хвилини)');
+    $('rsResult').innerHTML = window.omLoaderHTML('A09', 'Octo досліджує твій ринок', 'Реальний пошук в інтернеті — до хвилини');
+    status('rsStatus', '', '');
     api('/api/marketing/research', { profile: bizProfile() }).then(function (d) {
+      $('rsResult').innerHTML = '';
       status('rsStatus', 'ok', 'Готово! Octo врахує це в стратегіях.');
       var r = d.research;
       // Save a compact summary into the business profile so strategy uses it.
@@ -13450,7 +13522,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       $('rsResult').appendChild(card);
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
-    }).catch(function (e) { status('rsStatus', 'err', netMsg(e.message)); }).finally(function () { btn.disabled = false; });
+    }).catch(function (e) { $('rsResult').innerHTML = ''; status('rsStatus', 'err', netMsg(e.message)); }).finally(function () { btn.disabled = false; });
   };
 
   // ── Ідея з тренду ───────────────────────────────────────────────────────────
@@ -13574,10 +13646,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var el = $('cmpList'); if (!el) return;
     var all = window.octoCampaigns.all();
     if (!all.length) {
-      el.innerHTML = '<div class="card" style="text-align:center;padding:34px 18px;">'
-        + '<div style="font-size:34px;margin-bottom:8px;">📁</div>'
-        + '<div style="font-size:14px;color:var(--text3);margin-bottom:14px;">Ще немає кампаній.<br>Постав ціль у «Просуванні» — і Octo збере стратегію та матеріали сюди.</div>'
-        + '<button class="btn btn-primary" onclick="showScreen(\'campaign\',null)">🎯 Створити просування</button></div>';
+      el.innerHTML = window.omEmptyHTML('A10', 'Ще немає кампаній',
+        'Постав ціль у «Просуванні» — Octo збере стратегію та всі матеріали сюди, в один проєкт.',
+        '🎯 Створити просування', "showScreen('campaign',null)");
       return;
     }
     el.innerHTML = all.map(function (c) {
@@ -13925,7 +13996,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     // Hero
     var hero = '<div class="card" style="background:linear-gradient(135deg,#1A1040,#12121E);border-color:#6C63FF44;">'
       + '<div style="display:flex;align-items:center;gap:14px;">'
-      + '<img src="assets/octo_happy.png" style="width:56px;height:56px;object-fit:contain;flex:none;">'
+      + '<img src="assets/new/A16.png" style="width:56px;height:56px;object-fit:contain;flex:none;">'
       + '<div style="flex:1;"><div style="font-size:16px;font-weight:800;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '! 🐙' : 'Привіт! Я Octo — твій AI-маркетолог 🐙') + '</div>'
       + '<div style="font-size:12.5px;color:var(--text3);margin-top:2px;">' + (bizSet ? esc([biz.niche, biz.geo].filter(Boolean).join(' · ')) : 'Розкажи про бізнес — і почнемо просування') + '</div></div></div></div>';
 
@@ -14535,7 +14606,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   async function runGeneration() {
     var stId = 'paSt5';
-    $('paProgress').innerHTML = ''; $('paResults').innerHTML = '';
+    $('paProgress').innerHTML = ''; $('paResults').innerHTML = window.omLoaderHTML('A19', 'Octo знімає твою рекламу', 'Це найдовший крок — близько 30 секунд');
     try {
       // 1. the "AI thinks first" step — photographer's shoot plan (2 scenes)
       status(stId, 'busy', 'Octo продумує зйомку: сцени, світло, композиція…');
@@ -14583,6 +14654,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       renderResults(images, texts, adCreative);
       saveToIdeas(images, texts, adCreative);
     } catch (e) {
+      $('paResults').innerHTML = '';
       status(stId, 'err', '⚠️ ' + esc(e.message) + ' <a href="#" style="color:var(--accent2);" onclick="runGeneration();return false;">Спробувати ще</a>');
     }
   }
@@ -14921,7 +14993,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       anMap[pick.id] = a;
       box.innerHTML = '<div class="card ob-res" style="border-color:rgba(108,99,255,.4);background:linear-gradient(135deg,rgba(108,99,255,.10),transparent);">'
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-        + '<img src="assets/octo_idea.png" style="width:38px;height:38px;object-fit:contain;flex:none;">'
+        + '<img src="assets/new/A18.png" style="width:38px;height:38px;object-fit:contain;flex:none;">'
         + '<div><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;">Octo радить</div>'
         + '<div class="card-title" style="margin:0;">📅 Що запостити сьогодні <span style="font-size:11px;font-weight:600;color:var(--text4);">· нова ідея щодня</span></div></div></div>'
         + '<div style="font-size:12px;color:var(--text4);margin-bottom:6px;">На основі ролика з ' + fmt(pick.views) + ' переглядів (' + (pick.created ? fmtDate(pick.created) : '') + ') · <a href="' + esc(pick.url) + '" target="_blank" rel="noopener" style="color:var(--accent2);">оригінал</a></div>'
@@ -15042,7 +15114,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     status('busy', curIntent === 'raw' ? 'Octo збирає вірусні ролики (10-30 сек)…' : 'Octo придумує, що шукати, і збирає ролики (15-40 сек)…');
     // Fresh search = fresh page: no leftover videos or yesterday's advice.
     var tEl = $('tfToday'); if (tEl) tEl.innerHTML = '';
-    var fEl = $('tfFeed'); if (fEl) fEl.innerHTML = '';
+    var fEl = $('tfFeed'); if (fEl) fEl.innerHTML = window.omLoaderHTML('A10', 'Octo шукає, що зараз залітає…', 'Збираю ролики з твоєї ніші — 15-40 сек');
     var flt = $('tfFilters'); if (flt) flt.style.display = 'none';
     var qu = $('tfQueriesUsed'); if (qu) qu.style.display = 'none';
     fetch('/api/trends/feed', {
@@ -15091,7 +15163,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       })
       .catch(function (e) {
         if (btn) btn.disabled = false;
-        status('err', '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message));
+        if (fEl) fEl.innerHTML = '';
+        var msg = /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.'
+          : (/hard limit|usage.*exceeded|platform-feature-disabled/i.test(e.message)
+            ? 'Ліміт збору роликів на цей місяць вичерпано — свіжа добірка з’явиться з оновленням кредитів.'
+            : e.message);
+        status('err', '⚠️ ' + msg);
       });
   };
 
@@ -15187,7 +15264,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var handle = (inp && inp.value || '').trim();
     if (!handle) { if (st) { st.className = 'ob-status ob-err'; st.textContent = 'Вкажи @нік сторінки.'; } return; }
     if (btn) btn.disabled = true;
-    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo тягне твої ролики і рахує (20-60 сек)…'; }
+    if (st) { st.className = 'ob-status'; st.textContent = ''; }
+    var paBox = $('paResult'); if (paBox) paBox.innerHTML = window.omLoaderHTML('A09', 'Octo дивиться твою сторінку…', 'Тягну ролики й рахую метрики — 20-60 сек');
     fetch('/api/trends/page-audit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
@@ -15208,6 +15286,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       })
       .catch(function (e) {
         if (btn) btn.disabled = false;
+        if (paBox) paBox.innerHTML = '';
         if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message); }
       });
   };
@@ -15334,7 +15413,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     }
     var btn = $('brBtn'), st = $('brStatus');
     if (btn) btn.disabled = true;
-    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo придумує бренд і малює лого (до 30 сек)…'; }
+    if (st) { st.className = 'ob-status'; st.textContent = ''; }
+    var brBox = $('brResult'); if (brBox) brBox.innerHTML = window.omLoaderHTML('A15', 'Octo підбирає кольори й тон…', 'Палітра, слоган і лого — до 30 сек');
     fetch('/api/marketing/brand', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
@@ -15349,6 +15429,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       })
       .catch(function (e) {
         if (btn) btn.disabled = false;
+        if (brBox) brBox.innerHTML = '';
         if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message); }
       });
   };
