@@ -77,6 +77,24 @@
     .om-empty p { font-size: 14px; line-height: 1.5; color: var(--text3); max-width: 400px; margin-bottom: 20px; }
     /* Eyebrow-заголовок секції */
     .om-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: #7c7ca6; margin: 0 2px 12px; }
+    /* Сітки з дизайну */
+    .om-grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 20px; }
+    .om-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    @media (max-width: 800px) { .om-grid-2, .om-grid-3 { grid-template-columns: 1fr; } }
+    /* Стат-картка з дизайну: лейбл + іконка-квадрат + Unbounded число */
+    .om-stat { padding: 18px; border-radius: 18px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); }
+    .om-stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .om-stat-label { font-size: 12.5px; font-weight: 700; color: #9a9ac4; }
+    .om-stat-ico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .om-stat-num { font: 800 30px 'Unbounded','Manrope',sans-serif; }
+    .om-stat-sub { font-size: 12px; font-weight: 600; color: #5d5d80; margin-top: 4px; }
+    /* Швидка дія з дизайну */
+    .om-qa { text-align: left; padding: 20px; border-radius: 18px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.035); color: #fff; cursor: pointer; font-family: inherit; transition: transform .15s; }
+    .om-qa:hover { transform: translateY(-2px); }
+    .om-qa.om-qa-hot { border: 1px solid rgba(139,123,255,.35); background: linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05)); }
+    .om-qa .om-qa-ico { display: flex; width: 40px; height: 40px; border-radius: 12px; align-items: center; justify-content: center; margin-bottom: 13px; }
+    .om-qa .om-qa-t { display: block; font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .om-qa .om-qa-s { display: block; font-size: 12.5px; line-height: 1.5; color: #9a9ac4; font-weight: 500; }
 
     /* ── LIGHT MODE ── */
     body.light-mode {
@@ -2050,23 +2068,26 @@
 
         <!-- ═══ КАМПАНІЯ (goal-first flow, Phase A) ═══ -->
         <style>
-          .oc-steps { display:flex; align-items:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
-          .oc-step-pill { display:flex; align-items:center; gap:7px; background:var(--surface); border:1px solid var(--border);
-            border-radius:20px; padding:6px 13px 6px 7px; font-size:12px; font-weight:600; color:var(--text3); }
-          .oc-step-pill .n { width:20px; height:20px; border-radius:50%; background:var(--surface3); color:var(--text3);
-            display:grid; place-items:center; font-size:11px; font-weight:700; }
-          .oc-step-pill.on { border-color:var(--accent); color:var(--text); background:rgba(108,99,255,.1); }
-          .oc-step-pill.on .n { background:var(--accent); color:#fff; }
-          .oc-step-pill.ok .n { background:var(--green); color:#fff; }
-          .oc-goal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+          .oc-steps { display:flex; align-items:center; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+          .oc-step-pill { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.08);
+            border-radius:999px; padding:9px 15px 9px 10px; font-size:13px; font-weight:700; color:#6f6f92; }
+          .oc-step-pill .n { width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,.06); color:#6f6f92;
+            display:grid; place-items:center; font-size:11px; font-weight:800; }
+          .oc-step-pill.on { border-color:rgba(139,123,255,.5); color:#fff; background:rgba(139,123,255,.13); }
+          .oc-step-pill.on .n { background:linear-gradient(135deg,#8B7BFF,#6C63FF); color:#fff; }
+          .oc-step-pill.ok { color:#b5a8ff; }
+          .oc-step-pill.ok .n { background:rgba(139,123,255,.25); color:#fff; }
+          .oc-goal-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
           @media (max-width:560px){ .oc-goal-grid { grid-template-columns:1fr; } }
-          .oc-goal { text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:14px;
-            padding:15px 16px; cursor:pointer; transition:border-color .15s, transform .1s; font:inherit; color:var(--text); }
-          .oc-goal:hover { border-color:var(--accent); }
+          .oc-goal { display:flex; align-items:center; gap:15px; text-align:left; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:17px;
+            padding:19px 20px; cursor:pointer; transition:border-color .15s, transform .1s; font:inherit; color:var(--text); }
+          .oc-goal:hover { border-color:var(--acc-line); transform:translateY(-1px); }
           .oc-goal:active { transform:scale(.99); }
-          .oc-goal .ic { font-size:22px; display:block; margin-bottom:8px; }
-          .oc-goal .t { display:block; font-size:14.5px; font-weight:700; line-height:1.25; }
-          .oc-goal .s { display:block; font-size:12px; color:var(--text3); margin-top:3px; }
+          .oc-goal .ic { flex:0 0 auto; width:42px; height:42px; border-radius:13px; background:rgba(139,123,255,.12);
+            display:flex; align-items:center; justify-content:center; font-size:21px; }
+          .oc-goal .tw { flex:1; }
+          .oc-goal .t { display:block; font-size:15px; font-weight:800; line-height:1.25; }
+          .oc-goal .s { display:block; font-size:12.5px; color:#9a9ac4; margin-top:3px; font-weight:500; }
           .oc-chosen { display:inline-flex; align-items:center; gap:8px; background:rgba(108,99,255,.1);
             border:1px solid var(--accent); border-radius:10px; padding:8px 12px; font-size:13.5px; font-weight:700; }
           .oc-back { background:none; border:none; color:var(--text3); font:inherit; font-size:13px; cursor:pointer; padding:0; margin-bottom:12px; }
@@ -2187,14 +2208,15 @@
         <!-- ═══ РЕКЛАМА ТОВАРУ (AI Product Ads, Phase C1) ═══ -->
         <div class="screen" id="prodads">
           <style>
-            .pa-steps { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
-            .pa-step { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border);
-              border-radius:20px; padding:5px 12px 5px 6px; font-size:11.5px; font-weight:700; color:var(--text4); }
-            .pa-step .n { width:18px; height:18px; border-radius:50%; background:var(--surface3); display:grid; place-items:center; font-size:10px; }
-            .pa-step.on { border-color:var(--accent); color:var(--text); background:rgba(108,99,255,.1); }
-            .pa-step.on .n { background:var(--accent); color:#fff; }
-            .pa-step.done { color:var(--green); cursor:pointer; }
-            .pa-step.done:hover { border-color:var(--green); }
+            .pa-steps { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:24px; align-items:center; }
+            .pa-step { display:flex; align-items:center; gap:7px; background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.08);
+              border-radius:999px; padding:8px 13px 8px 9px; font-size:12.5px; font-weight:700; color:#6f6f92; }
+            .pa-step .n { width:21px; height:21px; border-radius:50%; background:rgba(255,255,255,.06); display:grid; place-items:center; font-size:11px; font-weight:800; }
+            .pa-step.on { border-color:rgba(139,123,255,.5); color:#fff; background:rgba(139,123,255,.13); }
+            .pa-step.on .n { background:linear-gradient(135deg,#8B7BFF,#6C63FF); color:#fff; }
+            .pa-step.done { color:#b5a8ff; cursor:pointer; }
+            .pa-step.done .n { background:rgba(139,123,255,.25); color:#fff; }
+            .pa-step.done:hover { border-color:rgba(139,123,255,.4); }
             .pa-back { background:none; border:none; color:var(--text3); font:inherit; font-size:13px; font-weight:700;
               cursor:pointer; padding:0; margin-bottom:12px; }
             .pa-back:hover { color:var(--text); }
@@ -2212,8 +2234,18 @@
             .pa-field { margin-top:10px; }
             .pa-field label { font-size:11.5px; font-weight:700; color:var(--text4); display:flex; gap:6px; align-items:center; }
             .pa-field .warn { color:#FFC107; font-size:10.5px; font-weight:700; }
-            .pa-concept { border:2px solid var(--border); border-radius:14px; padding:14px; margin-top:10px; cursor:pointer; background:var(--surface); }
-            .pa-concept:hover, .pa-concept.on { border-color:var(--accent); background:rgba(108,99,255,.06); }
+            .pa-concepts-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px; }
+            @media (max-width:760px){ .pa-concepts-grid { grid-template-columns:1fr; } .pa-conc-prev { aspect-ratio:auto; height:150px; } }
+            .pa-concept { display:flex; flex-direction:column; gap:9px; border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:18px; cursor:pointer; background:rgba(255,255,255,.03); transition:border-color .15s, transform .1s, box-shadow .15s; }
+            .pa-concept:hover { border-color:var(--acc-line); transform:translateY(-2px); }
+            .pa-concept.on { border-color:rgba(139,123,255,.6); background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05)); box-shadow:0 14px 30px -14px rgba(108,99,255,.7); }
+            .pa-conc-badge { align-self:flex-start; padding:4px 10px; border-radius:8px; font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; background:rgba(255,255,255,.06); color:#9a9ac4; }
+            .pa-concept.on .pa-conc-badge { background:#8B7BFF; color:#fff; }
+            .pa-conc-prev { aspect-ratio:4/5; border-radius:12px; background:repeating-linear-gradient(135deg,#1b1b28 0 10px,#22222f 10px 20px); border:1px solid rgba(255,255,255,.07); display:flex; align-items:center; justify-content:center; font:600 10.5px ui-monospace,monospace; color:#6d6d86; }
+            .pa-conc-t { font-size:15px; font-weight:800; color:#fff; }
+            .pa-conc-d { font-size:12.5px; line-height:1.5; color:#9a9ac4; }
+            .pa-conc-mood { font-size:11.5px; font-weight:700; color:#b5a8ff; }
+            .pa-conc-why { padding-top:9px; border-top:1px solid rgba(255,255,255,.07); font-size:12px; line-height:1.5; color:#a6a6cc; }
             .pa-result-img { width:100%; border-radius:12px; border:1px solid var(--border); display:block; }
           </style>
 
@@ -13118,7 +13150,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     grid.dataset.done = '1';
     grid.innerHTML = GOALS.map(function (g) {
       return '<button class="oc-goal" data-goal="' + g.id + '"><span class="ic">' + g.ic + '</span>' +
-        '<span class="t">' + g.t + '</span><span class="s">' + g.s + '</span></button>';
+        '<span class="tw"><span class="t">' + g.t + '</span><span class="s">' + g.s + '</span></span></button>';
     }).join('');
     grid.querySelectorAll('.oc-goal').forEach(function (btn) {
       btn.onclick = function () { pickGoal(btn.dataset.goal); };
@@ -13987,32 +14019,134 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   window.renderDashV2 = function () {
     var el = $('dashV2'); if (!el) return;
-    var biz = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || null;
+    var biz = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
     var bizSet = window.octoBiz && window.octoBiz.isSet && window.octoBiz.isSet();
     var camps = (window.octoCampaigns && window.octoCampaigns.all) ? window.octoCampaigns.all() : [];
     var totalMats = camps.reduce(function (n, c) { return n + ((c.materials || []).length); }, 0);
     var a = advice(bizSet ? biz : null, camps);
 
-    // Hero
-    var hero = '<div class="card" style="background:linear-gradient(135deg,#1A1040,#12121E);border-color:#6C63FF44;">'
-      + '<div style="display:flex;align-items:center;gap:14px;">'
-      + '<img src="assets/new/A16.png" style="width:56px;height:56px;object-fit:contain;flex:none;">'
-      + '<div style="flex:1;"><div style="font-size:16px;font-weight:800;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '! 🐙' : 'Привіт! Я Octo — твій AI-маркетолог 🐙') + '</div>'
-      + '<div style="font-size:12.5px;color:var(--text3);margin-top:2px;">' + (bizSet ? esc([biz.niche, biz.geo].filter(Boolean).join(' · ')) : 'Розкажи про бізнес — і почнемо просування') + '</div></div></div></div>';
+    // ── Профіль: скільки заповнено (hero «Налаштування акаунта · X з 5») ──
+    var chips = [
+      { t: 'Назва', ok: !!biz.business_name },
+      { t: 'Ніша', ok: !!biz.niche },
+      { t: 'Аудиторія', ok: !!biz.target_audience },
+      { t: 'Гео', ok: !!biz.geo },
+      { t: 'Tone of Voice', ok: !!biz.tone },
+    ];
+    var done = chips.filter(function (c) { return c.ok; }).length;
+    var checkSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-11"/></svg>';
+    var chipsHtml = chips.map(function (c) {
+      return c.ok
+        ? '<span style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:rgba(63,208,122,.12);border:1px solid rgba(63,208,122,.25);font-size:11.5px;font-weight:700;color:#7ddb9f;">' + checkSvg + esc(c.t) + '</span>'
+        : '<span style="padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.2);font-size:11.5px;font-weight:700;color:#9a9ac4;">' + esc(c.t) + '</span>';
+    }).join('');
+    var missing = chips.filter(function (c) { return !c.ok; }).map(function (c) { return c.t; });
+    var heroTitle = done === 0 ? 'Розкажи Octo про бізнес — і вся магія запрацює'
+      : (done < 5 ? 'Ще один крок — і Octo працюватиме на максимумі' : '');
+    var heroSub = done === 0 ? 'Octo запам’ятає нішу, аудиторію і тон — і кожен матеріал буде саме про твій бізнес.'
+      : 'Залишилось описати ' + missing.join(', ').toLowerCase() + ' — і кожен текст звучатиме як ваш бренд.';
+    var hero = done >= 5 ? '' :
+      '<div style="position:relative;padding:24px 28px;border-radius:22px;background:linear-gradient(140deg,rgba(139,123,255,.2),rgba(56,189,248,.07));border:1px solid rgba(139,123,255,.3);overflow:hidden;margin-bottom:20px;">'
+      + '<img src="assets/new/A15.png" class="dash-hero-octo" style="position:absolute;right:18px;bottom:-26px;width:170px;height:170px;object-fit:contain;filter:drop-shadow(0 14px 24px rgba(20,10,50,.55));animation:omFloat 5.5s ease-in-out infinite;">'
+      + '<div class="dash-hero-body" style="max-width:640px;margin-right:175px;">'
+      + '<div style="font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#b5a8ff;margin-bottom:8px;">Налаштування акаунта · ' + done + ' з 5</div>'
+      + '<div style="font-size:22px;line-height:1.25;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;">' + heroTitle + '</div>'
+      + '<div style="font-size:14px;line-height:1.5;font-weight:500;color:#b9b9dd;margin-bottom:16px;">' + heroSub + '</div>'
+      + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
+      + '<button class="btn btn-primary" style="border-radius:13px;padding:12px 20px;font-size:14px;" onclick="showScreen(\'' + (done === 0 ? 'onboard' : 'profile') + '\',null)">' + (done === 0 ? 'Познайомитися з Octo' : 'Продовжити налаштування') + '</button>'
+      + '<div style="display:flex;align-items:center;gap:9px;"><div style="width:150px;height:7px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;"><div style="height:100%;width:' + (done / 5 * 100) + '%;border-radius:999px;background:linear-gradient(90deg,#8B7BFF,#38BDF8);"></div></div><span style="font-size:12px;font-weight:700;color:#9a9ac4;">' + done + '/5</span></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:7px;margin-top:16px;flex-wrap:wrap;">' + chipsHtml + '</div>'
+      + '</div></div>';
 
-    // Advice card (id'd so the weekly AI advice can take over asynchronously)
-    var adv = '<div class="card" id="dashAdvice" style="border-color:rgba(108,99,255,.35);">'
+    // ── Стат-картки (лейбл + іконка-квадрат + Unbounded число) ──
+    var monthPosts = 0;
+    try {
+      var calD = window.octoCalStore.load();
+      var now = new Date();
+      var pref = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-';
+      Object.keys(calD).forEach(function (k) { if (k.indexOf(pref) === 0) monthPosts += (calD[k] || []).length; });
+    } catch (e) {}
+    var chatUsed = 0;
+    try {
+      var nowU = new Date();
+      var usage = JSON.parse(localStorage.getItem('octo_usage_' + nowU.getFullYear() + '_' + (nowU.getMonth() + 1)) || '{}');
+      chatUsed = usage.chat || 0;
+    } catch (e) {}
+    function statCard(label, num, sub, iconSvg, tint) {
+      return '<div class="om-stat"><div class="om-stat-head"><span class="om-stat-label">' + label + '</span>'
+        + '<span class="om-stat-ico" style="background:' + tint + ';">' + iconSvg + '</span></div>'
+        + '<div class="om-stat-num">' + num + '</div><div class="om-stat-sub">' + sub + '</div></div>';
+    }
+    var icoTarget = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#b5a8ff" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="#b5a8ff"/></svg>';
+    var icoBox = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7cc9f2" stroke-width="1.9" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg>';
+    var icoCal = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffd58a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg>';
+    var icoChat = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7ddb9f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>';
+    var stats = '<div class="stats-grid" style="margin-bottom:20px;">'
+      + statCard('Кампаній', camps.length, camps.length ? 'у «Моїх ідеях»' : 'ще не створювались', icoTarget, 'rgba(139,123,255,.13)')
+      + statCard('Матеріалів', totalMats, totalMats ? 'фото, тексти, ідеї' : 'ще не створювались', icoBox, 'rgba(56,189,248,.13)')
+      + statCard('Постів цього місяця', monthPosts, monthPosts ? 'у контент-плані' : 'календар порожній', icoCal, 'rgba(255,194,75,.13)')
+      + statCard('Ask Octo запитів', chatUsed, chatUsed ? 'цього місяця' : 'ще не запитував', icoChat, 'rgba(63,208,122,.13)')
+      + '</div>';
+
+    // ── Привіт + Наступний пост (сітка 1.5fr / 1fr) ──
+    var nextPost = null;
+    try {
+      var calD2 = window.octoCalStore.load(), t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      Object.keys(calD2).sort().forEach(function (k) {
+        if (nextPost) return;
+        var parts = k.split('-'); var dt = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+        if (dt >= t0) {
+          var p = (calD2[k] || []).filter(function (x) { return x.status !== 'published'; })[0];
+          if (p) nextPost = { d: dt, time: p.time || '', title: (p.mat && p.mat.title) || p.note || p.type || 'Публікація' };
+        }
+      });
+    } catch (e) {}
+    var todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+    var npSub = 'Календар порожній — сплануйте тиждень';
+    if (nextPost) {
+      var dLbl = nextPost.d.getTime() === todayD.getTime() ? 'сьогодні'
+        : (nextPost.d.getTime() === todayD.getTime() + 86400000 ? 'завтра' : nextPost.d.getDate() + '.' + String(nextPost.d.getMonth() + 1).padStart(2, '0'));
+      npSub = esc(String(nextPost.title).slice(0, 40)) + ' · ' + dLbl + (nextPost.time ? ' ' + nextPost.time : '');
+    }
+    var greetRow = '<div class="om-grid-2">'
+      + '<div style="display:flex;align-items:center;gap:18px;padding:22px 24px;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);flex-wrap:wrap;">'
+      + '<img src="assets/new/A16.png" style="width:86px;height:86px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 10px 18px rgba(20,10,50,.5));">'
+      + '<div style="flex:1;min-width:180px;">'
+      + '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '!' : 'Привіт! Я Octo — твій AI-маркетолог') + '</div>'
+      + '<div style="font-size:13.5px;line-height:1.5;font-weight:500;color:#a6a6cc;">' + (bizSet ? 'На основі твого профілю я вже знаю, чим допомогти. Запитай будь-що з маркетингу.' : 'Розкажи про бізнес — і я запропоную, кому рекламувати і що створити.') + '</div></div>'
+      + '<button class="btn btn-primary" style="flex:0 0 auto;border-radius:13px;padding:12px 18px;" onclick="showScreen(\'advisor\',null)">Запитати Octo <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>'
+      + '</div>'
+      + '<button onclick="showScreen(\'calendar\',null)" style="display:flex;align-items:center;gap:15px;padding:20px 22px;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);color:#fff;text-align:left;cursor:pointer;font-family:inherit;">'
+      + '<span style="width:44px;height:44px;border-radius:13px;background:rgba(255,194,75,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#ffd58a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg></span>'
+      + '<span style="flex:1;"><span style="display:block;font-size:14.5px;font-weight:800;">Наступний пост</span><span style="display:block;font-size:12.5px;font-weight:500;color:#8f8fb6;margin-top:3px;">' + npSub + '</span></span>'
+      + '<span style="font-size:13px;font-weight:700;color:#8B7BFF;">Відкрити</span>'
+      + '</button></div>';
+
+    // ── Порада тижня (живе: AI перезапише через paintWeekly) ──
+    var adv = '<div class="card" id="dashAdvice" style="border-color:rgba(139,123,255,.3);margin-bottom:20px;">'
       + '<div style="display:flex;gap:12px;align-items:flex-start;">'
       + '<div style="font-size:24px;flex:none;">' + a.icon + '</div>'
-      + '<div style="flex:1;"><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Octo радить</div>'
+      + '<div style="flex:1;"><div class="om-eyebrow" style="margin:0 0 4px;color:#b5a8ff;">Порада від Octo</div>'
       + '<div style="font-size:14px;color:var(--text2);">' + a.text + '</div>'
       + '<button class="btn btn-primary" style="margin-top:12px;padding:9px 16px;font-size:13px;" onclick="showScreen(\'' + a.screen + '\',null)">' + a.btn + ' →</button></div></div></div>';
 
-    // Campaigns
-    var campHtml;
-    if (!camps.length) {
-      campHtml = '';
-    } else {
+    // ── Швидкі дії (3 картки з дизайну) ──
+    var actions = '<div class="om-eyebrow">Швидкі дії</div><div class="om-grid-3" style="margin-bottom:20px;">'
+      + '<button class="om-qa om-qa-hot" onclick="showScreen(\'campaign\',null)">'
+      + '<span class="om-qa-ico" style="background:linear-gradient(135deg,#8B7BFF,#6C63FF);box-shadow:0 10px 20px -8px rgba(108,99,255,.8);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="#fff"/></svg></span>'
+      + '<span class="om-qa-t">Створити просування</span><span class="om-qa-s">Постав бізнес-ціль — Octo зробить стратегію і матеріали</span></button>'
+      + '<button class="om-qa" onclick="showScreen(\'advisor\',null)">'
+      + '<span class="om-qa-ico" style="background:rgba(139,123,255,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b5a8ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12.5h5"/></svg></span>'
+      + '<span class="om-qa-t">Ask Octo</span><span class="om-qa-s">Стратегія, підписи, контент-план, поради для зростання</span></button>'
+      + '<button class="om-qa" onclick="showScreen(\'audit\',null)">'
+      + '<span class="om-qa-ico" style="background:rgba(56,189,248,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7cc9f2" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>'
+      + '<span class="om-qa-t">Розбір контенту</span><span class="om-qa-s">Аудит Instagram або TikTok профілю з планом покращень</span></button>'
+      + '</div>';
+
+    // ── Мої ідеї (останні 3) ──
+    var campHtml = '';
+    if (camps.length) {
       campHtml = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
         + '<div class="card-title" style="margin:0;">💡 Мої ідеї</div>'
         + '<button onclick="showScreen(\'campaigns\',null)" style="background:none;border:none;color:var(--accent2);font-size:12.5px;font-weight:700;cursor:pointer;">усі →</button></div>'
@@ -14024,24 +14158,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         }).join('') + '</div>';
     }
 
-    // Quick stats + actions
-    var stats = '<div class="stats-grid" style="margin-bottom:16px;">'
-      + '<div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-value">' + camps.length + '</div><div class="stat-label">Кампаній</div></div>'
-      + '<div class="stat-card"><div class="stat-icon">📦</div><div class="stat-value">' + totalMats + '</div><div class="stat-label">Матеріалів</div></div>'
-      + '<div class="stat-card"><div class="stat-icon">🧠</div><div class="stat-value">' + (bizSet ? '✓' : '—') + '</div><div class="stat-label">Octo знає бізнес</div></div>'
-      + '<div class="stat-card"><div class="stat-icon">🔎</div><div class="stat-value">' + (biz && biz.market_research ? '✓' : '—') + '</div><div class="stat-label">Ринок досліджено</div></div></div>';
-
-    var actions = '<div class="card"><div class="card-title" style="margin-bottom:12px;">Швидкі дії</div>'
-      + '<div class="oc-goal-grid">'
-      + '<button class="oc-goal" onclick="showScreen(\'trends\',null)"><span class="ic">🔥</span><span class="t">Тренди</span><span class="s">що залітає + що постити сьогодні</span></button>'
-      + '<button class="oc-goal" onclick="showScreen(\'campaign\',null)"><span class="ic">🎯</span><span class="t">Просування</span><span class="s">ціль → стратегія → матеріали</span></button>'
-      + '<button class="oc-goal" onclick="showScreen(\'research\',null)"><span class="ic">🔎</span><span class="t">Дослідження ринку</span><span class="s">що працює в ніші</span></button>'
-      + '<button class="oc-goal" onclick="showScreen(\'audit\',null)"><span class="ic">🔍</span><span class="t">Розбір контенту</span><span class="s">слабкі місця + фікси</span></button>'
-      + '<button class="oc-goal" onclick="showScreen(\'trend\',null)"><span class="ic">💡</span><span class="t">Ідея з тренду</span><span class="s">референс → сценарій</span></button>'
-      + '<button class="oc-goal" onclick="showScreen(\'brand\',null)"><span class="ic">🎨</span><span class="t">Бренд-стиль</span><span class="s">кольори, тон, лого</span></button>'
-      + '</div></div>';
-
-    el.innerHTML = hero + adv + stats + campHtml + actions;
+    el.innerHTML = hero + stats + greetRow + adv + actions + campHtml;
     ensureWeekly(biz, bizSet, camps);
   };
 
@@ -14065,11 +14182,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       .map(function (x) { return '<button class="btn btn-primary" style="margin:10px 8px 0 0;padding:8px 14px;font-size:12.5px;" onclick="showScreen(\'' + x.screen + '\',null)">' + esc(x.label) + '</button>'; })
       .join('');
     card.innerHTML = '<div style="display:flex;gap:12px;align-items:flex-start;">'
-      + '<div style="font-size:24px;flex:none;">🧠</div>'
-      + '<div style="flex:1;"><div style="font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Порада тижня від Octo</div>'
-      + '<div style="font-size:14.5px;font-weight:800;">' + esc(w.headline) + '</div>'
-      + '<div style="font-size:13px;color:var(--text3);margin-top:5px;">' + esc(w.why) + '</div>'
-      + btns + '</div></div>';
+      + '<img src="assets/new/A08.png" style="width:40px;height:40px;object-fit:contain;flex:none;">'
+      + '<div style="flex:1;"><div class="om-eyebrow" style="margin:0 0 5px;color:#b5a8ff;">Порада тижня від Octo</div>'
+      + '<div style="font-size:15px;font-weight:800;line-height:1.35;">' + esc(w.headline) + '</div>'
+      + '<div style="font-size:13px;color:var(--text3);margin-top:6px;line-height:1.55;">' + esc(w.why) + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + btns + '</div></div></div>';
   }
 
   function ensureWeekly(biz, bizSet, camps) {
@@ -14184,12 +14301,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   var curStep = 1;
   function renderSteps(cur) {
+    var arrow = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3a3a58" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 5l7 7-7 7"/></svg>';
     $('paSteps').innerHTML = STEPS.map(function (s, i) {
       var n = i + 1;
       var cls = n === cur ? 'pa-step on' : (n < cur ? 'pa-step done' : 'pa-step');
       // passed steps are clickable — jump back to any of them
       var click = n < cur ? ' onclick="paGoStep(' + n + ')"' : '';
-      return '<div class="' + cls + '"' + click + '><span class="n">' + (n < cur ? '✓' : n) + '</span>' + s + '</div>';
+      var pill = '<div class="' + cls + '"' + click + '><span class="n">' + (n < cur ? '✓' : n) + '</span>' + s + '</div>';
+      return pill + (i < STEPS.length - 1 ? arrow : '');
     }).join('');
   }
 
@@ -14388,14 +14507,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       .then(function (d) {
         btn.disabled = false; status('paSt3', null);
         PA.concepts = d.concepts || [];
+        $('paConcepts').className = 'pa-concepts-grid';
         $('paConcepts').innerHTML = PA.concepts.map(function (c, i) {
           return '<div class="pa-concept" data-i="' + i + '">'
-            + '<div style="font-weight:800;font-size:15px;">' + (i + 1) + '. ' + esc(c.name) + '</div>'
-            + '<div style="font-size:13px;color:var(--text2);margin-top:6px;">' + esc(c.idea) + '</div>'
-            + '<div style="font-size:12.5px;margin-top:8px;"><b>🪝 Хук:</b> ' + esc(c.hook) + '</div>'
-            + '<div style="font-size:12.5px;margin-top:3px;"><b>🖼 Візуал:</b> ' + esc(c.visual) + '</div>'
-            + '<div style="font-size:12.5px;margin-top:3px;color:var(--text3);"><b>Чому:</b> ' + esc(c.why) + '</div>'
-            + '<button class="btn btn-primary" style="margin-top:12px;padding:8px 18px;font-size:13px;">Обрати цю →</button></div>';
+            + '<span class="pa-conc-badge">Концепція ' + (i + 1) + '</span>'
+            + '<div class="pa-conc-prev">прев’ю сцени</div>'
+            + '<div class="pa-conc-t">' + esc(c.name) + '</div>'
+            + '<div class="pa-conc-d">' + esc(c.idea) + '</div>'
+            + (c.hook ? '<div class="pa-conc-mood">🪝 ' + esc(c.hook) + '</div>' : '')
+            + '<div class="pa-conc-why">' + esc(c.why) + '</div></div>';
         }).join('');
         $('paConcepts').querySelectorAll('.pa-concept').forEach(function (card) {
           card.onclick = function () {
