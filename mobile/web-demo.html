@@ -14271,7 +14271,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   // Compose: generated background + ORIGINAL product cutout + headline text.
-  function compose(bgUrl, cutUrl, zone, text) {
+  // Hero product composite: the product is placed BIG and centered, grounded
+  // with a real contact shadow + a soft fading reflection, and blended into the
+  // scene with a subtle glow — so it sits IN the scene, not pasted on top.
+  // No text band (clean creative — the client adds copy themselves).
+  function compose(bgUrl, cutUrl, zone) {
     return new Promise(function (resolve, reject) {
       var bg = new Image(), cut = new Image(), loaded = 0;
       function go() {
@@ -14281,33 +14285,53 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
           var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
           var ctx = cv.getContext('2d');
           ctx.drawImage(bg, 0, 0, W, H);
-          // product: ~58% of canvas height, anchored to lower third
-          var ph = H * 0.58, pw = ph * cut.naturalWidth / cut.naturalHeight;
-          if (pw > W * 0.8) { pw = W * 0.8; ph = pw * cut.naturalHeight / cut.naturalWidth; }
-          var px = zone === 'left' ? W * 0.08 : (zone === 'right' ? W - pw - W * 0.08 : (W - pw) / 2);
-          var py = H * 0.92 - ph;
-          ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = W * 0.02; ctx.shadowOffsetY = W * 0.008;
+
+          // Product hero: ~66% of canvas height, centered, base grounded low.
+          var ph = H * 0.66, pw = ph * cut.naturalWidth / cut.naturalHeight;
+          if (pw > W * 0.82) { pw = W * 0.82; ph = pw * cut.naturalHeight / cut.naturalWidth; }
+          var cx = zone === 'left' ? W * 0.34 : (zone === 'right' ? W * 0.66 : W * 0.5);
+          var px = cx - pw / 2;
+          var baseY = H * 0.90;          // where the product "stands"
+          var py = baseY - ph;
+
+          // 1. soft radial glow behind product — integrates it with the scene
+          var glow = ctx.createRadialGradient(cx, py + ph * 0.45, ph * 0.1, cx, py + ph * 0.45, ph * 0.75);
+          glow.addColorStop(0, 'rgba(255,255,255,0.16)');
+          glow.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(px - pw * 0.3, py - ph * 0.1, pw * 1.6, ph * 1.2);
+
+          // 2. elliptical contact shadow on the ground
+          ctx.save();
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          ctx.ellipse(cx, baseY, pw * 0.42, ph * 0.05, 0, 0, Math.PI * 2);
+          ctx.filter = 'blur(' + Math.round(W * 0.012) + 'px)';
+          ctx.fillStyle = '#000';
+          ctx.fill();
+          ctx.restore();
+
+          // 3. fading reflection below the base
+          try {
+            var rc = document.createElement('canvas'); rc.width = pw; rc.height = ph;
+            var rctx = rc.getContext('2d');
+            rctx.translate(0, ph); rctx.scale(1, -1);
+            rctx.drawImage(cut, 0, 0, pw, ph);
+            var g = rctx.createLinearGradient(0, 0, 0, ph);
+            g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.35, 'rgba(0,0,0,0)');
+            rctx.globalCompositeOperation = 'destination-out'; rctx.fillStyle = g;
+            rctx.fillRect(0, 0, pw, ph);
+            ctx.save(); ctx.globalAlpha = 0.22;
+            ctx.drawImage(rc, px, baseY, pw, ph * 0.5);
+            ctx.restore();
+          } catch (e) { /* reflection optional */ }
+
+          // 4. the product itself, with a grounding drop shadow
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = W * 0.025; ctx.shadowOffsetY = H * 0.01;
           ctx.drawImage(cut, px, py, pw, ph);
-          ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-          // headline band
-          if (text) {
-            var fs = Math.round(W / 13);
-            ctx.font = '800 ' + fs + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            var words = text.split(' '), lines = [''], li = 0;
-            words.forEach(function (w) {
-              if (ctx.measureText(lines[li] + ' ' + w).width > W * 0.86 && lines[li]) { lines[++li] = w; }
-              else lines[li] = (lines[li] ? lines[li] + ' ' : '') + w;
-            });
-            lines = lines.slice(0, 2);
-            var bandH = fs * 1.5 * lines.length + fs * 0.8;
-            ctx.fillStyle = brandAccent() + 'D9';
-            var by = H * 0.045;
-            if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(W * 0.05, by, W * 0.9, bandH, fs * 0.4); ctx.fill(); }
-            else ctx.fillRect(W * 0.05, by, W * 0.9, bandH);
-            ctx.fillStyle = '#fff';
-            lines.forEach(function (ln, i) { ctx.fillText(ln, W / 2, by + bandH / 2 + (i - (lines.length - 1) / 2) * fs * 1.4); });
-          }
+          ctx.restore();
+
           resolve(cv.toDataURL('image/png'));
         } catch (e) { reject(e); }
       }
@@ -14341,10 +14365,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       for (var i = 0; i < variants.length; i++) {
         status(stId, 'busy', 'Створюю креатив ' + (i + 1) + ' з 2 (тло + композиція)…');
         var bg = await api('/api/ads/background', { product: PA.product, concept: PA.concept, style: PA.style, ratio: PA.ratio, variant: variants[i], profile: bizProfile() });
-        var headline = (texts && texts.headline) || bg.overlay_text || PA.concept.on_image_text || '';
-        var dataUrl = await compose(bg.url, PA.cutoutUrl, bg.product_zone, headline);
+        var dataUrl = await compose(bg.url, PA.cutoutUrl, bg.product_zone);
         var saved = await api('/api/ads/save', { data_base64: dataUrl });
-        images.push({ url: saved.url, why: bg.why, headline: headline });
+        images.push({ url: saved.url, why: bg.why, headline: (texts && texts.headline) || '' });
         progress('Креатив ' + (i + 1) + ' готовий');
       }
       status(stId, 'ok', '✅ Готово! Все нижче — і вже збережено в «Мої ідеї».');
@@ -14379,7 +14402,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         var sc = sb.scenes[i];
         status(stId, 'busy', 'Малюю сцену ' + (i + 1) + ' з ' + sb.scenes.length + '…');
         var bg = await api('/api/ads/background', { direct_prompt: sc.background_prompt, product_zone: sc.product_zone, ratio: PA.ratio });
-        var dataUrl = await compose(bg.url, PA.cutoutUrl, sc.product_zone, sc.on_screen_text);
+        var dataUrl = await compose(bg.url, PA.cutoutUrl, sc.product_zone);
         sceneData.push({ image_base64: dataUrl, seconds: sc.seconds, motion: sc.motion });
         progress('Сцена ' + (i + 1) + ' готова');
       }
