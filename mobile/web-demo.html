@@ -3539,11 +3539,28 @@
             </div>
           </div>
 
-          <!-- Бізнес-профіль живе в Кабінеті — тут лише системні налаштування -->
-          <div style="margin-bottom:24px;padding:14px 16px;border-radius:16px;background:rgba(139,123,255,.07);border:1px solid rgba(139,123,255,.2);display:flex;align-items:center;gap:12px;">
-            <span style="font-size:20px;flex-shrink:0;">🧠</span>
-            <div style="flex:1;font-size:12.5px;line-height:1.5;color:#b9b9dd;">Профіль бізнесу (ніша, аудиторія, тон) — у <b style="color:#fff;">Кабінеті</b>. Octo бере його для всіх матеріалів.</div>
-            <button onclick="showScreen('profile',null)" class="btn btn-secondary" style="padding:9px 14px;font-size:12.5px;flex-shrink:0;">Відкрити</button>
+          <!-- ПРОФІЛЬ БРЕНДУ (синхронізовано з Кабінетом — одне джерело правди) -->
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">🧠 Профіль бренду</div>
+            <div class="srow"><div class="sinfo"><h4>Назва бренду</h4><p>Octo вживає у всіх матеріалах</p></div><input type="text" id="setBrandName" placeholder="Твій бренд"></div>
+            <div class="srow"><div class="sinfo"><h4>Ніша</h4><p>Чим займається бізнес</p></div><input type="text" id="setNiche" placeholder="напр.: барбершоп, кава, одяг"></div>
+            <div class="srow"><div class="sinfo"><h4>Цільова аудиторія</h4><p>Для кого це</p></div><input type="text" id="setAudience" placeholder="напр.: жінки 25-40, Київ"></div>
+          </div>
+
+          <!-- НАЛАШТУВАННЯ OCTO -->
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">🐙 Налаштування Octo</div>
+            <div class="srow"><div class="sinfo"><h4>Тон контенту</h4><p>Як Octo пише тексти</p></div>
+              <select id="setTone">
+                <option value="Дружній">Дружній</option>
+                <option value="Професійний">Професійний</option>
+                <option value="Продажний">Продажний</option>
+                <option value="Експертний">Експертний</option>
+                <option value="Розважальний">Розважальний</option>
+              </select>
+            </div>
+            <div class="srow"><div class="sinfo"><h4>Octo обирає формат сам</h4><p>Сам вирішує Reels / Stories / карусель під ціль</p></div><div class="toggle on" id="setAutoFormat" onclick="this.classList.toggle('on')"></div></div>
+            <div class="srow"><div class="sinfo"><h4>Нагадування про пости</h4><p>Коли настав час публікувати</p></div><div class="toggle on" id="setPostReminders" onclick="this.classList.toggle('on')"></div></div>
           </div>
 
           <!-- PREMIUM TEST TOGGLE -->
@@ -3560,6 +3577,9 @@
               ✅ Premium активовано · усі функції розблоковані
             </div>
           </div>
+
+          <!-- SAVE -->
+          <button class="btn btn-primary" onclick="octoSaveSettings(this)" style="width:100%;padding:15px;font-size:15px;">💾 Зберегти</button>
         </div>
 
       <!-- ============ CAPTION AI ============ -->
@@ -10529,6 +10549,36 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     if (badge) badge.style.display = next ? '' : 'none';
   }
 
+  // ── Settings ↔ business profile (one source of truth with Кабінет) ──────────
+  window.octoLoadSettings = function () {
+    var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    var setVal = function (id, v) { var el = document.getElementById(id); if (el) el.value = v || ''; };
+    setVal('setBrandName', b.business_name);
+    setVal('setNiche', b.niche);
+    setVal('setAudience', b.target_audience);
+    var tone = document.getElementById('setTone'); if (tone && b.tone) {
+      var found = [].some.call(tone.options, function (o) { return o.value === b.tone; });
+      if (!found) { var opt = document.createElement('option'); opt.value = b.tone; opt.textContent = b.tone; tone.insertBefore(opt, tone.firstChild); }
+      tone.value = b.tone;
+    }
+  };
+  window.octoSaveSettings = function (btn) {
+    var val = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    if (window.octoBiz && window.octoBiz.merge) {
+      window.octoBiz.merge({
+        business_name: val('setBrandName'),
+        niche: val('setNiche'),
+        target_audience: val('setAudience'),
+        tone: (document.getElementById('setTone') || {}).value || '',
+      });
+    }
+    try { localStorage.setItem('octo_post_reminders', document.getElementById('setPostReminders').classList.contains('on') ? '1' : '0'); } catch (e) {}
+    try { localStorage.setItem('octo_auto_format', document.getElementById('setAutoFormat').classList.contains('on') ? '1' : '0'); } catch (e) {}
+    if (btn) { var t = btn.textContent; btn.textContent = '✅ Збережено'; btn.disabled = true; setTimeout(function () { btn.textContent = t; btn.disabled = false; }, 1600); }
+    try { if (window.renderProfileCard) window.renderProfileCard(); } catch (e) {}
+    try { if (window.renderDashV2) window.renderDashV2(); } catch (e) {}
+  };
+
   // Initialise settings toggle on load
   document.addEventListener('DOMContentLoaded', () => {
     const isPrem = octoIsPremium();
@@ -14294,7 +14344,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   var _os = window.showScreen;
   if (typeof _os === 'function') {
-    window.showScreen = function (id, nav) { _os(id, nav); if (id === 'dashboard') window.renderDashV2(); };
+    window.showScreen = function (id, nav) { _os(id, nav); if (id === 'dashboard') window.renderDashV2(); if (id === 'settings') { try { window.octoLoadSettings(); } catch (e) {} } };
   }
   document.addEventListener('DOMContentLoaded', function () { window.renderDashV2(); });
   window.addEventListener('load', function () { setTimeout(function () { window.renderDashV2(); }, 150); });
