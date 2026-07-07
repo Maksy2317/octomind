@@ -359,7 +359,8 @@
     }
     .nav-item:hover { background: rgba(255,255,255,.05); color: var(--text2); }
     .nav-item.active { background: linear-gradient(135deg, rgba(139,123,255,.9), rgba(108,99,255,.9)); color: white; box-shadow: 0 10px 22px -10px rgba(108,99,255,.8); }
-    .nav-icon { font-size: 17px; width: 20px; text-align: center; }
+    .nav-icon { width: 20px; height: 20px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; }
+    .nav-icon svg { width: 19px; height: 19px; }
     .nav-badge {
       margin-left: auto; background: rgba(139,123,255,.22); color: #c9bcff;
       font-size: 9.5px; padding: 3px 7px; border-radius: 7px; font-weight: 800;
@@ -1567,25 +1568,25 @@
 <div class="auth-overlay" id="authOverlay" style="display:none">
   <div class="auth-box">
     <div class="auth-logo">
-      <img src="assets/new/A16.png" alt="Octo">
+      <img src="assets/new/A06.png" alt="Octo">
       <h2>Octo<span>Mind</span></h2>
-      <p>AI Marketing Assistant</p>
+      <p>AI-маркетолог</p>
     </div>
     <div class="auth-tabs">
-      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Войти</div>
-      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Регистрация</div>
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Вхід</div>
+      <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Реєстрація</div>
     </div>
     <div id="auth-error" class="auth-error"></div>
     <input class="auth-input" id="auth-email" type="email" placeholder="Email">
     <input class="auth-input" id="auth-password" type="password" placeholder="Пароль">
-    <input class="auth-input hidden" id="auth-name" type="text" placeholder="Твоё имя" style="display:none;">
-    <button class="auth-btn" id="auth-submit" onclick="submitAuth()">🚀 Войти</button>
-    <div class="auth-divider">или</div>
+    <input class="auth-input hidden" id="auth-name" type="text" placeholder="Твоє імʼя" style="display:none;">
+    <button class="auth-btn" id="auth-submit" onclick="submitAuth()">🚀 Увійти</button>
+    <div class="auth-divider">або</div>
     <button class="auth-google-btn" onclick="signInWithGoogle()">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-      Войти через Google
+      Увійти через Google
     </button>
-    <div class="auth-skip">Хочешь просто посмотреть? <a onclick="skipAuth()">Пропустить →</a></div>
+    <div class="auth-skip">Хочеш просто подивитися? <a onclick="skipAuth()">Пропустити →</a></div>
   </div>
 </div>
 
@@ -1744,63 +1745,63 @@
 
       <div class="nav-label" data-i18n="nav_main">Головне</div>
       <div class="nav-item active" onclick="showScreen('dashboard',this)">
-        <span class="nav-icon">🏠</span> <span data-i18n="nav_overview">Огляд</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></span> <span data-i18n="nav_overview">Огляд</span>
       </div>
       <div class="nav-item" onclick="showScreen('advisor',this)">
-        <span class="nav-icon">🧠</span> Маркетолог
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12.5h5"/></svg></span> Маркетолог
         <span class="nav-badge">AI</span>
       </div>
       <div class="nav-item" onclick="showScreen('campaign',this)">
-        <span class="nav-icon">🎯</span> Просування
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></span> Просування
         <span class="nav-badge">AI</span>
       </div>
       <div class="nav-item" onclick="showScreen('prodads',this)">
-        <span class="nav-icon">📦</span> <span data-i18n="nav_prodads">Реклама товару</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg></span> <span data-i18n="nav_prodads">Реклама товару</span>
         <span class="nav-badge new">New</span>
       </div>
       <div class="nav-item" onclick="showScreen('campaigns',this)">
-        <span class="nav-icon">💡</span> <span data-i18n="nav_campaigns">Мої ідеї</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></span> <span data-i18n="nav_campaigns">Мої ідеї</span>
       </div>
 
       <div class="nav-label" data-i18n="nav_tools">Інструменти AI</div>
       <div class="nav-item" onclick="showScreen('trends',this)">
-        <span class="nav-icon">🔥</span> <span data-i18n="nav_trends">Тренди</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a6 6 0 0 1-6-6c0-4 4-6 4-10 2 2 3 3.5 3 6 1-1 1.5-2 1.5-3.5C18 11 18 13 18 16a6 6 0 0 1-6 6Z"/></svg></span> <span data-i18n="nav_trends">Тренди</span>
         <span class="nav-badge new">New</span>
       </div>
       <div class="nav-item" onclick="showScreen('research',this)">
-        <span class="nav-icon">🔎</span> <span data-i18n="nav_research">Дослідження ринку</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span> <span data-i18n="nav_research">Дослідження ринку</span>
         <span class="nav-badge new">New</span>
       </div>
       <div class="nav-item" onclick="showScreen('audit',this)">
-        <span class="nav-icon">🔍</span> <span data-i18n="nav_audit">Розбір контенту</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v13H4z"/><path d="M8 21h8M12 17v4M8 11l2.5-2.5 2 2L16 7"/></svg></span> <span data-i18n="nav_audit">Розбір контенту</span>
         <span class="nav-badge new">New</span>
       </div>
       <div class="nav-item" onclick="showScreen('trend',this)">
-        <span class="nav-icon">💡</span> <span data-i18n="nav_trend">Ідея з тренду</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 1 3.5 10.9c-.8.6-1.5 1.6-1.5 2.6h-4c0-1-.7-2-1.5-2.6A6 6 0 0 1 12 3Z"/><path d="M10 20h4"/></svg></span> <span data-i18n="nav_trend">Ідея з тренду</span>
         <span class="nav-badge new">New</span>
       </div>
 
       <div class="nav-label" data-i18n="nav_create">Студія</div>
       <div class="nav-item" onclick="showScreen('brand',this)">
-        <span class="nav-icon">🎨</span> <span data-i18n="nav_brand">Бренд-стиль</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 1.9 1.9 0 0 0-.5-1.3 1.9 1.9 0 0 1-.4-1.2 2 2 0 0 1 2-2H17a4 4 0 0 0 4-4c0-3.9-4-7.5-9-7.5Z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="11.5" r="1"/></svg></span> <span data-i18n="nav_brand">Бренд-стиль</span>
         <span class="nav-badge new">New</span>
       </div>
       <div class="nav-item" onclick="showScreen('caption',this)">
-        <span class="nav-icon">✍️</span> Тексти
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span> Тексти
       </div>
       <div class="nav-item" onclick="showScreen('calendar',this)">
-        <span class="nav-icon">📅</span> Контент-план
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg></span> Контент-план
       </div>
 
       <div class="nav-label" data-i18n="nav_account">Акаунт</div>
       <div class="nav-item" onclick="showScreen('profile',this)">
-        <span class="nav-icon">👤</span> <span data-i18n="nav_profile_item">Особистий кабінет</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c0-3.6 3.4-5.5 7.5-5.5s7.5 1.9 7.5 5.5"/></svg></span> <span data-i18n="nav_profile_item">Особистий кабінет</span>
       </div>
       <div class="nav-item" onclick="showScreen('pricing',this)">
-        <span class="nav-icon">💎</span> Тарифи
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M6 4h12l3 5-9 11L3 9l3-5Z"/><path d="M3 9h18M9.5 9 12 20 14.5 9"/></svg></span> Тарифи
       </div>
       <div class="nav-item" onclick="showScreen('settings',this)">
-        <span class="nav-icon">⚙️</span> <span data-i18n="nav_settings_item">Налаштування</span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3H9.8l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4.4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg></span> <span data-i18n="nav_settings_item">Налаштування</span>
       </div>
 
       <div class="sidebar-footer" style="border-top:none;padding-top:20px;">
@@ -4023,7 +4024,7 @@
     document.getElementById('tab-login').classList.toggle('active', tab === 'login');
     document.getElementById('tab-register').classList.toggle('active', tab === 'register');
     document.getElementById('auth-name').style.display = tab === 'register' ? 'block' : 'none';
-    document.getElementById('auth-submit').textContent = tab === 'login' ? '🚀 Войти' : '✨ Создать аккаунт';
+    document.getElementById('auth-submit').textContent = tab === 'login' ? '🚀 Увійти' : '✨ Створити акаунт';
   }
 
   async function submitAuth() {
@@ -4099,7 +4100,7 @@
     } catch {
       errEl.textContent = 'Нет соединения — проверь интернет'; errEl.style.display = 'block';
     } finally {
-      btn.textContent = isLogin ? '🚀 Войти' : '✨ Создать аккаунт';
+      btn.textContent = isLogin ? '🚀 Увійти' : '✨ Створити акаунт';
       btn.disabled = false;
     }
   }
