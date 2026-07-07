@@ -13,6 +13,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { optionalIdentity } from '../middleware/identity';
 import { meter } from '../middleware/quota';
+import { uploadImage } from '../services/storage';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import {
@@ -63,7 +64,11 @@ function genDir(): string {
   return dir;
 }
 
-function saveImage(buf: Buffer, ext: string): string {
+// Persist an image: Supabase Storage first (survives Railway redeploys),
+// local disk as a fallback for dev / when Storage is unavailable.
+async function saveImage(buf: Buffer, ext: string, mime?: string): Promise<string> {
+  const remote = await uploadImage(buf, ext, mime);
+  if (remote) return remote;
   const name = `ad_${randomUUID()}.${ext}`;
   fs.writeFileSync(path.join(genDir(), name), buf);
   return `/output/gen/${name}`;
@@ -112,7 +117,7 @@ adsRouter.post('/cutout', async (req: Request, res: Response, next: NextFunction
       body: fd,
     });
     if (!r.ok) throw new Error(`Stability ${r.status}: ${(await r.text()).slice(0, 180)}`);
-    const url = saveImage(Buffer.from(await r.arrayBuffer()), 'png');
+    const url = await saveImage(Buffer.from(await r.arrayBuffer()), 'png');
     res.json({ url });
   } catch (err) { next(err); }
 });
@@ -173,7 +178,7 @@ adsRouter.post('/background', async (req: Request, res: Response, next: NextFunc
       body: fd,
     });
     if (!r.ok) throw new Error(`Stability ${r.status}: ${(await r.text()).slice(0, 180)}`);
-    const url = saveImage(Buffer.from(await r.arrayBuffer()), 'jpg');
+    const url = await saveImage(Buffer.from(await r.arrayBuffer()), 'jpg');
     const out = { url, product_zone: brief.product_zone || 'center', overlay_text: brief.overlay_text, why: brief.why };
     await logGen(req, 'ad_background', { concept: (concept as any)?.name ?? null, direct: Boolean(directPrompt) }, out, profileId);
     res.json(out);
@@ -319,7 +324,7 @@ adsRouter.post('/render-scene', meter('image'), async (req: Request, res: Respon
     if (!imgPart) throw new Error('Модель не повернула зображення' + (data?.candidates?.[0]?.finishReason ? ` (${data.candidates[0].finishReason})` : ''));
     const payload = imgPart.inlineData || imgPart.inline_data;
     const ext = /png/i.test(payload.mimeType || payload.mime_type || '') ? 'png' : 'jpg';
-    const url = saveImage(Buffer.from(payload.data, 'base64'), ext);
+    const url = await saveImage(Buffer.from(payload.data, 'base64'), ext);
 
     const { profileId } = await resolveCtx(req);
     await logGen(req, 'ad_scene_render', { prompt: prompt.slice(0, 200), ratio }, { url }, profileId);
@@ -333,7 +338,7 @@ adsRouter.post('/save', async (req: Request, res: Response, next: NextFunction) 
   const data = typeof req.body?.data_base64 === 'string' ? req.body.data_base64.replace(/^data:[^,]+,/, '') : '';
   if (!data || data.length > 12_000_000) { res.status(400).json({ error: 'Нема зображення або воно завелике' }); return; }
   try {
-    const url = saveImage(Buffer.from(data, 'base64'), 'png');
+    const url = await saveImage(Buffer.from(data, 'base64'), 'png');
     res.json({ url });
   } catch (err) { next(err); }
 });
