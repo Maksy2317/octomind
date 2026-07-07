@@ -12494,10 +12494,44 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;">Закрити</button>'
       + '</div>');
   };
+  // ── Guest gate: browse freely, but any real action needs registration ────────
+  window.octoIsGuest = function () {
+    try { var u = JSON.parse(localStorage.getItem('octo_user') || 'null'); return !u || u.guest === true || u.token === 'guest'; }
+    catch (e) { return true; }
+  };
+  // Endpoints that DO something (cost money / create) → gated for guests. Plain
+  // reads (usage, profile GET, calendar load) stay open so browsing works.
+  var GUEST_GATED = ['/api/marketing/', '/api/ads/', '/api/trends/', '/api/chat', '/api/carousel', '/api/video', '/api/subtitles'];
+  function isGatedUrl(url) {
+    var u = String(url || '');
+    return GUEST_GATED.some(function (p) { return u.indexOf(p) !== -1; });
+  }
+  var _regSheetShown = 0;
+  window.octoRegisterSheet = function () {
+    var now = Date.now(); if (now - _regSheetShown < 800) return; _regSheetShown = now;
+    _octoSheet('<div style="background:linear-gradient(160deg,#16121f,#0d0b14);border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%;max-width:600px;border:1px solid rgba(139,123,255,.35);box-sizing:border-box;">'
+      + '<img src="assets/new/A16.png" style="width:78px;height:78px;object-fit:contain;display:block;margin:0 auto 8px;">'
+      + '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Зареєструйся, щоб почати</div>'
+      + '<div style="font-size:13.5px;color:rgba(255,255,255,.62);text-align:center;line-height:1.5;margin-bottom:20px;">Дивитися можна вільно 👀 А щоб Octo зробив тобі кампанію, рекламу чи тексти — потрібен акаунт (це безкоштовно).</div>'
+      + '<div style="background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05));border:1px solid rgba(139,123,255,.3);border-radius:16px;padding:16px;margin-bottom:20px;">'
+      + '<div style="font-size:12px;font-weight:800;color:#c9bcff;margin-bottom:6px;">🎁 Безкоштовно після реєстрації</div>'
+      + '<div style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.7;">1 кампанія · 3 AI-зображення · тренди · розбір сторінки · Ask Octo</div></div>'
+      + '<button onclick="_octoSheetClose(); showAuth();" style="width:100%;padding:15px;background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;margin-bottom:10px;">Створити акаунт →</button>'
+      + '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;">Ще подивлюся</button>'
+      + '</div>');
+  };
   (function () {
     if (window.__octoFetchWrapped) return; window.__octoFetchWrapped = true;
     var _fetch = window.fetch;
     window.fetch = function (url, opts) {
+      // Guest trying a real action → block BEFORE the request, prompt sign-up.
+      if (window.octoIsGuest() && isGatedUrl(url)) {
+        window.octoRegisterSheet();
+        return Promise.resolve(new Response(
+          JSON.stringify({ error: 'Потрібна реєстрація', code: 'auth_required' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
       return _fetch(url, opts).then(function (res) {
         if (res.status === 402) {
           try {
@@ -12514,6 +12548,18 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   // Pull the real usage snapshot and drive the sidebar plan box from it.
   window.octoServerUsage = null;
   window.octoRefreshUsage = function () {
+    // Guests get the "register" plan box, not a free-plan counter.
+    if (window.octoIsGuest && window.octoIsGuest()) {
+      var gl = document.getElementById('sidebarPlanLabel');
+      var gc = document.getElementById('sidebarPlanCredits');
+      var gb = document.getElementById('sidebarPlanBar');
+      var gu = document.getElementById('sidebarUpgradeBtn');
+      if (gl) gl.textContent = 'Гість';
+      if (gc) gc.textContent = 'Зареєструйся — 1 кампанія безкоштовно';
+      if (gb) gb.style.width = '0%';
+      if (gu) { gu.textContent = 'Створити акаунт'; gu.setAttribute('onclick', 'showAuth()'); }
+      return;
+    }
     try {
       fetch('/api/usage', { headers: { 'x-device-id': deviceId() } })
         .then(function (r) { return r.json(); })
