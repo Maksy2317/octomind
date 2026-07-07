@@ -12305,6 +12305,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   function getPlan() {
+    // Premium test toggle (Settings) is the universal pre-launch unlock.
+    try { if (typeof octoIsPremium === 'function' && octoIsPremium()) return 'pro'; } catch (e) {}
     try {
       const u = JSON.parse(localStorage.getItem('octo_user') || 'null');
       if (!u || u.guest) return 'guest';
@@ -12325,6 +12327,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 
   // ── Check before action ──────────────────────────────────────────────────────
   window.octoCanUse = function(feature) {
+    try { if (typeof octoIsPremium === 'function' && octoIsPremium()) return true; } catch (e) {}
     const plan = getPlan();
     if (plan === 'guest') { _guestSheet(feature); return false; }
     const limit = (LIMITS[plan]||LIMITS.free)[feature];
@@ -12444,14 +12447,24 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   (function () {
     if (window.__octoFetchWrapped) return; window.__octoFetchWrapped = true;
     var _fetch = window.fetch;
+    function isPremiumTest() { try { return localStorage.getItem('octo_premium_test') === 'true'; } catch (e) { return false; } }
     window.fetch = function (url, opts) {
+      var premium = isPremiumTest();
       // Guest trying a real action → block BEFORE the request, prompt sign-up.
-      if (window.octoIsGuest() && isGatedUrl(url)) {
+      // Premium test toggle (Settings) is the pre-launch universal unlock.
+      if (!premium && window.octoIsGuest() && isGatedUrl(url)) {
         window.octoRegisterSheet();
         return Promise.resolve(new Response(
           JSON.stringify({ error: 'Потрібна реєстрація', code: 'auth_required' }),
           { status: 401, headers: { 'Content-Type': 'application/json' } },
         ));
+      }
+      // In test mode, tell the server to skip quota enforcement.
+      if (premium && typeof url === 'string' && url.indexOf('/api/') !== -1) {
+        opts = opts || {};
+        var h = new Headers(opts.headers || {});
+        h.set('x-octo-premium-test', '1');
+        opts.headers = h;
       }
       return _fetch(url, opts).then(function (res) {
         if (res.status === 402) {

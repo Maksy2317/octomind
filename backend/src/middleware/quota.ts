@@ -12,8 +12,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { checkQuota, recordUsage, Feature } from '../services/quota';
 
+// Pre-launch universal unlock: the client's Premium-test toggle sends this
+// header so testers (and early users, before payment exists) aren't blocked by
+// quotas. Disable by setting PREMIUM_TEST_OPEN=0 once real monetization lands.
+function premiumTestBypass(req: Request): boolean {
+  if (process.env.PREMIUM_TEST_OPEN === '0') return false;
+  return String(req.header('x-octo-premium-test') || '') === '1';
+}
+
 export function meter(feature: Feature) {
   return async function meterMw(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (premiumTestBypass(req)) return next();
     const userId = req.userId;
     if (!userId) return next(); // stateless / DB off → don't enforce
 
