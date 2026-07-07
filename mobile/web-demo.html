@@ -3615,34 +3615,27 @@
             </div>
           </div>
 
-          <div style="margin-bottom:20px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;" data-i18n="s_brand">Профиль бренда</div>
-            <div class="srow"><div class="sinfo"><h4 data-i18n="s_brandname">Название бренда</h4><p data-i18n="s_brandname_sub">AI использует при генерации контента</p></div><input type="text" placeholder="Твой бренд"></div>
-            <div class="srow"><div class="sinfo"><h4 data-i18n="s_niche">Ниша</h4><p data-i18n="s_niche_sub">Octo подберёт шаблоны под сферу</p></div><select><option>Fashion & Style</option><option>Food</option><option>Fitness</option><option>Tech</option><option>Travel</option><option>Business</option></select></div>
-            <div class="srow"><div class="sinfo"><h4 data-i18n="s_audience">Целевая аудитория</h4><p data-i18n="s_audience_sub">Возраст подписчиков</p></div><select><option>18–24 (Gen Z)</option><option>25–34</option><option>35–44</option><option>B2B</option></select></div>
+          <!-- Бізнес-профіль живе в Кабінеті — тут лише системні налаштування -->
+          <div style="margin-bottom:24px;padding:14px 16px;border-radius:16px;background:rgba(139,123,255,.07);border:1px solid rgba(139,123,255,.2);display:flex;align-items:center;gap:12px;">
+            <span style="font-size:20px;flex-shrink:0;">🧠</span>
+            <div style="flex:1;font-size:12.5px;line-height:1.5;color:#b9b9dd;">Профіль бізнесу (ніша, аудиторія, тон) — у <b style="color:#fff;">Кабінеті</b>. Octo бере його для всіх матеріалів.</div>
+            <button onclick="showScreen('profile',null)" class="btn btn-secondary" style="padding:9px 14px;font-size:12.5px;flex-shrink:0;">Відкрити</button>
           </div>
-          <div style="margin-bottom:20px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;" data-i18n="s_octo_settings">Настройки Octo</div>
-            <div class="srow"><div class="sinfo"><h4 data-i18n="s_tone">Тон контента</h4><p data-i18n="s_tone_sub">Как Octo пишет тексты</p></div><select><option data-i18n="tone_friendly">Дружелюбный</option><option data-i18n="tone_pro">Профессиональный</option><option data-i18n="tone_sales">Продающий</option><option data-i18n="tone_fun">Развлекательный</option></select></div>
-            <div class="srow"><div class="sinfo"><h4 data-i18n="s_autotemplate">Авто-выбор шаблона</h4><p data-i18n="s_autotemplate_sub">Octo выбирает лучший шаблон сам</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-            <div class="srow"><div class="sinfo"><h4 data-i18n="s_notifications">Уведомления</h4><p data-i18n="s_notifications_sub">Когда видео готово</p></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-          </div>
+
           <!-- PREMIUM TEST TOGGLE -->
-          <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,#1a0a2e,#0d1a3d);border:1px solid #7C5CFC55;border-radius:14px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;">🧪 Тестування</div>
+          <div style="margin-bottom:24px;padding:16px;border-radius:16px;background:linear-gradient(150deg,rgba(139,123,255,.14),rgba(56,189,248,.05));border:1px solid rgba(139,123,255,.28);">
+            <div style="font-size:12px;color:#b5a8ff;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;font-weight:800;">🧪 Тестування</div>
             <div class="srow" style="background:transparent;padding:0;border:none;">
               <div class="sinfo">
-                <h4 style="color:var(--text);">✨ Premium режим <span style="background:linear-gradient(90deg,#7C5CFC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:800;">ТЕСТ</span></h4>
-                <p style="color:var(--text3);">Розблокувати всі преміум функції без оплати</p>
+                <h4 style="color:var(--text);">✨ Premium режим <span style="background:linear-gradient(90deg,#8B7BFF,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:800;">ТЕСТ</span></h4>
+                <p style="color:var(--text3);">Розблокувати всі преміум-функції без оплати</p>
               </div>
               <div class="toggle" id="premiumTestToggle" onclick="octoTogglePremium()"></div>
             </div>
-            <div id="premiumTestBadge" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(124,92,252,0.15);border:1px solid #7C5CFC55;border-radius:8px;font-size:12px;color:#9B8EC4;text-align:center;">
-              ✅ Premium активовано · DALL-E та всі функції розблоковані
+            <div id="premiumTestBadge" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(139,123,255,0.15);border:1px solid rgba(139,123,255,.35);border-radius:8px;font-size:12px;color:#c9bcff;text-align:center;">
+              ✅ Premium активовано · усі функції розблоковані
             </div>
           </div>
-
-          <button class="btn btn-primary" onclick="alert('Настройки сохранены! 🐙')" data-i18n="btn_save">💾 Сохранить</button>
         </div>
 
       <!-- ============ CAPTION AI ============ -->
@@ -4670,7 +4663,7 @@
       screen_photo:'Photo Edit', screen_photo_sub:'Улучши фото для Instagram',
       screen_pricing:'Тарифи', screen_pricing_sub:'Прості тарифи без прихованих платежів',
       screen_profile:'Личный кабинет', screen_profile_sub:'Твой аккаунт и настройки',
-      screen_settings:'Settings', screen_settings_sub:'Настрой Octo под свой бренд',
+      screen_settings:'Налаштування', screen_settings_sub:'Мова, сповіщення та інтеграції',
       screen_caption:'Тексти', screen_caption_sub:'Посты, подписи и объявления в вашем тоне',
       screen_calendar:'Контент-план', screen_calendar_sub:'Публикации на неделю вперёд',
       car_sub:'Загрузи 2–10 фото — Octo создаёт единый стиль и подписи',
@@ -4761,7 +4754,7 @@
       screen_photo:'Photo Edit', screen_photo_sub:'Покращ фото для Instagram',
       screen_pricing:'Тарифи', screen_pricing_sub:'Прості тарифи без прихованих платежів',
       screen_profile:'Особистий кабінет', screen_profile_sub:'Твій акаунт та налаштування',
-      screen_settings:'Settings', screen_settings_sub:'Налаштуй Octo під свій бренд',
+      screen_settings:'Налаштування', screen_settings_sub:'Мова, сповіщення та інтеграції',
       screen_caption:'Тексти', screen_caption_sub:'Пости, підписи й оголошення у вашому тоні',
       screen_calendar:'Контент-план', screen_calendar_sub:'Публікації на тиждень наперед',
       car_sub:'Завантаж 2–10 фото — Octo створить єдиний стиль і підписи',
@@ -4852,7 +4845,7 @@
       screen_photo:'Photo Edit', screen_photo_sub:'Enhance photos for Instagram',
       screen_pricing:'Plans', screen_pricing_sub:'Simple pricing, no hidden fees',
       screen_profile:'My Profile', screen_profile_sub:'Your account and settings',
-      screen_settings:'Settings', screen_settings_sub:'Customize Octo for your brand',
+      screen_settings:'Settings', screen_settings_sub:'Language, notifications and integrations',
       screen_caption:'Texts', screen_caption_sub:'Posts, captions and ads in your tone',
       screen_calendar:'Content plan', screen_calendar_sub:'Plan your posts a week ahead',
       car_sub:'Upload 2–10 photos — Octo creates a unified style and captions',
