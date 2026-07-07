@@ -346,13 +346,23 @@ export function adaptTrend(profileCtx: string, reference: string, images?: Audit
 // structured profile fields we're confident about, and ask ONE follow-up for the
 // most important gap. Hybrid onboarding: conversational in, structured out.
 
+// A detected problem with the profile: a contradiction, a too-vague field, or an
+// implausible / garbage value. `field` names the profile key it's about (or
+// 'general'); `suggestion` is Octo's proposed corrected value the user can accept.
+export interface ProfileFlag {
+  field: string;        // profile key (niche, target_audience, geo…) or 'general'
+  issue: string;        // one short human sentence: what looks off and why
+  suggestion?: string;  // proposed corrected value for that field (optional)
+}
+
 export interface ProfileExtraction {
   profile: BusinessProfileInput;   // only fields we're confident about
   enough: boolean;                 // do we know enough to start campaigns?
   follow_up: string;               // one short friendly question, or '' if enough
+  flags: ProfileFlag[];            // detected contradictions / vague / nonsense
 }
 
-export function extractBusinessProfile(
+export async function extractBusinessProfile(
   userText: string,
   known?: BusinessProfileInput,
 ): Promise<ProfileExtraction> {
@@ -361,15 +371,25 @@ export function extractBusinessProfile(
     '(вільним текстом), витягни те, у чому ти ВПЕВНЕНИЙ, у структуру профілю. Не вигадуй — ' +
     'якщо поля немає в тексті, не заповнюй його. Мінімум, щоб почати роботу: ніша + що продають. ' +
     'Якщо цього ще немає — постав ОДНЕ коротке дружнє питання про найважливіший пробіл. ' +
-    'Якщо вже достатньо — follow_up порожній. ' +
+    'Якщо вже достатньо — follow_up порожній.\n' +
+    'ВАЖЛИВО — перевір профіль на здоровий глузд і додай flags, ЛИШЕ якщо є реальна проблема:\n' +
+    '• протиріччя між полями (напр. ніша «ріелтор», а аудиторія «діти 2-5 років» — так нерухомість не продають);\n' +
+    '• надто розмите поле, з яким не вийде працювати (напр. ніша «бізнес», «послуги», аудиторія «всі»);\n' +
+    '• явно неправдоподібне або сміттєве значення (випадкові символи, жарт, нісенітниця).\n' +
+    'Для кожної проблеми: field (ключ поля), issue (одне коротке речення — що не так і чому, дружньо, без докорів), ' +
+    'suggestion (твій варіант правильного значення, якщо можеш припустити; інакше пропусти). ' +
+    'Не чіпляйся до дрібниць і не вигадуй проблем — якщо все ок, flags = []. ' +
     LANG_RULE +
     ' Схема JSON: {"profile": {"business_name"?: string, "niche"?: string, "description"?: string, ' +
     '"target_audience"?: string, "geo"?: string, "price_segment"?: string, "usp"?: string, ' +
-    '"goal"?: string, "tone"?: string}, "enough": boolean, "follow_up": string}.';
+    '"goal"?: string, "tone"?: string}, "enough": boolean, "follow_up": string, ' +
+    '"flags": [{"field": string, "issue": string, "suggestion"?: string}]}.';
   const user =
     (known && Object.keys(known).length ? `Вже відомо: ${JSON.stringify(known)}\n\n` : '') +
     `Людина розповіла:\n${userText}\n\nОнови профіль.`;
-  return jsonCall<ProfileExtraction>(system, user, 1500);
+  const res = await jsonCall<ProfileExtraction>(system, user, 1800);
+  if (!Array.isArray(res.flags)) res.flags = [];
+  return res;
 }
 
 // ── Content audit (Claude Vision — analyse the client's OWN content) ──────────

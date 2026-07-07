@@ -1987,6 +1987,15 @@
           .on-prof-v.empty { color:var(--text4); font-weight:400; font-style:italic; }
           .on-fill { animation:on-glow .6s ease; }
           @keyframes on-glow { from { background:rgba(108,99,255,.18); } to { background:transparent; } }
+          .on-flag { display:flex; gap:11px; padding:13px 14px; border:1px solid rgba(245,180,80,.28); background:linear-gradient(135deg,rgba(245,180,80,.09),transparent); border-radius:14px; margin-bottom:9px; animation:ob-rise .35s ease both; }
+          .on-flag-ic { flex:none; width:26px; height:26px; }
+          .on-flag-b { flex:1; min-width:0; }
+          .on-flag-t { font-size:13.5px; color:var(--text); line-height:1.45; }
+          .on-flag-t b { color:#F5B450; font-weight:700; }
+          .on-flag-fix { display:inline-flex; align-items:center; gap:6px; margin-top:9px; padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer; transition:border-color .15s,background .15s; }
+          .on-flag-fix:hover { border-color:var(--accent); background:rgba(108,99,255,.12); }
+          .on-flag-fix.done { border-color:#4CAF5055; color:#7ED08A; background:rgba(76,175,80,.1); cursor:default; }
+          .on-flag-lead { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#F5B450; margin:2px 0 10px; display:flex; align-items:center; gap:7px; }
         </style>
         <div class="screen" id="onboard">
           <div class="card">
@@ -2008,6 +2017,7 @@
             <div id="onProfileRows"></div>
           </div>
 
+          <div id="onFlags" style="display:none;"></div>
           <div id="onFollowWrap" style="display:none;"></div>
           <div id="onDone" style="display:none;"></div>
         </div>
@@ -12984,6 +12994,42 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     } catch (e) {}
   }
 
+  var FIELD_LABELS = {}; FIELDS.forEach(function (f) { FIELD_LABELS[f[0]] = f[1]; });
+  var _flagData = [];
+  var WARN_IC = '<svg class="on-flag-ic" viewBox="0 0 24 24" fill="none" stroke="#F5B450" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+
+  // Octo flagged something odd in the profile (contradiction / too vague / nonsense).
+  // Show it as a gentle note; if Octo proposed a fix, offer a one-tap accept.
+  function renderFlags(flags) {
+    var wrap = $('onFlags');
+    flags = (flags || []).filter(function (f) { return f && f.issue; });
+    _flagData = flags;
+    if (!flags.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+    var rows = flags.map(function (f, i) {
+      var lbl = FIELD_LABELS[f.field] || '';
+      var canFix = f.suggestion && f.field && f.field !== 'general';
+      var fix = canFix
+        ? '<button class="on-flag-fix" id="flagFix' + i + '" onclick="octoFlagFix(' + i + ')">✎ Виправити' + (lbl ? ' «' + esc(lbl) + '»' : '') + ' → ' + esc(f.suggestion) + '</button>'
+        : '';
+      return '<div class="on-flag">' + WARN_IC + '<div class="on-flag-b"><div class="on-flag-t">' +
+        (lbl ? '<b>' + esc(lbl) + ':</b> ' : '') + esc(f.issue) + '</div>' + fix + '</div></div>';
+    }).join('');
+    wrap.innerHTML = '<div class="on-flag-lead">Octo помітив — варто уточнити</div>' + rows;
+    wrap.style.display = '';
+  }
+
+  window.octoFlagFix = function (i) {
+    var f = (_flagData || [])[i]; if (!f || !f.suggestion || !f.field) return;
+    var prev = window.octoBiz.get() || {};
+    var patch = {}; patch[f.field] = f.suggestion;
+    window.octoBiz.merge(patch);
+    // Force the corrected field to glow: pretend it was empty before.
+    var prevHl = {}; Object.keys(prev).forEach(function (k) { if (k !== f.field) prevHl[k] = prev[k]; });
+    renderProfile(prevHl);
+    var btn = $('flagFix' + i);
+    if (btn) { btn.className = 'on-flag-fix done'; btn.innerHTML = '✓ Виправлено'; btn.onclick = null; }
+  };
+
   function renderFollow(q) {
     if (!q) { $('onFollowWrap').style.display = 'none'; return; }
     $('onFollowWrap').style.display = '';
@@ -13015,6 +13061,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var r = await api('/api/marketing/onboard', { text: text, known: prev });
       window.octoBiz.merge(r.profile || {});
       renderProfile(prev);
+      renderFlags(r.flags);
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
       if (r.enough && !r.follow_up) { renderFollow(null); renderDone(); }
