@@ -15360,9 +15360,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
             tiktok_handle: handle.replace(/^@/, ''),
             page_style: (d.audit.what_works || []).slice(0, 3).join('; ').slice(0, 400),
           };
-          // Real posting cadence → the content planner recommends "current + 1".
-          if (d.cadence && d.cadence.postsPerDay > 0) {
-            patch.current_posts_per_day = Math.max(1, Math.round(d.cadence.postsPerDay));
+          // Data-driven insights → the content planner recommends a real frequency
+          // and schedules at the hours their best posts went out.
+          var ins = d.insights || d.cadence;
+          if (ins && ins.postsPerDay > 0) {
+            patch.current_posts_per_day = Math.max(1, Math.round(ins.postsPerDay));
+            if (ins.recommendedPerDay) patch.recommended_posts_per_day = ins.recommendedPerDay;
+            if (ins.bestTimes && ins.bestTimes.length) patch.best_post_times = ins.bestTimes;
+            if (ins.reason) patch.cadence_reason = ins.reason;
           }
           window.octoBiz && window.octoBiz.merge(patch);
         } catch (e) {}
@@ -15762,9 +15767,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     var goalCat = { sales: 'selling', awareness: 'education', trust: 'social_proof', promotion: 'promo', launch: 'selling' }[g.goal] || 'selling';
     var mix = [goalCat].concat(['selling', 'education', 'social_proof', 'bts', 'promo', 'education', 'selling'].filter(function (c) { return c !== goalCat; }));
     var days = weekDates();
-    // Time slots per post-of-day (morning/mid/evening + extras) so multiple posts
-    // a day land at sensible, different hours.
-    var slots = ['09:00', '13:00', '18:00', '11:00', '16:00', '20:00'];
+    // Prefer the hours their BEST posts went out (from page analysis); otherwise
+    // sensible defaults. Multiple posts a day land at different hours.
+    var slots = bestTimes() || ['09:00', '13:00', '18:00', '11:00', '16:00', '20:00'];
+    if (slots.length < 3) slots = slots.concat(['09:00', '13:00', '18:00']).slice(0, 6);
     var plats = g.platforms.length ? g.platforms : ['instagram'];
     var out = [];
     var mi = 0; // running mix index across the whole week
@@ -15925,11 +15931,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   // notch above to help them grow. Otherwise scale with the number of platforms.
   function currentPerDay() { var n = parseInt(biz().current_posts_per_day, 10); return (n >= 1 && n <= 10) ? n : 0; }
   function recommendPerDay() {
+    // Prefer the data-driven number from the page analysis (grounded in what
+    // actually works for them), then current+1, then platform-based default.
+    var rec = parseInt(biz().recommended_posts_per_day, 10);
+    if (rec >= 1 && rec <= 6) return rec;
     var cur = currentPerDay();
     if (cur) return Math.min(5, cur + 1);
     var plats = state.gen.platforms.length || 1;
     return Math.min(4, Math.max(2, plats + 1)); // 1→2, 2→3, 3+→4 per day
   }
+  function bestTimes() { var t = biz().best_post_times; return (Array.isArray(t) && t.length) ? t : null; }
   function chip(active, label, onclick) { return '<button onclick="' + onclick + '" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ' + (active ? '#8B7BFF' : 'rgba(255,255,255,.1)') + ';background:' + (active ? 'rgba(139,123,255,.16)' : 'rgba(255,255,255,.03)') + ';color:' + (active ? '#fff' : '#a2a2c6') + ';">' + label + '</button>'; }
   function genBody() {
     var g = state.gen; var s = g.step;
@@ -15940,9 +15951,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     else if (s === 2) inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Головна ціль тижня?</div><div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Octo зробить акцент на цьому.</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + GOALS.map(function (gg) { return chip(g.goal === gg.id, gg.emoji + ' ' + gg.label, 'octoPlanner.setGoal(\'' + gg.id + '\')'); }).join('') + '</div>';
     else if (s === 3) { var rec = recommendPerDay(); var cur = currentPerDay();
-      var recNote = cur
-        ? 'Ти зараз постиш ~<b style="color:#fff;">' + cur + '/день</b>. Щоб активно рости — Octo радить <b style="color:#c9bcff;">' + rec + '/день</b> 🚀'
-        : 'Для ' + (g.platforms.length || 1) + ' платформ Octo радить <b style="color:#c9bcff;">' + rec + ' пости/день</b>.';
+      var reason = biz().cadence_reason;
+      var recNote = reason
+        ? esc(reason).replace(cur + '/день', '<b style="color:#fff;">' + cur + '/день</b>').replace(rec + '/день', '<b style="color:#c9bcff;">' + rec + '/день</b>')
+        : (cur
+          ? 'Ти зараз постиш ~<b style="color:#fff;">' + cur + '/день</b>. Щоб активно рости — Octo радить <b style="color:#c9bcff;">' + rec + '/день</b> 🚀'
+          : 'Для ' + (g.platforms.length || 1) + ' платформ Octo радить <b style="color:#c9bcff;">' + rec + ' пости/день</b>.');
       inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Скільки постів на день?</div>'
       + '<div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">' + recNote + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + [1, 2, 3, 4, 5].map(function (n) { return chip(g.perDay === n, n + '/день' + (n === rec ? ' · радимо' : ''), 'octoPlanner.setPerDay(' + n + ')'); }).join('')

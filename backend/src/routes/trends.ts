@@ -104,15 +104,15 @@ trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Re
       res.status(404).json({ error: 'Не знайшов роликів на цій сторінці — перевір нік (без пробілів, як у TikTok)' });
       return;
     }
-    // Real posting cadence from the scraped upload dates → feeds the content
-    // planner's personalised recommendation ("постиш ~2/день → радимо 3/день").
-    const cadence = computeCadence(page.videos.map((v) => v.created));
+    // Analyse what actually works for THEM (cadence, best posting hours, a
+    // data-informed recommended frequency) → drives the content planner.
+    const insights = computeInsights(page.videos);
     const { ctx, profileId } = await resolveCtx(req);
     // Same 12h server cache: one page audit per handle+business per half-day.
     const auditKey = `pa:${handle.toLowerCase()}:${String((req.body?.profile || {}).business_name || '')}`;
     const cachedAudit = kvGet<Record<string, unknown>>(auditKey, 12 * 3_600_000);
     if (cachedAudit) {
-      res.json({ audit: cachedAudit, author: page.author, videos: page.videos, cadence, fromCache: true });
+      res.json({ audit: cachedAudit, author: page.author, videos: page.videos, insights, fromCache: true });
       return;
     }
     // Strip to analysis-relevant fields (CDN urls just waste tokens).
@@ -133,25 +133,58 @@ trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Re
         });
       } catch { /* non-fatal */ }
     }
-    res.json({ audit, author: page.author, videos: page.videos, cadence, fromCache: page.fromCache });
+    res.json({ audit, author: page.author, videos: page.videos, insights, fromCache: page.fromCache });
   } catch (err) {
     next(err);
   }
 });
 
-// Estimate posting cadence (posts per day / per week) from upload dates.
-function computeCadence(dates: Array<string | null>): { postsPerDay: number; postsPerWeek: number; sampled: number } | null {
-  const ts = dates
-    .map((d) => (d ? new Date(d).getTime() : NaN))
-    .filter((t) => Number.isFinite(t))
-    .sort((a, b) => a - b);
-  if (ts.length < 3) return null;
-  const spanDays = Math.max(1, (ts[ts.length - 1] - ts[0]) / 86_400_000);
-  const perDay = ts.length / spanDays;
+// Data-driven planner insights from the scraped page: real cadence, the hours
+// their BEST posts went out, and a recommended frequency grounded in that.
+interface PageInsights {
+  postsPerDay: number; postsPerWeek: number; sampled: number;
+  recommendedPerDay: number; bestTimes: string[]; reason: string;
+}
+function computeInsights(videos: Array<{ created: string | null; views?: number }>): PageInsights | null {
+  const dated = videos
+    .map((v) => ({ t: v.created ? new Date(v.created).getTime() : NaN, views: Number(v.views) || 0 }))
+    .filter((v) => Number.isFinite(v.t))
+    .sort((a, b) => a.t - b.t);
+  if (dated.length < 3) return null;
+
+  const spanDays = Math.max(1, (dated[dated.length - 1].t - dated[0].t) / 86_400_000);
+  const perDay = dated.length / spanDays;
+
+  // Best posting hours: hours of the top ~40% posts by views (min 3).
+  const ranked = dated.slice().sort((a, b) => b.views - a.views);
+  const topN = Math.max(3, Math.ceil(ranked.length * 0.4));
+  const hourCount: Record<number, number> = {};
+  ranked.slice(0, topN).forEach((v) => { const h = new Date(v.t).getHours(); hourCount[h] = (hourCount[h] || 0) + 1; });
+  const bestHours = Object.keys(hourCount)
+    .map((h) => ({ h: Number(h), n: hourCount[Number(h)] }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 3)
+    .map((x) => `${String(x.h).padStart(2, '0')}:00`);
+
+  // Recommended cadence: grounded in current cadence, nudged toward growth
+  // (a business under ~3/day should post more; above that, hold & focus).
+  const cur = Math.round(perDay * 10) / 10;
+  let rec: number;
+  if (cur < 0.7) rec = 1;
+  else if (cur < 1.5) rec = 2;
+  else if (cur < 2.5) rec = 3;
+  else rec = Math.min(4, Math.round(cur));
+
+  const timesStr = bestHours.length ? bestHours.join(', ') : '18:00–20:00';
+  const reason = `Проаналізовано ${dated.length} останніх постів. Найкраще заходили публікації о ${timesStr}. Зараз ти постиш ~${cur}/день — ${cur < 2 ? 'цього замало для росту' : 'непогано'}, ціль ${rec}/день у ці години.`;
+
   return {
-    postsPerDay: Math.round(perDay * 10) / 10,
+    postsPerDay: cur,
     postsPerWeek: Math.round(perDay * 7),
-    sampled: ts.length,
+    sampled: dated.length,
+    recommendedPerDay: rec,
+    bestTimes: bestHours,
+    reason,
   };
 }
 
