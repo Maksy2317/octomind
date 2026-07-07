@@ -9885,7 +9885,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     'Фінанси':     { tiktok:['12:00','15:00'], reels:['12:00','15:00'] },
   };
 
-  let calYear, calMonth, calSelectedDate = null, calListMode = false;
+  // Queue-first: for a solo SMM the ordered list "що і коли постити" is clearer
+  // than a month grid. The grid stays one tap away via the view toggle.
+  let calYear, calMonth, calSelectedDate = null, calListMode = true;
 
   function calInit() {
     const now = new Date();
@@ -9897,7 +9899,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       const hasProfile = (typeof getWsProfile !== 'undefined') && !!getWsProfile(getActiveWsId());
       hint.style.display = hasProfile ? 'none' : '';
     }
+    // Sync the view to calListMode (HTML defaults to grid visible).
+    const gv = document.getElementById('calGridView');
+    const lv = document.getElementById('calListView');
+    const tb = document.getElementById('calViewToggleBtn');
+    if (gv) gv.style.display = calListMode ? 'none' : '';
+    if (lv) lv.style.display = calListMode ? '' : 'none';
+    if (tb) tb.textContent = calListMode ? '📅' : '📋';
     calRender();
+    if (calListMode) calRenderList();
   }
 
   function calNav(dir) {
@@ -10046,11 +10056,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
   // ── Plan settings modal ──────────────────────────────────────────────────
   window.calPlanConfig = JSON.parse(localStorage.getItem('calPlanConfig') || 'null') || {
-    platforms: ['stories', 'reels', 'tiktok'],
-    storiesPerDay: 5, tiktokPerWeek: 5, reelsPerWeek: 3, carouselPerWeek: 2,
-    postPerWeek: 2, customPerWeek: 3, customPlatformName: '',
+    platforms: ['reels', 'stories', 'post'],
+    intensity: 'active',
+    customPlatformName: '',
     focus: 'growth'
   };
+  if (!window.calPlanConfig.intensity) window.calPlanConfig.intensity = 'active';
 
   function calOpenPlanModal() {
     const cfg = window.calPlanConfig;
@@ -10058,26 +10069,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     document.querySelectorAll('#pmPlatforms .pm-chip').forEach(function(c) {
       c.classList.toggle('sel', cfg.platforms.includes(c.dataset.val));
     });
-    // Restore freq chips
-    [['stories','storiesPerDay','pmStoriesChips'],
-     ['tiktok','tiktokPerWeek','pmTiktokChips'],
-     ['reels','reelsPerWeek','pmReelsChips'],
-     ['carousel','carouselPerWeek','pmCarouselChips'],
-     ['post','postPerWeek','pmPostChips'],
-     ['custom','customPerWeek','pmCustomChips']].forEach(function(r) {
-      const val = String(cfg[r[1]]);
-      document.querySelectorAll('#' + r[2] + ' .pm-freq-chip').forEach(function(c) {
-        c.classList.toggle('sel', c.dataset.val === val);
-      });
+    // Restore intensity
+    document.querySelectorAll('#pmIntensityChips .pm-chip').forEach(function(c) {
+      c.classList.toggle('sel', c.dataset.val === (cfg.intensity || 'active'));
     });
     // Restore focus
     document.querySelectorAll('#pmFocusChips .pm-chip').forEach(function(c) {
       c.classList.toggle('sel', c.dataset.val === cfg.focus);
     });
-    // Restore custom platform name input
     const customInp = document.getElementById('pmCustomInput');
     if (customInp) customInp.value = cfg.customPlatformName || '';
-    // Show/hide platform rows
     pmSyncRows();
     document.getElementById('calPlanModal').classList.add('open');
   }
@@ -10088,22 +10089,22 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
   window.calClosePlanModal = calClosePlanModal;
 
+  // Only the custom-platform name input remains conditional now.
   function pmSyncRows() {
     const cfg = window.calPlanConfig;
-    document.getElementById('pmRowStories').style.display  = cfg.platforms.includes('stories')  ? '' : 'none';
-    document.getElementById('pmRowTiktok').style.display   = cfg.platforms.includes('tiktok')   ? '' : 'none';
-    document.getElementById('pmRowReels').style.display    = cfg.platforms.includes('reels')    ? '' : 'none';
-    document.getElementById('pmRowCarousel').style.display = cfg.platforms.includes('carousel') ? '' : 'none';
-    document.getElementById('pmRowPost').style.display     = cfg.platforms.includes('post')     ? '' : 'none';
     const hasCustom = cfg.platforms.includes('custom');
-    document.getElementById('pmRowCustom').style.display   = hasCustom ? '' : 'none';
-    document.getElementById('pmCustomWrap').style.display  = hasCustom ? '' : 'none';
-    if (hasCustom) {
-      const name = cfg.customPlatformName;
-      document.getElementById('pmCustomFreqLabel').textContent = (name ? name : '✏️ Своя') + ' / тиждень';
-      setTimeout(function() { if (!name) document.getElementById('pmCustomInput').focus(); }, 60);
+    var wrap = document.getElementById('pmCustomWrap');
+    if (wrap) wrap.style.display = hasCustom ? '' : 'none';
+    if (hasCustom && !cfg.customPlatformName) {
+      setTimeout(function() { var i = document.getElementById('pmCustomInput'); if (i) i.focus(); }, 60);
     }
   }
+
+  window.pmSetIntensity = function(btn) {
+    window.calPlanConfig.intensity = btn.dataset.val;
+    document.querySelectorAll('#pmIntensityChips .pm-chip').forEach(function(c) { c.classList.remove('sel'); });
+    btn.classList.add('sel');
+  };
 
   window.pmTogglePlatform = function(btn) {
     const val = btn.dataset.val;
@@ -10338,7 +10339,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         ${thumb}
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${published?'text-decoration:line-through;':''}">${esc2(m.title)}</div>
-          <div style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time||''} · ${published?'<span style=\"color:var(--green);font-weight:700;\">✓ опубліковано</span>':'<span style=\"color:var(--accent2);font-weight:700;\">заплановано</span>'}</div>
+          <div style="font-size:11px;color:var(--text4);">${published?'':`<button onclick="calEditTime('${key}',${i})" title="Змінити час" style="background:rgba(139,123,255,.12);border:1px solid rgba(139,123,255,.25);border-radius:6px;color:#c9bcff;font-size:11px;font-weight:700;padding:1px 7px;cursor:pointer;">${timeIcon} ${p.time||'⏰ час'} ✎</button> · `}${published?`${timeIcon} ${p.time||''} · <span style=\"color:var(--green);font-weight:700;\">✓ опубліковано</span>`:'<span style=\"color:var(--accent2);font-weight:700;\">заплановано</span>'}</div>
         </div>
         ${published?'':`<button onclick="calPublishHelper('${key}',${i})" title="Опублікувати: копіює текст + відкриває фото" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;">▶️ Постити</button>`}
         <button onclick="calTogglePublished('${key}',${i})" title="${published?'Повернути в заплановані':'Позначити опублікованим'}" style="background:none;border:1px solid ${published?'var(--green)':'var(--border)'};border-radius:8px;color:${published?'var(--green)':'var(--text4)'};font-size:14px;padding:4px 8px;cursor:pointer;">✓</button>
@@ -10348,7 +10349,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     return `<div class="cal-post-item" style="cursor:default;">
       <span class="cal-post-dot" style="background:${CAL_TYPE_COLORS[p.type]||'#888'}"></span>
       <span style="font-size:13px;font-weight:700;">${CAL_TYPE_ICONS[p.type]||''} ${p.type}</span>
-      ${p.time ? `<span style="font-size:11px;color:var(--text4);">${timeIcon} ${p.time}</span>` : ''}
+      <button onclick="calEditTime('${key}',${i})" title="Змінити час" style="background:rgba(139,123,255,.12);border:1px solid rgba(139,123,255,.25);border-radius:6px;color:#c9bcff;font-size:11px;font-weight:700;padding:1px 7px;cursor:pointer;white-space:nowrap;">${timeIcon} ${p.time||'⏰ час'} ✎</button>
       ${p.note ? `<span style="font-size:12px;color:var(--text3);flex:1;">— ${esc2(p.note)}</span>` : '<span style="flex:1;"></span>'}
       <button onclick="calOpenCaption('${p.type}','${(p.note||'').replace(/'/g,'&#39;')}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text4);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Написати підпис">✍️</button>
       <button class="cal-post-bell${p.reminder?' active':''}" onclick="calToggleReminder('${key}',${i})" title="${p.reminder?'Нагадування увімкнено':'Увімкнути нагадування'}">🔔</button>
@@ -10364,6 +10365,32 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     calRenderDayPosts(key);
     if (calListMode) calRenderList();
     calRender();
+  };
+
+  // Change a post's time via the native time picker; re-sort the day after.
+  window.calEditTime = function (key, idx) {
+    const data = calLoad();
+    if (!data[key] || !data[key][idx]) return;
+    const inp = document.createElement('input');
+    inp.type = 'time';
+    inp.value = data[key][idx].time || '12:00';
+    inp.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99999;opacity:0;';
+    document.body.appendChild(inp);
+    let done = false;
+    const finish = () => { if (!done) { done = true; setTimeout(() => inp.remove(), 150); } };
+    inp.onchange = function () {
+      if (inp.value) {
+        data[key][idx].time = inp.value;
+        data[key].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+        calSave(data);
+        if (calListMode) calRenderList(); else calRenderDayPosts(key);
+        calRender();
+        try { if (window.calSyncReminders) window.calSyncReminders(); } catch (e) {}
+      }
+      finish();
+    };
+    inp.onblur = finish;
+    setTimeout(() => { try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); } }, 0);
   };
 
   // Publish helper: we can't auto-post (no platform integration), but we make
@@ -12798,81 +12825,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
     <hr class="pm-divider">
 
-    <!-- Frequency per platform -->
+    <!-- Intensity -->
     <div class="pm-section">
-      <div class="pm-label">📊 Скільки публікацій?</div>
-
-      <!-- Stories -->
-      <div class="pm-freq-row" id="pmRowStories">
-        <div class="pm-freq-label">📖 Stories / день</div>
-        <div class="pm-freq-chips" id="pmStoriesChips">
-          <button class="pm-freq-chip"     data-val="1"  onclick="pmSetFreq('stories',this)">1</button>
-          <button class="pm-freq-chip"     data-val="3"  onclick="pmSetFreq('stories',this)">3</button>
-          <button class="pm-freq-chip sel" data-val="5"  onclick="pmSetFreq('stories',this)">5</button>
-          <button class="pm-freq-chip"     data-val="10" onclick="pmSetFreq('stories',this)">10</button>
-          <button class="pm-freq-chip"     data-val="15" onclick="pmSetFreq('stories',this)">15</button>
-          <button class="pm-freq-chip"     data-val="20" onclick="pmSetFreq('stories',this)">20+</button>
-        </div>
+      <div class="pm-label">🔥 Як активно постимо?</div>
+      <div class="pm-chips" id="pmIntensityChips">
+        <button class="pm-chip"     data-val="light"      onclick="pmSetIntensity(this)">🍃 Легкий · ~3/тиж</button>
+        <button class="pm-chip sel" data-val="active"     onclick="pmSetIntensity(this)">⚡ Активний · ~5/тиж</button>
+        <button class="pm-chip"     data-val="aggressive" onclick="pmSetIntensity(this)">🚀 Агресивний · щодня</button>
       </div>
-
-      <!-- TikTok -->
-      <div class="pm-freq-row" id="pmRowTiktok">
-        <div class="pm-freq-label">🎵 TikTok / тиждень</div>
-        <div class="pm-freq-chips" id="pmTiktokChips">
-          <button class="pm-freq-chip"     data-val="1"  onclick="pmSetFreq('tiktok',this)">1</button>
-          <button class="pm-freq-chip"     data-val="3"  onclick="pmSetFreq('tiktok',this)">3</button>
-          <button class="pm-freq-chip sel" data-val="5"  onclick="pmSetFreq('tiktok',this)">5</button>
-          <button class="pm-freq-chip"     data-val="7"  onclick="pmSetFreq('tiktok',this)">7</button>
-          <button class="pm-freq-chip"     data-val="14" onclick="pmSetFreq('tiktok',this)">2/день</button>
-        </div>
-      </div>
-
-      <!-- Reels -->
-      <div class="pm-freq-row" id="pmRowReels">
-        <div class="pm-freq-label">🎬 Reels / тиждень</div>
-        <div class="pm-freq-chips" id="pmReelsChips">
-          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('reels',this)">1</button>
-          <button class="pm-freq-chip"     data-val="2" onclick="pmSetFreq('reels',this)">2</button>
-          <button class="pm-freq-chip sel" data-val="3" onclick="pmSetFreq('reels',this)">3</button>
-          <button class="pm-freq-chip"     data-val="5" onclick="pmSetFreq('reels',this)">5</button>
-          <button class="pm-freq-chip"     data-val="7" onclick="pmSetFreq('reels',this)">щодня</button>
-        </div>
-      </div>
-
-      <!-- Carousel -->
-      <div class="pm-freq-row" id="pmRowCarousel" style="display:none;">
-        <div class="pm-freq-label">🖼 Carousel / тиждень</div>
-        <div class="pm-freq-chips" id="pmCarouselChips">
-          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('carousel',this)">1</button>
-          <button class="pm-freq-chip sel" data-val="2" onclick="pmSetFreq('carousel',this)">2</button>
-          <button class="pm-freq-chip"     data-val="3" onclick="pmSetFreq('carousel',this)">3</button>
-          <button class="pm-freq-chip"     data-val="4" onclick="pmSetFreq('carousel',this)">4</button>
-        </div>
-      </div>
-
-      <!-- Post -->
-      <div class="pm-freq-row" id="pmRowPost" style="display:none;">
-        <div class="pm-freq-label">📝 Пост / тиждень</div>
-        <div class="pm-freq-chips" id="pmPostChips">
-          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('post',this)">1</button>
-          <button class="pm-freq-chip sel" data-val="2" onclick="pmSetFreq('post',this)">2</button>
-          <button class="pm-freq-chip"     data-val="3" onclick="pmSetFreq('post',this)">3</button>
-          <button class="pm-freq-chip"     data-val="5" onclick="pmSetFreq('post',this)">5</button>
-          <button class="pm-freq-chip"     data-val="7" onclick="pmSetFreq('post',this)">щодня</button>
-        </div>
-      </div>
-
-      <!-- Custom platform -->
-      <div class="pm-freq-row" id="pmRowCustom" style="display:none;">
-        <div class="pm-freq-label" id="pmCustomFreqLabel">✏️ Своя / тиждень</div>
-        <div class="pm-freq-chips" id="pmCustomChips">
-          <button class="pm-freq-chip"     data-val="1" onclick="pmSetFreq('custom',this)">1</button>
-          <button class="pm-freq-chip"     data-val="2" onclick="pmSetFreq('custom',this)">2</button>
-          <button class="pm-freq-chip sel" data-val="3" onclick="pmSetFreq('custom',this)">3</button>
-          <button class="pm-freq-chip"     data-val="5" onclick="pmSetFreq('custom',this)">5</button>
-          <button class="pm-freq-chip"     data-val="7" onclick="pmSetFreq('custom',this)">щодня</button>
-        </div>
-      </div>
+      <div style="font-size:11.5px;color:var(--text4);margin-top:8px;line-height:1.5;">Octo складе реалістичний план (до ~40 постів/міс) із різними часами — не завалить тебе сотнями публікацій.</div>
     </div>
 
     <hr class="pm-divider">

@@ -9,6 +9,8 @@ type CalendarPostType = 'tiktok' | 'reels' | 'stories' | 'carousel' | 'post';
 
 interface CalendarPlanConfig {
   platforms?: string[];
+  intensity?: 'light' | 'active' | 'aggressive';
+  // legacy per-frequency fields (ignored for volume now; kept for compatibility)
   storiesPerDay?: number;
   tiktokPerWeek?: number;
   reelsPerWeek?: number;
@@ -47,13 +49,23 @@ interface TargetPlan {
   total: number;
 }
 
+// A wider spread of realistic posting times so a day's posts don't all stack at
+// the same hour (the old lists caused every stories row to land at 07:00/12:00/20:00).
 const TYPE_TIMES: Record<CalendarPostType, string[]> = {
-  tiktok: ['15:00', '18:00'],
-  reels: ['12:00', '15:00', '18:00'],
-  stories: ['07:00', '12:00', '20:00'],
-  carousel: ['12:00', '15:00'],
-  post: ['12:00', '15:00'],
+  tiktok: ['11:00', '15:00', '18:00', '20:00'],
+  reels: ['10:00', '13:00', '17:00', '19:00'],
+  stories: ['09:00', '13:00', '16:00', '19:00', '21:00'],
+  carousel: ['11:00', '14:00', '18:00'],
+  post: ['10:00', '13:00', '17:00', '19:00'],
 };
+
+// posts-per-week per intensity — realistic for a small business (not 10/day).
+const INTENSITY_PER_WEEK: Record<'light' | 'active' | 'aggressive', number> = {
+  light: 3,
+  active: 5,
+  aggressive: 8,
+};
+const MAX_TOTAL = 40; // hard ceiling so a month never floods with hundreds of posts
 
 const ALLOWED_TYPES = new Set<CalendarPostType>(['tiktok', 'reels', 'stories', 'carousel', 'post']);
 
@@ -67,18 +79,15 @@ function buildTargetPlan(body: CalendarPlanRequest): TargetPlan {
   const cfg = body.config || {};
   const platforms = Array.isArray(cfg.platforms) && cfg.platforms.length
     ? cfg.platforms
-    : ['tiktok', 'reels', 'stories'];
-
-  const storiesPerDay = clampInt(cfg.storiesPerDay, 5, 0, 20);
-  const tiktokPerWeek = clampInt(cfg.tiktokPerWeek, 5, 0, 30);
-  const reelsPerWeek = clampInt(cfg.reelsPerWeek, 3, 0, 30);
-  const carouselPerWeek = clampInt(cfg.carouselPerWeek, 2, 0, 20);
-  const postPerWeek = clampInt(cfg.postPerWeek, 2, 0, 20);
-  const customPerWeek = clampInt(cfg.customPerWeek, 3, 0, 20);
+    : ['reels', 'stories', 'post'];
   const customName = String(cfg.customPlatformName || 'custom').trim() || 'custom';
-  const stSessionsPerDay = storiesPerDay;
-  const stBatchSize = 1;
+
+  const intensity: 'light' | 'active' | 'aggressive' =
+    cfg.intensity === 'light' || cfg.intensity === 'aggressive' ? cfg.intensity : 'active';
   const weeksLeft = Math.max(1, body.remainingDays / 7);
+  // Realistic total: posts/week × weeks, capped. NOT stories×days.
+  const total = Math.min(MAX_TOTAL, Math.max(1, Math.round(weeksLeft * INTENSITY_PER_WEEK[intensity])));
+
   const focusLabel = {
     growth: 'зростання охоплення',
     sales: 'продажі',
@@ -86,20 +95,34 @@ function buildTargetPlan(body: CalendarPlanRequest): TargetPlan {
     entertainment: 'розваги',
   }[cfg.focus || 'growth'];
 
-  const counts = {
-    tiktok: platforms.includes('tiktok') ? Math.round(weeksLeft * tiktokPerWeek) : 0,
-    reels: platforms.includes('reels') ? Math.round(weeksLeft * reelsPerWeek) : 0,
-    stories: platforms.includes('stories') ? body.remainingDays * storiesPerDay : 0,
-    carousel: platforms.includes('carousel') ? Math.round(weeksLeft * carouselPerWeek) : 0,
-    post: platforms.includes('post') ? Math.round(weeksLeft * postPerWeek) : 0,
-    custom: platforms.includes('custom') ? Math.round(weeksLeft * customPerWeek) : 0,
+  // Spread the total across the active content types with a sensible mix
+  // (roughly: reels/tiktok lead, stories & posts fill in). Whatever platforms
+  // the user picked share the total proportionally.
+  const weightByType: Record<CalendarPostType, number> = {
+    reels: 3, tiktok: 3, post: 2, carousel: 2, stories: 2,
   };
+  const active = (['reels', 'tiktok', 'post', 'carousel', 'stories'] as CalendarPostType[])
+    .filter((t) => platforms.includes(t));
+  const activeTypes = active.length ? active : (['reels', 'stories', 'post'] as CalendarPostType[]);
+  const weightSum = activeTypes.reduce((s, t) => s + weightByType[t], 0);
+
+  const counts: Record<CalendarPostType | 'custom', number> = {
+    tiktok: 0, reels: 0, stories: 0, carousel: 0, post: 0, custom: 0,
+  };
+  let assigned = 0;
+  activeTypes.forEach((t, i) => {
+    const n = i === activeTypes.length - 1
+      ? total - assigned // last type takes the remainder so the sum is exact
+      : Math.round((total * weightByType[t]) / weightSum);
+    counts[t] = Math.max(0, n);
+    assigned += counts[t];
+  });
 
   return {
     platforms,
-    storiesPerDay,
-    stSessionsPerDay,
-    stBatchSize,
+    storiesPerDay: 0,
+    stSessionsPerDay: 0,
+    stBatchSize: 1,
     customName,
     focusLabel,
     counts,
