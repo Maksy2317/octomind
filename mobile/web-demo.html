@@ -3713,120 +3713,9 @@
       </div><!-- /screen#caption -->
 
       <!-- ============ CONTENT CALENDAR ============ -->
+      <!-- ============ CONTENT PLANNER (AI weekly marketing planner) ============ -->
         <div class="screen" id="calendar">
-          <div style="max-width:780px;margin:0 auto;padding-bottom:40px;">
-
-            <!-- Header: month nav + controls -->
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-              <button class="btn btn-secondary" onclick="calNav(-1)" style="padding:8px 14px;border-radius:12px;font-size:18px;flex-shrink:0;">‹</button>
-              <div style="flex:1;text-align:center;font-size:18px;font-weight:800;color:var(--text);min-width:120px;" id="calMonthTitle"></div>
-              <button class="btn btn-secondary" onclick="calNav(1)" style="padding:8px 14px;border-radius:12px;font-size:18px;flex-shrink:0;">›</button>
-              <!-- View toggle -->
-              <button id="calViewToggleBtn" onclick="calToggleView()" style="padding:8px 12px;border-radius:12px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;flex-shrink:0;" title="Перемкнути вид">📋</button>
-              <button class="btn btn-primary" onclick="calOpenPlanModal()" id="calAIBtn" style="padding:8px 14px;font-size:12px;white-space:nowrap;border-radius:12px;flex-shrink:0;">🐙 AI-план</button>
-            </div>
-
-            <!-- AI plan context hint (shown when no profile) -->
-            <div id="calProfileHint" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(108,99,255,0.1);border:1px solid #6C63FF44;border-radius:12px;font-size:12px;color:var(--text3);">
-              💡 <b>Підказка:</b> заповни <button onclick="openAcctWizard(getActiveWsId())" style="background:none;border:none;color:var(--accent2);font-weight:700;cursor:pointer;padding:0;font-size:12px;">профіль акаунту ⚙️</button> — AI складе план з ідеями саме для твоєї ніші та платформ
-            </div>
-
-            <!-- Stats row -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
-              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 10px;text-align:center;">
-                <div style="font-size:24px;font-weight:800;color:var(--text);" id="calStatTotal">0</div>
-                <div style="font-size:10px;color:var(--text4);margin-top:2px;">постів у місяці</div>
-              </div>
-              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px 10px;text-align:center;">
-                <div style="font-size:24px;font-weight:800;color:var(--text);" id="calStatWeek">0</div>
-                <div style="font-size:10px;color:var(--text4);margin-top:2px;">цього тижня</div>
-              </div>
-              <div style="border:1px solid var(--accent);border-radius:14px;padding:12px 10px;text-align:center;background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(168,85,247,0.1));">
-                <div style="font-size:24px;font-weight:800;color:var(--accent);" id="calStatToday">0</div>
-                <div style="font-size:10px;color:var(--text4);margin-top:2px;">сьогодні</div>
-              </div>
-            </div>
-
-            <!-- Legend + clear button -->
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-              <span class="cal-legend" style="--lc:#6C63FF">🎬 Reels</span>
-              <span class="cal-legend" style="--lc:#ec4899">📖 Stories</span>
-              <span class="cal-legend" style="--lc:#3b82f6">🖼️ Carousel</span>
-              <span class="cal-legend" style="--lc:#10b981">🎵 TikTok</span>
-              <span class="cal-legend" style="--lc:#f59e0b">✍️ Caption</span>
-              <span class="cal-legend" style="--lc:#8B8BA7">📝 Пост</span>
-              <button onclick="calClearMonth()" style="margin-left:auto;background:none;border:1px solid #ff6b6b44;border-radius:8px;color:#ff6b6b;font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap;">🗑 Очистити місяць</button>
-            </div>
-
-            <!-- GRID VIEW -->
-            <div id="calGridView">
-              <div class="cal-week-header" id="calWeekHeader">
-                <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div>
-                <div style="color:var(--accent2)">Сб</div><div style="color:var(--accent2)">Нд</div>
-              </div>
-              <div class="cal-grid" id="calGrid"></div>
-            </div>
-
-            <!-- LIST / AGENDA VIEW -->
-            <div id="calListView" style="display:none;"></div>
-
-            <!-- Empty state hint -->
-            <div id="calEmptyHint" style="display:none;text-align:center;padding:24px 16px;border:1.5px dashed var(--border);border-radius:16px;margin-top:14px;">
-              <div style="font-size:36px;margin-bottom:10px;">📅</div>
-              <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Немає запланованих публікацій</div>
-              <div style="font-size:12px;color:var(--text4);margin-bottom:14px;">Натисни на день щоб додати публікацію<br>або дай Octo скласти план автоматично</div>
-              <button class="btn btn-primary" onclick="calOpenPlanModal()" style="font-size:13px;">🐙 Згенерувати план</button>
-            </div>
-
-            <!-- AI Plan generating indicator -->
-            <div id="calAILoading" style="display:none;text-align:center;padding:20px;margin-top:12px;" class="card">
-              <div style="font-size:32px;margin-bottom:8px;">🐙</div>
-              <div style="font-size:13px;font-weight:700;margin-bottom:4px;" id="calAILoadingText">Octo складає план...</div>
-              <div style="font-size:11px;color:var(--text4);" id="calAILoadingSub">Аналізую нішу та вибираю формати</div>
-            </div>
-
-            <!-- Day editor panel -->
-            <div id="calEditor" style="display:none;margin-top:16px;border-radius:18px;border:1.5px solid var(--border);background:var(--surface);padding:18px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                <div style="font-size:15px;font-weight:800;" id="calEditorTitle">📅 Понеділок, 1 травня</div>
-                <button onclick="document.getElementById('calEditor').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0;">✕</button>
-              </div>
-
-              <!-- Existing posts for this day -->
-              <div id="calDayPosts" style="margin-bottom:14px;"></div>
-
-              <!-- Add post form -->
-              <div style="font-size:11px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700;">+ Додати публікацію</div>
-
-              <!-- Content type chips -->
-              <div style="font-size:11px;color:var(--text4);margin-bottom:5px;">Формат</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="calTypeChips">
-                <div class="cal-type-chip selected" data-type="reels" data-color="#6C63FF" onclick="calTypeChip(this)">🎬 Reels</div>
-                <div class="cal-type-chip" data-type="stories" data-color="#ec4899" onclick="calTypeChip(this)">📖 Stories</div>
-                <div class="cal-type-chip" data-type="carousel" data-color="#3b82f6" onclick="calTypeChip(this)">🖼️ Carousel</div>
-                <div class="cal-type-chip" data-type="tiktok" data-color="#10b981" onclick="calTypeChip(this)">🎵 TikTok</div>
-                <div class="cal-type-chip" data-type="caption" data-color="#f59e0b" onclick="calTypeChip(this)">✍️ Caption</div>
-                <div class="cal-type-chip" data-type="post" data-color="#8B8BA7" onclick="calTypeChip(this)">📝 Пост</div>
-              </div>
-
-              <!-- Time chips -->
-              <div id="calTimeBanner" class="cal-time-banner" style="display:none;"></div>
-              <div style="font-size:11px;color:var(--text4);margin-bottom:5px;">Час публікації</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="calTimeChips">
-                <div class="cal-type-chip" data-time="07:00" onclick="calTimeChip(this)">🌄 07:00</div>
-                <div class="cal-type-chip" data-time="09:00" onclick="calTimeChip(this)">🌅 09:00</div>
-                <div class="cal-type-chip selected" data-time="12:00" onclick="calTimeChip(this)">☀️ 12:00</div>
-                <div class="cal-type-chip" data-time="15:00" onclick="calTimeChip(this)">🌤️ 15:00</div>
-                <div class="cal-type-chip" data-time="18:00" onclick="calTimeChip(this)">🌆 18:00</div>
-                <div class="cal-type-chip" data-time="20:00" onclick="calTimeChip(this)">🌙 20:00</div>
-              </div>
-
-              <!-- Note input -->
-              <input type="text" class="cap-input" id="calPostNote" placeholder="Тема / ідея (наприклад: топ-5 порад про...)" style="margin-bottom:10px;" onkeydown="if(event.key==='Enter')calAddPost()">
-              <button class="btn btn-primary btn-full" onclick="calAddPost()">+ Додати</button>
-            </div>
-
-          </div>
+          <div id="plannerRoot" style="max-width:980px;margin:0 auto;padding-bottom:48px;"></div>
         </div>
 
       </div>
@@ -4917,7 +4806,7 @@
     window.scrollTo(0, 0);
     closeSidebar();
     if (id === 'photo')    photoSwitchTab('carousel');
-    if (id === 'calendar') calInit();
+    if (id === 'calendar') { try { window.octoPlanner && window.octoPlanner.render(); } catch(e){} }
     if (id === 'caption')  capInitScreen();
     if (id === 'dashboard') {
       if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
@@ -9163,7 +9052,7 @@
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
     if (typeof renderProfileCard !== 'undefined') renderProfileCard();
     // Re-render calendar for the new workspace (if on calendar screen)
-    if (document.getElementById('calendar')?.classList.contains('active')) calInit();
+    if (document.getElementById('calendar')?.classList.contains('active')) { try { window.octoPlanner && window.octoPlanner.render(); } catch(e){} }
   }
 
   function addWorkspace() {
@@ -15768,5 +15657,321 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 })();
 </script>
 
+<!-- ═══════════ CONTENT PLANNER (AI weekly marketing planner, mock MVP) ═══════════ -->
+<script>
+(function () {
+  var PLATFORMS = [
+    { id: 'instagram', label: 'Instagram', emoji: '📸', color: '#E1306C' },
+    { id: 'tiktok', label: 'TikTok', emoji: '🎵', color: '#00E5D0' },
+    { id: 'facebook', label: 'Facebook', emoji: '👍', color: '#1877F2' },
+    { id: 'linkedin', label: 'LinkedIn', emoji: '💼', color: '#0A66C2' },
+    { id: 'other', label: 'Інше', emoji: '🌐', color: '#8f8fb6' },
+  ];
+  var GOALS = [
+    { id: 'sales', label: 'Продажі', emoji: '💰' },
+    { id: 'awareness', label: 'Впізнаваність', emoji: '📢' },
+    { id: 'trust', label: 'Довіра', emoji: '🤝' },
+    { id: 'promotion', label: 'Акція', emoji: '🏷️' },
+    { id: 'launch', label: 'Новий продукт', emoji: '🚀' },
+  ];
+  var STATUSES = [
+    { id: 'idea', label: 'Ідея', color: '#8f8fb6' },
+    { id: 'draft', label: 'Чернетка', color: '#F5B942' },
+    { id: 'ready', label: 'Готово', color: '#3DDC97' },
+    { id: 'scheduled', label: 'Заплановано', color: '#8B7BFF' },
+    { id: 'posted', label: 'Опубліковано', color: '#3DDC97' },
+  ];
+  var CTYPES = [
+    { id: 'post', label: 'Пост' }, { id: 'story', label: 'Сторіз' }, { id: 'reel', label: 'Reel' },
+    { id: 'tiktok', label: 'TikTok-відео' }, { id: 'fb_post', label: 'Facebook-пост' },
+    { id: 'li_post', label: 'LinkedIn-пост' }, { id: 'ad', label: 'Креатив реклами' },
+  ];
+  var REMINDERS = [
+    { id: '10m', label: 'За 10 хв' }, { id: '30m', label: 'За 30 хв' }, { id: '1h', label: 'За 1 год' },
+    { id: '1d', label: 'За 1 день' }, { id: 'custom', label: 'Своє' },
+  ];
+  function byId(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return arr[0]; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function key() { return 'octo_planner_' + wsId(); }
+  function load() { try { return JSON.parse(localStorage.getItem(key()) || '[]'); } catch (e) { return []; } }
+  function save(list) { try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) {} }
+  function biz() { try { return (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}; } catch (e) { return {}; } }
+
+  var state = { tab: 'week', fPlatform: 'all', fStatus: 'all', fGoal: 'all',
+    gen: { open: false, step: 1, platforms: ['instagram'], goal: 'sales', count: 5 }, detailId: null };
+
+  function uid() { return 'p_' + Math.random().toString(36).slice(2, 9) + (load().length); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function iso(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function weekDates() { var now = new Date(); var dow = (now.getDay() + 6) % 7; var mon = new Date(now); mon.setDate(now.getDate() - dow); var out = []; for (var i = 0; i < 7; i++) { var d = new Date(mon); d.setDate(mon.getDate() + i); out.push(d); } return out; }
+  var DOW = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота', 'Неділя'];
+  function dowName(isoStr) { var p = isoStr.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]); return DOW[(d.getDay() + 6) % 7]; }
+
+  // ── Mock weekly plan: a real marketing mix, not random ────────────────────────
+  var IDEAS = {
+    selling: ['Чому обирають саме тебе — головна перевага', 'Топ-товар тижня + заклик замовити', 'Розбір: що входить у послугу і скільки коштує'],
+    education: ['3 поради, які реально працюють у твоїй ніші', 'Поширена помилка клієнтів — і як її уникнути', 'Міні-гайд: як обрати правильно'],
+    social_proof: ['Відгук клієнта + результат до/після', 'Кейс: як ми допомогли клієнту', 'Скріншот подяки + історія'],
+    bts: ['Закулісся: як влаштований твій робочий день', 'Знайомство з командою / майстром', 'Процес роботи зсередини'],
+    promo: ['Акція тижня: спецпропозиція з дедлайном', 'Знижка для перших N клієнтів', 'Бонус за запис цього тижня'],
+  };
+  var CAT_LABEL = { selling: 'Продаж', education: 'Експертне', social_proof: 'Соц-доказ', bts: 'Закулісся', promo: 'Акція' };
+  var CAT_GOAL = { selling: 'sales', education: 'awareness', social_proof: 'trust', bts: 'trust', promo: 'promotion' };
+  function pickType(platform, cat) {
+    if (platform === 'tiktok') return 'tiktok';
+    if (platform === 'facebook') return 'fb_post';
+    if (platform === 'linkedin') return 'li_post';
+    if (platform === 'instagram') return cat === 'selling' || cat === 'promo' ? 'reel' : (cat === 'social_proof' ? 'story' : 'post');
+    return 'post';
+  }
+  function mockCaption(idea, goalId) {
+    var b = biz(); var name = b.business_name ? (b.business_name + ' — ') : '';
+    var cta = { sales: 'Пиши в директ, щоб замовити 💬', awareness: 'Збережи, щоб не загубити 🔖', trust: 'Розкажи в коментарях свій досвід 👇', promotion: 'Встигни до кінця тижня ⏳', launch: 'Дізнайся першим — деталі в директі ✨' }[goalId] || 'Дій сьогодні 🚀';
+    return name + idea + '.\n\n' + cta;
+  }
+  function genPlan() {
+    var g = state.gen, count = g.count || 5;
+    // base marketing mix order, weighted to the chosen weekly goal
+    var seq = ['selling', 'education', 'social_proof', 'bts', 'promo', 'selling', 'education'];
+    var goalCat = { sales: 'selling', awareness: 'education', trust: 'social_proof', promotion: 'promo', launch: 'selling' }[g.goal] || 'selling';
+    seq = [goalCat].concat(seq.filter(function (c) { return c !== goalCat; }));
+    var cats = seq.slice(0, count);
+    var days = weekDates();
+    var times = ['10:00', '13:00', '18:00', '11:00', '19:00', '15:00', '20:00'];
+    var plats = g.platforms.length ? g.platforms : ['instagram'];
+    var out = [];
+    cats.forEach(function (cat, i) {
+      var platform = plats[i % plats.length];
+      var ideaArr = IDEAS[cat]; var idea = ideaArr[i % ideaArr.length];
+      var d = days[Math.min(6, Math.floor((i * 7) / count))];
+      out.push({
+        id: uid(), date: iso(d), time: times[i % times.length], platform: platform,
+        contentType: pickType(platform, cat), goal: CAT_GOAL[cat] || g.goal, category: cat,
+        idea: idea, caption: mockCaption(idea, CAT_GOAL[cat] || g.goal), media: null,
+        reminder: '30m', status: 'draft',
+      });
+    });
+    var list = load().concat(out);
+    save(list);
+  }
+
+  // ── Rendering ─────────────────────────────────────────────────────────────────
+  function statusPill(id) { var s = byId(STATUSES, id); return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:' + s.color + '22;color:' + s.color + ';"><span style="width:6px;height:6px;border-radius:50%;background:' + s.color + ';"></span>' + s.label + '</span>'; }
+  function platBadge(id) { var p = byId(PLATFORMS, id); return '<span style="font-size:11px;font-weight:700;color:' + p.color + ';">' + p.emoji + ' ' + p.label + '</span>'; }
+
+  function summaryCards() {
+    var list = load();
+    var week = weekDates().map(iso);
+    var thisWeek = list.filter(function (p) { return week.indexOf(p.date) >= 0; });
+    var ready = list.filter(function (p) { return p.status === 'ready'; }).length;
+    var drafts = list.filter(function (p) { return p.status === 'draft'; }).length;
+    var goalIds = {}; thisWeek.forEach(function (p) { goalIds[p.goal] = 1; });
+    var platIds = {}; thisWeek.forEach(function (p) { platIds[p.platform] = 1; });
+    var goalStr = Object.keys(goalIds).map(function (id) { return byId(GOALS, id).label; }).slice(0, 2).join(', ') || '—';
+    var platStr = Object.keys(platIds).map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') || '—';
+    function c(label, val, tint) { return '<div style="padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);"><div style="font-size:11px;font-weight:700;color:#9a9ac4;">' + label + '</div><div style="font-size:' + (tint ? 22 : 17) + 'px;font-weight:800;margin-top:5px;' + (tint ? "font-family:'Unbounded','Manrope',sans-serif;color:" + tint + ';' : '') + '">' + val + '</div></div>'; }
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">'
+      + c('Ціль тижня', goalStr) + c('Платформи', platStr)
+      + c('Постів цього тижня', String(thisWeek.length), '#B5A8FF')
+      + c('Готові', String(ready), '#3DDC97') + c('Чернетки', String(drafts), '#F5B942')
+      + '</div>';
+  }
+
+  function tabsBar() {
+    var tabs = [['week', '🗓 Тиждень'], ['list', '📋 Список'], ['draft', '✏️ Чернетки'], ['ready', '✅ Готові']];
+    return '<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">' + tabs.map(function (t) {
+      var on = state.tab === t[0];
+      return '<button onclick="octoPlanner.setTab(\'' + t[0] + '\')" style="padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ' + (on ? '#8B7BFF' : 'rgba(255,255,255,.1)') + ';background:' + (on ? 'rgba(139,123,255,.16)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#fff' : '#a2a2c6') + ';">' + t[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function postCard(p) {
+    var ct = byId(CTYPES, p.contentType).label;
+    return '<div onclick="octoPlanner.open(\'' + p.id + '\')" style="cursor:pointer;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);transition:border-color .15s;" onmouseover="this.style.borderColor=\'rgba(139,123,255,.35)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,.07)\'">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">'
+      + '<div style="font-size:11.5px;font-weight:700;color:#8f8fb6;">' + esc(dowName(p.date)) + ' · ' + esc(p.time) + '</div>'
+      + statusPill(p.status) + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' + platBadge(p.platform) + '<span style="font-size:11px;color:#6d6d86;">·</span><span style="font-size:11.5px;font-weight:600;color:#a6a6cc;">' + esc(ct) + '</span></div>'
+      + '<div style="font-size:14px;font-weight:700;line-height:1.4;margin-bottom:6px;">' + esc(p.idea) + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+      + '<span style="font-size:11px;font-weight:700;color:#c9bcff;background:rgba(139,123,255,.12);padding:3px 9px;border-radius:7px;">🎯 ' + esc(byId(GOALS, p.goal).label) + '</span>'
+      + '<span style="font-size:12px;font-weight:700;color:#8B7BFF;">Відкрити →</span></div></div>';
+  }
+
+  function emptyState(text) {
+    return '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 20px;border-radius:22px;border:1px dashed rgba(255,255,255,.14);background:rgba(255,255,255,.02);">'
+      + '<img src="assets/new/A18.png" style="width:120px;height:120px;object-fit:contain;margin-bottom:6px;">'
+      + '<div style="font-size:17px;font-weight:800;margin-bottom:6px;">' + text + '</div>'
+      + '<div style="font-size:13px;color:#9a9ac4;max-width:380px;margin-bottom:18px;">Octo складе тобі готовий контент-план на тиждень — з ідеями, форматами й цілями під твій бізнес.</div>'
+      + '<button class="btn btn-primary" onclick="octoPlanner.openGen()">🐙 Згенерувати план на тиждень</button></div>';
+  }
+
+  function weekView() {
+    var list = load(); var days = weekDates();
+    if (!list.length) return emptyState('Тут зʼявиться твій контент-тиждень');
+    return '<div style="display:flex;flex-direction:column;gap:14px;">' + days.map(function (d) {
+      var k = iso(d); var posts = list.filter(function (p) { return p.date === k; }).sort(function (a, b) { return (a.time || '').localeCompare(b.time || ''); });
+      var today = k === iso(new Date());
+      return '<div>'
+        + '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:' + (today ? '#b5a8ff' : '#6d6d86') + ';margin-bottom:8px;">' + (today ? '⚡ ' : '') + DOW[(d.getDay() + 6) % 7] + ' · ' + d.getDate() + '.' + pad(d.getMonth() + 1) + '</div>'
+        + (posts.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">' + posts.map(postCard).join('') + '</div>'
+          : '<div style="font-size:12px;color:#5d5d80;padding:10px 14px;border-radius:12px;border:1px dashed rgba(255,255,255,.08);">Порожньо — <a href="#" onclick="octoPlanner.add(\'' + k + '\');return false;" style="color:#8B7BFF;font-weight:700;">додати пост</a></div>')
+        + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function filtersBar() {
+    function sel(id, opts, cur, all) {
+      return '<select onchange="octoPlanner.filter(\'' + id + '\',this.value)" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--text);border-radius:10px;padding:8px 10px;font:inherit;font-size:12.5px;outline:none;">'
+        + '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>' + all + '</option>'
+        + opts.map(function (o) { return '<option value="' + o.id + '"' + (cur === o.id ? ' selected' : '') + '>' + o.label + '</option>'; }).join('') + '</select>';
+    }
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
+      + sel('fPlatform', PLATFORMS, state.fPlatform, 'Всі платформи')
+      + sel('fStatus', STATUSES, state.fStatus, 'Всі статуси')
+      + sel('fGoal', GOALS, state.fGoal, 'Всі цілі') + '</div>';
+  }
+
+  function listView(forceStatus) {
+    var list = load().slice().sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
+    list = list.filter(function (p) {
+      if (forceStatus && p.status !== forceStatus) return false;
+      if (!forceStatus) {
+        if (state.fPlatform !== 'all' && p.platform !== state.fPlatform) return false;
+        if (state.fStatus !== 'all' && p.status !== state.fStatus) return false;
+        if (state.fGoal !== 'all' && p.goal !== state.fGoal) return false;
+      }
+      return true;
+    });
+    var head = forceStatus ? '' : filtersBar();
+    if (!list.length) return head + emptyState(forceStatus === 'draft' ? 'Немає чернеток' : forceStatus === 'ready' ? 'Немає готових постів' : 'Нічого не знайдено');
+    return head + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">' + list.map(postCard).join('') + '</div>';
+  }
+
+  function render() {
+    var root = document.getElementById('plannerRoot'); if (!root) return;
+    var header = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px;">'
+      + '<div><div style="font:800 22px/1.2 Manrope,sans-serif;letter-spacing:-.01em;">Контент-план</div>'
+      + '<div style="font-size:13.5px;color:#9a9ac4;margin-top:3px;">Твій тиждень контенту — Octo підказує що і коли постити.</div></div>'
+      + '<button class="btn btn-primary" onclick="octoPlanner.openGen()" style="flex-shrink:0;">🐙 Згенерувати план на тиждень</button></div>';
+    var body = state.tab === 'week' ? weekView()
+      : state.tab === 'list' ? listView(null)
+        : state.tab === 'draft' ? listView('draft') : listView('ready');
+    root.innerHTML = header + summaryCards() + tabsBar() + body;
+  }
+
+  // ── Generate wizard (modal) ───────────────────────────────────────────────────
+  function recommendCount() { var n = state.gen.platforms.length; return n >= 3 ? 7 : n === 2 ? 5 : 3; }
+  function chip(active, label, onclick) { return '<button onclick="' + onclick + '" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ' + (active ? '#8B7BFF' : 'rgba(255,255,255,.1)') + ';background:' + (active ? 'rgba(139,123,255,.16)' : 'rgba(255,255,255,.03)') + ';color:' + (active ? '#fff' : '#a2a2c6') + ';">' + label + '</button>'; }
+  function genBody() {
+    var g = state.gen; var s = g.step;
+    var steps = '<div style="display:flex;gap:6px;margin-bottom:18px;">' + [1, 2, 3, 4].map(function (n) { return '<div style="flex:1;height:4px;border-radius:2px;background:' + (n <= s ? 'linear-gradient(90deg,#8B7BFF,#6C63FF)' : 'rgba(255,255,255,.1)') + ';"></div>'; }).join('') + '</div>';
+    var inner = '';
+    if (s === 1) inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Які платформи ведеш?</div><div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Octo підбере формати під кожну.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + PLATFORMS.map(function (p) { return chip(g.platforms.indexOf(p.id) >= 0, p.emoji + ' ' + p.label, 'octoPlanner.togglePlat(\'' + p.id + '\')'); }).join('') + '</div>';
+    else if (s === 2) inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Головна ціль тижня?</div><div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Octo зробить акцент на цьому.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + GOALS.map(function (gg) { return chip(g.goal === gg.id, gg.emoji + ' ' + gg.label, 'octoPlanner.setGoal(\'' + gg.id + '\')'); }).join('') + '</div>';
+    else if (s === 3) { var rec = recommendCount(); inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Скільки постів на тиждень?</div>'
+      + '<div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Для твоїх платформ Octo радить <b style="color:#c9bcff;">' + rec + ' постів</b>.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + [3, 5, 7].map(function (n) { return chip(g.count === n, n + ' постів' + (n === rec ? ' · радимо' : ''), 'octoPlanner.setCount(' + n + ')'); }).join('')
+      + '<button onclick="octoPlanner.customCount()" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a2a2c6;">Своє</button></div>'; }
+    else inner = '<div style="text-align:center;padding:8px 0;"><img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;"><div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Готово скласти план</div>'
+      + '<div style="font-size:13px;color:#9a9ac4;">' + g.count + ' постів · ' + byId(GOALS, g.goal).label + ' · ' + g.platforms.map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') + '</div>'
+      + '<div style="font-size:12px;color:#6d6d86;margin-top:10px;line-height:1.5;">Octo збалансує: продаж · експертне · соц-доказ · закулісся · акція.</div></div>';
+    var nav = '<div style="display:flex;gap:10px;margin-top:22px;">'
+      + (s > 1 ? '<button class="btn btn-secondary" onclick="octoPlanner.genBack()" style="flex:0 0 auto;">Назад</button>' : '')
+      + (s < 4 ? '<button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="octoPlanner.genNext()"' + (s === 1 && !g.platforms.length ? ' disabled' : '') + '>Далі →</button>'
+        : '<button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="octoPlanner.genRun()">🐙 Скласти план</button>') + '</div>';
+    return steps + inner + nav;
+  }
+  function paintGen() {
+    var m = document.getElementById('planGenModal');
+    if (!state.gen.open) { if (m) m.remove(); return; }
+    if (!m) { m = document.createElement('div'); m.id = 'planGenModal'; m.style.cssText = 'position:fixed;inset:0;z-index:6000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,4,12,.72);backdrop-filter:blur(8px);'; m.onclick = function (e) { if (e.target === m) octoPlanner.closeGen(); }; document.body.appendChild(m); }
+    m.innerHTML = '<div style="width:100%;max-width:460px;background:linear-gradient(160deg,#16121f,#0e0c15);border:1px solid rgba(139,123,255,.3);border-radius:24px;padding:24px;box-shadow:0 30px 70px -30px rgba(10,5,40,.9);">' + genBody() + '</div>';
+  }
+
+  // ── Detail panel ──────────────────────────────────────────────────────────────
+  function get(id) { var l = load(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
+  function upd(id, patch) { var l = load(); for (var i = 0; i < l.length; i++) if (l[i].id === id) { for (var k in patch) l[i][k] = patch[k]; } save(l); }
+  function field(label, inner) { return '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#7c7ca6;margin-bottom:6px;">' + label + '</div>' + inner + '</div>'; }
+  function inputStyle() { return 'width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:11px 13px;font:inherit;font-size:13.5px;color:var(--text);outline:none;'; }
+  function selOf(arr, cur, onchange) { return '<select onchange="' + onchange + '" style="' + inputStyle() + '">' + arr.map(function (o) { return '<option value="' + o.id + '"' + (o.id === cur ? ' selected' : '') + '>' + (o.emoji ? o.emoji + ' ' : '') + o.label + '</option>'; }).join('') + '</select>'; }
+  function detailBody(p) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">'
+      + '<div style="font-size:17px;font-weight:800;">Деталі публікації</div>'
+      + '<button onclick="octoPlanner.close()" style="background:none;border:none;color:#9a9ac4;font-size:22px;cursor:pointer;">✕</button></div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      + '<div>' + field('Дата', '<input type="date" value="' + esc(p.date) + '" onchange="octoPlanner.set(\'date\',this.value)" style="' + inputStyle() + '">') + '</div>'
+      + '<div>' + field('Час', '<input type="time" value="' + esc(p.time) + '" onchange="octoPlanner.set(\'time\',this.value)" style="' + inputStyle() + '">') + '</div>'
+      + '<div>' + field('Платформа', selOf(PLATFORMS, p.platform, 'octoPlanner.set(\'platform\',this.value)')) + '</div>'
+      + '<div>' + field('Формат', selOf(CTYPES, p.contentType, 'octoPlanner.set(\'contentType\',this.value)')) + '</div>'
+      + '<div>' + field('Ціль', selOf(GOALS, p.goal, 'octoPlanner.set(\'goal\',this.value)')) + '</div>'
+      + '<div>' + field('Статус', selOf(STATUSES, p.status, 'octoPlanner.set(\'status\',this.value)')) + '</div>'
+      + '</div>'
+      + field('Ідея', '<input value="' + esc(p.idea) + '" onchange="octoPlanner.set(\'idea\',this.value)" style="' + inputStyle() + '">')
+      + field('Підпис', '<textarea onchange="octoPlanner.set(\'caption\',this.value)" style="' + inputStyle() + 'min-height:96px;resize:vertical;line-height:1.55;">' + esc(p.caption) + '</textarea>')
+      + field('Нагадування', selOf(REMINDERS, p.reminder, 'octoPlanner.set(\'reminder\',this.value)') + '<div style="font-size:11px;color:#6d6d86;margin-top:6px;">📱 у застосунку · ✉️ email (Pro) · 💬 SMS (Business) — підключимо з тарифами</div>')
+      + field('Медіа', (p.media ? '<img src="' + esc(p.media) + '" style="width:100%;max-height:180px;object-fit:cover;border-radius:12px;">' : '<div style="padding:20px;border:1px dashed rgba(255,255,255,.14);border-radius:12px;text-align:center;font-size:12.5px;color:#6d6d86;">Медіа не додано</div>')
+        + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">'
+        + '<button class="btn btn-secondary" style="font-size:12.5px;padding:9px 13px;" onclick="octoPlanner.genCreative()">✨ Згенерувати креатив</button>'
+        + '<button class="btn btn-secondary" style="font-size:12.5px;padding:9px 13px;" onclick="octoPlanner.uploadMedia()">⬆️ Завантажити своє</button></div>')
+      + '<div style="height:1px;background:rgba(255,255,255,.08);margin:8px 0 16px;"></div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
+      + '<button class="btn btn-secondary" onclick="octoPlanner.copyCaption()">📋 Копіювати підпис</button>'
+      + '<button class="btn btn-secondary" onclick="octoPlanner.downloadMedia()">⬇️ Завантажити медіа</button></div>'
+      + '<button class="btn btn-primary" style="width:100%;margin-bottom:10px;" onclick="octoPlanner.publishHelper()">▶️ Опублікувати вручну</button>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      + '<button class="btn btn-primary" style="background:linear-gradient(135deg,#3DDC97,#2bb37b);box-shadow:none;" onclick="octoPlanner.markPosted()">✅ Опубліковано</button>'
+      + '<button class="btn btn-secondary" style="border-color:rgba(255,107,107,.35);color:#ff9d9d;" onclick="octoPlanner.del()">🗑 Видалити</button></div>';
+  }
+  function paintDetail() {
+    var m = document.getElementById('planDetail');
+    if (!state.detailId) { if (m) m.remove(); return; }
+    var p = get(state.detailId); if (!p) { state.detailId = null; if (m) m.remove(); return; }
+    if (!m) { m = document.createElement('div'); m.id = 'planDetail'; m.style.cssText = 'position:fixed;inset:0;z-index:6000;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,4,12,.72);backdrop-filter:blur(8px);'; m.onclick = function (e) { if (e.target === m) octoPlanner.close(); }; document.body.appendChild(m); }
+    m.innerHTML = '<div style="width:100%;max-width:600px;max-height:92vh;overflow-y:auto;background:linear-gradient(160deg,#15121e,#0d0b14);border:1px solid rgba(139,123,255,.28);border-radius:24px 24px 0 0;padding:22px;">' + detailBody(p) + '</div>';
+  }
+
+  function toast(t) { var el = document.createElement('div'); el.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--grad);color:#fff;font-weight:700;font-size:13.5px;padding:11px 22px;border-radius:14px;z-index:9999;box-shadow:0 10px 30px -8px rgba(108,99,255,.7);'; el.textContent = t; document.body.appendChild(el); setTimeout(function () { el.remove(); }, 2200); }
+
+  window.octoPlanner = {
+    render: render,
+    setTab: function (t) { state.tab = t; render(); },
+    filter: function (k, v) { state[k] = v; render(); },
+    add: function (dateISO) {
+      var d = dateISO || iso(new Date());
+      var p = { id: uid(), date: d, time: '12:00', platform: 'instagram', contentType: 'post', goal: 'awareness', category: 'education', idea: 'Нова ідея посту', caption: '', media: null, reminder: '30m', status: 'idea' };
+      save(load().concat([p])); state.detailId = p.id; render(); paintDetail();
+    },
+    open: function (id) { state.detailId = id; paintDetail(); },
+    close: function () { state.detailId = null; paintDetail(); render(); },
+    set: function (k, v) { if (!state.detailId) return; upd(state.detailId, (function () { var o = {}; o[k] = v; return o; })()); },
+    copyCaption: function () { var p = get(state.detailId); if (!p) return; try { navigator.clipboard.writeText(p.caption || p.idea); toast('📋 Підпис скопійовано'); } catch (e) { toast('Скопіюй вручну'); } },
+    downloadMedia: function () { var p = get(state.detailId); if (p && p.media) { window.open(p.media, '_blank'); } else { toast('Спершу додай медіа'); } },
+    genCreative: function () { toast('✨ Генерація креативу підключиться незабаром'); },
+    uploadMedia: function () {
+      var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = function () { var f = inp.files[0]; if (!f) return; var r = new FileReader(); r.onload = function () { octoPlanner.set('media', r.result); paintDetail(); toast('🖼 Медіа додано'); }; r.readAsDataURL(f); };
+      inp.click();
+    },
+    publishHelper: function () { toast('Скопіюй підпис, завантаж медіа — і опублікуй вручну у своїй соцмережі'); },
+    markPosted: function () { octoPlanner.set('status', 'posted'); state.detailId = null; paintDetail(); render(); toast('✅ Позначено опублікованим'); },
+    del: function () { if (!state.detailId) return; save(load().filter(function (p) { return p.id !== state.detailId; })); state.detailId = null; paintDetail(); render(); toast('🗑 Видалено'); },
+    // generate wizard
+    openGen: function () { state.gen.open = true; state.gen.step = 1; paintGen(); },
+    closeGen: function () { state.gen.open = false; paintGen(); },
+    togglePlat: function (id) { var a = state.gen.platforms; var i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else a.push(id); state.gen.count = recommendCount(); paintGen(); },
+    setGoal: function (id) { state.gen.goal = id; paintGen(); },
+    setCount: function (n) { state.gen.count = n; paintGen(); },
+    customCount: function () { var n = parseInt(prompt('Скільки постів на тиждень? (1-14)', String(state.gen.count)), 10); if (n >= 1 && n <= 14) { state.gen.count = n; paintGen(); } },
+    genNext: function () { if (state.gen.step === 1 && !state.gen.platforms.length) return; state.gen.step = Math.min(4, state.gen.step + 1); paintGen(); },
+    genBack: function () { state.gen.step = Math.max(1, state.gen.step - 1); paintGen(); },
+    genRun: function () { genPlan(); state.gen.open = false; state.tab = 'week'; paintGen(); render(); toast('✅ План на тиждень готовий'); },
+  };
+})();
+</script>
 </body>
 </html>
