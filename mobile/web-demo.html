@@ -3586,6 +3586,24 @@
       <div class="screen" id="caption">
         <div style="max-width:680px;margin:0 auto;padding-bottom:40px;">
 
+          <!-- ── ACTION-FIRST HERO: upload media → Octo writes the caption ──── -->
+          <div style="margin-bottom:22px;">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+              <img src="assets/new/A13.png" style="width:56px;height:56px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 10px 16px rgba(20,10,50,.5));">
+              <div><div style="font-size:18px;font-weight:800;">Кинь фото або відео — Octo напише підпис</div>
+              <div style="font-size:13px;color:#9a9ac4;margin-top:2px;">Octo подивиться на медіа й одразу напише 3 варіанти підпису у твоєму тоні.</div></div>
+            </div>
+            <label for="capHeroInput" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:34px 20px;border-radius:20px;border:1.5px dashed rgba(139,123,255,.4);background:rgba(139,123,255,.05);text-align:center;cursor:pointer;">
+              <img src="assets/new/A04.png" style="width:64px;height:64px;object-fit:contain;">
+              <div style="font-size:15px;font-weight:800;">Обрати фото або відео</div>
+              <div style="font-size:12px;color:#8f8fb6;">Octo сам зрозуміє, що на медіа, і напише підпис</div>
+            </label>
+            <input type="file" id="capHeroInput" accept="image/*,video/*" style="display:none;" onchange="capAnalyzePhoto(this)">
+            <div style="text-align:center;margin-top:10px;"><button onclick="document.getElementById('capManual').style.display = document.getElementById('capManual').style.display==='none'?'block':'none';" style="background:none;border:none;color:#8B7BFF;font-size:12.5px;font-weight:700;cursor:pointer;">або опиши словами й налаштуй ⚙️</button></div>
+          </div>
+
+          <div id="capManual" style="display:none;">
+
           <!-- ── STYLE LEARNING ──────────────────────────────────────────── -->
           <div style="margin-bottom:24px;">
             <div class="cap-section-toggle" id="capStyleToggle" onclick="capToggleStyle()">
@@ -3693,6 +3711,7 @@
           <button class="btn btn-primary" id="capGenBtn" onclick="captionGenerate()" style="width:100%;padding:16px;font-size:16px;border-radius:16px;margin-bottom:32px;">
             ✨ Згенерувати підписи
           </button>
+          </div><!-- /capManual -->
 
           <!-- Results -->
           <div id="capResults" style="display:none;">
@@ -3706,7 +3725,7 @@
             <div class="loading" style="justify-content:center;margin-bottom:16px;">
               <div class="dot"></div><div class="dot"></div><div class="dot"></div>
             </div>
-            <p style="color:var(--text3);font-size:14px;">Octo пише підписи…</p>
+            <p id="capLoadingText" style="color:var(--text3);font-size:14px;">Octo пише підписи…</p>
           </div>
 
         </div><!-- /max-width caption inner -->
@@ -9371,6 +9390,13 @@ Respond with the style description only, no intro phrases.`;
   async function capSendToVision(dataUrl, mimeType, isVideo) {
     const zone = document.getElementById('capPhotoZone');
     const base64 = dataUrl.replace(/^data:image\/[^;]+;base64,/, '');
+    // Visible feedback while Octo "looks" at the media (the inline zone may be
+    // hidden inside the collapsed manual section).
+    try {
+      const lt = document.getElementById('capLoadingText'); if (lt) lt.textContent = 'Octo дивиться на медіа…';
+      document.getElementById('capResults').style.display = 'none';
+      document.getElementById('capLoading').style.display = 'block';
+    } catch (e) {}
 
     try {
       const res = await fetch('/api/chat', {
@@ -9403,8 +9429,11 @@ Respond with the style description only, no intro phrases.`;
       document.getElementById('capDesc').style.borderColor = 'var(--accent)';
       setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 2500);
       document.getElementById('capDescAiTag').style.display = 'inline-block';
-      zone.querySelector('#capPhotoSpan').textContent = `✅ ${isVideo ? 'Відео' : 'Фото'} проаналізовано · клацни щоб змінити`;
+      zone.querySelector('#capPhotoSpan').textContent = `✅ ${isVideo ? 'Відео' : 'Фото'} проаналізовано · Octo пише підпис…`;
       zone.querySelector('#capPhotoSpan').style.color = '#4ade80';
+      // Action-first: as soon as Octo "sees" the media, it writes the captions —
+      // no need for the user to describe the content or press generate.
+      if (desc) { try { captionGenerate(); } catch (e) {} }
     } catch {
       zone.querySelector('#capPhotoSpan').textContent = '❌ Не вдалося. Опиши контент вручну.';
     }
@@ -9467,6 +9496,7 @@ Respond with the style description only, no intro phrases.`;
     const keywords  = document.getElementById('capKeywords').value.trim();
 
     // Show loading
+    var _clt = document.getElementById('capLoadingText'); if (_clt) _clt.textContent = 'Octo пише підписи…';
     document.getElementById('capResults').style.display  = 'none';
     document.getElementById('capLoading').style.display  = 'block';
     document.getElementById('capGenBtn').disabled        = true;
@@ -9478,30 +9508,31 @@ Respond with the style description only, no intro phrases.`;
       _capProfile.audience  ? `Аудиторія: ${_capProfile.audience}` : '',
     ].filter(Boolean).join('\n') : '';
 
-    const prompt = `Ты — опытный SMM-специалист и копирайтер. Напиши 3 варианта подписи для ${CAP_PLATFORM_LABELS[platform] || platform}.
+    const prompt = `Ти — досвідчений SMM-фахівець і копірайтер. Напиши 3 варіанти підпису для ${CAP_PLATFORM_LABELS[platform] || platform}.
 
-Описание контента: ${desc}
-${keywords ? `Ниша / ключевые слова: ${keywords}` : ''}
+Опис контенту: ${desc}
+${keywords ? `Ніша / ключові слова: ${keywords}` : ''}
 ${_profileCtx ? _profileCtx + '\n' : ''}Тон: ${CAP_TONE_LABELS[tone] || tone}
-Язык: ${CAP_LANG_NAMES[lang] || lang}
-${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого автора (подражай их манере письма, эмодзи, длине предложений, структуре): ${capStyleAnalysis}\n` : ''}
-Требования:
-- Каждый вариант: цепляющий крючок (первые 1-2 строки), основной текст, призыв к действию (CTA)
-- Длина: оптимальная для ${CAP_PLATFORM_LABELS[platform] || platform} (не слишком длинная)
-- После каждого варианта — 5–8 релевантных хэштегов
-- Хэштеги начинаются с # и разделены пробелами
+Мова відповіді: ${CAP_LANG_NAMES[lang] || lang}
+${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цього автора (наслідуй його манеру письма, емодзі, довжину речень, структуру): ${capStyleAnalysis}\n` : ''}
+Вимоги:
+- Кожен варіант із різним кутом: A) інтрига/цікавість, B) конкретна користь, C) соціальний доказ
+- Кожен: чіпкий гачок (перші 1-2 рядки), основний текст, заклик до дії (CTA)
+- Довжина оптимальна для ${CAP_PLATFORM_LABELS[platform] || platform} (не занадто довга)
+- Після кожного варіанту — 5–8 релевантних хештегів
+- Хештеги починаються з # і розділені пробілами
 
-Ответ строго в следующем формате (используй ТОЛЬКО эти маркеры, никаких других заголовков):
+Відповідь строго в такому форматі (ТІЛЬКИ ці маркери, жодних інших заголовків):
 ===1===
-[текст подписи]
+[текст підпису]
 ###TAGS### #тег1 #тег2 #тег3
 
 ===2===
-[текст подписи]
+[текст підпису]
 ###TAGS### #тег1 #тег2 #тег3
 
 ===3===
-[текст подписи]
+[текст підпису]
 ###TAGS### #тег1 #тег2 #тег3`;
 
     try {
@@ -9530,7 +9561,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     } catch (e) {
       document.getElementById('capLoading').style.display = 'none';
       document.getElementById('capGenBtn').disabled = false;
-      alert('Ошибка соединения. Попробуй ещё раз.');
+      alert('Помилка зʼєднання. Спробуй ще раз.');
     }
   }
 
@@ -9543,7 +9574,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
 
     // Split by ===1=== ===2=== ===3=== markers (language-agnostic)
     const blocks = raw.split(/===\d+===/).filter(b => b.trim());
-    const emojiLabels = ['✨ Вариант 1', '🔥 Вариант 2', '💡 Вариант 3'];
+    const emojiLabels = ['✨ Інтрига', '🔥 Користь', '💡 Соц-доказ'];
 
     const container = document.getElementById('capCards');
     container.innerHTML = '';
