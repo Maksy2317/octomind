@@ -104,12 +104,15 @@ trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Re
       res.status(404).json({ error: 'Не знайшов роликів на цій сторінці — перевір нік (без пробілів, як у TikTok)' });
       return;
     }
+    // Real posting cadence from the scraped upload dates → feeds the content
+    // planner's personalised recommendation ("постиш ~2/день → радимо 3/день").
+    const cadence = computeCadence(page.videos.map((v) => v.created));
     const { ctx, profileId } = await resolveCtx(req);
     // Same 12h server cache: one page audit per handle+business per half-day.
     const auditKey = `pa:${handle.toLowerCase()}:${String((req.body?.profile || {}).business_name || '')}`;
     const cachedAudit = kvGet<Record<string, unknown>>(auditKey, 12 * 3_600_000);
     if (cachedAudit) {
-      res.json({ audit: cachedAudit, author: page.author, videos: page.videos, fromCache: true });
+      res.json({ audit: cachedAudit, author: page.author, videos: page.videos, cadence, fromCache: true });
       return;
     }
     // Strip to analysis-relevant fields (CDN urls just waste tokens).
@@ -130,11 +133,27 @@ trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Re
         });
       } catch { /* non-fatal */ }
     }
-    res.json({ audit, author: page.author, videos: page.videos, fromCache: page.fromCache });
+    res.json({ audit, author: page.author, videos: page.videos, cadence, fromCache: page.fromCache });
   } catch (err) {
     next(err);
   }
 });
+
+// Estimate posting cadence (posts per day / per week) from upload dates.
+function computeCadence(dates: Array<string | null>): { postsPerDay: number; postsPerWeek: number; sampled: number } | null {
+  const ts = dates
+    .map((d) => (d ? new Date(d).getTime() : NaN))
+    .filter((t) => Number.isFinite(t))
+    .sort((a, b) => a - b);
+  if (ts.length < 3) return null;
+  const spanDays = Math.max(1, (ts[ts.length - 1] - ts[0]) / 86_400_000);
+  const perDay = ts.length / spanDays;
+  return {
+    postsPerDay: Math.round(perDay * 10) / 10,
+    postsPerWeek: Math.round(perDay * 7),
+    sampled: ts.length,
+  };
+}
 
 // POST /api/trends/analyze  — { video: TrendVideo-ish, profile? }
 // The marketing move: explain WHY it went viral and adapt the idea for THIS business.

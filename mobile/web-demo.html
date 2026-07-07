@@ -15356,10 +15356,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
         // Remember the handle AND the page's proven patterns — from now on
         // trend search and adaptations are tailored to what works for THEM.
         try {
-          window.octoBiz && window.octoBiz.merge({
+          var patch = {
             tiktok_handle: handle.replace(/^@/, ''),
             page_style: (d.audit.what_works || []).slice(0, 3).join('; ').slice(0, 400),
-          });
+          };
+          // Real posting cadence → the content planner recommends "current + 1".
+          if (d.cadence && d.cadence.postsPerDay > 0) {
+            patch.current_posts_per_day = Math.max(1, Math.round(d.cadence.postsPerDay));
+          }
+          window.octoBiz && window.octoBiz.merge(patch);
         } catch (e) {}
         renderPageAudit(d);
       })
