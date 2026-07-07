@@ -93,6 +93,49 @@ async function geminiJson(system: string, user: string, images: LlmImage[], maxT
   return text;
 }
 
+// ── Gemini chat (free-text, multi-turn, vision) — for /api/chat ────────────────
+// Accepts Anthropic-shaped messages ([{role, content}] where content is a string
+// or an array of text/image blocks) and returns a plain-text reply. No JSON mime.
+export async function geminiChat(
+  system: string,
+  messages: Array<{ role?: string; content: unknown }>,
+): Promise<string> {
+  const key = process.env.GOOGLE_API_KEY;
+  if (!key) throw new Error('GOOGLE_API_KEY not configured');
+  const contents = messages.map((m) => {
+    const role = m.role === 'assistant' ? 'model' : 'user';
+    let parts: Array<Record<string, unknown>>;
+    if (typeof m.content === 'string') {
+      parts = [{ text: m.content }];
+    } else if (Array.isArray(m.content)) {
+      parts = m.content.map((b: any) => {
+        if ((b?.type === 'image') && b?.source?.data) {
+          return { inline_data: { mime_type: b.source.media_type || 'image/jpeg', data: b.source.data } };
+        }
+        return { text: String(b?.text || '') };
+      });
+    } else {
+      parts = [{ text: '' }];
+    }
+    return { role, parts };
+  });
+  const body = {
+    system_instruction: { parts: [{ text: system }] },
+    contents,
+    generationConfig: { maxOutputTokens: 4096, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (!r.ok) throw new Error(`Gemini ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const data = await r.json() as any;
+  const cand = data?.candidates?.[0];
+  const text = (cand?.content?.parts || []).map((p: any) => p.text || '').join('');
+  if (!text) throw new Error('Gemini returned empty chat response' + (cand?.finishReason ? ` (${cand.finishReason})` : ''));
+  return text;
+}
+
 // ── Unified entry ─────────────────────────────────────────────────────────────
 export async function llmCall(
   system: string,

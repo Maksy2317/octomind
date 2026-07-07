@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import { optionalIdentity } from '../middleware/identity';
 import { meter } from '../middleware/quota';
+import { geminiChat } from '../services/ai/provider';
 
 export const chatRouter = Router();
 
@@ -63,7 +64,9 @@ chatRouter.post('/', meter('chat'), async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const hasGemini = Boolean(process.env.GOOGLE_API_KEY);
+  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  if (!hasGemini && !hasAnthropic) {
     return res.status(500).json({ error: 'AI not configured' });
   }
 
@@ -76,25 +79,56 @@ chatRouter.post('/', meter('chat'), async (req: Request, res: Response) => {
       + String(context).slice(0, 1200)  // safety cap
     : SYSTEM_PROMPT;
 
-  try {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
 
+  const recent = messages.slice(-20);
+  // Stream a full text back as SSE chunks (so the client's typing effect works).
+  const emit = (full: string): void => {
+    const words = full.split(/(\s+)/);
+    for (let i = 0; i < words.length; i += 4) {
+      res.write(`data: ${JSON.stringify({ text: words.slice(i, i + 4).join('') })}\n\n`);
+    }
+  };
+
+  // Anthropic runs out of balance / isn't the primary — prefer Gemini, then fall
+  // back. Everything else in the app already runs on Gemini.
+  const preferGemini = hasGemini && (process.env.AI_PROVIDER !== 'anthropic');
+
+  async function runAnthropicStream(): Promise<void> {
     const stream = client.messages.stream({
-      model: 'claude-haiku-4-5-20251001',
+      model: process.env.MARKETING_MODEL?.startsWith('claude') ? process.env.MARKETING_MODEL : 'claude-haiku-4-5-20251001',
       max_tokens: 8192,
       system: systemPrompt,
-      messages: messages.slice(-20),
+      messages: recent,
     });
-
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
         res.write(`data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`);
       }
     }
+  }
 
+  try {
+    if (preferGemini) {
+      try {
+        emit(await geminiChat(systemPrompt, recent));
+      } catch (gErr) {
+        if (hasAnthropic) await runAnthropicStream();
+        else throw gErr;
+      }
+    } else if (hasAnthropic) {
+      try {
+        await runAnthropicStream();
+      } catch (aErr) {
+        if (hasGemini) emit(await geminiChat(systemPrompt, recent));
+        else throw aErr;
+      }
+    } else {
+      emit(await geminiChat(systemPrompt, recent));
+    }
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (err: any) {

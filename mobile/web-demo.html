@@ -9412,7 +9412,7 @@ Respond with the style description only, no intro phrases.`;
           }]
         })
       });
-      let text = '';
+      let text = '', streamErr = '';
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       while (true) {
@@ -9421,10 +9421,17 @@ Respond with the style description only, no intro phrases.`;
         for (const line of dec.decode(value).split('\n')) {
           if (!line.startsWith('data: ')) continue;
           const d = line.slice(6); if (d === '[DONE]') break;
-          try { text += JSON.parse(d).text || ''; } catch {}
+          try { const j = JSON.parse(d); text += j.text || ''; if (j.error) streamErr = j.error; } catch {}
         }
       }
       const desc = text.trim();
+      // Never hang: if analysis returned nothing, stop the loader and explain.
+      if (!desc) {
+        document.getElementById('capLoading').style.display = 'none';
+        const zn = zone.querySelector('#capPhotoSpan'); if (zn) { zn.textContent = '❌ ' + (/credit|balance|401|429|quota/i.test(streamErr) ? 'AI тимчасово недоступний. Спробуй за хвилину.' : 'Не вдалося. Опиши контент вручну.'); zn.style.color = '#ff8a80'; }
+        try { document.getElementById('capManual').style.display = 'block'; } catch (e) {}
+        return;
+      }
       document.getElementById('capDesc').value = desc;
       document.getElementById('capDesc').style.borderColor = 'var(--accent)';
       setTimeout(() => { document.getElementById('capDesc').style.borderColor = ''; }, 2500);
