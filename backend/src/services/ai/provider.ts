@@ -136,6 +136,36 @@ export async function geminiChat(
   return text;
 }
 
+// ── Gemini grounded (real Google Search) — for market research ─────────────────
+// Grounds the answer with live Google Search results and returns the model text
+// plus the source URLs it used. Can't combine with responseMimeType:json, so the
+// caller parses JSON out of the text (parseJsonLoose handles that).
+export async function geminiGrounded(system: string, user: string): Promise<{ text: string; sources: string[] }> {
+  const key = process.env.GOOGLE_API_KEY;
+  if (!key) throw new Error('GOOGLE_API_KEY not configured');
+  const body = {
+    system_instruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { maxOutputTokens: 3072, temperature: 0.6 },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (!r.ok) throw new Error(`Gemini grounded ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const data = await r.json() as any;
+  const cand = data?.candidates?.[0];
+  const text = (cand?.content?.parts || []).map((p: any) => p.text || '').join('');
+  if (!text) throw new Error('Gemini grounded returned empty' + (cand?.finishReason ? ` (${cand.finishReason})` : ''));
+  const chunks = cand?.groundingMetadata?.groundingChunks || [];
+  const sources: string[] = chunks
+    .map((c: any) => c?.web?.uri || c?.web?.url || '')
+    .filter(Boolean)
+    .slice(0, 8);
+  return { text, sources };
+}
+
 // ── Unified entry ─────────────────────────────────────────────────────────────
 export async function llmCall(
   system: string,

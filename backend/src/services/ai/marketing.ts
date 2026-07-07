@@ -11,7 +11,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { BusinessProfile, BusinessProfileInput } from '../db/models';
-import { llmCall, Provider, isAnyConfigured } from './provider';
+import { llmCall, Provider, isAnyConfigured, geminiGrounded } from './provider';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -247,7 +247,7 @@ export interface MarketResearch {
   sources: string[];           // джерела/посилання
 }
 
-export function researchNiche(profileCtx: string): Promise<MarketResearch> {
+export async function researchNiche(profileCtx: string): Promise<MarketResearch> {
   const system =
     'Ти — маркетолог-дослідник. ОБОВ’ЯЗКОВО скористайся веб-пошуком, щоб знайти СВІЖУ, реальну ' +
     'інформацію про ринок і нішу цього бізнесу: що зараз працює в контенті ніші, тренди TikTok/Instagram, ' +
@@ -257,6 +257,38 @@ export function researchNiche(profileCtx: string): Promise<MarketResearch> {
     '"competitor_notes": string[], "sources": string[]}.';
   const user =
     `Бізнес:\n${profileCtx}\n\nДослідь ринок і нішу цього бізнесу. Знайди, що реально працює ЗАРАЗ.`;
+
+  // Prefer Gemini + Google Search grounding (freshest index, single billing, no
+  // dependency on the Anthropic balance). Grounded answers come back as prose
+  // with citations (not JSON), so we do it in two cheap steps: (1) grounded
+  // research → text, (2) plain Gemini call → structure into our schema.
+  const useGrounding = Boolean(process.env.GOOGLE_API_KEY) && process.env.RESEARCH_PROVIDER !== 'anthropic';
+  if (useGrounding) {
+    try {
+      const groundSystem =
+        'Ти — маркетолог-дослідник. Скористайся Google-пошуком і знайди СВІЖУ, реальну інформацію про ' +
+        'ринок і нішу цього бізнесу: що зараз працює в контенті, тренди TikTok/Instagram, підходи ' +
+        'конкурентів, типові офери й ціни, сезонні приводи. Пиши розгорнуто, конкретно, з цифрами й ' +
+        'прикладами де є. Спирайся на знайдене, не вигадуй. ' + LANG_RULE;
+      const { text, sources } = await geminiGrounded(groundSystem, user);
+      // Structure the grounded findings into our schema (plain Gemini JSON call).
+      const structured = await llmCall(
+        'Ти структуруєш готове дослідження ринку в JSON. ' + LANG_RULE +
+        ' Схема: {"summary": string, "trends": string[], "what_works": string[], "hooks": string[], "competitor_notes": string[], "sources": string[]}.',
+        `Ось дослідження ринку (текстом):\n${text.slice(0, 6000)}\n\nСтруктуруй його в JSON за схемою. Нічого не вигадуй понад текст.`,
+        { provider: 'gemini', maxTokens: 3000 },
+      );
+      const parsed = parseJsonLoose<MarketResearch>(structured.text);
+      if (sources.length) {
+        parsed.sources = Array.from(new Set([...(parsed.sources || []), ...sources])).slice(0, 8);
+      }
+      return parsed;
+    } catch (e) {
+      console.warn('[Research] Gemini grounding failed:', (e as Error).message?.slice(0, 140));
+      if (!process.env.ANTHROPIC_API_KEY) throw e;
+      // else fall through to Anthropic web search
+    }
+  }
   return jsonCallSearch<MarketResearch>(system, user);
 }
 
