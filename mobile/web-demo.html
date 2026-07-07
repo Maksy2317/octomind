@@ -15700,7 +15700,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   function biz() { try { return (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}; } catch (e) { return {}; } }
 
   var state = { tab: 'week', fPlatform: 'all', fStatus: 'all', fGoal: 'all',
-    gen: { open: false, step: 1, platforms: ['instagram'], goal: 'sales', count: 5 }, detailId: null };
+    gen: { open: false, step: 1, platforms: ['instagram'], goal: 'sales', perDay: 3 }, detailId: null };
 
   function uid() { return 'p_' + Math.random().toString(36).slice(2, 9) + (load().length); }
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -15732,29 +15732,36 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     return name + idea + '.\n\n' + cta;
   }
   function genPlan() {
-    var g = state.gen, count = g.count || 5;
-    // base marketing mix order, weighted to the chosen weekly goal
-    var seq = ['selling', 'education', 'social_proof', 'bts', 'promo', 'selling', 'education'];
+    var g = state.gen;
+    var perDay = Math.max(1, Math.min(6, g.perDay || 3));
+    // Marketing-mix cycle, weighted to the weekly goal (first slot each day = goal).
     var goalCat = { sales: 'selling', awareness: 'education', trust: 'social_proof', promotion: 'promo', launch: 'selling' }[g.goal] || 'selling';
-    seq = [goalCat].concat(seq.filter(function (c) { return c !== goalCat; }));
-    var cats = seq.slice(0, count);
+    var mix = [goalCat].concat(['selling', 'education', 'social_proof', 'bts', 'promo', 'education', 'selling'].filter(function (c) { return c !== goalCat; }));
     var days = weekDates();
-    var times = ['10:00', '13:00', '18:00', '11:00', '19:00', '15:00', '20:00'];
+    // Time slots per post-of-day (morning/mid/evening + extras) so multiple posts
+    // a day land at sensible, different hours.
+    var slots = ['09:00', '13:00', '18:00', '11:00', '16:00', '20:00'];
     var plats = g.platforms.length ? g.platforms : ['instagram'];
     var out = [];
-    cats.forEach(function (cat, i) {
-      var platform = plats[i % plats.length];
-      var ideaArr = IDEAS[cat]; var idea = ideaArr[i % ideaArr.length];
-      var d = days[Math.min(6, Math.floor((i * 7) / count))];
-      out.push({
-        id: uid(), date: iso(d), time: times[i % times.length], platform: platform,
-        contentType: pickType(platform, cat), goal: CAT_GOAL[cat] || g.goal, category: cat,
-        idea: idea, caption: mockCaption(idea, CAT_GOAL[cat] || g.goal), media: null,
-        reminder: '30m', status: 'draft',
-      });
+    var mi = 0; // running mix index across the whole week
+    var ideaCount = {};
+    days.forEach(function (d) {
+      for (var j = 0; j < perDay; j++) {
+        var cat = mix[mi % mix.length];
+        var platform = plats[(mi) % plats.length];
+        var ideaArr = IDEAS[cat];
+        var ic = (ideaCount[cat] = (ideaCount[cat] || 0)); var idea = ideaArr[ic % ideaArr.length]; ideaCount[cat]++;
+        out.push({
+          id: uid(), date: iso(d), time: slots[j % slots.length], platform: platform,
+          contentType: pickType(platform, cat), goal: CAT_GOAL[cat] || g.goal, category: cat,
+          idea: idea, caption: mockCaption(idea, CAT_GOAL[cat] || g.goal), media: null,
+          reminder: '30m', status: 'draft',
+        });
+        mi++;
+      }
     });
-    var list = load().concat(out);
-    save(list);
+    // sort each day by time (posts already grouped by day)
+    save(load().concat(out));
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -15863,7 +15870,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   // ── Generate wizard (modal) ───────────────────────────────────────────────────
-  function recommendCount() { var n = state.gen.platforms.length; return n >= 3 ? 7 : n === 2 ? 5 : 3; }
+  // Personalised recommendation: if we know how often the user currently posts
+  // (captured from their page analysis → biz.current_posts_per_day), recommend a
+  // notch above to help them grow. Otherwise scale with the number of platforms.
+  function currentPerDay() { var n = parseInt(biz().current_posts_per_day, 10); return (n >= 1 && n <= 10) ? n : 0; }
+  function recommendPerDay() {
+    var cur = currentPerDay();
+    if (cur) return Math.min(5, cur + 1);
+    var plats = state.gen.platforms.length || 1;
+    return Math.min(4, Math.max(2, plats + 1)); // 1→2, 2→3, 3+→4 per day
+  }
   function chip(active, label, onclick) { return '<button onclick="' + onclick + '" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ' + (active ? '#8B7BFF' : 'rgba(255,255,255,.1)') + ';background:' + (active ? 'rgba(139,123,255,.16)' : 'rgba(255,255,255,.03)') + ';color:' + (active ? '#fff' : '#a2a2c6') + ';">' + label + '</button>'; }
   function genBody() {
     var g = state.gen; var s = g.step;
@@ -15873,12 +15889,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + PLATFORMS.map(function (p) { return chip(g.platforms.indexOf(p.id) >= 0, p.emoji + ' ' + p.label, 'octoPlanner.togglePlat(\'' + p.id + '\')'); }).join('') + '</div>';
     else if (s === 2) inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Головна ціль тижня?</div><div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Octo зробить акцент на цьому.</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + GOALS.map(function (gg) { return chip(g.goal === gg.id, gg.emoji + ' ' + gg.label, 'octoPlanner.setGoal(\'' + gg.id + '\')'); }).join('') + '</div>';
-    else if (s === 3) { var rec = recommendCount(); inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Скільки постів на тиждень?</div>'
-      + '<div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Для твоїх платформ Octo радить <b style="color:#c9bcff;">' + rec + ' постів</b>.</div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + [3, 5, 7].map(function (n) { return chip(g.count === n, n + ' постів' + (n === rec ? ' · радимо' : ''), 'octoPlanner.setCount(' + n + ')'); }).join('')
-      + '<button onclick="octoPlanner.customCount()" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a2a2c6;">Своє</button></div>'; }
+    else if (s === 3) { var rec = recommendPerDay(); var cur = currentPerDay();
+      var recNote = cur
+        ? 'Ти зараз постиш ~<b style="color:#fff;">' + cur + '/день</b>. Щоб активно рости — Octo радить <b style="color:#c9bcff;">' + rec + '/день</b> 🚀'
+        : 'Для ' + (g.platforms.length || 1) + ' платформ Octo радить <b style="color:#c9bcff;">' + rec + ' пости/день</b>.';
+      inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Скільки постів на день?</div>'
+      + '<div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">' + recNote + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + [1, 2, 3, 4, 5].map(function (n) { return chip(g.perDay === n, n + '/день' + (n === rec ? ' · радимо' : ''), 'octoPlanner.setPerDay(' + n + ')'); }).join('')
+      + '<button onclick="octoPlanner.customPerDay()" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a2a2c6;">Своє</button></div>'
+      + '<div style="font-size:11.5px;color:#6d6d86;margin-top:10px;">≈ ' + (g.perDay * 7) + ' постів на тиждень, збалансованих за форматами й цілями.</div>'; }
     else inner = '<div style="text-align:center;padding:8px 0;"><img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;"><div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Готово скласти план</div>'
-      + '<div style="font-size:13px;color:#9a9ac4;">' + g.count + ' постів · ' + byId(GOALS, g.goal).label + ' · ' + g.platforms.map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') + '</div>'
+      + '<div style="font-size:13px;color:#9a9ac4;">' + g.perDay + '/день (≈' + (g.perDay * 7) + '/тиж) · ' + byId(GOALS, g.goal).label + ' · ' + g.platforms.map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') + '</div>'
       + '<div style="font-size:12px;color:#6d6d86;margin-top:10px;line-height:1.5;">Octo збалансує: продаж · експертне · соц-доказ · закулісся · акція.</div></div>';
     var nav = '<div style="display:flex;gap:10px;margin-top:22px;">'
       + (s > 1 ? '<button class="btn btn-secondary" onclick="octoPlanner.genBack()" style="flex:0 0 auto;">Назад</button>' : '')
@@ -15963,11 +15984,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     // generate wizard
     openGen: function () { state.gen.open = true; state.gen.step = 1; paintGen(); },
     closeGen: function () { state.gen.open = false; paintGen(); },
-    togglePlat: function (id) { var a = state.gen.platforms; var i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else a.push(id); state.gen.count = recommendCount(); paintGen(); },
+    togglePlat: function (id) { var a = state.gen.platforms; var i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else a.push(id); state.gen.perDay = recommendPerDay(); paintGen(); },
     setGoal: function (id) { state.gen.goal = id; paintGen(); },
-    setCount: function (n) { state.gen.count = n; paintGen(); },
-    customCount: function () { var n = parseInt(prompt('Скільки постів на тиждень? (1-14)', String(state.gen.count)), 10); if (n >= 1 && n <= 14) { state.gen.count = n; paintGen(); } },
-    genNext: function () { if (state.gen.step === 1 && !state.gen.platforms.length) return; state.gen.step = Math.min(4, state.gen.step + 1); paintGen(); },
+    setPerDay: function (n) { state.gen.perDay = n; paintGen(); },
+    customPerDay: function () { var n = parseInt(prompt('Скільки постів на день? (1-6)', String(state.gen.perDay)), 10); if (n >= 1 && n <= 6) { state.gen.perDay = n; paintGen(); } },
+    genNext: function () { if (state.gen.step === 1 && !state.gen.platforms.length) return; if (state.gen.step === 2) state.gen.perDay = recommendPerDay(); state.gen.step = Math.min(4, state.gen.step + 1); paintGen(); },
     genBack: function () { state.gen.step = Math.max(1, state.gen.step - 1); paintGen(); },
     genRun: function () { genPlan(); state.gen.open = false; state.tab = 'week'; paintGen(); render(); toast('✅ План на тиждень готовий'); },
   };
