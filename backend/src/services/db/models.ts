@@ -1,9 +1,19 @@
 // Row shapes for the Phase 1 tables (see backend/db/schema.sql).
 
+export type Plan = 'free' | 'pro' | 'business';
+
 export interface User {
   id: string;
   device_id: string;
   email: string | null;
+  plan: Plan;
+  created_at: string;
+}
+
+export interface UsageEvent {
+  id: string;
+  user_id: string;
+  feature: string;
   created_at: string;
 }
 

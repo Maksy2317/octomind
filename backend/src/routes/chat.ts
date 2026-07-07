@@ -1,7 +1,11 @@
 import { Router, Request, Response } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
+import { optionalIdentity } from '../middleware/identity';
+import { meter } from '../middleware/quota';
 
 export const chatRouter = Router();
+
+chatRouter.use(optionalIdentity);
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -52,7 +56,7 @@ A: інтрига (питання/цікавість) · B: користь (ко
 Коли користувач надсилає ФОТО (товар, квартира, страва, робота): проаналізуй як маркетолог — що це, які сильні сторони, кому це продавати, яка ідея реклами, приклад тексту з CTA і на якій платформі публікувати.`;
 
 
-chatRouter.post('/', async (req: Request, res: Response) => {
+chatRouter.post('/', meter('chat'), async (req: Request, res: Response) => {
   const { messages, context } = req.body;
 
   if (!messages || !Array.isArray(messages)) {

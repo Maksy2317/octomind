@@ -2,10 +2,11 @@
 // Everything above this layer works with typed model objects.
 
 import {
-  select, selectOne, insertOne, update, remove,
+  select, selectOne, insertOne, update, remove, countRows,
 } from './client';
 import {
   User, BusinessProfile, BusinessProfileInput, Project, Generation, GenerationType,
+  Plan, UsageEvent,
 } from './models';
 
 // ── users ──────────────────────────────────────────────────────────────────
@@ -104,4 +105,29 @@ export function listGenerations(userId: string, type?: GenerationType): Promise<
 
 export function deleteGeneration(userId: string, id: string): Promise<void> {
   return remove('generations', `id=eq.${id}&user_id=eq.${userId}`);
+}
+
+// ── plan + usage metering ──────────────────────────────────────────────────────
+/** The user's plan. Defaults to 'free' if the column/user is missing. */
+export async function getUserPlan(userId: string): Promise<Plan> {
+  const row = await selectOne<{ plan: Plan }>('users', `id=eq.${userId}&select=plan`);
+  return (row?.plan as Plan) || 'free';
+}
+
+/** Set a user's plan (used by the payment flow / admin). */
+export async function setUserPlan(userId: string, plan: Plan): Promise<void> {
+  await update<User>('users', `id=eq.${userId}`, { plan });
+}
+
+/** Count a user's usage events for one feature since `sinceIso` (period start). */
+export function countUsageSince(userId: string, feature: string, sinceIso: string): Promise<number> {
+  return countRows(
+    'usage_events',
+    `user_id=eq.${userId}&feature=eq.${encodeURIComponent(feature)}&created_at=gte.${encodeURIComponent(sinceIso)}`,
+  );
+}
+
+/** Record one metered action. */
+export function recordUsageEvent(userId: string, feature: string): Promise<UsageEvent> {
+  return insertOne<UsageEvent>('usage_events', { user_id: userId, feature });
 }

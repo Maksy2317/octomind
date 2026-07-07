@@ -101,3 +101,22 @@ export async function upsertOne<T>(
 export async function remove(table: string, query: string): Promise<void> {
   await request<void>(`${table}?${query}`, { method: 'DELETE' });
 }
+
+/**
+ * COUNT rows matching `query` without transferring them. Uses PostgREST's
+ * `Prefer: count=exact` on a HEAD request; the total comes back in the
+ * `Content-Range` header (e.g. `0-0/42` → 42).
+ */
+export async function countRows(table: string, query = ''): Promise<number> {
+  if (!isDbConfigured()) throw new DbNotConfiguredError();
+  const res = await fetch(`${SB_URL}/rest/v1/${table}${query ? `?${query}` : ''}`, {
+    method: 'HEAD',
+    headers: headers({ Prefer: 'count=exact', Range: '0-0' }),
+  });
+  if (!res.ok && res.status !== 206) {
+    throw new Error(`[DB] HEAD ${table} → ${res.status}`);
+  }
+  const range = res.headers.get('content-range') || '';
+  const total = range.split('/')[1];
+  return total && total !== '*' ? parseInt(total, 10) : 0;
+}

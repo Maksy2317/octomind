@@ -16,6 +16,7 @@ import { profileRouter } from './routes/profile';
 import { marketingRouter } from './routes/marketing';
 import { trendsRouter } from './routes/trends';
 import { adsRouter } from './routes/ads';
+import { usageRouter } from './routes/usage';
 import { errorHandler } from './middleware/errorHandler';
 import { cleanupOldFiles } from './services/cleanup';
 
@@ -124,6 +125,7 @@ app.use('/api/profile', profileRouter);
 app.use('/api/marketing', marketingRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/ads', adsRouter);
+app.use('/api/usage', usageRouter);
 
 // ── Seed the trends cache ─────────────────────────────────────────────────────
 // Railway's filesystem is ephemeral: every deploy wipes uploads/, and with it

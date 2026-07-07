@@ -12468,6 +12468,78 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     </div>`);
   }
 
+  // ── Server-side quota (source of truth) ──────────────────────────────────────
+  // Every metered endpoint returns 402 { code:'quota_exceeded', feature, limit,
+  // used, plan } when the DB-backed limit is hit. We intercept ALL fetch calls
+  // once and surface a clean upgrade sheet, regardless of which api() made them.
+  var QUOTA_LABELS = {
+    campaign: 'Кампанії', image: 'AI-зображення', chat: 'Запити до Octo',
+    trend_feed: 'Перегляди трендів', analysis: 'Розбір сторінки',
+    research: 'Дослідження ринку', brand: 'Бренд-стиль',
+  };
+  var _quotaSheetShown = 0;
+  window.octoQuotaSheet = function (d) {
+    // debounce: many parallel calls can 402 at once
+    var now = Date.now(); if (now - _quotaSheetShown < 800) return; _quotaSheetShown = now;
+    var fn = QUOTA_LABELS[d.feature] || 'Ця функція';
+    var per = d.per === 'day' ? 'сьогодні' : 'цього місяця';
+    _octoSheet('<div style="background:linear-gradient(160deg,#16121f,#0d0b14);border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%;max-width:600px;border:1px solid rgba(139,123,255,.35);box-sizing:border-box;">'
+      + '<img src="assets/new/A21.png" style="width:74px;height:74px;object-fit:contain;display:block;margin:0 auto 6px;">'
+      + '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Ліміт вичерпано</div>'
+      + '<div style="font-size:13.5px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">' + fn + ': ' + (d.used != null ? d.used : d.limit) + ' з ' + d.limit + ' ' + per + '</div>'
+      + '<div style="background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05));border:1px solid rgba(139,123,255,.3);border-radius:16px;padding:16px;margin-bottom:20px;">'
+      + '<div style="font-size:12px;font-weight:800;color:#c9bcff;margin-bottom:6px;">⚡ Pro — $12 / міс</div>'
+      + '<div style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.7;">10 кампаній · ~30 AI-зображень · тренди повністю · Ask Octo без ліміту · бренд і план</div></div>'
+      + '<button onclick="_octoSheetClose(); showScreen(\'pricing\',null);" style="width:100%;padding:15px;background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;margin-bottom:10px;">Відкрити Pro →</button>'
+      + '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;">Закрити</button>'
+      + '</div>');
+  };
+  (function () {
+    if (window.__octoFetchWrapped) return; window.__octoFetchWrapped = true;
+    var _fetch = window.fetch;
+    window.fetch = function (url, opts) {
+      return _fetch(url, opts).then(function (res) {
+        if (res.status === 402) {
+          try {
+            res.clone().json().then(function (d) {
+              if (d && d.code === 'quota_exceeded') { window.octoQuotaSheet(d); try { window.octoRefreshUsage && window.octoRefreshUsage(); } catch (e) {} }
+            }).catch(function () {});
+          } catch (e) {}
+        }
+        return res;
+      });
+    };
+  })();
+
+  // Pull the real usage snapshot and drive the sidebar plan box from it.
+  window.octoServerUsage = null;
+  window.octoRefreshUsage = function () {
+    try {
+      fetch('/api/usage', { headers: { 'x-device-id': deviceId() } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.enforced) return; // DB off → keep localStorage display
+          window.octoServerUsage = d;
+          var f = (d.features && d.features.chat) || null;
+          var label = document.getElementById('sidebarPlanLabel');
+          var credits = document.getElementById('sidebarPlanCredits');
+          var bar = document.getElementById('sidebarPlanBar');
+          var upBtn = document.getElementById('sidebarUpgradeBtn');
+          if (d.plan === 'pro' || d.plan === 'business') {
+            if (label) label.textContent = (d.plan === 'business' ? '💎 Business' : '💎 Pro') + ' план';
+            if (credits) credits.textContent = 'Всі функції без обмежень';
+            if (bar) { bar.style.width = '100%'; bar.style.background = 'var(--green)'; }
+            if (upBtn) upBtn.style.display = 'none';
+          } else if (f && !f.unlimited) {
+            if (label) label.textContent = 'Безкоштовний план';
+            if (credits) credits.textContent = f.used + ' з ' + f.limit + ' Octo-запитів';
+            if (bar) { bar.style.width = Math.min(100, (f.used / f.limit) * 100) + '%'; bar.style.background = f.used >= f.limit ? '#FF6B6B' : 'var(--grad)'; }
+            if (upBtn) upBtn.style.display = '';
+          }
+        }).catch(function () {});
+    } catch (e) {}
+  };
+
   // ── Update sidebar + dev badge ───────────────────────────────────────────────
   window.octoUpdatePlanUI = function() {
     const plan  = getPlan();
@@ -12543,7 +12615,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   };
 
   // ── Init ─────────────────────────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', function() { octoUpdatePlanUI(); });
+  document.addEventListener('DOMContentLoaded', function() { octoUpdatePlanUI(); try { window.octoRefreshUsage && window.octoRefreshUsage(); } catch(e){} });
 
 })();
 

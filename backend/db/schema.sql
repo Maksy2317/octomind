@@ -94,3 +94,20 @@ drop trigger if exists projects_touch on public.projects;
 create trigger projects_touch
   before update on public.projects
   for each row execute function public.touch_updated_at();
+
+-- ── plan + usage metering (server-side tariff limits) ─────────────────────────
+-- `plan` is the source of truth for entitlements. Defaults to 'free'; the
+-- payment flow (later) flips it to 'pro' / 'business'. Enforcement counts rows
+-- in `usage_events` for the current period (day/month) per feature.
+alter table public.users add column if not exists plan text not null default 'free';
+
+create table if not exists public.usage_events (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.users (id) on delete cascade,
+  feature     text not null,   -- campaign | image | chat | trend_feed | analysis | research | brand
+  created_at  timestamptz not null default now()
+);
+
+-- The hot query is "count events for a user+feature since <period start>".
+create index if not exists usage_events_lookup_idx
+  on public.usage_events (user_id, feature, created_at desc);

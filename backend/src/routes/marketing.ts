@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { optionalIdentity } from '../middleware/identity';
+import { meter } from '../middleware/quota';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
@@ -130,7 +131,7 @@ marketingRouter.post('/audit', async (req: Request, res: Response, next: NextFun
 });
 
 // POST /api/marketing/research  — real niche/market research via web search.
-marketingRouter.post('/research', async (req: Request, res: Response, next: NextFunction) => {
+marketingRouter.post('/research', meter('research'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   try {
     const { ctx, profileId } = await resolveContext(req);
@@ -201,7 +202,7 @@ marketingRouter.post('/onboard', async (req: Request, res: Response, next: NextF
 
 // POST /api/marketing/strategy  — goal-first campaign strategy (v2 core).
 // Body: { goal: string, details?: string, profile?: {...} }
-marketingRouter.post('/strategy', async (req: Request, res: Response, next: NextFunction) => {
+marketingRouter.post('/strategy', meter('campaign'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   const goal = typeof req.body?.goal === 'string' ? req.body.goal.slice(0, 400) : '';
   if (!goal.trim()) {
@@ -320,7 +321,7 @@ function saveGenImage(buf: Buffer, ext: string): string {
 // palette (with reasoning), tone, tagline, and a rendered logo. Saved to the
 // profile client-side so every later material inherits the style.
 // Body: { profile? }   (logo render is best-effort; kit still returns without it)
-marketingRouter.post('/brand', async (req: Request, res: Response, next: NextFunction) => {
+marketingRouter.post('/brand', meter('brand'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   try {
     const { ctx, profileId } = await resolveContext(req);

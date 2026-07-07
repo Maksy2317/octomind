@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { optionalIdentity } from '../middleware/identity';
+import { meter } from '../middleware/quota';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import {
@@ -286,7 +287,7 @@ adsRouter.post('/video', async (req: Request, res: Response, next: NextFunction)
 // Body: { image: {media_type, data}, prompt, ratio? } → { url }
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
 
-adsRouter.post('/render-scene', async (req: Request, res: Response, next: NextFunction) => {
+adsRouter.post('/render-scene', meter('image'), async (req: Request, res: Response, next: NextFunction) => {
   const gKey = process.env.GOOGLE_API_KEY;
   if (!gKey) { res.status(503).json({ error: 'Рендер сцен не налаштований (GOOGLE_API_KEY відсутній)' }); return; }
   const images = pickImages(req.body, 2);

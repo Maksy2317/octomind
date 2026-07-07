@@ -5,6 +5,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { optionalIdentity } from '../middleware/identity';
+import { meter } from '../middleware/quota';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import { getTrendFeed, getProfileVideos, isTrendsConfigured, isInstagramEnabled, kvGet, kvSet } from '../services/trends';
@@ -29,7 +30,7 @@ async function resolveCtx(req: Request): Promise<{ ctx: string; profileId: strin
 // search returns whatever is loudest (memes). So unless intent is 'raw',
 // Octo first crafts 3 targeted queries for the user's intent, then scrapes
 // them all in one actor run. Falls back to the raw word if the AI step fails.
-trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunction) => {
+trendsRouter.post('/feed', meter('trend_feed'), async (req: Request, res: Response, next: NextFunction) => {
   if (!isTrendsConfigured()) {
     res.status(503).json({ error: 'Стрічка трендів не налаштована (APIFY_TOKEN відсутній)' });
     return;
@@ -83,7 +84,7 @@ trendsRouter.post('/feed', async (req: Request, res: Response, next: NextFunctio
 // POST /api/trends/page-audit  — { handle: "@нік" | url, profile? }
 // The user's OWN page: scrape latest videos with real metrics → honest AI
 // breakdown (what works for THEM, what flops, what to make next).
-trendsRouter.post('/page-audit', async (req: Request, res: Response, next: NextFunction) => {
+trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Response, next: NextFunction) => {
   if (!isTrendsConfigured()) {
     res.status(503).json({ error: 'Аналіз сторінки не налаштований (APIFY_TOKEN відсутній)' });
     return;
