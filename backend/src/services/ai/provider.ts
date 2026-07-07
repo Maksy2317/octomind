@@ -138,9 +138,10 @@ export async function geminiChat(
 
 // ── Gemini grounded (real Google Search) — for market research ─────────────────
 // Grounds the answer with live Google Search results and returns the model text
-// plus the source URLs it used. Can't combine with responseMimeType:json, so the
-// caller parses JSON out of the text (parseJsonLoose handles that).
-export async function geminiGrounded(system: string, user: string): Promise<{ text: string; sources: string[] }> {
+// plus the sources it used (each with a human-readable title + its URL). Can't
+// combine with responseMimeType:json, so the caller parses JSON from the text.
+export interface GroundingSource { title: string; url: string }
+export async function geminiGrounded(system: string, user: string): Promise<{ text: string; sources: GroundingSource[] }> {
   const key = process.env.GOOGLE_API_KEY;
   if (!key) throw new Error('GOOGLE_API_KEY not configured');
   const body = {
@@ -159,10 +160,20 @@ export async function geminiGrounded(system: string, user: string): Promise<{ te
   const text = (cand?.content?.parts || []).map((p: any) => p.text || '').join('');
   if (!text) throw new Error('Gemini grounded returned empty' + (cand?.finishReason ? ` (${cand.finishReason})` : ''));
   const chunks = cand?.groundingMetadata?.groundingChunks || [];
-  const sources: string[] = chunks
-    .map((c: any) => c?.web?.uri || c?.web?.url || '')
-    .filter(Boolean)
-    .slice(0, 8);
+  const seen = new Set<string>();
+  const sources: GroundingSource[] = [];
+  for (const c of chunks) {
+    const w = c?.web || {};
+    const url: string = w.uri || w.url || '';
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    // Google gives a readable title (usually the site/page name) for each chunk;
+    // fall back to the URL host, never the ugly vertex redirect host.
+    let title = String(w.title || '').trim();
+    if (!title) { try { const h = new URL(url).hostname.replace(/^www\./, ''); title = h.includes('vertexaisearch') ? 'Джерело' : h; } catch { title = 'Джерело'; } }
+    sources.push({ title, url });
+    if (sources.length >= 8) break;
+  }
   return { text, sources };
 }
 

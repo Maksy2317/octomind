@@ -2460,6 +2460,9 @@
             .ob-sec { font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin:14px 0 7px; }
             .ob-chips { display:flex;flex-wrap:wrap;gap:6px; }
             .ob-chip { background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:12.5px;color:var(--text2); }
+            .ob-src-wrap { display:flex;flex-wrap:wrap;gap:7px;margin-top:2px; }
+            .ob-src { display:inline-flex;align-items:center;gap:6px;max-width:220px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--text3);text-decoration:none;transition:border-color .15s,color .15s; }
+            .ob-src:hover { border-color:var(--accent);color:var(--text1); }
             .ob-chip.warn { border-color:rgba(255,183,77,.4);color:#FFB74D; } .ob-chip.good { border-color:rgba(76,175,80,.4);color:#9CDf9F; }
             .ob-why { background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-left:3px solid var(--accent);
               border-radius:10px;padding:11px 14px;margin-top:12px;font-size:13.5px;color:var(--text2); } .ob-why b { color:var(--accent2); }
@@ -13553,7 +13556,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       // Save a compact summary into the business profile so strategy uses it.
       var mr = [r.summary, (r.what_works || []).length ? 'Що працює: ' + r.what_works.join('; ') : '', (r.trends || []).length ? 'Тренди: ' + r.trends.join('; ') : '', (r.hooks || []).length ? 'Хуки: ' + r.hooks.join('; ') : ''].filter(Boolean).join('\n').slice(0, 1500);
       if (window.octoBiz) window.octoBiz.merge({ market_research: mr });
-      var srcs = (r.sources || []).map(function (s) { return '<div style="font-size:12px;color:var(--text4);margin-top:3px;word-break:break-all;">' + esc(s) + '</div>'; }).join('');
+      var srcs = (r.sources || []).map(function (s) {
+        var url = (s && s.url) ? s.url : (typeof s === 'string' ? s : '');
+        var title = (s && s.title) ? s.title : url;
+        if (!url) return '';
+        return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="ob-src" title="' + esc(url) + '">'
+          + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:.7;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+          + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(title) + '</span></a>';
+      }).filter(Boolean).join('');
+      if (srcs) srcs = '<div class="ob-src-wrap">' + srcs + '</div>';
       var card = document.createElement('div');
       card.className = 'card ob-res';
       card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">🔎</div><div><div class="card-title" style="margin:0;">Дослідження ринку</div><div class="card-sub" style="margin:0;">свіже, з інтернету</div></div></div>'

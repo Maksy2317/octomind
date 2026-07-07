@@ -244,7 +244,29 @@ export interface MarketResearch {
   what_works: string[];        // формати/підходи, що працюють
   hooks: string[];             // приклади хуків
   competitor_notes: string[];  // що роблять конкуренти
-  sources: string[];           // джерела/посилання
+  sources: ResearchSource[];   // джерела/посилання (назва + URL)
+}
+
+export interface ResearchSource { title: string; url: string }
+
+// Normalise sources from either path into {title, url}. Anthropic web_search
+// returns bare URL strings; Gemini grounding already returns rich objects.
+function toSources(raw: unknown): ResearchSource[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ResearchSource[] = [];
+  const seen = new Set<string>();
+  for (const s of raw) {
+    let url = '';
+    let title = '';
+    if (s && typeof s === 'object') { url = String((s as any).url || (s as any).uri || ''); title = String((s as any).title || ''); }
+    else { url = String(s || ''); }
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    if (!title) { try { title = new URL(url).hostname.replace(/^www\./, ''); } catch { title = url; } }
+    out.push({ title, url });
+    if (out.length >= 8) break;
+  }
+  return out;
 }
 
 export async function researchNiche(profileCtx: string): Promise<MarketResearch> {
@@ -272,16 +294,16 @@ export async function researchNiche(profileCtx: string): Promise<MarketResearch>
         'прикладами де є. Спирайся на знайдене, не вигадуй. ' + LANG_RULE;
       const { text, sources } = await geminiGrounded(groundSystem, user);
       // Structure the grounded findings into our schema (plain Gemini JSON call).
+      // No "sources" here — the model can't know the real URLs; those come from
+      // Google's grounding metadata below, with proper titles.
       const structured = await llmCall(
         'Ти структуруєш готове дослідження ринку в JSON. ' + LANG_RULE +
-        ' Схема: {"summary": string, "trends": string[], "what_works": string[], "hooks": string[], "competitor_notes": string[], "sources": string[]}.',
+        ' Схема: {"summary": string, "trends": string[], "what_works": string[], "hooks": string[], "competitor_notes": string[]}.',
         `Ось дослідження ринку (текстом):\n${text.slice(0, 6000)}\n\nСтруктуруй його в JSON за схемою. Нічого не вигадуй понад текст.`,
         { provider: 'gemini', maxTokens: 3000 },
       );
       const parsed = parseJsonLoose<MarketResearch>(structured.text);
-      if (sources.length) {
-        parsed.sources = Array.from(new Set([...(parsed.sources || []), ...sources])).slice(0, 8);
-      }
+      parsed.sources = toSources(sources);   // real Google sources (title + url)
       return parsed;
     } catch (e) {
       console.warn('[Research] Gemini grounding failed:', (e as Error).message?.slice(0, 140));
@@ -289,7 +311,9 @@ export async function researchNiche(profileCtx: string): Promise<MarketResearch>
       // else fall through to Anthropic web search
     }
   }
-  return jsonCallSearch<MarketResearch>(system, user);
+  const res = await jsonCallSearch<MarketResearch>(system, user);
+  res.sources = toSources(res.sources);   // Anthropic returns bare URL strings
+  return res;
 }
 
 // ── Trend adapter (reference → original idea, NOT a copy) ──────────────────────
