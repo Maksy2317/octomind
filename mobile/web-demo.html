@@ -3438,86 +3438,10 @@
             </div>
           </div>
 
-          <!-- INTERACTIVE SAVINGS CALCULATOR -->
-          <div style="background:linear-gradient(135deg,#1a0a3e 0%,#0d0d20 100%);border:1px solid #6C63FF55;border-radius:24px;padding:28px;margin-bottom:32px;position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-60px;right:-60px;width:250px;height:250px;background:radial-gradient(circle,#6C63FF33 0%,transparent 70%);pointer-events:none;"></div>
-            <div style="position:absolute;bottom:-40px;left:-40px;width:180px;height:180px;background:radial-gradient(circle,#B5A8FF22 0%,transparent 70%);pointer-events:none;"></div>
-
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
-              <img src="assets/new/A18.png" style="width:60px;height:60px;object-fit:contain;">
-              <div>
-                <div style="font-size:11px;color:#B5A8FF;font-weight:800;letter-spacing:2px;text-transform:uppercase;">💸 Інтерактивний калькулятор</div>
-                <h3 style="font-size:20px;font-weight:900;margin-top:2px;">Скільки коштує твоя команда проти Octo?</h3>
-              </div>
-            </div>
-
-            <!-- SLIDERS -->
-            <div style="margin-bottom:20px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;color:var(--text2);">👨‍💼 Маркетолог / SMM</span>
-                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_marketer">$2 000</span>
-              </div>
-              <input type="range" min="500" max="5000" step="100" value="2000" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'marketer')">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Джун $500</span><span>Сеньйор $5 000</span></div>
-            </div>
-
-            <div style="margin-bottom:20px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;color:var(--text2);">🎬 Відеограф / монтажер</span>
-                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_video">$800</span>
-              </div>
-              <input type="range" min="0" max="3000" step="100" value="800" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'video')">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Не наймаю</span><span>Профі $3 000</span></div>
-            </div>
-
-            <div style="margin-bottom:20px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;color:var(--text2);">✍️ Копірайтер</span>
-                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_copy">$500</span>
-              </div>
-              <input type="range" min="0" max="2000" step="100" value="500" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'copy')">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Не наймаю</span><span>Топ-автор $2 000</span></div>
-            </div>
-
-            <div style="margin-bottom:24px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span style="font-size:13px;color:var(--text2);">🎨 Дизайнер / креативи</span>
-                <span style="font-size:15px;font-weight:800;color:#fff;" id="v_design">$400</span>
-              </div>
-              <input type="range" min="0" max="2000" step="100" value="400" style="width:100%;accent-color:#6C63FF;cursor:pointer;" oninput="calcSavings(this,'design')">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text4);margin-top:3px;"><span>Не наймаю</span><span>Арт-директор $2 000</span></div>
-            </div>
-
-            <!-- RESULT CARD -->
-            <div style="background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(56,142,60,0.08));border:2px solid #4CAF5066;border-radius:18px;padding:20px;display:flex;align-items:center;gap:16px;">
-              <img src="assets/new/A11.png" id="calcMascot" style="width:72px;height:72px;object-fit:contain;transition:transform 0.3s;flex-shrink:0;">
-              <div style="flex:1;">
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-                  <span style="font-size:13px;color:#C8E6C9;font-weight:700;">Команда без Octo:</span>
-                  <span style="font-size:20px;font-weight:900;color:#ff7a7a;text-decoration:line-through;" id="totalWithout">$3 700 / міс</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
-                  <span style="font-size:13px;color:#C8E6C9;font-weight:700;">OctoMind Pro:</span>
-                  <span style="font-size:20px;font-weight:900;color:#B5A8FF;">$12 / міс</span>
-                </div>
-                <div style="background:rgba(76,175,80,0.2);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
-                  <div>
-                    <div style="font-size:11px;color:#C8E6C9;font-weight:800;text-transform:uppercase;letter-spacing:1px;">🎉 Твоя економія</div>
-                    <div style="font-size:28px;font-weight:900;color:#4CAF50;line-height:1.1;" id="savingMonth">$3 688 / міс</div>
-                    <div style="font-size:12px;color:#a5d6a7;margin-top:2px;" id="savingYear">= $44 256 на рік ✈️</div>
-                  </div>
-                  <div style="background:#4CAF50;border-radius:12px;padding:8px 14px;text-align:center;">
-                    <div style="font-size:28px;font-weight:900;color:#fff;line-height:1;" id="savingPct">99%</div>
-                    <div style="font-size:10px;color:#E8F5E9;font-weight:800;text-transform:uppercase;letter-spacing:1px;">дешевше</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style="margin-top:16px;padding:14px;background:rgba(108,99,255,0.1);border-radius:12px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text2);">
-              <img src="assets/new/A08.png" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;">
-              <span><strong style="color:#fff;">Окупаемость:</strong> Один привлечённый клиент в месяц уже покрывает Pro в 5–10 раз. ROI с первого дня 🚀</span>
-            </div>
+          <!-- Concise trust strip (laconic — no calculator) -->
+          <div style="max-width:760px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:18px;background:rgba(139,123,255,.08);border:1px solid rgba(139,123,255,.2);">
+            <img src="assets/new/A08.png" style="width:44px;height:44px;object-fit:contain;flex-shrink:0;">
+            <div style="font-size:13px;line-height:1.55;color:#b9b9dd;"><b style="color:#fff;">Окупається з першої кампанії.</b> Один залучений клієнт на місяць покриває Pro у 5–10 разів. Без прихованих платежів, скасувати можна будь-коли.</div>
           </div>
 
 
