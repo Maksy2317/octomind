@@ -15724,13 +15724,32 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   };
   var CAT_LABEL = { selling: 'Продаж', education: 'Експертне', social_proof: 'Соц-доказ', bts: 'Закулісся', promo: 'Акція' };
   var CAT_GOAL = { selling: 'sales', education: 'awareness', social_proof: 'trust', bts: 'trust', promo: 'promotion' };
+  // FEED formats only — stories live in their own tab (they're 10-20/day and
+  // would flood a calendar), so the content plan never schedules a Story.
   function pickType(platform, cat) {
     if (platform === 'tiktok') return 'tiktok';
     if (platform === 'facebook') return 'fb_post';
     if (platform === 'linkedin') return 'li_post';
-    if (platform === 'instagram') return cat === 'selling' || cat === 'promo' ? 'reel' : (cat === 'social_proof' ? 'story' : 'post');
+    if (platform === 'instagram') return (cat === 'selling' || cat === 'promo' || cat === 'bts') ? 'reel' : 'post';
     return 'post';
   }
+
+  // ── Stories: a daily story FLOW (checklist), not calendar entries ─────────────
+  var STORY_STEPS = {
+    common: ['👋 Доброго ранку / привітання', '🎬 Закулісся: над чим працюєш зараз', '💡 Швидка порада або лайфхак', '❓ Опитування / питання аудиторії (стікер)', '⭐ Відгук або результат клієнта', '🔥 Нагадування про послугу / акцію + CTA', '🌙 Підсумок дня / анонс на завтра'],
+    sales: ['🛍 Товар дня + ціна', '💬 «Ще є питання? Пиши в директ»', '⏳ Спецпропозиція з дедлайном'],
+    trust: ['🤝 Історія клієнта до/після', '🧠 Розвінчуємо міф у ніші'],
+    promotion: ['🏷️ Умови акції простими словами', '🎁 Бонус за дію сьогодні'],
+  };
+  function storyStepsFor(goal) {
+    var base = STORY_STEPS.common.slice();
+    var extra = STORY_STEPS[goal] || [];
+    // interleave 1-2 goal-specific steps
+    return base.slice(0, 4).concat(extra.slice(0, 2)).concat(base.slice(4));
+  }
+  function storiesKey() { return 'octo_stories_' + wsId(); }
+  function storiesLoad() { try { return JSON.parse(localStorage.getItem(storiesKey()) || '{}'); } catch (e) { return {}; } }
+  function storiesSave(o) { try { localStorage.setItem(storiesKey(), JSON.stringify(o)); } catch (e) {} }
   function mockCaption(idea, goalId) {
     var b = biz(); var name = b.business_name ? (b.business_name + ' — ') : '';
     var cta = { sales: 'Пиши в директ, щоб замовити 💬', awareness: 'Збережи, щоб не загубити 🔖', trust: 'Розкажи в коментарях свій досвід 👇', promotion: 'Встигни до кінця тижня ⏳', launch: 'Дізнайся першим — деталі в директі ✨' }[goalId] || 'Дій сьогодні 🚀';
@@ -15792,7 +15811,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
   }
 
   function tabsBar() {
-    var tabs = [['week', '🗓 Тиждень'], ['list', '📋 Список'], ['draft', '✏️ Чернетки'], ['ready', '✅ Готові']];
+    var tabs = [['week', '🗓 Тиждень'], ['list', '📋 Список'], ['stories', '📲 Сторіз'], ['draft', '✏️ Чернетки'], ['ready', '✅ Готові']];
     return '<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">' + tabs.map(function (t) {
       var on = state.tab === t[0];
       return '<button onclick="octoPlanner.setTab(\'' + t[0] + '\')" style="padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ' + (on ? '#8B7BFF' : 'rgba(255,255,255,.1)') + ';background:' + (on ? 'rgba(139,123,255,.16)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#fff' : '#a2a2c6') + ';">' + t[1] + '</button>';
@@ -15870,8 +15889,34 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
       + '<button class="btn btn-primary" onclick="octoPlanner.openGen()" style="flex-shrink:0;">🐙 Згенерувати план на тиждень</button></div>';
     var body = state.tab === 'week' ? weekView()
       : state.tab === 'list' ? listView(null)
-        : state.tab === 'draft' ? listView('draft') : listView('ready');
+        : state.tab === 'stories' ? storiesView()
+          : state.tab === 'draft' ? listView('draft') : listView('ready');
     root.innerHTML = header + summaryCards() + tabsBar() + body;
+  }
+
+  // Stories tab: a daily story flow the user works through (not calendar entries).
+  function storiesView() {
+    var today = iso(new Date());
+    var store = storiesLoad();
+    var goal = (biz().goal) || 'sales';
+    var steps = store[today] && store[today].steps ? store[today].steps : storyStepsFor(goal);
+    var done = store[today] && store[today].done ? store[today].done : {};
+    if (!store[today]) { store[today] = { steps: steps, done: {} }; storiesSave(store); }
+    var checked = Object.keys(done).filter(function (k) { return done[k]; }).length;
+    return '<div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:18px;background:linear-gradient(140deg,rgba(139,123,255,.16),rgba(56,189,248,.05));border:1px solid rgba(139,123,255,.3);margin-bottom:16px;">'
+      + '<img src="assets/new/A14.png" style="width:52px;height:52px;object-fit:contain;flex:0 0 auto;">'
+      + '<div style="flex:1;"><div style="font-size:15px;font-weight:800;">Сторіз на сьогодні</div>'
+      + '<div style="font-size:12.5px;color:#b9b9dd;margin-top:2px;">Сторіс — це живий щоденний потік (10-20 на день), тому вони окремо від календаря. Ось твій сценарій на день:</div></div></div>'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="flex:1;height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="height:100%;width:' + Math.round((checked / steps.length) * 100) + '%;background:var(--grad);border-radius:999px;transition:width .3s;"></div></div>'
+      + '<span style="font-size:12px;font-weight:700;color:#9a9ac4;">' + checked + '/' + steps.length + '</span>'
+      + '<button onclick="octoPlanner.refreshStories()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#c9bcff;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;white-space:nowrap;">🔄 Інші ідеї</button></div>'
+      + '<div style="display:flex;flex-direction:column;gap:9px;">' + steps.map(function (s, i) {
+        var on = !!done[i];
+        return '<div onclick="octoPlanner.toggleStory(' + i + ')" style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:14px;cursor:pointer;background:' + (on ? 'rgba(63,208,122,.08)' : 'rgba(255,255,255,.035)') + ';border:1px solid ' + (on ? 'rgba(63,208,122,.28)' : 'rgba(255,255,255,.07)') + ';">'
+          + '<span style="width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:' + (on ? 'var(--grad)' : 'rgba(255,255,255,.06)') + ';color:#fff;font-size:13px;">' + (on ? '✓' : (i + 1)) + '</span>'
+          + '<span style="flex:1;font-size:13.5px;font-weight:600;' + (on ? 'color:#8fb69c;text-decoration:line-through;' : '') + '">' + esc(s) + '</span></div>';
+      }).join('') + '</div>'
+      + '<div style="font-size:11.5px;color:#6d6d86;margin-top:14px;line-height:1.5;">💡 Постай ці сторіс упродовж дня у зручному ритмі. Відмічай зроблене — прогрес зберігається.</div>';
   }
 
   // ── Generate wizard (modal) ───────────────────────────────────────────────────
@@ -15967,6 +16012,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖНО — пиши в стиле этого а
     render: render,
     setTab: function (t) { state.tab = t; render(); },
     filter: function (k, v) { state[k] = v; render(); },
+    toggleStory: function (i) { var t = iso(new Date()); var s = storiesLoad(); if (!s[t]) s[t] = { steps: storyStepsFor((biz().goal) || 'sales'), done: {} }; s[t].done[i] = !s[t].done[i]; storiesSave(s); render(); },
+    refreshStories: function () {
+      var t = iso(new Date()); var s = storiesLoad();
+      var extras = STORY_STEPS.sales.concat(STORY_STEPS.trust, STORY_STEPS.promotion).sort(function () { return Math.random() - 0.5; });
+      var base = STORY_STEPS.common.slice().sort(function () { return Math.random() - 0.5; });
+      s[t] = { steps: base.slice(0, 5).concat(extras.slice(0, 2)), done: {} };
+      storiesSave(s); render();
+    },
     add: function (dateISO) {
       var d = dateISO || iso(new Date());
       var p = { id: uid(), date: d, time: '12:00', platform: 'instagram', contentType: 'post', goal: 'awareness', category: 'education', idea: 'Нова ідея посту', caption: '', media: null, reminder: '30m', status: 'idea' };
