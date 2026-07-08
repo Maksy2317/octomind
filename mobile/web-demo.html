@@ -15997,12 +15997,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     window.showScreen = function (id, nav) {
       _os(id, nav);
       if (id === 'trends') {
+        // Prefill the niche for convenience, but NEVER auto-search — the feed
+        // runs ONLY when the user presses «Знайти» (avoids wasted Apify calls).
         var q = $('tfQuery');
         if (q && !q.value) {
           var b = window.octoBiz && window.octoBiz.get && window.octoBiz.get();
           if (b && b.niche) q.value = b.niche;
         }
-        if (q && q.value && !all.length) window.octoTrendsRun();
       }
       if (id === 'audit') {
         var h = $('paHandle');
