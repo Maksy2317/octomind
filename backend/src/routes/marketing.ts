@@ -21,6 +21,7 @@ import {
 } from '../services/ai/marketing';
 import { saveBusinessProfile } from '../services/db/repos';
 import { BusinessProfileInput } from '../services/db/models';
+import { uploadImage } from '../services/storage';
 
 export const marketingRouter = Router();
 
@@ -317,6 +318,15 @@ function saveGenImage(buf: Buffer, ext: string): string {
   return `/output/gen/${name}`;
 }
 
+// Prefer Supabase Storage (survives Railway redeploys) → fall back to local disk.
+// The disk copy is ephemeral on Railway, which is why brand logos / images used
+// to break after a deploy.
+async function persistGenImage(buf: Buffer, ext: string): Promise<string> {
+  const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  const remote = await uploadImage(buf, ext, mime);
+  return remote || saveGenImage(buf, ext);
+}
+
 // POST /api/marketing/brand  — Octo derives a brand identity from the business:
 // palette (with reasoning), tone, tagline, and a rendered logo. Saved to the
 // profile client-side so every later material inherits the style.
@@ -334,7 +344,7 @@ marketingRouter.post('/brand', meter('brand'), async (req: Request, res: Respons
         const { buf, ext } = await renderAdImage(
           kit.logo_prompt + ' Flat minimal vector logo, iconic, centered, no text, no words, no letters.',
         );
-        logo_url = saveGenImage(buf, ext);
+        logo_url = await persistGenImage(buf, ext);
       } catch (e) {
         console.warn('[Brand] Logo render failed:', (e as Error).message);
       }
@@ -374,8 +384,8 @@ marketingRouter.post('/image', async (req: Request, res: Response, next: NextFun
       brief.image_prompt + ' No text, no words, no letters in the image.',
     );
 
-    // 3. Save under output/gen (served statically at /output/gen/...).
-    const url = saveGenImage(buf, ext);
+    // 3. Persist — Supabase Storage (survives redeploys) → disk fallback.
+    const url = await persistGenImage(buf, ext);
 
     const material = {
       title: label,
