@@ -13504,6 +13504,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var fm = (window.octoBiz.get() || {}).field_meta || {};
       Object.keys(r.meta || {}).forEach(function (k) { fm[k] = r.meta[k]; });
       window.octoBiz.merge({ field_meta: fm });
+      // Real brand colours pulled from the site → seed the brand kit.
+      if (Array.isArray(r.site_colors) && r.site_colors.length) window.octoBiz.merge({ site_colors: r.site_colors });
       importStatus('ok', '✅ Заповнив ' + keys.length + ' полів із ' + (r.source_type === 'social' ? 'соцмережі' : 'сайту') + '. Перевір нижче й виправ, якщо десь не так.');
       renderProfile(prev);
       renderFlags([]);
@@ -16074,7 +16076,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       : '';
 
     $('brResult').innerHTML =
-      '<div class="card ob-res"><div class="card-title" style="margin-bottom:10px;">🎨 Твій бренд-стиль</div>'
+      '<div class="card ob-res"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;">'
+      + '<div class="card-title" style="margin:0;">🎨 Твій бренд-стиль</div>'
+      + '<button onclick="octoBrandEdit()" style="flex:none;background:none;border:1px solid var(--border);border-radius:9px;color:var(--text3);font-size:12px;font-weight:600;padding:6px 11px;cursor:pointer;">✎ Редагувати</button></div>'
       + (brand.tagline ? '<div style="font-size:17px;font-weight:800;text-align:center;margin:6px 0 14px;">«' + esc(brand.tagline) + '»</div>' : '')
       + (logo ? '<div style="margin-bottom:16px;">' + logo + '</div>' : '')
       + '<div style="font-size:12px;font-weight:700;color:var(--text4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Палітра</div>'
@@ -16087,6 +16091,46 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       + '</div>';
   }
 
+  // Manual edit — the brand is the user's; let them fix colours / tone / slogan.
+  window.octoBrandEdit = function () {
+    var b = ((window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}).brand;
+    if (!b) return;
+    var pal = (b.palette || []).map(function (c, i) {
+      var hex = /^#[0-9a-fA-F]{6}$/.test(c.hex || '') ? c.hex : '#6c63ff';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+        '<input type="color" id="beCol' + i + '" value="' + hex + '" style="width:46px;height:38px;border:1px solid var(--border);border-radius:8px;background:none;cursor:pointer;padding:2px;">' +
+        '<input class="ob-input" id="beName' + i + '" value="' + esc(c.name || '') + '" placeholder="Назва кольору" style="flex:1;margin:0;">' +
+        '<span style="font-size:11px;color:var(--text4);width:64px;flex:none;">' + esc(c.role || '') + '</span></div>';
+    }).join('');
+    $('brResult').innerHTML =
+      '<div class="card ob-res"><div class="card-title" style="margin-bottom:14px;">✎ Редагувати бренд-стиль</div>' +
+      '<div class="on-type-lbl" style="margin:0 0 6px;">Слоган</div>' +
+      '<input class="ob-input" id="beTag" value="' + esc(b.tagline || '') + '" style="margin:0 0 14px;width:100%;">' +
+      '<div class="on-type-lbl" style="margin:0 0 6px;">Тон голосу</div>' +
+      '<textarea class="ob-input" id="beTone" rows="2" style="margin:0 0 16px;width:100%;">' + esc(b.tone || '') + '</textarea>' +
+      '<div class="on-type-lbl" style="margin:0 0 8px;">Палітра (клікни колір, щоб змінити)</div>' + pal +
+      '<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="octoBrandSaveEdit()">💾 Зберегти</button>' +
+      '<button class="btn" style="width:100%;margin-top:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);" onclick="octoBrandCancelEdit()">Скасувати</button></div>';
+  };
+  window.octoBrandCancelEdit = function () {
+    var b = ((window.octoBiz.get && window.octoBiz.get()) || {}).brand; if (b) render(b);
+  };
+  window.octoBrandSaveEdit = function () {
+    var b = ((window.octoBiz.get && window.octoBiz.get()) || {}).brand; if (!b) return;
+    var tag = $('beTag'), tone = $('beTone');
+    if (tag) b.tagline = (tag.value || '').trim();
+    if (tone) b.tone = (tone.value || '').trim();
+    (b.palette || []).forEach(function (c, i) {
+      var col = $('beCol' + i), nm = $('beName' + i);
+      if (col) c.hex = col.value;
+      if (nm) c.name = (nm.value || '').trim();
+    });
+    window.octoBiz.merge({ brand: b });
+    render(b);
+    if (window.renderDashV2) window.renderDashV2();
+    var st = $('brStatus'); if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Збережено — застосовується до всіх нових матеріалів.'; }
+  };
+
   window.octoBrandRun = function () {
     if (!(window.octoBiz && window.octoBiz.isSet && window.octoBiz.isSet())) {
       var st0 = $('brStatus'); if (st0) { st0.className = 'ob-status ob-err'; st0.textContent = 'Спершу познайомся з Octo (розкажи про бізнес) — і повертайся.'; }
@@ -16096,10 +16140,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     if (btn) btn.disabled = true;
     if (st) { st.className = 'ob-status'; st.textContent = ''; }
     var brBox = $('brResult'); if (brBox) brBox.innerHTML = window.omLoaderHTML('A15', 'Octo підбирає кольори й тон…', 'Палітра, слоган і лого — до 30 сек');
+    var _sc = ((window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}).site_colors || [];
     fetch('/api/marketing/brand', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
-      body: JSON.stringify({ profile: bizProfile() }),
+      body: JSON.stringify({ profile: bizProfile(), site_colors: _sc }),
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (d) {
         if (window.octoBiz) window.octoBiz.merge({ brand: d.brand });

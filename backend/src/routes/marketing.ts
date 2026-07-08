@@ -391,7 +391,12 @@ marketingRouter.post('/brand', meter('brand'), async (req: Request, res: Respons
   if (!guardConfigured(res)) return;
   try {
     const { ctx, profileId } = await resolveContext(req);
-    const kit = await generateBrandKit(ctx);
+    const bodyColors = Array.isArray(req.body?.site_colors) ? req.body.site_colors : undefined;
+    const profColors = Array.isArray((req.body?.profile as Record<string, unknown> | undefined)?.site_colors)
+      ? (req.body.profile as Record<string, unknown>).site_colors as string[] : undefined;
+    const siteColors = (bodyColors || profColors || [])
+      .map(String).filter((c: string) => /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 5);
+    const kit = await generateBrandKit(ctx, siteColors.length ? siteColors : undefined);
 
     // Render the logo — best-effort; a failed image must not lose the kit.
     let logo_url: string | null = null;
