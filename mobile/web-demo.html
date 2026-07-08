@@ -9636,11 +9636,22 @@ Respond with the style description only, no intro phrases.`;
       _capProfile.audience  ? `Аудиторія: ${_capProfile.audience}` : '',
     ].filter(Boolean).join('\n') : '';
 
+    // Brand style → apply the brand voice + slogan so captions stay on-brand.
+    const _brand = (window.octoBiz && window.octoBiz.get && (window.octoBiz.get() || {}).brand) || null;
+    let _brandCtx = '';
+    if (_brand) {
+      const bp = [];
+      if (_brand.tone) bp.push(`Тон бренду (пиши САМЕ в цьому голосі, він важливіший за загальний тон): ${_brand.tone}`);
+      if (_brand.tagline) bp.push(`Слоган бренду (вплітай, де природно): «${_brand.tagline}»`);
+      if (Array.isArray(_brand.personality) && _brand.personality.length) bp.push(`Характер бренду: ${_brand.personality.join(', ')}`);
+      _brandCtx = bp.join('\n');
+    }
+
     const prompt = `Ти — досвідчений SMM-фахівець і копірайтер. Напиши 3 варіанти підпису для ${CAP_PLATFORM_LABELS[platform] || platform}.
 
 Опис контенту: ${desc}
 ${keywords ? `Ніша / ключові слова: ${keywords}` : ''}
-${_profileCtx ? _profileCtx + '\n' : ''}Тон: ${CAP_TONE_LABELS[tone] || tone}
+${_profileCtx ? _profileCtx + '\n' : ''}${_brandCtx ? _brandCtx + '\n' : ''}Тон: ${CAP_TONE_LABELS[tone] || tone}
 Мова відповіді: ${CAP_LANG_NAMES[lang] || lang}
 ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цього автора (наслідуй його манеру письма, емодзі, довжину речень, структуру): ${capStyleAnalysis}\n` : ''}
 Вимоги:
@@ -16071,7 +16082,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       + (why ? '<div style="margin-top:12px;">' + why + '</div>' : '')
       + (brand.tone ? '<div style="margin-top:14px;font-size:13px;"><b>Тон голосу:</b> ' + esc(brand.tone) + '</div>' : '')
       + (pers ? '<div style="margin-top:10px;">' + pers + '</div>' : '')
-      + '<div class="ob-cta" style="margin-top:16px;">✅ Стиль збережено. Тепер банери й контент Octo робитиме в цих кольорах і тоні.</div>'
+      + '<div style="margin-top:16px;padding:13px 15px;border:1px solid #4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.1),transparent);border-radius:13px;font-size:13px;color:var(--text2);line-height:1.55;">'
+      + '<b style="color:#7ED08A;">✅ Застосовується автоматично</b><br>Підписи й тексти Octo пише в цьому <b>тоні</b> і вплітає <b>слоган</b>; банери й креативи робить у твоїх <b>кольорах</b>. Нічого не треба вмикати — це діє у «Текстах», «Просуванні» та «Рекламі товару».</div>'
       + '</div>';
   }
 
