@@ -187,7 +187,9 @@ marketingRouter.post('/onboard', async (req: Request, res: Response, next: NextF
   try {
     const known = (req.body?.known && typeof req.body.known === 'object')
       ? req.body.known as BusinessProfileInput : undefined;
-    const result = await extractBusinessProfile(text, known);
+    const accountType = typeof req.body?.account_type === 'string' ? req.body.account_type
+      : (known as Record<string, unknown> | undefined)?.account_type as string | undefined;
+    const result = await extractBusinessProfile(text, known, accountType);
     // Persist the merged profile when the DB is up (best-effort).
     if (req.userId) {
       const merged = { ...(known || {}), ...result.profile };

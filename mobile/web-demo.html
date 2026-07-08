@@ -861,6 +861,9 @@
     }
     .sinfo h4 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
     .sinfo p { font-size: 11px; color: var(--text3); }
+    .seg { display:flex; gap:4px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:3px; }
+    .seg button { border:none; background:transparent; color:var(--text3); font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:7px; cursor:pointer; transition:background .15s,color .15s; }
+    .seg button.active { background:var(--accent); color:#fff; }
     .toggle { width: 40px; height: 22px; background: var(--border); border-radius: 11px; position: relative; cursor: pointer; transition: background 0.2s; }
     .toggle.on { background: var(--accent); }
     .toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
@@ -1980,6 +1983,13 @@
         <style>
           .on-hero { display:flex; gap:14px; align-items:center; margin-bottom:16px; }
           .on-hero img { width:56px; height:56px; object-fit:contain; flex:none; }
+          .on-type-lbl { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:var(--text3); margin:14px 0 8px; }
+          .on-type { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+          .on-type-btn { display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:13px 14px; border-radius:14px; border:1px solid var(--border); background:var(--surface2); cursor:pointer; text-align:left; transition:border-color .15s, background .15s; }
+          .on-type-btn.active { border-color:var(--accent); background:rgba(108,99,255,.12); box-shadow:0 0 0 1px var(--accent) inset; }
+          .on-type-ic { font-size:22px; }
+          .on-type-t { font-size:14px; font-weight:700; color:var(--text); }
+          .on-type-s { font-size:11.5px; color:var(--text4); }
           .on-prof-row { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
           .on-prof-row:last-child { border-bottom:none; }
           .on-prof-k { font-size:12px; color:var(--text3); width:120px; flex:none; padding-top:2px; }
@@ -2003,8 +2013,15 @@
               <img src="assets/new/A09.png" alt="Octo">
               <div>
                 <div class="card-title" style="margin:0;">Спершу познайомимось 👋</div>
-                <div class="card-sub" style="margin:0;">Розкажи про свій бізнес — Octo запам'ятає і далі все робитиме під тебе. Це не анкета: пиши вільно.</div>
+                <div class="card-sub" id="onHeroSub" style="margin:0;">Розкажи про свій бізнес — Octo запам'ятає і далі все робитиме під тебе. Це не анкета: пиши вільно.</div>
               </div>
+            </div>
+            <div class="on-type-lbl">Хто ти?</div>
+            <div class="on-type" id="onType">
+              <button type="button" class="on-type-btn active" data-t="business" onclick="octoSetType('business')">
+                <span class="on-type-ic">🏪</span><span class="on-type-t">Бізнес</span><span class="on-type-s">товар / послуга</span></button>
+              <button type="button" class="on-type-btn" data-t="blogger" onclick="octoSetType('blogger')">
+                <span class="on-type-ic">🎨</span><span class="on-type-t">Блогер / креатор</span><span class="on-type-s">просуваю себе</span></button>
             </div>
             <textarea id="onText" class="ob-input" rows="4" placeholder="Напр.: Маю барбершоп на Подолі в Києві, 4 майстри, стрижки й догляд за бородою, середній чек 500 грн. Клієнти — хлопці 20-40. Хочу більше записів. Запис через Instagram."></textarea>
             <button class="btn btn-primary" id="onBtn" style="width:100%;margin-top:12px;" onclick="octoOnboardSend()">Познайомити Octo →</button>
@@ -2145,7 +2162,7 @@
           <!-- STEP 1: goal -->
           <div id="ocGoalStep">
             <div class="card">
-              <div class="card-title">🎯 Який результат для бізнесу потрібен?</div>
+              <div class="card-title" id="ocGoalTitle">🎯 Який результат потрібен?</div>
               <div class="card-sub" style="margin-bottom:16px;">Обери ціль — Octo сам вирішить, яка стратегія і які матеріали потрібні. Не думай про формати.</div>
               <div class="oc-goal-grid" id="ocGoalGrid"></div>
             </div>
@@ -3555,9 +3572,14 @@
           <!-- ПРОФІЛЬ БРЕНДУ (синхронізовано з Кабінетом — одне джерело правди) -->
           <div style="margin-bottom:24px;">
             <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">🧠 Профіль бренду</div>
-            <div class="srow"><div class="sinfo"><h4>Назва бренду</h4><p>Octo вживає у всіх матеріалах</p></div><input type="text" id="setBrandName" placeholder="Твій бренд"></div>
-            <div class="srow"><div class="sinfo"><h4>Ніша</h4><p>Чим займається бізнес</p></div><input type="text" id="setNiche" placeholder="напр.: барбершоп, кава, одяг"></div>
-            <div class="srow"><div class="sinfo"><h4>Цільова аудиторія</h4><p>Для кого це</p></div><input type="text" id="setAudience" placeholder="напр.: жінки 25-40, Київ"></div>
+            <div class="srow"><div class="sinfo"><h4>Тип акаунту</h4><p>Бізнес чи особистий блог</p></div>
+              <div class="seg" id="setAcctType">
+                <button type="button" data-t="business" onclick="octoSetAcctType('business')">🏪 Бізнес</button>
+                <button type="button" data-t="blogger" onclick="octoSetAcctType('blogger')">🎨 Блогер</button>
+              </div></div>
+            <div class="srow"><div class="sinfo"><h4 id="setLblName">Назва бренду</h4><p id="setSubName">Octo вживає у всіх матеріалах</p></div><input type="text" id="setBrandName" placeholder="Твій бренд"></div>
+            <div class="srow"><div class="sinfo"><h4 id="setLblNiche">Ніша</h4><p id="setSubNiche">Чим займається бізнес</p></div><input type="text" id="setNiche" placeholder="напр.: барбершоп, кава, одяг"></div>
+            <div class="srow"><div class="sinfo"><h4 id="setLblAud">Цільова аудиторія</h4><p id="setSubAud">Для кого це</p></div><input type="text" id="setAudience" placeholder="напр.: жінки 25-40, Київ"></div>
           </div>
 
           <!-- НАЛАШТУВАННЯ OCTO -->
@@ -10517,8 +10539,31 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   }
 
   // ── Settings ↔ business profile (one source of truth with Кабінет) ──────────
+  var SET_LABELS = {
+    business: { name: ['Назва бренду', 'Octo вживає у всіх матеріалах', 'Твій бренд'],
+      niche: ['Ніша', 'Чим займається бізнес', 'напр.: барбершоп, кава, одяг'],
+      aud: ['Цільова аудиторія', 'Для кого це', 'напр.: жінки 25-40, Київ'] },
+    blogger: { name: ['Імʼя / нік', 'Як тебе знають в мережі', 'напр.: @nyyuurra, Юля Косметичка'],
+      niche: ['Тематика', 'Про що твій контент', 'напр.: б’юті, геймінг, тревел, дитячий'],
+      aud: ['Хто дивиться', 'Твоя аудиторія', 'напр.: дівчата 18-30, Україна'] },
+  };
+  window.octoSetAcctType = function (t) {
+    t = (t === 'blogger') ? 'blogger' : 'business';
+    if (window.octoBiz && window.octoBiz.merge) window.octoBiz.merge({ account_type: t });
+    var seg = document.getElementById('setAcctType');
+    if (seg) seg.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.dataset.t === t); });
+    var L = SET_LABELS[t];
+    var put = function (h4, p, inp, arr) {
+      var a = document.getElementById(h4), c = document.getElementById(p), i = document.getElementById(inp);
+      if (a) a.textContent = arr[0]; if (c) c.textContent = arr[1]; if (i) i.placeholder = arr[2];
+    };
+    put('setLblName', 'setSubName', 'setBrandName', L.name);
+    put('setLblNiche', 'setSubNiche', 'setNiche', L.niche);
+    put('setLblAud', 'setSubAud', 'setAudience', L.aud);
+  };
   window.octoLoadSettings = function () {
     var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    window.octoSetAcctType(b.account_type === 'blogger' ? 'blogger' : 'business');
     var setVal = function (id, v) { var el = document.getElementById(id); if (el) el.value = v || ''; };
     setVal('setBrandName', b.business_name);
     setVal('setNiche', b.niche);
@@ -12830,7 +12875,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function bizProfile() {
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get(), o = {};
-      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
+      ['account_type','business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','platforms','content_format','monetization'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
       return o;
     }
     return {};
@@ -12948,11 +12993,35 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     },
   };
 
-  var FIELDS = [
+  var FIELDS_BUSINESS = [
     ['business_name', 'Назва'], ['niche', 'Ніша'], ['description', 'Що продає'],
     ['target_audience', 'Аудиторія'], ['geo', 'Гео'], ['price_segment', 'Ціна'],
     ['usp', 'УТП'], ['goal', 'Ціль'], ['tone', 'Тон'],
   ];
+  var FIELDS_BLOGGER = [
+    ['business_name', 'Імʼя / нік'], ['niche', 'Тематика'], ['description', 'Про що блог'],
+    ['target_audience', 'Хто дивиться'], ['platforms', 'Платформи'], ['content_format', 'Формат'],
+    ['monetization', 'Монетизація'], ['geo', 'Гео'], ['goal', 'Ціль'], ['tone', 'Тон'],
+  ];
+  function acctType() { var b = window.octoBiz.get() || {}; return b.account_type === 'blogger' ? 'blogger' : 'business'; }
+  function activeFields() { return acctType() === 'blogger' ? FIELDS_BLOGGER : FIELDS_BUSINESS; }
+
+  var TYPE_COPY = {
+    business: { sub: 'Розкажи про свій бізнес — Octo запам’ятає і далі все робитиме під тебе. Це не анкета: пиши вільно.',
+      ph: 'Напр.: Маю барбершоп на Подолі в Києві, 4 майстри, стрижки й догляд за бородою, середній чек 500 грн. Клієнти — хлопці 20-40. Хочу більше записів. Запис через Instagram.' },
+    blogger: { sub: 'Розкажи про свій блог — Octo запам’ятає і робитиме контент та стратегію під тебе. Пиши вільно.',
+      ph: 'Напр.: Веду блог про б’юті й догляд за собою в Instagram і TikTok, 12k підписників, дівчата 18-30. Знімаю Reels-туторіали. Хочу ростити аудиторію й заходити в рекламні інтеграції з брендами.' },
+  };
+  window.octoSetType = function (t) {
+    t = (t === 'blogger') ? 'blogger' : 'business';
+    window.octoBiz.merge({ account_type: t });
+    var wrap = $('onType');
+    if (wrap) wrap.querySelectorAll('.on-type-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.t === t); });
+    var sub = $('onHeroSub'); if (sub) sub.textContent = TYPE_COPY[t].sub;
+    var ta = $('onText'); if (ta) ta.placeholder = TYPE_COPY[t].ph;
+    // If the profile card is already shown, re-render it with the new type's labels.
+    var pc = $('onProfileCard'); if (pc && pc.style.display !== 'none') renderProfile(null);
+  };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
 
@@ -12977,7 +13046,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function renderProfile(prev) {
     var p = window.octoBiz.get() || {};
     $('onProfileCard').style.display = '';
-    $('onProfileRows').innerHTML = FIELDS.map(function (f) {
+    $('onProfileRows').innerHTML = activeFields().map(function (f) {
       var v = p[f[0]];
       var changed = prev && (!prev[f[0]]) && v;
       return '<div class="on-prof-row' + (changed ? ' on-fill' : '') + '">' +
@@ -12994,7 +13063,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     } catch (e) {}
   }
 
-  var FIELD_LABELS = {}; FIELDS.forEach(function (f) { FIELD_LABELS[f[0]] = f[1]; });
+  function fieldLabel(key) {
+    var f = activeFields().filter(function (x) { return x[0] === key; })[0];
+    return f ? f[1] : '';
+  }
   var _flagData = [];
   var WARN_IC = '<svg class="on-flag-ic" viewBox="0 0 24 24" fill="none" stroke="#F5B450" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 
@@ -13006,7 +13078,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     _flagData = flags;
     if (!flags.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
     var rows = flags.map(function (f, i) {
-      var lbl = FIELD_LABELS[f.field] || '';
+      var lbl = fieldLabel(f.field);
       var canFix = f.suggestion && f.field && f.field !== 'general';
       var fix = canFix
         ? '<button class="on-flag-fix" id="flagFix' + i + '" onclick="octoFlagFix(' + i + ')">✎ Виправити' + (lbl ? ' «' + esc(lbl) + '»' : '') + ' → ' + esc(f.suggestion) + '</button>'
@@ -13058,14 +13130,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var prev = window.octoBiz.get() || {};
     status('busy', 'Octo слухає й запам’ятовує…');
     try {
-      var r = await api('/api/marketing/onboard', { text: text, known: prev });
+      var r = await api('/api/marketing/onboard', { text: text, known: prev, account_type: acctType() });
       window.octoBiz.merge(r.profile || {});
       renderProfile(prev);
       renderFlags(r.flags);
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
+      var followFallback = acctType() === 'blogger' ? 'Розкажи ще трохи — про що твій контент і хто дивиться?' : 'Розкажи ще трохи — чим твій бізнес особливий?';
       if (r.enough && !r.follow_up) { renderFollow(null); renderDone(); }
-      else { renderFollow(r.follow_up || 'Розкажи ще трохи — чим твій бізнес особливий?'); $('onDone').style.display = 'none'; }
+      else { renderFollow(r.follow_up || followFallback); $('onDone').style.display = 'none'; }
     } catch (e) {
       status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
     }
@@ -13086,7 +13159,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   if (typeof _os === 'function') {
     window.showScreen = function (id, el) {
       _os(id, el);
-      if (id === 'onboard' && window.octoBiz.get()) { renderProfile(null); if (window.octoBiz.isSet()) renderDone(); }
+      if (id === 'onboard') {
+        window.octoSetType(acctType());   // reflect saved type in the chooser + copy
+        if (window.octoBiz.get()) { renderProfile(null); if (window.octoBiz.isSet()) renderDone(); }
+      }
     };
   }
 
@@ -13128,6 +13204,25 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     { id: 'promo',     ic: '🎉', t: 'Акція / подія',            s: 'спецпропозиція',
       ph: 'Напр.: Black Friday у магазині одягу, -40% на все 3 дні, тільки офлайн, хочу нагнати людей у ці вихідні' },
   ];
+  // Blogger/creator goals — grow the person, not sell a product.
+  const GOALS_BLOGGER = [
+    { id: 'grow',       ic: '📈', t: 'Ростити аудиторію',        s: 'більше підписників',
+      ph: 'Напр.: б’юті-блог в Instagram/TikTok, 12k підписників, дівчата 18-30, знімаю Reels-туторіали, хочу вийти на 50k' },
+    { id: 'reach',      ic: '👀', t: 'Більше переглядів / охоплень', s: 'вірусність',
+      ph: 'Напр.: тревел-контент, Reels про Україну, хочу щоб ролики залітали й мене більше рекомендували' },
+    { id: 'brand_deals',ic: '🤝', t: 'Рекламні інтеграції',      s: 'співпраця з брендами',
+      ph: 'Напр.: фуд-блог, 30k, лояльна аудиторія, хочу заходити в оплачені інтеграції з брендами їжі й посуду' },
+    { id: 'engage',     ic: '💬', t: 'Залученість і ком’юніті',  s: 'активніша аудиторія',
+      ph: 'Напр.: підписники є, але мало коментарів і збережень — хочу більше живої взаємодії та ком’юніті' },
+    { id: 'launch_own', ic: '🚀', t: 'Запустити власний продукт', s: 'курс / мерч / гайд',
+      ph: 'Напр.: фітнес-блог, запускаю платний гайд з тренувань 700 грн, хочу прогріти аудиторію й зробити продажі' },
+    { id: 'mediakit',   ic: '📄', t: 'Медіа-кіт для брендів',    s: 'презентація себе',
+      ph: 'Напр.: 25k в Instagram, охоплення 8k, аудиторія жінки 20-35 Україна — хочу медіа-кіт, щоб надсилати брендам' },
+    { id: 'content',    ic: '📅', t: 'Контент на тиждень',       s: 'план публікацій',
+      ph: 'Напр.: ігровий блог, YouTube+TikTok, хочу план контенту на тиждень: огляди, реакції, шортси, стріми' },
+  ];
+  function acctTypeC() { try { var b = window.octoBiz && window.octoBiz.get(); return (b && b.account_type === 'blogger') ? 'blogger' : 'business'; } catch (e) { return 'business'; } }
+  function activeGoals() { return acctTypeC() === 'blogger' ? GOALS_BLOGGER : GOALS; }
   // Fallback example if a goal has no specific one.
   const DETAILS_PH_DEFAULT = 'Напр.: що саме просуваємо, ціна, акція, для кого, географія — що детальніше, то точніша стратегія';
 
@@ -13150,7 +13245,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function bizProfile() {
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get(), o = {};
-      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','brand']
+      ['account_type','business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','brand','platforms','content_format','monetization']
         .forEach(function (k) { if (b[k]) o[k] = b[k]; });
       if (Object.keys(o).length) return o;
     }
@@ -13195,18 +13290,27 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   // Pick a recommended goal from the business niche (design shows a "Радимо" badge).
   function recommendedGoalId() {
     var biz = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    if (acctTypeC() === 'blogger') {
+      var m = (biz.monetization || '').toLowerCase();
+      if (/інтеграц|реклам|спонсор|бренд/.test(m)) return 'brand_deals';
+      if (/продукт|курс|мерч|гайд|власн/.test(m)) return 'launch_own';
+      return 'grow';
+    }
     var n = ((biz.niche || '') + ' ' + (biz.description || '') + ' ' + (biz.business_name || '')).toLowerCase();
     if (/салон|барбер|манікюр|перукар|майстер|послуг|студі|клінік|стоматолог|запис/.test(n)) return 'bookings';
     if (/нерухом|квартир|ріелтор|будинок|оренд/.test(n)) return 'realty';
     if (/магазин|крам|товар|бренд одяг|косметик|shop|store|продаж товар/.test(n)) return 'sell';
     return 'clients';
   }
-  // Render the goal grid once.
+  // Render the goal grid (re-render if the account type changed).
   function renderGoals() {
-    var grid = $('ocGoalGrid'); if (!grid || grid.dataset.done) return;
-    grid.dataset.done = '1';
+    var grid = $('ocGoalGrid'); if (!grid) return;
+    if (grid.dataset.doneType === acctTypeC()) return;
+    grid.dataset.doneType = acctTypeC();
+    var ttl = $('ocGoalTitle');
+    if (ttl) ttl.textContent = acctTypeC() === 'blogger' ? '🎯 Яка ціль для твого блогу?' : '🎯 Який результат для бізнесу потрібен?';
     var recId = recommendedGoalId();
-    grid.innerHTML = GOALS.map(function (g) {
+    grid.innerHTML = activeGoals().map(function (g) {
       var rec = g.id === recId;
       return '<button class="oc-goal' + (rec ? ' rec' : '') + '" data-goal="' + g.id + '"><span class="ic">' + g.ic + '</span>' +
         '<span class="tw"><span class="t">' + g.t + '</span><span class="s">' + g.s + '</span></span>' +
@@ -13217,7 +13321,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     });
   }
   function pickGoal(id) {
-    chosen = GOALS.find(function (g) { return g.id === id; });
+    chosen = activeGoals().find(function (g) { return g.id === id; });
     $('ocGoalChosen').innerHTML = chosen.ic + ' ' + esc(chosen.t);
     $('ocGoalStep').style.display = 'none';
     $('ocResult').innerHTML = '';
