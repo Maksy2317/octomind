@@ -18,6 +18,7 @@ import { trendsRouter } from './routes/trends';
 import { adsRouter } from './routes/ads';
 import { usageRouter } from './routes/usage';
 import { adminRouter } from './routes/admin';
+import { payRouter } from './routes/pay';
 import { ensureBucket } from './services/storage';
 import { errorHandler } from './middleware/errorHandler';
 import { cleanupOldFiles } from './services/cleanup';
@@ -56,7 +57,7 @@ app.use(helmet({
       'default-src': ["'self'"],
       'base-uri': ["'self'"],
       'font-src': ["'self'", 'https:', 'data:'],
-      'form-action': ["'self'"],
+      'form-action': ["'self'", 'https://secure.wayforpay.com'],
       'frame-ancestors': ["'self'"],
       'img-src': ["'self'", 'data:', 'blob:', 'https:'],
       'media-src': ["'self'", 'blob:', 'data:'],
@@ -129,6 +130,7 @@ app.use('/api/trends', trendsRouter);
 app.use('/api/ads', adsRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/pay', payRouter);
 
 // Ensure the public Storage bucket exists so generated ad images persist across
 // Railway redeploys (the disk is ephemeral). Idempotent, fail-open.

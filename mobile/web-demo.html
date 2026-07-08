@@ -3520,7 +3520,7 @@
                 <li><span>✅</span> <span>Бренд-стиль, контент-план, розбір сторінки</span></li>
                 <li><span>✅</span> <span>Дослідження ринку (web-пошук)</span></li>
               </ul>
-              <button class="btn btn-primary btn-full" onclick="showScreen('advisor',null)">Оформити Pro →</button>
+              <button class="btn btn-primary btn-full" id="payBtnPro" onclick="octoOpenCheckout('pro')">Оформити Pro →</button>
             </div>
             <div class="pcard">
               <div class="pplan">Business</div>
@@ -3533,7 +3533,7 @@
                 <li><span>✅</span> <span>Пріоритетна генерація</span></li>
                 <li><span>✅</span> <span>Рання доступність нових фіч</span></li>
               </ul>
-              <button class="btn btn-secondary btn-full" onclick="showScreen('advisor',null)">Дізнатися більше →</button>
+              <button class="btn btn-secondary btn-full" id="payBtnBusiness" onclick="octoOpenCheckout('business')">Оформити Business →</button>
             </div>
           </div>
 
@@ -12768,6 +12768,40 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         }).catch(function () {});
     } catch (e) {}
   };
+
+  // ── Checkout: create a WayForPay payment and redirect there ──────────────────
+  window.octoOpenCheckout = function (plan) {
+    plan = (plan === 'business') ? 'business' : 'pro';
+    if (window.octoIsGuest && window.octoIsGuest()) { window.octoRegisterSheet(); return; }
+    var btn = document.getElementById(plan === 'business' ? 'payBtnBusiness' : 'payBtnPro');
+    var old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Готую оплату…'; }
+    var dev = (function () { try { var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-'); while (id.length < 8) id += '0'; return id.slice(0, 128); } catch (e) { return 'biz_default00'; } })();
+    fetch('/api/pay/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': dev }, body: JSON.stringify({ plan: plan }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.url || !d.fields) throw new Error('no form');
+        var f = document.createElement('form'); f.method = 'POST'; f.action = d.url; f.acceptCharset = 'utf-8';
+        Object.keys(d.fields).forEach(function (k) {
+          var v = d.fields[k];
+          if (Array.isArray(v)) { v.forEach(function (item) { var i = document.createElement('input'); i.type = 'hidden'; i.name = k + '[]'; i.value = item; f.appendChild(i); }); }
+          else { var i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i); }
+        });
+        document.body.appendChild(f); f.submit();
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = old; } alert('Не вдалося створити платіж. Спробуй ще раз.'); });
+  };
+
+  // Returned from WayForPay → refresh plan (webhook activates it server-side).
+  window.addEventListener('load', function () {
+    try {
+      if (/[?&]paid=1/.test(location.search)) {
+        if (history.replaceState) history.replaceState({}, '', location.pathname);
+        setTimeout(function () { if (window.octoRefreshUsage) window.octoRefreshUsage(); }, 1800);
+        setTimeout(function () { try { alert('Дякуємо за оплату! 🎉 Підписка активується протягом хвилини — онови сторінку, якщо не бачиш змін.'); } catch (e) {} }, 300);
+      }
+    } catch (e) {}
+  });
 
   // ── Update sidebar + dev badge ───────────────────────────────────────────────
   window.octoUpdatePlanUI = function() {
