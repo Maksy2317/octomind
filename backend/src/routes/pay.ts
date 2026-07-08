@@ -21,9 +21,12 @@ payRouter.post('/create', requireIdentity, (req: Request, res: Response) => {
   const userId = req.userId as string;
   const orderReference = `${userId}__${plan}__${Date.now()}`;
   const orderDate = Math.floor(Date.now() / 1000);
-  const origin = (req.headers.origin as string) || `https://${process.env.WAYFORPAY_DOMAIN || ''}`;
-  const returnUrl = `${origin}/?paid=1`;
-  const serviceUrl = `${process.env.PUBLIC_API_BASE || origin}/api/pay/callback`;
+  // Reliable public base: PUBLIC_URL env → else the real host this request came in
+  // on (trust proxy → correct https host on Railway). Never an empty domain.
+  const base = (process.env.PUBLIC_URL || process.env.PUBLIC_API_BASE || '').replace(/\/$/, '')
+    || `${req.protocol}://${req.get('host')}`;
+  const returnUrl = `${base}/?paid=1`;
+  const serviceUrl = `${base}/api/pay/callback`;
   res.json(buildPurchase(plan, orderReference, orderDate, returnUrl, serviceUrl));
 });
 
