@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -197,6 +197,25 @@ marketingRouter.post('/onboard', async (req: Request, res: Response, next: NextF
         console.warn('[Onboard] profile save skipped:', (err as Error).message?.slice(0, 160));
       }
     }
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/import — the "magic": read a site / social and autofill the
+// profile. Not metered — onboarding must never be blocked by quota.
+// Body: { url: string, account_type?: string }
+marketingRouter.post('/import', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim().slice(0, 300) : '';
+  if (!url) {
+    res.status(400).json({ error: 'Встав посилання на сайт або соцмережу (url)' });
+    return;
+  }
+  const accountType = typeof req.body?.account_type === 'string' ? req.body.account_type : undefined;
+  try {
+    const result = await importProfileFromUrl(url, accountType);
     res.json(result);
   } catch (err) {
     next(err);

@@ -1990,6 +1990,15 @@
           .on-type-ic { font-size:22px; }
           .on-type-t { font-size:14px; font-weight:700; color:var(--text); }
           .on-type-s { font-size:11.5px; color:var(--text4); }
+          .on-import { margin-top:6px; padding:14px; border:1px solid rgba(108,99,255,.35); background:linear-gradient(135deg,rgba(108,99,255,.09),transparent); border-radius:14px; }
+          .on-import-lbl { font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:10px; }
+          .on-import-row { display:flex; gap:8px; }
+          .on-or { display:flex; align-items:center; gap:12px; margin:16px 0 12px; color:var(--text4); font-size:12px; }
+          .on-or::before, .on-or::after { content:''; flex:1; height:1px; background:var(--border); }
+          .on-src-badge { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:999px; margin-left:8px; vertical-align:middle; white-space:nowrap; }
+          .on-src-web  { background:rgba(56,140,255,.15); color:#7db3ff; border:1px solid rgba(56,140,255,.3); }
+          .on-src-user { background:rgba(76,175,80,.14); color:#7ED08A; border:1px solid rgba(76,175,80,.3); }
+          .on-src-ai   { background:rgba(245,180,80,.14); color:#F5B450; border:1px solid rgba(245,180,80,.3); }
           .on-prof-row { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
           .on-prof-row:last-child { border-bottom:none; }
           .on-prof-k { font-size:12px; color:var(--text3); width:120px; flex:none; padding-top:2px; }
@@ -2023,6 +2032,18 @@
               <button type="button" class="on-type-btn" data-t="blogger" onclick="octoSetType('blogger')">
                 <span class="on-type-ic">🎨</span><span class="on-type-t">Блогер / креатор</span><span class="on-type-s">просуваю себе</span></button>
             </div>
+
+            <div class="on-import">
+              <div class="on-import-lbl">🔗 Встав сайт або Instagram — Octo сам усе заповнить</div>
+              <div class="on-import-row">
+                <input id="onImportUrl" class="ob-input" placeholder="tvij-sajt.com  або  instagram.com/твій_нік" style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')octoImportRun()">
+                <button class="btn btn-primary" id="onImportBtn" style="flex:none;padding:0 18px;" onclick="octoImportRun()">Проаналізувати</button>
+              </div>
+              <div class="ob-status" id="onImportStatus"></div>
+            </div>
+
+            <div class="on-or"><span>або розкажи своїми словами</span></div>
+
             <textarea id="onText" class="ob-input" rows="4" placeholder="Напр.: Маю барбершоп на Подолі в Києві, 4 майстри, стрижки й догляд за бородою, середній чек 500 грн. Клієнти — хлопці 20-40. Хочу більше записів. Запис через Instagram."></textarea>
             <button class="btn btn-primary" id="onBtn" style="width:100%;margin-top:12px;" onclick="octoOnboardSend()">Познайомити Octo →</button>
             <div class="ob-status" id="onStatus"></div>
@@ -13147,6 +13168,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     el.innerHTML = (kind === 'busy' ? '<span class="ob-spin"></span> ' : '') + esc(msg);
   }
 
+  // Source/confidence badge for a field, from imported meta (spec §10/§17).
+  function srcBadge(key, hasVal) {
+    if (!hasVal) return '';
+    var p = window.octoBiz.get() || {};
+    var m = (p.field_meta || {})[key];
+    if (!m) return '';
+    if (m.source === 'user') return '<span class="on-src-badge on-src-user">✓ підтверджено</span>';
+    if ((m.confidence || 0) < 0.55) return '<span class="on-src-badge on-src-ai">≈ припущення</span>';
+    var lbl = m.source === 'social' ? 'із соцмережі' : 'з сайту';
+    return '<span class="on-src-badge on-src-web">🔗 ' + lbl + '</span>';
+  }
   function renderProfile(prev) {
     var p = window.octoBiz.get() || {};
     $('onProfileCard').style.display = '';
@@ -13155,7 +13187,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var changed = prev && (!prev[f[0]]) && v;
       return '<div class="on-prof-row' + (changed ? ' on-fill' : '') + '">' +
         '<div class="on-prof-k">' + f[1] + '</div>' +
-        '<div class="on-prof-v' + (v ? '' : ' empty') + '">' + (v ? esc(v) : 'ще не знаю') + '</div></div>';
+        '<div class="on-prof-v' + (v ? '' : ' empty') + '">' + (v ? esc(v) : 'ще не знаю') + srcBadge(f[0], !!v) + '</div></div>';
     }).join('');
     // Mirror key fields into the legacy account profile so chat/other screens see them.
     try {
@@ -13247,6 +13279,40 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
     }
   }
+
+  function importStatus(kind, msg, spin) {
+    var el = $('onImportStatus'); if (!el) return;
+    if (!msg) { el.className = 'ob-status'; el.textContent = ''; return; }
+    el.className = 'ob-status ob-' + kind;
+    el.innerHTML = (spin ? '<span class="ob-spin"></span> ' : '') + esc(msg);
+  }
+  // The "magic": paste a site/social → Octo reads it and autofills the profile.
+  window.octoImportRun = function () {
+    var url = (($('onImportUrl') || {}).value || '').trim();
+    if (!url) { importStatus('err', 'Встав посилання на сайт або соцмережу.'); return; }
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('chat')) return;
+    var btn = $('onImportBtn'); if (btn) btn.disabled = true;
+    importStatus('busy', 'Octo читає ' + url + ' — 10-20 сек…', true);
+    var prev = window.octoBiz.get() || {};
+    api('/api/marketing/import', { url: url, account_type: acctType() }).then(function (r) {
+      if (btn) btn.disabled = false;
+      var prof = r.profile || {};
+      var keys = Object.keys(prof);
+      if (!keys.length) { importStatus('err', r.note || 'Не вдалося прочитати сторінку — спробуй інше посилання або опиши сам нижче.'); return; }
+      window.octoBiz.merge(prof);
+      var fm = (window.octoBiz.get() || {}).field_meta || {};
+      Object.keys(r.meta || {}).forEach(function (k) { fm[k] = r.meta[k]; });
+      window.octoBiz.merge({ field_meta: fm });
+      importStatus('ok', '✅ Заповнив ' + keys.length + ' полів із ' + (r.source_type === 'social' ? 'соцмережі' : 'сайту') + '. Перевір нижче й виправ, якщо десь не так.');
+      renderProfile(prev);
+      renderFlags([]);
+      $('onProfileCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
+    }).catch(function (e) {
+      if (btn) btn.disabled = false;
+      importStatus('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : (e.message || 'Не вдалося прочитати сторінку.'));
+    });
+  };
 
   window.octoOnboardSend = function () {
     var t = ($('onText') || {}).value; if (!t || !t.trim()) { status('err', 'Напиши кілька слів про бізнес.'); return; }
