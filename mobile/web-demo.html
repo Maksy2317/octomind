@@ -1990,6 +1990,10 @@
           .on-type-ic { font-size:22px; }
           .on-type-t { font-size:14px; font-weight:700; color:var(--text); }
           .on-type-s { font-size:11.5px; color:var(--text4); }
+          .on-goals { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+          .on-goal { background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:9px 14px; font-size:13px; color:var(--text2); cursor:pointer; transition:transform .12s, border-color .15s, background .15s, color .15s; }
+          .on-goal:hover { border-color:var(--accent); color:var(--text); transform:translateY(-1px); }
+          .on-goal.sel { border-color:var(--accent); background:rgba(108,99,255,.16); color:var(--text); font-weight:600; box-shadow:0 0 0 1px var(--accent) inset; }
           .on-import { margin-top:6px; padding:14px; border:1px solid rgba(108,99,255,.35); background:linear-gradient(135deg,rgba(108,99,255,.09),transparent); border-radius:14px; }
           .on-import-lbl { font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:10px; }
           .on-import-row { display:flex; gap:8px; }
@@ -2072,6 +2076,9 @@
               <button type="button" class="on-type-btn" data-t="blogger" onclick="octoSetType('blogger')">
                 <span class="on-type-ic">🎨</span><span class="on-type-t">Блогер / креатор</span><span class="on-type-s">просуваю себе</span></button>
             </div>
+
+            <div class="on-type-lbl">Головна ціль на 30 днів</div>
+            <div class="on-goals" id="onGoals"></div>
 
             <div class="on-import">
               <div class="on-import-lbl">🔗 Встав сайт або Instagram — Octo сам усе заповнить</div>
@@ -13178,6 +13185,31 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     blogger: { sub: 'Розкажи про свій блог — Octo запам’ятає і робитиме контент та стратегію під тебе. Пиши вільно.',
       ph: 'Напр.: Веду блог про б’юті й догляд за собою в Instagram і TikTok, 12k підписників, дівчата 18-30. Знімаю Reels-туторіали. Хочу ростити аудиторію й заходити в рекламні інтеграції з брендами.' },
   };
+  // 30-day goal (spec screen 3) — one tap; drives the first result's shape.
+  var GOAL30_BUSINESS = [
+    { id: 'clients', ic: '🎯', label: 'Більше клієнтів' }, { id: 'sales', ic: '🛒', label: 'Продажі' },
+    { id: 'content', ic: '📅', label: 'Більше контенту' }, { id: 'awareness', ic: '⭐', label: 'Впізнаваність' },
+    { id: 'ads', ic: '🚀', label: 'Запустити рекламу' }, { id: 'understand', ic: '🧭', label: 'Розібратися в маркетингу' },
+  ];
+  var GOAL30_BLOGGER = [
+    { id: 'grow', ic: '📈', label: 'Ростити аудиторію' }, { id: 'reach', ic: '👀', label: 'Більше переглядів' },
+    { id: 'deals', ic: '🤝', label: 'Рекламні інтеграції' }, { id: 'engage', ic: '💬', label: 'Залученість' },
+    { id: 'product', ic: '🚀', label: 'Запустити продукт' }, { id: 'content', ic: '📅', label: 'Контент-план' },
+  ];
+  function goal30List() { return acctType() === 'blogger' ? GOAL30_BLOGGER : GOAL30_BUSINESS; }
+  function renderGoal30() {
+    var box = $('onGoals'); if (!box) return;
+    var cur = (window.octoBiz.get() || {}).goal_30d;
+    box.innerHTML = goal30List().map(function (g) {
+      return '<button class="on-goal' + (g.id === cur ? ' sel' : '') + '" data-id="' + g.id + '" onclick="octoSetGoal(\'' + g.id + '\')">' + g.ic + ' ' + esc(g.label) + '</button>';
+    }).join('');
+  }
+  window.octoSetGoal = function (id) {
+    var g = goal30List().filter(function (x) { return x.id === id; })[0]; if (!g) return;
+    window.octoBiz.merge({ goal_30d: id, goal: g.label });
+    renderGoal30();
+  };
+
   window.octoSetType = function (t) {
     t = (t === 'blogger') ? 'blogger' : 'business';
     window.octoBiz.merge({ account_type: t });
@@ -13185,6 +13217,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     if (wrap) wrap.querySelectorAll('.on-type-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.t === t); });
     var sub = $('onHeroSub'); if (sub) sub.textContent = TYPE_COPY[t].sub;
     var ta = $('onText'); if (ta) ta.placeholder = TYPE_COPY[t].ph;
+    renderGoal30();
     // If the profile card is already shown, re-render it with the new type's labels.
     var pc = $('onProfileCard'); if (pc && pc.style.display !== 'none') renderProfile(null);
   };

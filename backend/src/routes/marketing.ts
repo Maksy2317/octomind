@@ -229,8 +229,11 @@ marketingRouter.post('/first-result', async (req: Request, res: Response, next: 
   if (!guardConfigured(res)) return;
   try {
     const { ctx } = await resolveContext(req);
-    const accountType = (req.body?.profile as Record<string, unknown> | undefined)?.account_type as string | undefined;
-    const result = await generateFirstResult(ctx, accountType);
+    const prof = req.body?.profile as Record<string, unknown> | undefined;
+    const accountType = prof?.account_type as string | undefined;
+    const goal = (typeof req.body?.goal === 'string' && req.body.goal)
+      || (prof?.goal_30d as string | undefined) || (prof?.goal as string | undefined);
+    const result = await generateFirstResult(ctx, accountType, goal || undefined);
     res.json({ result });
   } catch (err) {
     next(err);
