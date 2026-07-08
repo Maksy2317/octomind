@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, importProfileFromUrl, generateFirstResult, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -232,6 +232,23 @@ marketingRouter.post('/first-result', async (req: Request, res: Response, next: 
     const accountType = (req.body?.profile as Record<string, unknown> | undefined)?.account_type as string | undefined;
     const result = await generateFirstResult(ctx, accountType);
     res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/clarify — up to 3 personalised clarifying questions on the
+// profile's weakest/missing fields, each with tappable options. Not metered.
+// Body: { profile?: {...}, weak_fields?: string[] }
+marketingRouter.post('/clarify', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  try {
+    const { ctx } = await resolveContext(req);
+    const accountType = (req.body?.profile as Record<string, unknown> | undefined)?.account_type as string | undefined;
+    const weak = Array.isArray(req.body?.weak_fields)
+      ? (req.body.weak_fields as unknown[]).slice(0, 10).map(String) : undefined;
+    const result = await generateClarifyingQuestions(ctx, accountType, weak);
+    res.json(result);
   } catch (err) {
     next(err);
   }

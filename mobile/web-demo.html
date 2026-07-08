@@ -2024,6 +2024,15 @@
           .fr-d { font-size:13px; color:var(--text2); margin-top:3px; line-height:1.5; }
           .fr-h { font-size:12.5px; color:#c9bcff; margin-top:6px; background:rgba(108,99,255,.1); border:1px solid rgba(108,99,255,.25); border-radius:8px; padding:6px 9px; }
           .fr-kick { font-size:13px; color:var(--text2); margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+          .cl-card { margin-bottom:10px; }
+          .cl-q { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:11px; line-height:1.4; }
+          .cl-opts { display:flex; flex-wrap:wrap; gap:8px; }
+          .cl-opt { background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:8px 14px; font-size:13px; color:var(--text2); cursor:pointer; transition:border-color .15s, background .15s, color .15s; }
+          .cl-opt:hover { border-color:var(--accent); background:rgba(108,99,255,.12); color:var(--text); }
+          .cl-own { margin-top:9px; }
+          .cl-actions { margin-top:9px; }
+          .cl-skip { background:none; border:none; color:var(--text4); font-size:12.5px; cursor:pointer; text-decoration:underline; padding:0; }
+          .cl-ans { font-size:13px; color:#7ED08A; font-weight:600; }
         </style>
         <div class="screen" id="onboard">
           <div class="card">
@@ -2065,6 +2074,7 @@
           </div>
 
           <div id="onFlags" style="display:none;"></div>
+          <div id="onClarify" style="display:none;"></div>
           <div id="onFollowWrap" style="display:none;"></div>
           <div id="onDone" style="display:none;"></div>
         </div>
@@ -13311,6 +13321,68 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     }).catch(function () { box.innerHTML = '<div class="card-sub" style="color:var(--text4);">Не вдалося згенерувати зараз — ти можеш одразу перейти до просування.</div>'; });
   }
 
+  // ── Clarifying questions: up to 3 personalised Qs on the profile's weak spots ──
+  var _clarifyQs = [], _clarifyDone = 0;
+  function octoClarify() {
+    var box = $('onClarify'); if (!box) { renderDone(); return; }
+    box.style.display = '';
+    box.innerHTML = window.omLoaderHTML ? window.omLoaderHTML('A18', 'Octo хоче дещо уточнити…', 'Кілька коротких питань саме про тебе') : 'Хвилинку…';
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Weak fields = empty OR low-confidence imported.
+    var b = window.octoBiz.get() || {}, meta = b.field_meta || {}, weak = [];
+    activeFields().forEach(function (f) {
+      var k = f[0];
+      if (!b[k]) weak.push(k);
+      else if (meta[k] && (meta[k].confidence || 1) < 0.6) weak.push(k);
+    });
+    api('/api/marketing/clarify', { profile: cleanProfile(), weak_fields: weak }).then(function (d) {
+      _clarifyQs = (d.questions || []).filter(function (q) { return q && q.question && q.field; }).slice(0, 3);
+      _clarifyDone = 0;
+      if (!_clarifyQs.length) { box.style.display = 'none'; renderDone(); return; }
+      renderClarify();
+    }).catch(function () { box.style.display = 'none'; renderDone(); });
+  }
+  function renderClarify() {
+    var box = $('onClarify');
+    var cards = _clarifyQs.map(function (q, i) {
+      var opts = (q.options || []).map(function (o) {
+        return '<button class="cl-opt" data-v="' + esc(o) + '" onclick="octoClarifyPick(' + i + ',this)">' + esc(o) + '</button>';
+      }).join('');
+      return '<div class="card cl-card" id="clCard' + i + '">' +
+        '<div class="cl-q">' + esc(q.question) + '</div>' +
+        '<div class="cl-opts">' + opts + '</div>' +
+        '<input class="ob-input cl-own" id="clOwn' + i + '" placeholder="або впиши своє…" onkeydown="if(event.key===\'Enter\')octoClarifyOwn(' + i + ')">' +
+        '<div class="cl-actions"><button class="cl-skip" onclick="octoClarifySkip(' + i + ')">Пропустити це питання</button></div></div>';
+    }).join('');
+    box.innerHTML = '<div class="on-flag-lead" style="color:var(--accent);">Octo хоче уточнити (' + _clarifyQs.length + ')</div>' + cards +
+      '<button class="btn" style="width:100%;margin-top:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);" onclick="octoClarifyFinish()">Готово — далі →</button>';
+  }
+  function applyClarify(i, v) {
+    var q = _clarifyQs[i]; if (!q || !v) return;
+    var patch = {}; patch[q.field] = v; window.octoBiz.merge(patch);
+    var fm = (window.octoBiz.get() || {}).field_meta || {}; fm[q.field] = { source: 'user', confidence: 1 };
+    window.octoBiz.merge({ field_meta: fm });
+    markClarifyDone(i, v);
+  }
+  function markClarifyDone(i, v) {
+    var card = $('clCard' + i);
+    if (card && !card.dataset.done) {
+      card.dataset.done = '1';
+      card.innerHTML = '<div class="cl-q" style="opacity:.65;margin:0;">' + esc(_clarifyQs[i].question) + '</div>' +
+        '<div class="cl-ans">' + (v ? '✓ ' + esc(v) : '— пропущено') + '</div>';
+      _clarifyDone++;
+      if (_clarifyDone >= _clarifyQs.length) setTimeout(octoClarifyFinish, 400);
+    }
+  }
+  window.octoClarifyPick = function (i, btn) { applyClarify(i, btn.getAttribute('data-v')); };
+  window.octoClarifyOwn = function (i) { var v = (($('clOwn' + i) || {}).value || '').trim(); if (v) applyClarify(i, v); };
+  window.octoClarifySkip = function (i) { markClarifyDone(i, null); };
+  window.octoClarifyFinish = function () {
+    var box = $('onClarify'); if (box) box.style.display = 'none';
+    renderProfile(null);   // refresh badges (answered fields are now ✓ підтверджено)
+    renderDone();
+  };
+
   async function run(text, isFollow) {
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('chat')) return;
     var prev = window.octoBiz.get() || {};
@@ -13323,7 +13395,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
       var followFallback = acctType() === 'blogger' ? 'Розкажи ще трохи — про що твій контент і хто дивиться?' : 'Розкажи ще трохи — чим твій бізнес особливий?';
-      if (r.enough && !r.follow_up) { renderFollow(null); renderDone(); }
+      if (r.enough && !r.follow_up) { renderFollow(null); octoClarify(); }
       else { renderFollow(r.follow_up || followFallback); $('onDone').style.display = 'none'; }
     } catch (e) {
       status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
@@ -13358,8 +13430,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       renderFlags([]);
       $('onProfileCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
-      // Enough to work with → go straight to the aha-moment (first result).
-      if (window.octoBiz.isSet()) renderDone();
+      // Enough to work with → ask a few personalised clarifications, then the aha-moment.
+      if (window.octoBiz.isSet()) octoClarify();
     }).catch(function (e) {
       if (btn) btn.disabled = false;
       importStatus('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : (e.message || 'Не вдалося прочитати сторінку.'));
