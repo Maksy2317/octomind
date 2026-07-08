@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, importProfileFromUrl, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, generateFirstResult, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -217,6 +217,21 @@ marketingRouter.post('/import', async (req: Request, res: Response, next: NextFu
   try {
     const result = await importProfileFromUrl(url, accountType);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/first-result — onboarding aha-moment: one concrete
+// deliverable from the profile. Not metered (activation must not hit a quota).
+// Body: { profile?: {...} }
+marketingRouter.post('/first-result', async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  try {
+    const { ctx } = await resolveContext(req);
+    const accountType = (req.body?.profile as Record<string, unknown> | undefined)?.account_type as string | undefined;
+    const result = await generateFirstResult(ctx, accountType);
+    res.json({ result });
   } catch (err) {
     next(err);
   }

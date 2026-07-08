@@ -2015,6 +2015,15 @@
           .on-flag-fix:hover { border-color:var(--accent); background:rgba(108,99,255,.12); }
           .on-flag-fix.done { border-color:#4CAF5055; color:#7ED08A; background:rgba(76,175,80,.1); cursor:default; }
           .on-flag-lead { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#F5B450; margin:2px 0 10px; display:flex; align-items:center; gap:7px; }
+          .fr-head { font-size:15px; font-weight:800; color:var(--text); margin-bottom:4px; }
+          .fr-sub { font-size:13px; color:var(--text3); margin-bottom:14px; }
+          .fr-item { display:flex; gap:11px; padding:12px 0; border-top:1px solid var(--border); }
+          .fr-num { flex:none; width:26px; height:26px; border-radius:8px; background:var(--grad,linear-gradient(135deg,#8B7BFF,#6C63FF)); color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; }
+          .fr-b { flex:1; min-width:0; }
+          .fr-t { font-size:14px; font-weight:700; color:var(--text); }
+          .fr-d { font-size:13px; color:var(--text2); margin-top:3px; line-height:1.5; }
+          .fr-h { font-size:12.5px; color:#c9bcff; margin-top:6px; background:rgba(108,99,255,.1); border:1px solid rgba(108,99,255,.25); border-radius:8px; padding:6px 9px; }
+          .fr-kick { font-size:13px; color:var(--text2); margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
         </style>
         <div class="screen" id="onboard">
           <div class="card">
@@ -13255,10 +13264,51 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);">' +
       '<div class="on-hero"><img src="assets/new/A16.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
       '<div><div class="card-title" style="margin:0;">✅ Octo тебе знає!</div>' +
-      '<div class="card-sub" style="margin:0;">Далі — покажу, де у твоєму контенті слабкі місця, або одразу займемось просуванням.</div></div></div>' +
-      '<button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="showScreen(\'research\',null)">🔎 Дослідити мій ринок →</button>' +
-      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'audit\',null)">🔍 Розбери мій контент</button>' +
-      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'campaign\',null)">🎯 Одразу до просування</button></div>';
+      '<div class="card-sub" style="margin:0;">Ось що я вже можу зробити для тебе — з ходу:</div></div>' +
+      '<div id="onFirstResult" style="margin-top:16px;"></div>' +
+      '<div id="onDoneCtas"></div></div>';
+    octoFirstResult();
+  }
+
+  function cleanProfile() {
+    var b = window.octoBiz.get() || {}, o = {};
+    ['account_type','business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','platforms','content_format','monetization']
+      .forEach(function (k) { if (b[k]) o[k] = b[k]; });
+    return o;
+  }
+  function doneCtas() {
+    return '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showScreen(\'campaign\',null)">🎯 До просування →</button>' +
+      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'calendar\',null)">📅 У контент-план</button>' +
+      '<button class="btn" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="showScreen(\'research\',null)">🔎 Дослідити ринок</button>';
+  }
+  function firstResultHTML(R) {
+    var items = (R.items || []).map(function (it, i) {
+      return '<div class="fr-item"><div class="fr-num">' + (i + 1) + '</div><div class="fr-b">' +
+        '<div class="fr-t">' + esc(it.title) + '</div>' +
+        (it.detail ? '<div class="fr-d">' + esc(it.detail) + '</div>' : '') +
+        (it.hook ? '<div class="fr-h">🪝 ' + esc(it.hook) + '</div>' : '') + '</div></div>';
+    }).join('');
+    return (R.headline ? '<div class="fr-head">' + esc(R.headline) + '</div>' : '') +
+      (R.subtitle ? '<div class="fr-sub">' + esc(R.subtitle) + '</div>' : '') + items +
+      (R.kicker ? '<div class="fr-kick">✨ ' + esc(R.kicker) + '</div>' : '');
+  }
+  // Session-only cache keyed by a profile signature — never persisted (a stored
+  // result goes stale when the profile changes, and would show the wrong ideas).
+  var _frCache = null, _frSig = '';
+  function profileSig(p) { return (p.account_type || '') + '|' + (p.business_name || '') + '|' + (p.niche || '') + '|' + (p.description || '').slice(0, 40); }
+  function octoFirstResult() {
+    var box = $('onFirstResult'); if (!box) return;
+    var ctas = $('onDoneCtas'); if (ctas) ctas.innerHTML = doneCtas();
+    var prof = cleanProfile();
+    var sig = profileSig(prof);
+    if (_frCache && _frSig === sig && _frCache.items && _frCache.items.length) { box.innerHTML = firstResultHTML(_frCache); return; }
+    box.innerHTML = window.omLoaderHTML ? window.omLoaderHTML('A09', 'Готую твій перший результат…', 'Кілька конкретних ідей саме під тебе — 15-25 сек') : 'Готую…';
+    api('/api/marketing/first-result', { profile: prof }).then(function (d) {
+      var R = d.result || {};
+      if (!R.items || !R.items.length) { box.innerHTML = ''; return; }
+      _frCache = R; _frSig = sig;
+      box.innerHTML = firstResultHTML(R);
+    }).catch(function () { box.innerHTML = '<div class="card-sub" style="color:var(--text4);">Не вдалося згенерувати зараз — ти можеш одразу перейти до просування.</div>'; });
   }
 
   async function run(text, isFollow) {
@@ -13308,6 +13358,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       renderFlags([]);
       $('onProfileCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
+      // Enough to work with → go straight to the aha-moment (first result).
+      if (window.octoBiz.isSet()) renderDone();
     }).catch(function (e) {
       if (btn) btn.disabled = false;
       importStatus('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : (e.message || 'Не вдалося прочитати сторінку.'));
