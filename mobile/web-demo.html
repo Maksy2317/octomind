@@ -3617,6 +3617,23 @@
           <button class="btn btn-primary" onclick="octoSaveSettings(this)" style="width:100%;padding:15px;font-size:15px;">💾 Зберегти</button>
         </div>
 
+      <!-- ============ ADMIN STATS (owner only) ============ -->
+      <div class="screen" id="admin">
+        <div style="max-width:820px;margin:0 auto;padding-bottom:40px;">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title" style="margin:0 0 4px;">📊 Статистика OctoMind</div>
+            <div class="card-sub" id="admWhen" style="margin:0;">Реальні дані з бази — реєстрації та активність.</div>
+          </div>
+          <div id="admKeyBox" class="card" style="display:none;margin-bottom:16px;">
+            <div class="card-sub" style="margin:0 0 10px;">Введи адмін-ключ (ADMIN_KEY), щоб побачити статистику:</div>
+            <input type="password" id="admKey" class="ob-input" placeholder="Адмін-ключ" style="width:100%;">
+            <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="octoAdminLoad(true)">Показати →</button>
+            <div id="admKeyErr" style="display:none;color:#FF8A80;font-size:12.5px;margin-top:8px;"></div>
+          </div>
+          <div id="admBody"></div>
+        </div>
+      </div>
+
       <!-- ============ CAPTION AI ============ -->
       <div class="screen" id="caption">
         <div style="max-width:680px;margin:0 auto;padding-bottom:40px;">
@@ -10601,6 +10618,93 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     // Check for today's reminders after a short delay
     setTimeout(calCheckReminders, 1200);
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  ADMIN STATS (owner-only; server gates by ADMIN_KEY)
+  // ══════════════════════════════════════════════════════════════════════════
+  function admApiBase() { try { return (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : ''; } catch (e) { return ''; } }
+  function admStat(label, val, sub) {
+    return '<div class="card" style="flex:1;min-width:150px;padding:16px;">' +
+      '<div style="font-size:30px;font-weight:800;font-family:Unbounded,Manrope,sans-serif;line-height:1;">' + val + '</div>' +
+      '<div style="font-size:12.5px;color:var(--text3);margin-top:6px;">' + label + '</div>' +
+      (sub ? '<div style="font-size:11px;color:var(--text4);margin-top:2px;">' + sub + '</div>' : '') + '</div>';
+  }
+  function admBars(obj, title) {
+    var entries = Object.keys(obj || {}).map(function (k) { return [k, obj[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+    if (!entries.length) return '';
+    var max = Math.max.apply(null, entries.map(function (e) { return e[1]; })) || 1;
+    var rows = entries.map(function (e) {
+      var pct = Math.round(e[1] / max * 100);
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">' +
+        '<div style="width:110px;font-size:12.5px;color:var(--text2);text-align:right;flex:none;">' + e[0] + '</div>' +
+        '<div style="flex:1;background:var(--surface2);border-radius:6px;height:20px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:var(--grad,linear-gradient(90deg,#8B7BFF,#6C63FF));"></div></div>' +
+        '<div style="width:44px;font-size:12.5px;font-weight:700;flex:none;">' + e[1] + '</div></div>';
+    }).join('');
+    return '<div class="card" style="margin-top:14px;"><div class="ob-sec" style="margin-top:0;">' + title + '</div>' + rows + '</div>';
+  }
+  window.octoAdminLoad = function (fromInput) {
+    var body = document.getElementById('admBody');
+    var keyBox = document.getElementById('admKeyBox');
+    if (fromInput) {
+      var k = (document.getElementById('admKey') || {}).value || '';
+      if (!k.trim()) return;
+      try { localStorage.setItem('octo_admin_key', k.trim()); } catch (e) {}
+    }
+    var key = '';
+    try { key = localStorage.getItem('octo_admin_key') || ''; } catch (e) {}
+    if (!key) { keyBox.style.display = ''; body.innerHTML = ''; return; }
+    body.innerHTML = window.omLoaderHTML ? window.omLoaderHTML('A09', 'Рахую статистику…', 'Тягну з бази') : 'Завантаження…';
+    fetch(admApiBase() + '/api/admin/stats', { headers: { 'x-admin-key': key } })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        keyBox.style.display = 'none';
+        var reg = d.registrations || {}, act = d.activity || {};
+        var when = d.generated_at ? new Date(d.generated_at).toLocaleString('uk-UA') : '';
+        var w = document.getElementById('admWhen'); if (w) w.textContent = 'Оновлено: ' + when;
+        var html = '';
+        html += '<div class="ob-sec">Реєстрації (реальні клієнти)</div>';
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+          admStat('Усього зареєстровано', reg.total != null ? reg.total : '—') +
+          admStat('Підтвердили пошту', reg.confirmed != null ? reg.confirmed : '—') +
+          admStat('Сьогодні', reg.today != null ? reg.today : '—') +
+          admStat('За 7 днів', reg.last_7d != null ? reg.last_7d : '—') + '</div>';
+        html += '<div class="ob-sec" style="margin-top:18px;">Активність</div>';
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+          admStat('Активні (щось зробили)', act.active_users != null ? act.active_users : '—') +
+          admStat('Усього дій', act.total_actions != null ? act.total_actions : '—') +
+          admStat('Дій за 7 днів', act.last_7d != null ? act.last_7d : '—') +
+          admStat('Пристроїв заходило', d.devices != null ? d.devices : '—', 'вкл. гостей') + '</div>';
+        html += admBars(act.by_feature, 'Що заходить — дії по фічах');
+        html += admBars(d.generations_by_type, 'Генерації по типах');
+        body.innerHTML = html;
+      })
+      .catch(function (e) {
+        if (/forbidden|403/i.test(e.message)) {
+          keyBox.style.display = '';
+          try { localStorage.removeItem('octo_admin_key'); } catch (x) {}
+          var er = document.getElementById('admKeyErr'); if (er) { er.style.display = ''; er.textContent = 'Невірний ключ або ADMIN_KEY не заданий на сервері.'; }
+          body.innerHTML = '';
+        } else {
+          body.innerHTML = '<div class="card" style="color:#FF8A80;">Помилка: ' + (e.message || '') + '</div>';
+        }
+      });
+  };
+  // Auto-load when the admin screen is opened. No visible entry — owner reaches
+  // it via the #admin URL hash (or showScreen('admin')). Server still gates by key.
+  (function () {
+    var _os = window.showScreen;
+    if (typeof _os === 'function') {
+      window.showScreen = function (id, el) { _os(id, el); if (id === 'admin') window.octoAdminLoad(false); };
+    }
+    function openIfHash() {
+      if (location.hash === '#admin') {
+        var app = document.getElementById('appWrap');
+        if (app && app.style.display !== 'none' && typeof showScreen === 'function') showScreen('admin', null);
+      }
+    }
+    window.addEventListener('load', function () { setTimeout(openIfHash, 300); });
+    window.addEventListener('hashchange', openIfHash);
+  })();
 
   // ══════════════════════════════════════════════════════════════════════════
   //  CAROUSEL GENERATOR (photo-upload mode)

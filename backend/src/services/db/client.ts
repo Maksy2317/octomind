@@ -102,6 +102,11 @@ export async function remove(table: string, query: string): Promise<void> {
   await request<void>(`${table}?${query}`, { method: 'DELETE' });
 }
 
+/** Call a Postgres function exposed via PostgREST (`/rpc/<fn>`). */
+export function rpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
+  return request<T>(`rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) });
+}
+
 /**
  * COUNT rows matching `query` without transferring them. Uses PostgREST's
  * `Prefer: count=exact` on a HEAD request; the total comes back in the

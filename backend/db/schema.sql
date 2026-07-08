@@ -111,3 +111,42 @@ create table if not exists public.usage_events (
 -- The hot query is "count events for a user+feature since <period start>".
 create index if not exists usage_events_lookup_idx
   on public.usage_events (user_id, feature, created_at desc);
+
+-- ── admin dashboard stats ─────────────────────────────────────────────────────
+-- One function returns everything the in-app admin screen needs, in one call.
+-- SECURITY DEFINER so it can read auth.users (real signups) even though the
+-- caller is the service role; execution is revoked from anon/authenticated so
+-- ONLY the backend (service key) can call it via /rest/v1/rpc/admin_stats.
+create or replace function public.admin_stats()
+returns json
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select json_build_object(
+    'generated_at', now(),
+    'registrations', json_build_object(
+      'total',     (select count(*) from auth.users),
+      'confirmed', (select count(*) from auth.users where email_confirmed_at is not null),
+      'today',     (select count(*) from auth.users where created_at::date = now()::date),
+      'last_7d',   (select count(*) from auth.users where created_at > now() - interval '7 days')
+    ),
+    'activity', json_build_object(
+      'total_actions', (select count(*) from public.usage_events),
+      'active_users',  (select count(distinct user_id) from public.usage_events),
+      'last_7d',       (select count(*) from public.usage_events where created_at > now() - interval '7 days'),
+      'by_feature',    (select coalesce(json_object_agg(feature, c), '{}'::json)
+                         from (select feature, count(*) c from public.usage_events group by feature) t)
+    ),
+    'generations_by_type', (select coalesce(json_object_agg(type, c), '{}'::json)
+                             from (select type, count(*) c from public.generations group by type) t),
+    'devices', (select count(*) from public.users),
+    'signups_by_day', (select coalesce(json_agg(json_build_object('day', d, 'count', c) order by d desc), '[]'::json)
+                        from (select created_at::date d, count(*) c
+                              from auth.users
+                              where created_at > now() - interval '14 days'
+                              group by 1) t)
+  );
+$$;
+
+revoke all on function public.admin_stats() from anon, authenticated;
