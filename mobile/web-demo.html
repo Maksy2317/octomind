@@ -2024,15 +2024,37 @@
           .fr-d { font-size:13px; color:var(--text2); margin-top:3px; line-height:1.5; }
           .fr-h { font-size:12.5px; color:#c9bcff; margin-top:6px; background:rgba(108,99,255,.1); border:1px solid rgba(108,99,255,.25); border-radius:8px; padding:6px 9px; }
           .fr-kick { font-size:13px; color:var(--text2); margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
-          .cl-card { margin-bottom:10px; }
-          .cl-q { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:11px; line-height:1.4; }
-          .cl-opts { display:flex; flex-wrap:wrap; gap:8px; }
-          .cl-opt { background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:8px 14px; font-size:13px; color:var(--text2); cursor:pointer; transition:border-color .15s, background .15s, color .15s; }
-          .cl-opt:hover { border-color:var(--accent); background:rgba(108,99,255,.12); color:var(--text); }
-          .cl-own { margin-top:9px; }
-          .cl-actions { margin-top:9px; }
-          .cl-skip { background:none; border:none; color:var(--text4); font-size:12.5px; cursor:pointer; text-decoration:underline; padding:0; }
-          .cl-ans { font-size:13px; color:#7ED08A; font-weight:600; }
+          /* Clarifying questions — matched to the app's glass/gradient language */
+          .cl-head { display:flex; align-items:center; gap:13px; padding:15px 16px; border-radius:16px; margin-bottom:12px;
+            border:1px solid rgba(108,99,255,.3); background:linear-gradient(135deg,rgba(108,99,255,.14),rgba(108,99,255,.03)); }
+          .cl-head-ic { width:46px; height:46px; object-fit:contain; flex:none; filter:drop-shadow(0 6px 12px rgba(20,10,50,.5)); }
+          .cl-head-t { font-size:16px; font-weight:800; font-family:'Unbounded','Manrope',sans-serif; letter-spacing:-.01em; color:var(--text); }
+          .cl-head-s { font-size:12.5px; color:var(--text3); margin-top:2px; }
+          .cl-prog { margin-left:auto; flex:none; font-size:12px; font-weight:800; color:#c9bcff; background:rgba(108,99,255,.18);
+            border:1px solid rgba(108,99,255,.35); border-radius:999px; padding:5px 11px; font-variant-numeric:tabular-nums; }
+          .cl-card { margin-bottom:11px; padding:16px; animation:ob-rise .35s ease both; }
+          .cl-card.cl-done { border-color:rgba(76,175,80,.28); background:linear-gradient(135deg,rgba(76,175,80,.07),transparent); }
+          .cl-top { display:flex; align-items:flex-start; gap:11px; margin-bottom:13px; }
+          .cl-num { flex:none; width:26px; height:26px; border-radius:9px; background:var(--grad,linear-gradient(135deg,#8B7BFF,#6C63FF));
+            color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(108,99,255,.35); }
+          .cl-num.cl-num-done { background:rgba(76,175,80,.9); box-shadow:none; }
+          .cl-q { font-size:14.5px; font-weight:700; color:var(--text); line-height:1.4; padding-top:3px; }
+          .cl-q.cl-q-done { opacity:.6; font-weight:600; }
+          .cl-opts { display:flex; flex-wrap:wrap; gap:8px; padding-left:37px; }
+          .cl-opt { display:inline-flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:999px;
+            padding:9px 15px; font-size:13px; color:var(--text2); cursor:pointer; transition:transform .12s, border-color .15s, background .15s, color .15s; }
+          .cl-opt::before { content:'+'; font-size:14px; color:var(--text4); font-weight:700; transition:color .15s; }
+          .cl-opt:hover { border-color:var(--accent); background:rgba(108,99,255,.14); color:var(--text); transform:translateY(-1px); }
+          .cl-opt:hover::before { color:var(--accent); }
+          .cl-own-wrap { position:relative; margin:10px 0 0 37px; }
+          .cl-own { width:100%; padding-right:34px; }
+          .cl-own-go { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:26px; height:26px; border:none; border-radius:8px;
+            background:var(--grad,linear-gradient(135deg,#8B7BFF,#6C63FF)); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+          .cl-actions { margin:10px 0 0 37px; }
+          .cl-skip { background:none; border:none; color:var(--text4); font-size:12.5px; cursor:pointer; padding:0; }
+          .cl-skip:hover { color:var(--text2); }
+          .cl-ans { font-size:13.5px; color:#7ED08A; font-weight:600; margin-left:37px; }
+          .cl-fin { width:100%; margin-top:6px; }
         </style>
         <div class="screen" id="onboard">
           <div class="card">
@@ -13342,6 +13364,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       renderClarify();
     }).catch(function () { box.style.display = 'none'; renderDone(); });
   }
+  function clarifyProgress() {
+    var el = $('clProg'); if (el) el.textContent = _clarifyDone + '/' + _clarifyQs.length;
+  }
   function renderClarify() {
     var box = $('onClarify');
     var cards = _clarifyQs.map(function (q, i) {
@@ -13349,13 +13374,20 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         return '<button class="cl-opt" data-v="' + esc(o) + '" onclick="octoClarifyPick(' + i + ',this)">' + esc(o) + '</button>';
       }).join('');
       return '<div class="card cl-card" id="clCard' + i + '">' +
-        '<div class="cl-q">' + esc(q.question) + '</div>' +
+        '<div class="cl-top"><span class="cl-num">' + (i + 1) + '</span><div class="cl-q">' + esc(q.question) + '</div></div>' +
         '<div class="cl-opts">' + opts + '</div>' +
-        '<input class="ob-input cl-own" id="clOwn' + i + '" placeholder="або впиши своє…" onkeydown="if(event.key===\'Enter\')octoClarifyOwn(' + i + ')">' +
+        '<div class="cl-own-wrap"><input class="ob-input cl-own" id="clOwn' + i + '" placeholder="або впиши своє…" onkeydown="if(event.key===\'Enter\')octoClarifyOwn(' + i + ')">' +
+        '<button class="cl-own-go" title="Зберегти" onclick="octoClarifyOwn(' + i + ')">→</button></div>' +
         '<div class="cl-actions"><button class="cl-skip" onclick="octoClarifySkip(' + i + ')">Пропустити це питання</button></div></div>';
     }).join('');
-    box.innerHTML = '<div class="on-flag-lead" style="color:var(--accent);">Octo хоче уточнити (' + _clarifyQs.length + ')</div>' + cards +
-      '<button class="btn" style="width:100%;margin-top:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);" onclick="octoClarifyFinish()">Готово — далі →</button>';
+    box.innerHTML =
+      '<div class="cl-head"><img src="assets/new/A18.png" class="cl-head-ic" alt="Octo">' +
+      '<div><div class="cl-head-t">Ще кілька уточнень</div>' +
+      '<div class="cl-head-s">Щоб я не вгадував — обери варіант або впиши своє. Будь-яке можна пропустити.</div></div>' +
+      '<div class="cl-prog" id="clProg">0/' + _clarifyQs.length + '</div></div>' +
+      cards +
+      '<button class="btn cl-fin" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="octoClarifyFinish()">Готово — покажи, що можеш →</button>';
+    clarifyProgress();
   }
   function applyClarify(i, v) {
     var q = _clarifyQs[i]; if (!q || !v) return;
@@ -13368,10 +13400,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var card = $('clCard' + i);
     if (card && !card.dataset.done) {
       card.dataset.done = '1';
-      card.innerHTML = '<div class="cl-q" style="opacity:.65;margin:0;">' + esc(_clarifyQs[i].question) + '</div>' +
+      card.classList.add('cl-done');
+      card.innerHTML = '<div class="cl-top"><span class="cl-num cl-num-done">✓</span>' +
+        '<div class="cl-q cl-q-done">' + esc(_clarifyQs[i].question) + '</div></div>' +
         '<div class="cl-ans">' + (v ? '✓ ' + esc(v) : '— пропущено') + '</div>';
       _clarifyDone++;
-      if (_clarifyDone >= _clarifyQs.length) setTimeout(octoClarifyFinish, 400);
+      clarifyProgress();
+      if (_clarifyDone >= _clarifyQs.length) setTimeout(octoClarifyFinish, 500);
     }
   }
   window.octoClarifyPick = function (i, btn) { applyClarify(i, btn.getAttribute('data-v')); };
