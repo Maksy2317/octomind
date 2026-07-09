@@ -10,7 +10,7 @@
 //    handler responds 2xx (so failed generations don't burn quota).
 
 import { Request, Response, NextFunction } from 'express';
-import { checkQuota, recordUsage, Feature } from '../services/quota';
+import { checkQuota, recordUsage, quotaEnforced, Feature } from '../services/quota';
 
 // Pre-launch universal unlock: the client's Premium-test toggle sends this
 // header so testers (and early users, before payment exists) aren't blocked by
@@ -22,6 +22,8 @@ function premiumTestBypass(req: Request): boolean {
 
 export function meter(feature: Feature) {
   return async function meterMw(req: Request, res: Response, next: NextFunction): Promise<void> {
+    // No enforcement until real billing is live — don't block users who can't pay.
+    if (!quotaEnforced()) return next();
     if (premiumTestBypass(req)) return next();
     const userId = req.userId;
     if (!userId) return next(); // stateless / DB off → don't enforce

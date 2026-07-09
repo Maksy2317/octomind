@@ -12602,6 +12602,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     try { if (typeof octoIsPremium === 'function' && octoIsPremium()) return true; } catch (e) {}
     const plan = getPlan();
     if (plan === 'guest') { _guestSheet(feature); return false; }
+    // Plan limits apply ONLY when the server actually enforces them (i.e. real
+    // billing is live). Pre-launch → everything is free for registered users.
+    try { if (!(window.octoServerUsage && window.octoServerUsage.enforced === true)) return true; } catch (e) { return true; }
     const limit = (LIMITS[plan]||LIMITS.free)[feature];
     if (limit === -1) return true;
     const used = getUsage()[feature] || 0;

@@ -12,6 +12,7 @@
 import { isDbConfigured } from './db/client';
 import { getUserPlan, countUsageSince, recordUsageEvent } from './db/repos';
 import { Plan } from './db/models';
+import { isLive } from './payments/wayforpay';
 
 export type Feature =
   | 'campaign' | 'image' | 'chat' | 'trend_feed' | 'analysis' | 'research' | 'brand';
@@ -94,5 +95,10 @@ export async function usageSnapshot(userId: string): Promise<{ plan: Plan; featu
 }
 
 export function quotaEnforced(): boolean {
-  return isDbConfigured();
+  // Only enforce plan limits once REAL billing is live — never block a user who
+  // can't yet pay. Sandbox / no WayForPay keys → everything is free.
+  // Override with QUOTA_ENFORCE=1 to force-on for testing.
+  if (process.env.QUOTA_ENFORCE === '1') return isDbConfigured();
+  if (process.env.QUOTA_ENFORCE === '0') return false;
+  return isDbConfigured() && isLive();
 }
