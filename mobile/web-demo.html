@@ -13565,10 +13565,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var prof = r.profile || {};
       var keys = Object.keys(prof);
       if (!keys.length) { importStatus('err', r.note || 'Не вдалося прочитати сторінку — спробуй інше посилання або опиши сам нижче.'); return; }
-      window.octoBiz.merge(prof);
-      var fm = (window.octoBiz.get() || {}).field_meta || {};
+      // A fresh import is AUTHORITATIVE for content fields: clear any stale
+      // leftovers (e.g. an old niche from a previous session) so the profile
+      // matches the imported account, not a mix. Preserve type/goal/brand/colors.
+      var CONTENT = ['business_name', 'niche', 'description', 'target_audience', 'geo', 'price_segment', 'usp', 'platforms', 'content_format', 'monetization', 'tone'];
+      var cur = window.octoBiz.get() || {};
+      var fm = cur.field_meta || {};
+      CONTENT.forEach(function (k) { delete cur[k]; delete fm[k]; });
+      Object.keys(prof).forEach(function (k) { if (prof[k]) cur[k] = prof[k]; });
       Object.keys(r.meta || {}).forEach(function (k) { fm[k] = r.meta[k]; });
-      window.octoBiz.merge({ field_meta: fm });
+      cur.field_meta = fm;
+      window.octoBiz.save(cur);
       // Real brand colours pulled from the site → seed the brand kit.
       if (Array.isArray(r.site_colors) && r.site_colors.length) window.octoBiz.merge({ site_colors: r.site_colors });
       importStatus('ok', '✅ Заповнив ' + keys.length + ' полів із ' + (r.source_type === 'social' ? 'соцмережі' : 'сайту') + '. Перевір нижче й виправ, якщо десь не так.');
