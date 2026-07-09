@@ -1952,7 +1952,7 @@
               <div class="msg ai">
                 <div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div>
                 <div>
-                  <div class="msg-bubble">
+                  <div class="msg-bubble" id="advisorIntro">
                     Привіт! Я Octo — твій AI-маркетолог 🐙<br><br>
                     <strong>Розкажи про свій бізнес</strong> — чим займаєшся і чого хочеш досягти (клієнти, заявки, продажі). Можеш одразу прикріпити фото товару чи закладу 📷<br><br>
                     Я розберуся і запропоную: <strong>кому</strong> рекламувати, <strong>який оффер</strong> зайде, <strong>де</strong> публікувати і <strong>який контент</strong> для цього створити.<br><br>
@@ -2108,7 +2108,7 @@
           <div id="onQuiz" style="display:none;"></div>
 
           <div class="card" id="onProfileCard" style="display:none;">
-            <div class="card-title" style="margin-bottom:6px;">🧠 Що Octo запам'ятав про твій бізнес</div>
+            <div class="card-title" id="onProfileTitle" style="margin-bottom:6px;">🧠 Що Octo запам'ятав про твій бізнес</div>
             <div class="card-sub" style="margin-bottom:12px;">Можеш доповнити повідомленням нижче, якщо десь не так.</div>
             <div id="onProfileRows"></div>
           </div>
@@ -13328,6 +13328,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function renderProfile(prev) {
     var p = window.octoBiz.get() || {};
     $('onProfileCard').style.display = '';
+    var pt = $('onProfileTitle'); if (pt) pt.textContent = acctType() === 'blogger' ? '🧠 Що Octo запам’ятав про твій блог' : '🧠 Що Octo запам’ятав про твій бізнес';
     $('onProfileRows').innerHTML = activeFields().map(function (f) {
       var v = p[f[0]];
       var changed = prev && (!prev[f[0]]) && v;
@@ -14206,10 +14207,24 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       el.style.display = '';
     } else { el.style.display = 'none'; el.innerHTML = ''; }
   };
+  // Advisor (Маркетолог) intro adapts to blogger vs business.
+  window.octoUpdateAdvisorIntro = function () {
+    var el = document.getElementById('advisorIntro'); if (!el) return;
+    var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    el.innerHTML = (b.account_type === 'blogger')
+      ? 'Привіт! Я Octo — твій AI-маркетолог 🐙<br><br>'
+        + '<strong>Розкажи про свій блог</strong> — про що знімаєш і чого хочеш (аудиторія, охоплення, рекламні інтеграції). Можеш прикріпити скрін профілю чи посту 📷<br><br>'
+        + 'Я підкажу: <strong>про що</strong> знімати, <strong>які хуки</strong> заходять, <strong>де</strong> публікувати і <strong>як рости</strong>.<br><br>'
+        + 'Наприклад: <em>«Веду б’юті-блог у TikTok, хочу більше підписників»</em>'
+      : 'Привіт! Я Octo — твій AI-маркетолог 🐙<br><br>'
+        + '<strong>Розкажи про свій бізнес</strong> — чим займаєшся і чого хочеш досягти (клієнти, заявки, продажі). Можеш одразу прикріпити фото товару чи закладу 📷<br><br>'
+        + 'Я розберуся і запропоную: <strong>кому</strong> рекламувати, <strong>який оффер</strong> зайде, <strong>де</strong> публікувати і <strong>який контент</strong> для цього створити.<br><br>'
+        + 'Наприклад: <em>«Маю салон краси на Позняках, хочу більше записів»</em>';
+  };
   document.addEventListener('DOMContentLoaded', function () {
     if (typeof window.showScreen === 'function') {
       var _os = window.showScreen;
-      window.showScreen = function (id, nav) { _os(id, nav); try { window.octoRenderStale(id); } catch (e) {} };
+      window.showScreen = function (id, nav) { _os(id, nav); try { window.octoRenderStale(id); } catch (e) {} if (id === 'advisor') { try { window.octoUpdateAdvisorIntro(); } catch (e) {} } };
     }
   });
 })();
