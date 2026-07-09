@@ -14211,6 +14211,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   .rs-item:first-child { border-top:none; }
   .rs-dot { flex:none; width:7px; height:7px; border-radius:50%; margin-top:7px; }
   .rs-txt { font-size:13.5px; color:var(--text2); line-height:1.5; }
+  .rs-pos { font-size:14px; color:var(--text); line-height:1.55; padding:13px 15px; background:linear-gradient(135deg,rgba(108,99,255,.1),transparent); border:1px solid rgba(108,99,255,.28); border-radius:13px; }
+  /* Action sheet — the operational core, up top */
+  .rs-as { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin:16px 0 4px; }
+  .rs-as-b { padding:14px 15px; border-radius:14px; border:1px solid var(--border); background:var(--surface2); }
+  .rs-as-b.as-key { border-color:rgba(108,99,255,.3); background:linear-gradient(135deg,rgba(108,99,255,.1),transparent); }
+  .rs-as-b.as-do { border-color:rgba(63,208,122,.3); background:linear-gradient(135deg,rgba(63,208,122,.09),transparent); }
+  .rs-as-b.as-avoid { border-color:rgba(245,180,80,.3); background:linear-gradient(135deg,rgba(245,180,80,.09),transparent); }
+  .rs-as-h { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; margin-bottom:9px; }
+  .as-key .rs-as-h { color:#b6a9ff; } .as-do .rs-as-h { color:#7ED08A; } .as-avoid .rs-as-h { color:#F5B450; }
+  .rs-as-i { font-size:13px; color:var(--text2); line-height:1.45; padding:5px 0 5px 15px; position:relative; }
+  .rs-as-i::before { content:'•'; position:absolute; left:2px; color:var(--text4); }
 </style>
 
 <!-- ═══ ДОСЛІДЖЕННЯ РИНКУ + ІДЕЯ З ТРЕНДУ ═══ -->
@@ -14260,8 +14271,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       $('rsResult').innerHTML = '';
       status('rsStatus', 'ok', 'Готово! Octo врахує це в стратегіях.');
       var r = d.research;
-      // Save a compact summary into the business profile so strategy uses it.
-      var mr = [r.summary, (r.what_works || []).length ? 'Що працює: ' + r.what_works.join('; ') : '', (r.trends || []).length ? 'Тренди: ' + r.trends.join('; ') : '', (r.hooks || []).length ? 'Хуки: ' + r.hooks.join('; ') : ''].filter(Boolean).join('\n').slice(0, 1500);
+      // Save a compact, actionable summary into the profile so strategy/content use it.
+      function joinSec(label, arr) { return (arr && arr.length) ? label + ': ' + arr.join('; ') : ''; }
+      var mr = [r.summary, r.positioning ? 'Позиціонування: ' + r.positioning : '',
+        joinSec('Ключове', r.insights), joinSec('Що працює', r.what_works),
+        joinSec('Оффери', r.offers), joinSec('Швидкі перемоги', r.quick_wins),
+        joinSec('Хуки', r.hooks), joinSec('Тренди', r.trends)].filter(Boolean).join('\n').slice(0, 1800);
       if (window.octoBiz) window.octoBiz.merge({ market_research: mr });
       if (window.octoMemory) window.octoMemory.stamp('market_research');
       if (typeof octoRenderStale === 'function') octoRenderStale('research');
@@ -14284,16 +14299,33 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         if (!items || !items.length) return '';
         return '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">' + ic + '</span>' + title + '</div>' + rsList(items, color) + '</div>';
       }
+      // Action sheet — the operational core (best-file §0): what to know, do, avoid.
+      function asBlock(ic, title, items, cls) {
+        if (!items || !items.length) return '';
+        return '<div class="rs-as-b ' + cls + '"><div class="rs-as-h">' + ic + ' ' + title + '</div>' +
+          items.map(function (x) { return '<div class="rs-as-i">' + esc(x) + '</div>'; }).join('') + '</div>';
+      }
+      var actionSheet = (function () {
+        var b = asBlock('💡', 'Ключове', r.insights, 'as-key') + asBlock('✅', 'Зроби за 14 днів', r.quick_wins, 'as-do') + asBlock('⚠️', 'Не роби', r.avoid, 'as-avoid');
+        return b ? '<div class="rs-as">' + b + '</div>' : '';
+      })();
+      var positioning = r.positioning ? '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">🧭</span>Позиціонування</div><div class="rs-pos">' + esc(r.positioning) + '</div></div>' : '';
       var card = document.createElement('div');
       card.className = 'card ob-res';
-      card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">🔎</div><div><div class="card-title" style="margin:0;">Дослідження ринку</div><div class="card-sub" style="margin:0;">свіже, з інтернету</div></div></div>'
+      card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">🔎</div><div><div class="card-title" style="margin:0;">Дослідження ринку</div><div class="card-sub" style="margin:0;">дієвий бриф на 30 днів</div></div></div>'
         + (r.summary ? '<div class="rs-summary">' + esc(r.summary) + '</div>' : '')
-        + rsSec('✅', 'Що працює зараз', r.what_works, '#3FD07A')
-        + rsSec('📈', 'Тренди', r.trends, '#8B7BFF')
-        + rsSec('🪝', 'Хуки', r.hooks, '#F5B450')
-        + rsSec('⚔️', 'Що роблять конкуренти', r.competitor_notes, '#FF8A80')
+        + actionSheet
+        + rsSec('🧑', 'Аудиторія — коли й навіщо (JTBD)', r.audience_jobs, '#8B7BFF')
+        + positioning
+        + rsSec('🎬', 'Що працює: формат → результат', r.what_works, '#3FD07A')
+        + rsSec('💰', 'Оффер-драбина', r.offers, '#3FD07A')
+        + rsSec('🪝', 'Готові хуки (скопіюй-встав)', r.hooks, '#F5B450')
+        + rsSec('📅', 'Сезонні приводи', r.seasonal, '#8B7BFF')
+        + rsSec('📊', 'Що міряти (KPI)', r.kpis, '#8B7BFF')
+        + rsSec('🔥', 'Тренди', r.trends, '#8B7BFF')
+        + rsSec('⚔️', 'Working patterns конкурентів', r.competitor_notes, '#FF8A80')
         + (srcs ? '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">🔗</span>Джерела</div>' + srcs + '</div>' : '')
-        + '<button class="btn btn-primary" style="width:100%;margin-top:18px;" onclick="showScreen(\'campaign\',null)">🎯 До просування (з урахуванням ринку) →</button>';
+        + '<button class="btn btn-primary" style="width:100%;margin-top:20px;" onclick="showScreen(\'campaign\',null)">🎯 До просування (з урахуванням ринку) →</button>';
       $('rsResult').appendChild(card);
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
