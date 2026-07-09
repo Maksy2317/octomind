@@ -2150,6 +2150,7 @@
             </div>
             <div class="ob-status" id="paStatus"></div>
           </div>
+          <div id="paStaleBanner" style="display:none;"></div>
           <div id="paResult"></div>
 
           <div class="card">
@@ -2291,6 +2292,7 @@
             <button class="btn btn-primary" id="rsBtn" style="width:100%;margin-top:12px;" onclick="octoResearchRun()">🔎 Дослідити мій ринок</button>
             <div class="ob-status" id="rsStatus"></div>
           </div>
+          <div id="rsStaleBanner" style="display:none;"></div>
           <div id="rsResult"></div>
         </div>
 
@@ -14099,6 +14101,74 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 })();
 </script>
 
+<!-- ═══ MEMORY LIFECYCLE — факти, що застарівають, з міткою «варто оновити» ═══ -->
+<script>
+(function () {
+  'use strict';
+  // Spec §12: some facts go stale (market research, prices, page analysis). We
+  // timestamp them and, once past their TTL, nudge the user to refresh — so Octo
+  // never quietly works off outdated data.
+  window.octoMemory = {
+    LIFECYCLE: {
+      market_research: { ttlDays: 30, label: 'Дослідження ринку', screen: 'research' },
+      page_style:      { ttlDays: 30, label: 'Аналіз сторінки',   screen: 'audit' },
+      price_segment:   { ttlDays: 60, label: 'Ціни',              screen: 'settings' },
+    },
+    _biz: function () { return (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}; },
+    stamp: function (field) {
+      if (!window.octoBiz) return;
+      var b = this._biz(), fm = b.field_meta || {};
+      fm[field] = Object.assign({}, fm[field], { ts: Date.now() });
+      window.octoBiz.merge({ field_meta: fm });
+    },
+    ageDays: function (field) {
+      var m = (this._biz().field_meta || {})[field];
+      return (m && m.ts) ? Math.floor((Date.now() - m.ts) / 86400000) : null;
+    },
+    isStale: function (field) {
+      var lc = this.LIFECYCLE[field]; if (!lc) return false;
+      var a = this.ageDays(field);
+      return a != null && a > lc.ttlDays;
+    },
+    // Fields that exist, are known to expire, and are past their TTL.
+    stale: function () {
+      var self = this, b = this._biz();
+      return Object.keys(this.LIFECYCLE).filter(function (f) { return b[f] && self.isStale(f); });
+    },
+  };
+
+  // Per-screen "варто оновити" banner.
+  var STALE_BANNERS = {
+    research: { el: 'rsStaleBanner', field: 'market_research', run: 'octoResearchRun' },
+    audit:    { el: 'paStaleBanner', field: 'page_style' },
+  };
+  window.octoRenderStale = function (screen) {
+    var cfg = STALE_BANNERS[screen]; if (!cfg) return;
+    var el = document.getElementById(cfg.el); if (!el) return;
+    if (window.octoMemory && window.octoMemory.isStale(cfg.field)) {
+      var age = window.octoMemory.ageDays(cfg.field);
+      var lc = window.octoMemory.LIFECYCLE[cfg.field];
+      var btn = cfg.run ? '<button class="mem-stale-btn" onclick="' + cfg.run + '()">🔄 Оновити</button>' : '';
+      el.innerHTML = '<div class="mem-stale"><div>⏳ <b>' + lc.label + '</b> оновлювалось ' + age + ' дн тому. Ринок змінюється — дані могли застаріти.</div>' + btn + '</div>';
+      el.style.display = '';
+    } else { el.style.display = 'none'; el.innerHTML = ''; }
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.showScreen === 'function') {
+      var _os = window.showScreen;
+      window.showScreen = function (id, nav) { _os(id, nav); try { window.octoRenderStale(id); } catch (e) {} };
+    }
+  });
+})();
+</script>
+<style>
+  .mem-stale { display:flex; align-items:center; gap:12px; padding:12px 15px; margin-bottom:14px; border-radius:13px;
+    border:1px solid rgba(245,180,80,.32); background:linear-gradient(135deg,rgba(245,180,80,.11),transparent); font-size:13px; color:var(--text2); line-height:1.5; }
+  .mem-stale b { color:#F5B450; }
+  .mem-stale-btn { flex:none; margin-left:auto; background:var(--surface2); border:1px solid var(--border); border-radius:9px; color:var(--text); font-size:12.5px; font-weight:700; padding:8px 13px; cursor:pointer; white-space:nowrap; }
+  .mem-stale-btn:hover { border-color:var(--accent); }
+</style>
+
 <!-- ═══ ДОСЛІДЖЕННЯ РИНКУ + ІДЕЯ З ТРЕНДУ ═══ -->
 <script>
 (function () {
@@ -14149,6 +14219,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       // Save a compact summary into the business profile so strategy uses it.
       var mr = [r.summary, (r.what_works || []).length ? 'Що працює: ' + r.what_works.join('; ') : '', (r.trends || []).length ? 'Тренди: ' + r.trends.join('; ') : '', (r.hooks || []).length ? 'Хуки: ' + r.hooks.join('; ') : ''].filter(Boolean).join('\n').slice(0, 1500);
       if (window.octoBiz) window.octoBiz.merge({ market_research: mr });
+      if (window.octoMemory) window.octoMemory.stamp('market_research');
+      if (typeof octoRenderStale === 'function') octoRenderStale('research');
       var srcs = (r.sources || []).map(function (s) {
         var url = (s && s.url) ? s.url : (typeof s === 'string' ? s : '');
         var title = (s && s.title) ? s.title : url;
@@ -16024,6 +16096,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
             if (ins.reason) patch.cadence_reason = ins.reason;
           }
           window.octoBiz && window.octoBiz.merge(patch);
+          if (window.octoMemory) window.octoMemory.stamp('page_style');
+          if (typeof octoRenderStale === 'function') octoRenderStale('audit');
         } catch (e) {}
         renderPageAudit(d);
       })
