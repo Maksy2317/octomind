@@ -2089,12 +2089,17 @@
               <div class="ob-status" id="onImportStatus"></div>
             </div>
 
-            <div class="on-or"><span>або розкажи своїми словами</span></div>
+            <div class="on-or"><span>або заповни вручну</span></div>
+
+            <button class="btn" id="onQuizBtn" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-weight:700;" onclick="octoQuizStart()">📋 Пройти коротке опитування</button>
+            <div style="text-align:center;font-size:12px;color:var(--text4);margin:12px 0 8px;">чи просто опиши своїми словами ↓</div>
 
             <textarea id="onText" class="ob-input" rows="4" placeholder="Напр.: Маю барбершоп на Подолі в Києві, 4 майстри, стрижки й догляд за бородою, середній чек 500 грн. Клієнти — хлопці 20-40. Хочу більше записів. Запис через Instagram."></textarea>
             <button class="btn btn-primary" id="onBtn" style="width:100%;margin-top:12px;" onclick="octoOnboardSend()">Познайомити Octo →</button>
             <div class="ob-status" id="onStatus"></div>
           </div>
+
+          <div id="onQuiz" style="display:none;"></div>
 
           <div class="card" id="onProfileCard" style="display:none;">
             <div class="card-title" style="margin-bottom:6px;">🧠 Що Octo запам'ятав про твій бізнес</div>
@@ -13422,8 +13427,33 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   }
 
   // ── Clarifying questions: up to 3 personalised Qs on the profile's weak spots ──
-  var _clarifyQs = [], _clarifyDone = 0;
+  var _clarifyQs = [], _clarifyDone = 0, _clarifyMode = 'clarify';
+
+  // Static short quiz — a guided alternative to free-text / import at onboarding.
+  var QUIZ_BUSINESS = [
+    { field: 'niche', question: 'Яка твоя сфера?', options: ['Краса / б’юті', 'Кафе / їжа', 'Магазин / товари', 'Послуги', 'Експерт / курси', 'Нерухомість', 'Здоров’я'] },
+    { field: 'description', question: 'Що саме продаєш або пропонуєш?', options: [] },
+    { field: 'target_audience', question: 'Хто твій типовий клієнт?', options: ['Жінки 25-40', 'Чоловіки 25-45', 'Молодь 18-25', 'Сім’ї з дітьми', 'Бізнес / B2B'] },
+    { field: 'geo', question: 'Де працюєш?', options: ['По всій Україні', 'Одне місто', 'Онлайн'] },
+    { field: 'price_segment', question: 'Ціновий сегмент?', options: ['Бюджетний', 'Середній', 'Преміум'] },
+  ];
+  var QUIZ_BLOGGER = [
+    { field: 'niche', question: 'Твоя тематика?', options: ['Б’юті', 'Лайфстайл', 'Геймінг', 'Тревел', 'Їжа / кулінарія', 'Фітнес', 'Освіта', 'Гумор'] },
+    { field: 'description', question: 'Про що твій контент?', options: [] },
+    { field: 'target_audience', question: 'Хто тебе дивиться?', options: ['Дівчата 18-30', 'Хлопці 18-30', 'Підлітки', 'Дорослі 30+', 'Змішана'] },
+    { field: 'platforms', question: 'Головна платформа?', options: ['Instagram', 'TikTok', 'YouTube', 'Telegram'] },
+    { field: 'monetization', question: 'Як хочеш заробляти?', options: ['Реклама брендів', 'Власний продукт', 'Донати / підписки'] },
+  ];
+  window.octoQuizStart = function () {
+    _clarifyQs = (acctType() === 'blogger' ? QUIZ_BLOGGER : QUIZ_BUSINESS).slice();
+    _clarifyDone = 0; _clarifyMode = 'quiz';
+    var box = $('onClarify'); if (box) box.style.display = '';
+    renderClarify();
+    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   function octoClarify() {
+    _clarifyMode = 'clarify';
     var box = $('onClarify'); if (!box) { renderDone(); return; }
     box.style.display = '';
     box.innerHTML = window.omLoaderHTML ? window.omLoaderHTML('A18', 'Octo хоче дещо уточнити…', 'Кілька коротких питань саме про тебе') : 'Хвилинку…';
@@ -13458,10 +13488,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         '<button class="cl-own-go" title="Зберегти" onclick="octoClarifyOwn(' + i + ')">→</button></div>' +
         '<div class="cl-actions"><button class="cl-skip" onclick="octoClarifySkip(' + i + ')">Пропустити це питання</button></div></div>';
     }).join('');
+    var head = _clarifyMode === 'quiz'
+      ? { t: 'Коротке опитування', s: 'Кілька швидких питань — обери варіант або впиши своє. Будь-яке можна пропустити.' }
+      : { t: 'Ще кілька уточнень', s: 'Щоб я не вгадував — обери варіант або впиши своє. Будь-яке можна пропустити.' };
     box.innerHTML =
       '<div class="cl-head"><img src="assets/new/A18.png" class="cl-head-ic" alt="Octo">' +
-      '<div><div class="cl-head-t">Ще кілька уточнень</div>' +
-      '<div class="cl-head-s">Щоб я не вгадував — обери варіант або впиши своє. Будь-яке можна пропустити.</div></div>' +
+      '<div><div class="cl-head-t">' + head.t + '</div>' +
+      '<div class="cl-head-s">' + head.s + '</div></div>' +
       '<div class="cl-prog" id="clProg">0/' + _clarifyQs.length + '</div></div>' +
       cards +
       '<button class="btn cl-fin" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);" onclick="octoClarifyFinish()">Готово — покажи, що можеш →</button>';
