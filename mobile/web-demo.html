@@ -16447,7 +16447,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); };
 
   // Unified field set — union of the old account profile and the marketing profile.
-  var FIELDS = [
+  var FIELDS_BUSINESS = [
     { k:'business_name', l:'Назва',        ph:'Іван Ріелтор, Studio Bloom…' },
     { k:'niche',         l:'Ніша',         ph:'нерухомість, барбершоп…' },
     { k:'description',   l:'Що продає',    ph:'що саме продаєш / пропонуєш', big:true },
@@ -16460,6 +16460,23 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     { k:'platforms',     l:'Платформи',    ph:'TikTok, Instagram…' },
     { k:'lang',          l:'Мова',         ph:'українська / english' },
   ];
+  var FIELDS_BLOGGER = [
+    { k:'business_name', l:'Ім’я / нік', ph:'@nyura, Юля Косметичка…' },
+    { k:'niche',         l:'Тематика',     ph:'б’юті, геймінг, тревел…' },
+    { k:'description',   l:'Про що блог',  ph:'про що твій контент', big:true },
+    { k:'target_audience', l:'Хто дивиться', ph:'хто твоя аудиторія' },
+    { k:'platforms',     l:'Платформи',    ph:'TikTok, Instagram, YouTube…' },
+    { k:'content_format', l:'Формат',      ph:'Reels, сторіз, лонги…' },
+    { k:'monetization',  l:'Монетизація',  ph:'реклама / власний продукт / донати' },
+    { k:'geo',           l:'Гео',          ph:'місто / країна' },
+    { k:'goal',          l:'Ціль',         ph:'ростити аудиторію / інтеграції…' },
+    { k:'tone',          l:'Тон / стиль',  ph:'дружній / експертний…' },
+    { k:'lang',          l:'Мова',         ph:'українська / english' },
+  ];
+  function acctFields() {
+    var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    return b.account_type === 'blogger' ? FIELDS_BLOGGER : FIELDS_BUSINESS;
+  }
 
   // One-time migration: legacy account profile (octo_profile_) + ToV → unified profile.
   function migrate() {
@@ -16513,7 +16530,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var el = document.getElementById('profileCard'); if (!el) return;
     var b = window.octoBiz.get() || {};
     var wsName = (typeof _getWsName !== 'undefined') ? _getWsName(wsId()) : wsId();
-    var rows = FIELDS.map(function (f) {
+    var profTitle = (b.account_type === 'blogger') ? '🧠 Профіль блогера' : '🧠 Профіль бізнесу';
+    var rows = acctFields().map(function (f) {
       var v = b[f.k];
       if (editing === f.k) {
         var field = f.big
@@ -16532,7 +16550,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     }).join('');
     el.innerHTML = '<div class="card">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;">'
-      + '<div><div class="card-title" style="margin-bottom:2px;">🧠 Профіль бізнесу</div>'
+      + '<div><div class="card-title" style="margin-bottom:2px;">' + profTitle + '</div>'
       + '<div style="font-size:12px;color:var(--accent2);font-weight:600;">' + esc(wsName) + '</div></div>'
       + '<button class="btn btn-primary" style="padding:6px 12px;font-size:12px;white-space:nowrap;" onclick="showScreen(\'onboard\',null)">✨ Через Знайомство</button></div>'
       + '<div style="font-size:12px;color:var(--text4);margin-bottom:6px;">Пам\'ять Octo — заповнюється в «Знайомстві», редагується тут.</div>'
@@ -16544,7 +16562,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   // so Ask Octo answers like a marketer who actually knows this business.
   window.buildProfileContext = function () {
     var b = window.octoBiz.get(); if (!b) return null;
-    var m = { business_name:'Business', niche:'Niche', description:'What they sell', target_audience:'Audience', geo:'Location', price_segment:'Price segment', usp:'USP', goal:'Goal', tone:'Tone/style', platforms:'Platforms', lang:'Language', tov:'Tone of Voice' };
+    var m = { account_type:'Account type', business_name:'Business', niche:'Niche', description:'What they sell', target_audience:'Audience', geo:'Location', price_segment:'Price segment', usp:'USP', content_format:'Content format', monetization:'Monetization', goal:'Goal', tone:'Tone/style', platforms:'Platforms', lang:'Language', tov:'Tone of Voice' };
     var L = [];
     Object.keys(m).forEach(function (k) { if (b[k]) L.push(m[k] + ': ' + b[k]); });
     if (b.brand) {
