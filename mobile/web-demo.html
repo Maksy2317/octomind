@@ -2008,6 +2008,10 @@
           .on-prof-k { font-size:12px; color:var(--text3); width:120px; flex:none; padding-top:2px; }
           .on-prof-v { font-size:13.5px; color:var(--text); font-weight:600; }
           .on-prof-v.empty { color:var(--text4); font-weight:400; font-style:italic; }
+          .on-prof-v { cursor:pointer; border-radius:7px; padding:2px 6px; margin:-2px -6px; transition:background .15s; }
+          .on-prof-v:hover { background:var(--surface2); }
+          .on-prof-edit { opacity:0; margin-left:8px; font-size:12px; color:var(--text4); transition:opacity .15s; }
+          .on-prof-v:hover .on-prof-edit { opacity:1; }
           .on-fill { animation:on-glow .6s ease; }
           @keyframes on-glow { from { background:rgba(108,99,255,.18); } to { background:transparent; } }
           .on-flag { display:flex; gap:11px; padding:13px 14px; border:1px solid rgba(245,180,80,.28); background:linear-gradient(135deg,rgba(245,180,80,.09),transparent); border-radius:14px; margin-bottom:9px; animation:ob-rise .35s ease both; }
@@ -13301,15 +13305,22 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var lbl = m.source === 'social' ? 'із соцмережі' : 'з сайту';
     return '<span class="on-src-badge on-src-web">🔗 ' + lbl + '</span>';
   }
+  var _editingField = null;
   function renderProfile(prev) {
     var p = window.octoBiz.get() || {};
     $('onProfileCard').style.display = '';
     $('onProfileRows').innerHTML = activeFields().map(function (f) {
       var v = p[f[0]];
       var changed = prev && (!prev[f[0]]) && v;
+      if (f[0] === _editingField) {
+        return '<div class="on-prof-row"><div class="on-prof-k">' + f[1] + '</div>' +
+          '<input id="profEdit" class="ob-input" style="margin:0;flex:1;padding:6px 10px;" value="' + esc(v || '') + '" ' +
+          'onkeydown="if(event.key===\'Enter\')octoProfileSave();if(event.key===\'Escape\')octoProfileCancel()" onblur="octoProfileSave()"></div>';
+      }
       return '<div class="on-prof-row' + (changed ? ' on-fill' : '') + '">' +
         '<div class="on-prof-k">' + f[1] + '</div>' +
-        '<div class="on-prof-v' + (v ? '' : ' empty') + '">' + (v ? esc(v) : 'ще не знаю') + srcBadge(f[0], !!v) + '</div></div>';
+        '<div class="on-prof-v' + (v ? '' : ' empty') + '" onclick="octoProfileEdit(\'' + f[0] + '\')" title="Натисни, щоб змінити">' +
+        (v ? esc(v) : 'ще не знаю') + srcBadge(f[0], !!v) + '<span class="on-prof-edit">✎</span></div></div>';
     }).join('');
     // Mirror key fields into the legacy account profile so chat/other screens see them.
     try {
@@ -13320,6 +13331,25 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       localStorage.setItem('octo_profile_' + ws, JSON.stringify(lp));
     } catch (e) {}
   }
+  // Inline edit of any profile field — the user can fix what Octo got wrong.
+  window.octoProfileEdit = function (field) {
+    if (_editingField === field) return;
+    _editingField = field;
+    renderProfile(null);
+    var inp = document.getElementById('profEdit'); if (inp) { inp.focus(); inp.select(); }
+  };
+  window.octoProfileSave = function () {
+    var field = _editingField; if (!field) return;
+    var inp = document.getElementById('profEdit');
+    var val = inp ? inp.value.trim() : '';
+    _editingField = null;
+    var b = window.octoBiz.get() || {};
+    if (val) { b[field] = val; } else { delete b[field]; }
+    var fm = b.field_meta || {}; fm[field] = { source: 'user', confidence: 1 }; b.field_meta = fm;
+    window.octoBiz.save(b);
+    renderProfile(null);
+  };
+  window.octoProfileCancel = function () { _editingField = null; renderProfile(null); };
 
   function fieldLabel(key) {
     var f = activeFields().filter(function (x) { return x[0] === key; })[0];
@@ -13583,8 +13613,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       renderFlags([]);
       $('onProfileCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
-      // Enough to work with → ask a few personalised clarifications, then the aha-moment.
-      if (window.octoBiz.isSet()) octoClarify();
+      // Always follow up with clarifications — they fill the empty fields the
+      // import didn't get (тематика, аудиторія, формат…), then the first result.
+      octoClarify();
     }).catch(function (e) {
       if (btn) btn.disabled = false;
       importStatus('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : (e.message || 'Не вдалося прочитати сторінку.'));
