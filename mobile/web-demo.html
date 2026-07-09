@@ -4942,6 +4942,16 @@
       (ctaLabel ? '<button class="btn btn-primary" onclick="' + ctaOnclick + '">' + ctaLabel + '</button>' : '') +
       '</div>';
   };
+  // Friendly error state — sad Octo + "try again". Use when a generation glitches
+  // (transient model/rate-limit hiccup) instead of a raw error string.
+  window.omErrorHTML = function (title, sub, retryLabel, retryOnclick) {
+    return '<div class="om-empty">' +
+      '<img src="assets/new/A26.png" alt="" style="filter:drop-shadow(0 10px 26px rgba(255,90,90,.28));">' +
+      '<h3>' + (title || 'Ой, щось пішло не так') + '</h3>' +
+      '<p>' + (sub || 'Іноді Octo трохи перевтомлюється — це буває. Спробуй ще раз, зазвичай спрацьовує.') + '</p>' +
+      (retryOnclick ? '<button class="btn btn-primary" onclick="' + retryOnclick + '">' + (retryLabel || '🔄 Спробувати ще раз') + '</button>' : '') +
+      '</div>';
+  };
 
   function showScreen(id, navEl) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -15306,7 +15316,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         });
         paGoStep(4);
       })
-      .catch(function (e) { btn.disabled = false; status('paSt3', 'err', '⚠️ ' + esc(e.message)); });
+      .catch(function (e) { btn.disabled = false; status('paSt3', null); var pc = $('paConcepts'); if (pc) { pc.className = ''; pc.innerHTML = window.omErrorHTML('Не вдалося придумати концепції', 'Octo трохи перевтомився — спробуй ще раз.', '🔄 Спробувати ще раз', 'getConcepts()'); } });
   }
 
   // ── Step 5: generation (cutout → backgrounds → canvas composite → save) ────
@@ -15554,8 +15564,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       renderResults(images, texts, adCreative);
       saveToIdeas(images, texts, adCreative);
     } catch (e) {
-      $('paResults').innerHTML = '';
-      status(stId, 'err', '⚠️ ' + esc(e.message) + ' <a href="#" style="color:var(--accent2);" onclick="runGeneration();return false;">Спробувати ще</a>');
+      status(stId, null);
+      $('paResults').innerHTML = window.omErrorHTML('Не вдалося зібрати рекламу', 'Іноді Octo трохи перевтомлюється — таке буває. Спробуй ще раз, зазвичай спрацьовує.', '🔄 Спробувати ще раз', 'runGeneration()');
     }
   }
   window.runGeneration = runGeneration;
@@ -15594,7 +15604,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       renderVideoResult(vid.url, sb);
       saveVideoToIdeas(vid.url, sb);
     } catch (e) {
-      status(stId, 'err', '⚠️ ' + esc(e.message) + ' <a href="#" style="color:var(--accent2);" onclick="runVideo();return false;">Спробувати ще</a>');
+      status(stId, null);
+      $('paResults').innerHTML = window.omErrorHTML('Не вдалося зробити відео', 'Буває — модель трохи спіткнулась. Спробуй ще раз.', '🔄 Спробувати ще раз', 'runVideo()');
     }
   }
   window.runVideo = runVideo;
