@@ -33,6 +33,20 @@ marketingRouter.use(optionalIdentity);
  * works statelessly before the first save / before the migration.
  */
 async function resolveContext(req: Request): Promise<{ ctx: string; profileId: string | null }> {
+  const inline = req.body?.profile as Record<string, unknown> | undefined;
+  // The client's octoBiz (sent inline) is the LIVE source of truth — the user
+  // edits it there. Prefer it whenever it's meaningfully filled, so features
+  // never analyse a stale server-saved profile that diverged from what the user
+  // currently sees. Fall back to the DB profile only when no inline one is sent.
+  const inlineMeaningful = Boolean(inline && typeof inline === 'object'
+    && (inline.niche || inline.business_name || inline.description));
+  if (inlineMeaningful) {
+    let profileId: string | null = null;
+    if (req.userId) {
+      try { const saved = await getBusinessProfile(req.userId); profileId = saved?.id ?? null; } catch { /* ignore */ }
+    }
+    return { ctx: profileToContext(inline as Record<string, unknown>), profileId };
+  }
   if (req.userId) {
     try {
       const saved: BusinessProfile | null = await getBusinessProfile(req.userId);
@@ -41,7 +55,6 @@ async function resolveContext(req: Request): Promise<{ ctx: string; profileId: s
       console.warn('[Marketing] Profile lookup failed, using inline profile:', (err as Error).message?.slice(0, 200));
     }
   }
-  const inline = req.body?.profile;
   return { ctx: profileToContext(inline || null), profileId: null };
 }
 

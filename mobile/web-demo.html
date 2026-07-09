@@ -2091,11 +2091,7 @@
 
             <div class="on-or"><span>або заповни вручну</span></div>
 
-            <button class="btn" id="onQuizBtn" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-weight:700;" onclick="octoQuizStart()">📋 Пройти коротке опитування</button>
-            <div style="text-align:center;font-size:12px;color:var(--text4);margin:12px 0 8px;">чи просто опиши своїми словами ↓</div>
-
-            <textarea id="onText" class="ob-input" rows="4" placeholder="Напр.: Маю барбершоп на Подолі в Києві, 4 майстри, стрижки й догляд за бородою, середній чек 500 грн. Клієнти — хлопці 20-40. Хочу більше записів. Запис через Instagram."></textarea>
-            <button class="btn btn-primary" id="onBtn" style="width:100%;margin-top:12px;" onclick="octoOnboardSend()">Познайомити Octo →</button>
+            <button class="btn btn-primary" id="onQuizBtn" style="width:100%;" onclick="octoQuizStart()">📋 Пройти коротке опитування</button>
             <div class="ob-status" id="onStatus"></div>
           </div>
 
@@ -14167,6 +14163,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   .mem-stale b { color:#F5B450; }
   .mem-stale-btn { flex:none; margin-left:auto; background:var(--surface2); border:1px solid var(--border); border-radius:9px; color:var(--text); font-size:12.5px; font-weight:700; padding:8px 13px; cursor:pointer; white-space:nowrap; }
   .mem-stale-btn:hover { border-color:var(--accent); }
+  /* Market research — clean report layout (rows, not monotonous pills) */
+  .rs-summary { font-size:14.5px; color:var(--text2); line-height:1.6; padding:14px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:14px; margin:12px 0 4px; }
+  .rs-sec { margin-top:20px; }
+  .rs-sec-h { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text3); margin-bottom:10px; }
+  .rs-sec-ic { font-size:15px; }
+  .rs-list { display:flex; flex-direction:column; }
+  .rs-item { display:flex; gap:11px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--border); }
+  .rs-item:first-child { border-top:none; }
+  .rs-dot { flex:none; width:7px; height:7px; border-radius:50%; margin-top:7px; }
+  .rs-txt { font-size:13.5px; color:var(--text2); line-height:1.5; }
 </style>
 
 <!-- ═══ ДОСЛІДЖЕННЯ РИНКУ + ІДЕЯ З ТРЕНДУ ═══ -->
@@ -14230,13 +14236,26 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
           + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(title) + '</span></a>';
       }).filter(Boolean).join('');
       if (srcs) srcs = '<div class="ob-src-wrap">' + srcs + '</div>';
+      function rsList(items, color) {
+        if (!items || !items.length) return '';
+        return '<div class="rs-list">' + items.map(function (x) {
+          return '<div class="rs-item"><span class="rs-dot" style="background:' + color + ';"></span><div class="rs-txt">' + esc(x) + '</div></div>';
+        }).join('') + '</div>';
+      }
+      function rsSec(ic, title, items, color) {
+        if (!items || !items.length) return '';
+        return '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">' + ic + '</span>' + title + '</div>' + rsList(items, color) + '</div>';
+      }
       var card = document.createElement('div');
       card.className = 'card ob-res';
       card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">🔎</div><div><div class="card-title" style="margin:0;">Дослідження ринку</div><div class="card-sub" style="margin:0;">свіже, з інтернету</div></div></div>'
-        + '<p style="color:var(--text2);font-size:14px;">' + esc(r.summary) + '</p>'
-        + sec('Що працює зараз', chips(r.what_works, 'good')) + sec('Тренди', chips(r.trends)) + sec('Хуки', chips(r.hooks))
-        + sec('Конкуренти', chips(r.competitor_notes, 'warn')) + (srcs ? '<div class="ob-sec">Джерела</div>' + srcs : '')
-        + '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showScreen(\'campaign\',null)">🎯 До просування (з урахуванням ринку) →</button>';
+        + (r.summary ? '<div class="rs-summary">' + esc(r.summary) + '</div>' : '')
+        + rsSec('✅', 'Що працює зараз', r.what_works, '#3FD07A')
+        + rsSec('📈', 'Тренди', r.trends, '#8B7BFF')
+        + rsSec('🪝', 'Хуки', r.hooks, '#F5B450')
+        + rsSec('⚔️', 'Що роблять конкуренти', r.competitor_notes, '#FF8A80')
+        + (srcs ? '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">🔗</span>Джерела</div>' + srcs + '</div>' : '')
+        + '<button class="btn btn-primary" style="width:100%;margin-top:18px;" onclick="showScreen(\'campaign\',null)">🎯 До просування (з урахуванням ринку) →</button>';
       $('rsResult').appendChild(card);
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
