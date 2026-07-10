@@ -1039,9 +1039,11 @@
          that showScreen() writes. */
       #octoWidget { display: none !important; }
 
-      /* Майстер (prodads / onboard) ховає таб-бар, тож топбар стає єдиним
-         виходом з екрана — і мусить лишатися на видноті. */
-      .app-layout.is-wizard .topbar {
+      /* The page scrolls on a phone, so a static topbar slides away and the
+         transparent status bar lands straight on the content. Pin it: it is
+         both the title and the backdrop behind the clock — and, in a wizard,
+         the only way out of the screen. */
+      .topbar {
         position: sticky; top: 0; z-index: 45;
         background: rgba(7,7,15,.94);
         backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
