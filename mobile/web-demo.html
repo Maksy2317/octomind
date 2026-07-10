@@ -1006,18 +1006,20 @@
         padding: 12px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
       }
 
-      /* Chat is the one screen that must not scroll the page: its composer sits
-         at the bottom of a fixed-height column (.chat-wrap → flex:1). Under the
-         page-scroll model above that column grows and pushes the input below
-         the fold, so the chat keeps the original viewport-height box. */
-      /* Chat is a fixed-height column, and the height that matters is the
-         *visual* viewport: iOS keeps dvh at full height while the keyboard
-         covers the screen, and body's min-height:100vh would leave a black
-         band under the composer. --vvh is written by the resize handler. */
-      html.chat-lock, html.chat-lock body { height: var(--vvh, 100dvh); min-height: 0; overflow: hidden; }
-      /* min-height:100vh on .app-layout would keep the column full height. */
-      .app-layout.is-chat { height: var(--vvh, 100dvh); min-height: 0; overflow: hidden; }
+      /* Chat is the one screen that must not scroll the page: the composer sits
+         at the bottom of a fixed-height column (.chat-wrap → flex:1), and under
+         the page-scroll model that column grows and pushes the input below the
+         fold. Pinning the whole layout with position:fixed anchors it to the
+         *visual* viewport — the part iOS leaves uncovered by the keyboard —
+         instead of the layout viewport, which stays full height. --vvh is a
+         belt-and-braces fallback written by the visualViewport handler. */
+      .app-layout.is-chat {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: var(--vvh, 100dvh); min-height: 0; overflow: hidden;
+      }
       .app-layout.is-chat .main { height: 100%; min-height: 0; overflow: hidden; }
+      /* The page behind must not scroll while the chat owns the viewport. */
+      html.chat-lock, html.chat-lock body { overflow: hidden; }
       /* One bottom gap, not two: the composer sits directly on the tab bar. */
       .app-layout.is-chat .content {
         overflow-y: auto; min-height: 0;
