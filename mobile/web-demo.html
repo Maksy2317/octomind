@@ -15736,7 +15736,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var icoBox = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7cc9f2" stroke-width="1.9" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg>';
     var icoCal = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffd58a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg>';
     var icoChat = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7ddb9f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>';
-    var stats = '<div class="stats-grid" style="margin-bottom:20px;">'
+    // Four zeros tell a brand-new user nothing — the strip earns its place
+    // with the first real number.
+    var statsEmpty = !camps.length && !totalMats && !monthPosts && !chatUsed;
+    var stats = statsEmpty ? '' : '<div class="stats-grid" style="margin-bottom:20px;">'
       + statCard('Кампаній', camps.length, camps.length ? 'у «Моїх ідеях»' : 'ще не створювались', icoTarget, 'rgba(139,123,255,.13)')
       + statCard('Матеріалів', totalMats, totalMats ? 'фото, тексти, ідеї' : 'ще не створювались', icoBox, 'rgba(56,189,248,.13)')
       + statCard('Постів цього місяця', monthPosts, monthPosts ? 'у контент-плані' : 'календар порожній', icoCal, 'rgba(255,194,75,.13)')
