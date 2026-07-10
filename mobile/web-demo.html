@@ -1007,30 +1007,29 @@
       .main { margin-left: 0; height: auto; min-height: 100vh; overflow: visible; min-width: 0; }
       .content {
         padding: 12px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
+        /* The desktop base sets overflow-y:auto, which quietly claims the role
+           of scrollport and kills position:sticky for the chat composer. On a
+           phone the PAGE scrolls. */
+        overflow: visible;
       }
 
-      /* Chat is the one screen that must not scroll the page: the composer sits
-         at the bottom of a fixed-height column (.chat-wrap → flex:1), and under
-         the page-scroll model that column grows and pushes the input below the
-         fold. Pinning the whole layout with position:fixed anchors it to the
-         *visual* viewport — the part iOS leaves uncovered by the keyboard —
-         instead of the layout viewport, which stays full height. --vvh is a
-         belt-and-braces fallback written by the visualViewport handler. */
-      .app-layout.is-chat {
-        position: fixed; top: 0; left: 0; right: 0;
-        height: var(--vvh, 100dvh); min-height: 0; overflow: hidden;
+      /* Chat, phones: everything stays in NORMAL document flow. position:fixed
+         plus the iOS keyboard desynced hit-testing from rendering — the eye saw
+         the composer, the browser hit-tested the tab bar underneath, and a tap
+         on the input navigated to «Мої ідеї». In-flow inputs are the one thing
+         iOS handles natively and reliably: it scrolls them into view itself.
+         The composer is sticky, so it stays put while reading history. */
+      .app-layout.is-chat .screen#advisor.active { display: block; }
+      .app-layout.is-chat .chat-wrap { display: block; }
+      .app-layout.is-chat .chat-messages { overflow: visible; }
+      .app-layout.is-chat .chat-input-area {
+        position: sticky; z-index: 30;
+        bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+        background: var(--bg); padding-bottom: 6px;
       }
-      .app-layout.is-chat .main { height: 100%; min-height: 0; overflow: hidden; }
-      /* The page behind must not scroll while the chat owns the viewport. */
-      html.chat-lock, html.chat-lock body { overflow: hidden; }
-      /* One bottom gap, not two: the composer sits directly on the tab bar. */
-      .app-layout.is-chat .content {
-        overflow-y: auto; min-height: 0;
-        padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-      }
-      .app-layout.is-chat .chat-input-area { padding-bottom: 0; }
-      /* Keyboard up → no tab bar to clear. */
-      .app-layout.is-chat.kb-open .content { padding-bottom: 6px; }
+      .app-layout.is-chat.kb-open .chat-input-area { bottom: 0; }
+      /* The suggestion chips triple the sticky slab — hide them while typing. */
+      .app-layout.is-chat.kb-open .quick-prompts { display: none; }
 
       /* The topbar is the first thing under the status bar on every screen —
          without the inset the title is drawn behind the clock. */
@@ -5545,9 +5544,6 @@
       document.documentElement.style.setProperty('--vvh', vv.height + 'px');
       app.classList.toggle('kb-open', (window.innerHeight - vv.height) > 150);
       syncTabbarHidden();
-      // iOS scrolls the page to reveal the focused field; with a locked column
-      // that only pushes the header out of view.
-      if (document.documentElement.classList.contains('chat-lock')) window.scrollTo(0, 0);
     };
     vv.addEventListener('resize', onResize);
     vv.addEventListener('scroll', onResize);
@@ -5586,9 +5582,6 @@
     currentScreenId = id;
     appLayout.classList.toggle('is-wizard', wizard);
     appLayout.classList.toggle('is-chat', id === 'advisor');
-    // Locks <html>/<body> to the visual viewport so the keyboard can't leave a
-    // black band below the composer.
-    document.documentElement.classList.toggle('chat-lock', id === 'advisor');
     syncTabbarHidden();
     closeMore();
 
@@ -5652,7 +5645,7 @@
         msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
       }
     });
-    msgs.scrollTop = msgs.scrollHeight;
+    chatScrollBottom(msgs);
   })();
 
   let pendingImage = null; // { base64, mediaType, previewUrl }
@@ -5713,6 +5706,14 @@
     return lines.length ? lines.join('\n') : null;
   }
 
+  // Global: the workspace switcher (another IIFE) repaints the history too.
+  window.chatScrollBottom = function (msgs) {
+    msgs.scrollTop = msgs.scrollHeight;
+    if (window.matchMedia('(max-width: 767.98px)').matches) {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    }
+  };
+
   async function sendMsg() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
@@ -5753,7 +5754,7 @@
     msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${bubbleHtml}</div><div class="msg-time">Вы • сейчас</div></div></div>`;
     const aiId = 'ai-' + Date.now();
     msgs.innerHTML += `<div class="msg ai" id="${aiId}"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble" id="bubble-${aiId}"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
-    msgs.scrollTop = msgs.scrollHeight;
+    chatScrollBottom(msgs);
 
     try {
       const res = await fetch('/api/chat', {
@@ -5786,7 +5787,7 @@
             if (parsed.text) { fullText += parsed.text; bubble.innerHTML = fullText.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g, '<br>'); }
           } catch {}
         }
-        msgs.scrollTop = msgs.scrollHeight;
+        chatScrollBottom(msgs);
       }
 
       if (fullText && !fullText.startsWith('❌')) {
@@ -5800,7 +5801,7 @@
       const b = document.getElementById('bubble-' + aiId);
       if (b) b.innerHTML = '❌ Ошибка подключения';
     }
-    msgs.scrollTop = msgs.scrollHeight;
+    chatScrollBottom(msgs);
   }
 
   // Analyzer
@@ -9838,7 +9839,7 @@
         else
           msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
       });
-      msgs.scrollTop = msgs.scrollHeight;
+      chatScrollBottom(msgs);
     }
     // Load Tone of Voice for the new active workspace
     loadTovForCurrentWs();
