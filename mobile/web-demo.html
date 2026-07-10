@@ -1021,9 +1021,15 @@
          on the input navigated to «Мої ідеї». In-flow inputs are the one thing
          iOS handles natively and reliably: it scrolls them into view itself.
          The composer is sticky, so it stays put while reading history. */
-      .app-layout.is-chat .screen#advisor.active { display: block; }
-      .app-layout.is-chat .chat-wrap { display: block; }
-      .app-layout.is-chat .chat-messages { overflow: visible; }
+      /* A short conversation left the composer stranded under the last bubble
+         with a void down to the tab bar. The column fills the viewport, the
+         message list takes the slack, and the composer lands on the bottom —
+         while sticky still holds it there once the history outgrows a screen. */
+      .app-layout.is-chat .main { display: flex; flex-direction: column; }
+      .app-layout.is-chat .content { flex: 1; display: flex; flex-direction: column; }
+      .app-layout.is-chat .screen#advisor.active { flex: 1; display: flex; flex-direction: column; }
+      .app-layout.is-chat .chat-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+      .app-layout.is-chat .chat-messages { flex: 1 1 auto; overflow: visible; }
       .app-layout.is-chat .chat-input-area {
         position: sticky; z-index: 30;
         bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
