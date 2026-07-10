@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <!-- viewport-fit=cover: without it env(safe-area-inset-*) resolves to 0 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- interactive-widget: on Chrome/Android the keyboard shrinks the layout
+       viewport instead of overlaying it, which is what the chat column wants. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <!-- The app answers on /app and /app/ alike; without this, relative asset
        paths resolve against /app/ and every mascot 404s into the SPA fallback. -->
   <base href="/">
@@ -1008,18 +1010,26 @@
          at the bottom of a fixed-height column (.chat-wrap → flex:1). Under the
          page-scroll model above that column grows and pushes the input below
          the fold, so the chat keeps the original viewport-height box. */
-      /* --vvh tracks visualViewport: on iOS the keyboard does NOT shrink dvh,
-         so a 100dvh column would hide the composer behind the keyboard. */
-      .app-layout.is-chat .main { height: var(--vvh, 100dvh); min-height: 0; overflow: hidden; }
+      /* Chat is a fixed-height column, and the height that matters is the
+         *visual* viewport: iOS keeps dvh at full height while the keyboard
+         covers the screen, and body's min-height:100vh would leave a black
+         band under the composer. --vvh is written by the resize handler. */
+      html.chat-lock, html.chat-lock body { height: var(--vvh, 100dvh); min-height: 0; overflow: hidden; }
+      /* min-height:100vh on .app-layout would keep the column full height. */
+      .app-layout.is-chat { height: var(--vvh, 100dvh); min-height: 0; overflow: hidden; }
+      .app-layout.is-chat .main { height: 100%; min-height: 0; overflow: hidden; }
+      /* One bottom gap, not two: the composer sits directly on the tab bar. */
       .app-layout.is-chat .content {
         overflow-y: auto; min-height: 0;
-        padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px);
+        padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
       }
-      .app-layout.is-chat.kb-open .content { padding-bottom: 8px; }
-      /* No tab bar under the composer once the keyboard is up. */
-      .app-layout.is-chat:not(.kb-open) .chat-input-area { padding-bottom: calc(env(safe-area-inset-bottom) + 6px); }
+      .app-layout.is-chat .chat-input-area { padding-bottom: 0; }
+      /* Keyboard up → no tab bar to clear. */
+      .app-layout.is-chat.kb-open .content { padding-bottom: 6px; }
 
-      .topbar { padding: 10px 16px; min-height: 44px; }
+      /* The topbar is the first thing under the status bar on every screen —
+         without the inset the title is drawn behind the clock. */
+      .topbar { padding: calc(10px + env(safe-area-inset-top)) 16px 10px; min-height: 44px; }
       .topbar-left p { display: none; }
       .topbar-left h1 { font-size: 17px; }
       /* «Спитати Octo» дублює таб Ask Octo */
@@ -1133,8 +1143,7 @@
     @media (max-width: 767.98px) {
       .pgrid2 { display: flex; flex-direction: column; gap: 12px; }
       .pcard.popular { order: -1; }
-      /* Notch and home bar: the wizard topbar is the only sticky top chrome. */
-      .app-layout.is-wizard .topbar { padding-top: calc(10px + env(safe-area-inset-top)); }
+      /* Landscape notch. (The top inset lives on .topbar, which every screen has.) */
       .content { padding-left: calc(16px + env(safe-area-inset-left)); padding-right: calc(16px + env(safe-area-inset-right)); }
     }
 
@@ -5420,6 +5429,9 @@
       document.documentElement.style.setProperty('--vvh', vv.height + 'px');
       app.classList.toggle('kb-open', (window.innerHeight - vv.height) > 150);
       syncTabbarHidden();
+      // iOS scrolls the page to reveal the focused field; with a locked column
+      // that only pushes the header out of view.
+      if (document.documentElement.classList.contains('chat-lock')) window.scrollTo(0, 0);
     };
     vv.addEventListener('resize', onResize);
     vv.addEventListener('scroll', onResize);
@@ -5458,6 +5470,9 @@
     currentScreenId = id;
     appLayout.classList.toggle('is-wizard', wizard);
     appLayout.classList.toggle('is-chat', id === 'advisor');
+    // Locks <html>/<body> to the visual viewport so the keyboard can't leave a
+    // black band below the composer.
+    document.documentElement.classList.toggle('chat-lock', id === 'advisor');
     syncTabbarHidden();
     closeMore();
 
@@ -15683,7 +15698,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         }).join('') + '</div>';
     }
 
-    el.innerHTML = mainCta + hero + stats + greetRow + adv + actions + campHtml;
+    // While the profile is unfinished, the setup banner leads: the product is
+    // worthless until Octo knows the business. Once done>=5 the banner is empty
+    // and the ad CTA lands on top by itself.
+    el.innerHTML = hero + mainCta + stats + greetRow + adv + actions + campHtml;
     ensureWeekly(biz, bizSet, camps);
   };
 
