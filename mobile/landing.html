@@ -96,6 +96,8 @@
     border-bottom:1px solid transparent; transition:border-color .2s;
   }
   .nav.stuck{ border-bottom-color:var(--border); }
+  /* Without this the logo sits under the iPhone status bar. */
+  .nav{ padding-top:env(safe-area-inset-top); }
   .nav-in{ display:flex; align-items:center; justify-content:space-between; height:66px; }
   .logo{ display:flex; align-items:center; gap:10px; font-family:'Unbounded',sans-serif; font-weight:600; font-size:17px; }
   .logo img{ width:32px; height:32px; object-fit:contain; }

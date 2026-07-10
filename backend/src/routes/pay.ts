@@ -25,8 +25,7 @@ payRouter.post('/create', requireIdentity, (req: Request, res: Response) => {
   // on (trust proxy → correct https host on Railway). Never an empty domain.
   const base = (process.env.PUBLIC_URL || process.env.PUBLIC_API_BASE || '').replace(/\/$/, '')
     || `${req.protocol}://${req.get('host')}`;
-  // Back into the app, not the marketing landing that now lives at `/`.
-  const returnUrl = `${base}/app?paid=1`;
+  const returnUrl = `${base}/?paid=1`;
   const serviceUrl = `${base}/api/pay/callback`;
   res.json(buildPurchase(plan, orderReference, orderDate, returnUrl, serviceUrl));
 });
