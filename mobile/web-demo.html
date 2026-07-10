@@ -9,6 +9,9 @@
   <!-- The app answers on /app and /app/ alike; without this, relative asset
        paths resolve against /app/ and every mascot 404s into the SPA fallback. -->
   <base href="/">
+  <!-- Replaced by the server at send time; "__BUILD" + "_SHA__" means the page
+       was opened straight off disk. -->
+  <meta name="octo-build" content="__BUILD_SHA__">
   <title>OctoMind — AI Marketing Assistant</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#07070f">
@@ -4213,6 +4216,14 @@
 
         <!-- Settings -->
         <div class="screen" id="settings">
+
+          <!-- Which build is on this phone, and a way to force the new one. -->
+          <div class="card" id="buildCard" style="margin-bottom:16px;">
+            <div class="card-title" style="font-size:15px;">🔄 Версія застосунку</div>
+            <div class="card-sub" style="margin-bottom:12px;">Якщо здається, що зміни не доїхали — звір версії й натисни оновлення.</div>
+            <div id="buildInfo" style="font:600 12.5px ui-monospace,monospace;color:var(--text3);line-height:1.9;">Перевіряю…</div>
+            <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="octoForceUpdate(this)">⬇️ Завантажити свіжу версію</button>
+          </div>
 
           <!-- PWA INSTALL — big prominent button -->
           <div id="pwaInstallSettingsBtn" style="margin-bottom:16px;">
@@ -18122,6 +18133,62 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     genBack: function () { state.gen.step = Math.max(1, state.gen.step - 1); paintGen(); },
     genRun: function () { genPlan(); state.gen.open = false; state.tab = 'week'; paintGen(); render(); toast('✅ План на тиждень готовий'); },
   };
+})();
+</script>
+
+<!-- ═══ Версія збірки: що реально крутиться на цьому телефоні ═══ -->
+<script>
+(function () {
+  'use strict';
+
+  // The page is stamped by the server as it is sent; the running server reports
+  // its own sha. A mismatch means this tab is holding an older shell.
+  var meta = document.querySelector('meta[name="octo-build"]');
+  var pageSha = meta ? meta.content : null;
+  if (!pageSha || pageSha.indexOf('__BUILD') === 0) pageSha = 'local';
+
+  function paint(server) {
+    var el = document.getElementById('buildInfo'); if (!el) return;
+    var same = pageSha && server && pageSha === server.sha;
+    el.innerHTML =
+      'На сервері: <b style="color:var(--text2);">' + (server ? server.sha : '—') + '</b><br>'
+      + 'У цій вкладці: <b style="color:var(--text2);">' + (pageSha || '—') + '</b><br>'
+      + (server
+          ? (same
+              ? '<span style="color:var(--green);font-weight:700;">✓ Актуальна версія</span>'
+              : '<span style="color:#F5B450;font-weight:700;">⚠️ Вкладка застаріла — онови</span>')
+          : '<span style="color:var(--text4);">сервер не відповів</span>');
+  }
+
+  window.octoLoadBuild = function () {
+    if (!document.getElementById('buildInfo')) return;
+    fetch('/api/version', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (v) { paint(v); })
+      .catch(function () { paint(null); });
+  };
+
+  // Nuke every cache and the service worker, then reload from the network.
+  window.octoForceUpdate = function (btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Оновлюю…'; }
+    var jobs = [];
+    if ('caches' in window) {
+      jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+    }
+    if (navigator.serviceWorker) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    Promise.all(jobs).catch(function () {}).then(function () {
+      location.replace(location.pathname + '?v=' + Date.now());
+    });
+  };
+
+  var _s = window.showScreen;
+  if (typeof _s === 'function') {
+    window.showScreen = function (id, el) { _s(id, el); if (id === 'settings') window.octoLoadBuild(); };
+  }
 })();
 </script>
 

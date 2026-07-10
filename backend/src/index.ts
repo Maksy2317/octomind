@@ -201,6 +201,15 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Which build is actually running. Lets a phone answer "did my deploy land?"
+// instead of guessing at a stale cache.
+const BUILD_SHA = (process.env.RAILWAY_GIT_COMMIT_SHA || 'dev').slice(0, 7);
+const BOOTED_AT = new Date().toISOString();
+app.get('/api/version', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ sha: BUILD_SHA, bootedAt: BOOTED_AT });
+});
+
 // Serve frontend (mobile folder)
 // HTML files must never be cached — always fetch fresh from server
 const frontendDir = path.resolve(__dirname, '../../mobile');
@@ -210,11 +219,19 @@ const frontendDir = path.resolve(__dirname, '../../mobile');
 // /app?go=<screen>, so swapping it onto `/` later is a one-line change.
 // Declared before express.static, which would otherwise resolve /app against
 // the React-Native `mobile/app` directory.
+// Stamp the shell with the build it was served from. The page can then compare
+// itself against /api/version and say plainly whether this tab is stale.
 function sendHtml(res: express.Response, file: string): void {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  res.sendFile(path.join(frontendDir, file));
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  try {
+    const html = fs.readFileSync(path.join(frontendDir, file), 'utf8');
+    res.send(html.replace(/__BUILD_SHA__/g, BUILD_SHA));
+  } catch {
+    res.sendFile(path.join(frontendDir, file));
+  }
 }
 app.get('/landing', (_req, res) => sendHtml(res, 'landing.html'));
 app.get('/app', (_req, res) => sendHtml(res, 'web-demo.html'));
@@ -228,12 +245,8 @@ app.use(express.static(frontendDir, {
     }
   },
 }));
-app.get('*', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.sendFile(path.join(frontendDir, 'web-demo.html'));
-});
+// Everything else — including `/` — is the app shell, stamped with its build.
+app.get('*', (_req, res) => sendHtml(res, 'web-demo.html'));
 
 app.use(errorHandler);
 
