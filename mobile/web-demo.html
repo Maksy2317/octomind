@@ -1001,7 +1001,10 @@
       :root { --toast-bottom: calc(28px + var(--tabbar-h) + env(safe-area-inset-bottom)); }
 
       .sidebar, .sidebar-overlay, .hamburger { display: none; }
-      .main { margin-left: 0; height: auto; min-height: 100vh; overflow: visible; }
+      /* min-width:0 — .main is a flex item, and its default min-width:auto lets
+         any nowrap row (e.g. the planner's chip strip) blow the whole column out
+         to the row's min-content width. That was the horizontal scroll. */
+      .main { margin-left: 0; height: auto; min-height: 100vh; overflow: visible; min-width: 0; }
       .content {
         padding: 12px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
       }
@@ -1156,6 +1159,13 @@
       .cmp-del { min-width: 44px; min-height: 44px; font-size: 16px; }
       .img-upload-btn { min-width: 44px; min-height: 44px; }
       .qp { min-height: 36px; display: inline-flex; align-items: center; }
+      .btn { min-height: 44px; justify-content: center; }
+      .pl-add, .cl-own-go, .on-prof-edit, .mat-menu, .prof-edit-btn, .pf2-edit { min-width: 44px; min-height: 44px; }
+      select, .ob-input { min-height: 44px; }
+      /* Legacy screens (settings toggles, carousel/video editors): a blanket
+         floor beats hunting each 25px button on surfaces that are on their
+         way out of the start flows anyway. */
+      #settings button, #photo button, #video button, #caption button { min-height: 44px; }
     }
 
     /* ── CAPTION AI ── */
@@ -1528,6 +1538,28 @@
       transition: all .15s;
     }
     .prof-edit-btn:hover { border-color: var(--accent); color: var(--accent2); }
+    /* Кабінет: рядки профілю (renderProfileCard) */
+    .pf2-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .pf2-label { font-size: 12px; color: var(--text3); width: 110px; flex: none; }
+    .pf2-val { flex: 1; min-width: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+    .pf2-edit { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text3); cursor: pointer; padding: 4px 8px; font-size: 12px; flex: none; }
+    .pf2-edit:hover { border-color: var(--accent); color: var(--accent2); }
+    @media (max-width: 767.98px) {
+      /* A 110px label plus a pencil left ~150px for the value. Label and pencil
+         share the top line; the value takes the full width below. */
+      .pf2-row { display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 3px; }
+      .pf2-label { width: auto; }
+      .pf2-edit { grid-column: 2; grid-row: 1; }
+      .pf2-val { grid-column: 1 / -1; }
+    }
+    @media (max-width: 767.98px) {
+      /* 90px label + value + pencil in one row squeezed the value to ~150px.
+         Label and pencil share the top line; the value gets the full width. */
+      .prof-field { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+      .prof-field-label { width: auto; }
+      .prof-edit-btn { grid-column: 2; grid-row: 1; }
+      .prof-field-val { grid-column: 1 / -1; }
+    }
     /* inline editor that drops below a field */
     .prof-inline-editor {
       background: var(--surface2); border: 1.5px solid var(--accent);
@@ -4244,7 +4276,7 @@
               <div style="font-size:12px;color:#8f8fb6;">Octo сам зрозуміє, що на медіа, і напише підпис</div>
             </label>
             <input type="file" id="capHeroInput" accept="image/*,video/*" style="display:none;" onchange="capAnalyzePhoto(this)">
-            <div style="text-align:center;margin-top:10px;"><button onclick="document.getElementById('capManual').style.display = document.getElementById('capManual').style.display==='none'?'block':'none';" style="background:none;border:none;color:#8B7BFF;font-size:12.5px;font-weight:700;cursor:pointer;">або опиши словами й налаштуй ⚙️</button></div>
+            <div style="text-align:center;margin-top:10px;"><button onclick="document.getElementById('capManual').style.display = document.getElementById('capManual').style.display==='none'?'block':'none';" style="background:none;border:none;color:#8B7BFF;font-size:12.5px;font-weight:700;cursor:pointer;padding:13px;">або опиши словами й налаштуй ⚙️</button></div>
           </div>
 
           <div id="capManual" style="display:none;">
@@ -15782,7 +15814,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     if (camps.length) {
       campHtml = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
         + '<div class="card-title" style="margin:0;">💡 Мої ідеї</div>'
-        + '<button onclick="showScreen(\'campaigns\',null)" style="background:none;border:none;color:var(--accent2);font-size:12.5px;font-weight:700;cursor:pointer;">усі →</button></div>'
+        + '<button onclick="showScreen(\'campaigns\',null)" style="background:none;border:none;color:var(--accent2);font-size:12.5px;font-weight:700;cursor:pointer;padding:12px;margin:-12px -4px -12px -12px;">усі →</button></div>'
         + camps.slice(0, 3).map(function (c) {
           return '<div class="cmp-card" style="margin-bottom:8px;" onclick="showScreen(\'campaigns\',null);octoOpenCampaign(\'' + c.id + '\')">'
             + '<div class="cmp-top"><div class="cmp-name" style="font-size:14px;">' + esc(c.name) + '</div>'
@@ -17490,10 +17522,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
           + '<button class="btn" style="background:var(--surface3);border:1px solid var(--border);color:var(--text2);padding:6px 12px;font-size:12px;" onclick="octoBizEdit(null)">Скасувати</button>'
           + '<button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="octoBizSave(\'' + f.k + '\')">💾 Зберегти</button></div></div>';
       }
-      return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">'
-        + '<div style="font-size:12px;color:var(--text3);width:110px;flex:none;">' + f.l + '</div>'
-        + '<div style="flex:1;font-size:13.5px;' + (v ? 'color:var(--text);font-weight:600;' : 'color:var(--text4);font-style:italic;') + '">' + (v ? esc(v) : 'не вказано') + '</div>'
-        + '<button onclick="octoBizEdit(\'' + f.k + '\')" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;padding:4px 8px;font-size:12px;">✎</button></div>';
+      return '<div class="pf2-row">'
+        + '<div class="pf2-label">' + f.l + '</div>'
+        + '<div class="pf2-val" style="' + (v ? 'color:var(--text);font-weight:600;' : 'color:var(--text4);font-style:italic;') + '">' + (v ? esc(v) : 'не вказано') + '</div>'
+        + '<button class="pf2-edit" onclick="octoBizEdit(\'' + f.k + '\')">✎</button></div>';
     }).join('');
     el.innerHTML = '<div class="card">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;">'
