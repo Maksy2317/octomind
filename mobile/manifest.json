@@ -2,7 +2,7 @@
   "name": "OctoMind — AI Marketer",
   "short_name": "OctoMind",
   "description": "AI-маркетолог для TikTok та Instagram. Контент-план, підписи, аналіз.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#0D0D1A",
   "theme_color": "#6C63FF",

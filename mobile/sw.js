@@ -1,5 +1,5 @@
-const CACHE = 'octomind-v6';
-const ASSETS = ['/', '/web-demo.html', '/manifest.json', '/icons/icon.svg'];
+const CACHE = 'octomind-v7';
+const ASSETS = ['/app', '/web-demo.html', '/manifest.json', '/icons/icon.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -22,7 +22,7 @@ self.addEventListener('fetch', e => {
 
 // ── Push notification received ────────────────────────────────────────────────
 self.addEventListener('push', e => {
-  let data = { title: '🐙 OctoMind', body: 'Є нові нагадування!', url: '/' };
+  let data = { title: '🐙 OctoMind', body: 'Є нові нагадування!', url: '/app' };
   try { data = { ...data, ...e.data.json() }; } catch {}
 
   e.waitUntil(
@@ -46,7 +46,7 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   if (e.action === 'dismiss') return;
 
-  const url = (e.notification.data && e.notification.data.url) || '/';
+  const url = (e.notification.data && e.notification.data.url) || '/app';
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(all => {
       const existing = all.find(c => c.url.includes(self.location.origin));

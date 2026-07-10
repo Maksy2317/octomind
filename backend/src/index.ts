@@ -204,6 +204,20 @@ app.get('/health', (_req, res) => {
 // Serve frontend (mobile folder)
 // HTML files must never be cached — always fetch fresh from server
 const frontendDir = path.resolve(__dirname, '../../mobile');
+
+// Marketing landing at the root; the app itself at /app (and every other path).
+// Landing CTAs deep-link to /app?go=<screen>&source=landing.
+// Both are declared before express.static, which would otherwise resolve /app
+// against the React-Native `mobile/app` directory.
+function sendHtml(res: express.Response, file: string): void {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(frontendDir, file));
+}
+app.get('/', (_req, res) => sendHtml(res, 'landing.html'));
+app.get('/app', (_req, res) => sendHtml(res, 'web-demo.html'));
+
 app.use(express.static(frontendDir, {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) {
