@@ -2621,6 +2621,17 @@
           .oc-step-pill.on .n { background:linear-gradient(135deg,#8B7BFF,#6C63FF); color:#fff; }
           .oc-step-pill.ok { color:#b5a8ff; }
           .oc-step-pill.ok .n { background:rgba(139,123,255,.25); color:#fff; }
+          .oc-known { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:2px; }
+          .oc-known-t { width:100%; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--text4); margin-bottom:6px; }
+          .oc-known span.chip { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:600;
+            background:rgba(63,208,122,.1); border:1px solid rgba(63,208,122,.24); color:#7ddb9f; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+          .oc-more-btn { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin-top:12px; padding:10px 12px;
+            border-radius:12px; border:1px dashed rgba(255,255,255,.16); background:none; color:var(--text2);
+            font:700 13px 'Manrope',sans-serif; text-align:left; cursor:pointer; }
+          .oc-more-btn .oc-more-opt { margin-left:auto; font-size:10.5px; font-weight:700; color:var(--text4); flex:none; }
+          .oc-more-btn .chev { flex:none; color:var(--text4); transition:transform .2s; }
+          .oc-more-btn.open .chev { transform:rotate(180deg); }
+          .oc-more-btn.open { border-style:solid; border-color:var(--acc-line); }
           .oc-goal-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
           /* Declared after the shell's grid rules, so the phone override has to
              live here to win on equal specificity. */
@@ -2686,13 +2697,21 @@
             <button class="oc-back" onclick="octoCampaignBack()">← змінити ціль</button>
             <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:18px;background:rgba(139,123,255,.09);border:1px solid rgba(139,123,255,.22);margin-bottom:16px;">
               <img src="assets/new/A03.png" style="width:54px;height:54px;object-fit:contain;flex:0 0 auto;">
-              <div><span class="oc-chosen" id="ocGoalChosen" style="margin-bottom:6px;"></span><div style="font-size:13px;line-height:1.5;color:#d7d7f5;margin-top:8px;">Ніша й аудиторію я вже знаю з профілю. Додай специфіку — і стратегія буде точною.</div></div>
+              <div><span class="oc-chosen" id="ocGoalChosen" style="margin-bottom:6px;"></span><div style="font-size:13px;line-height:1.5;color:#d7d7f5;margin-top:8px;">Я вже знаю твій бізнес із профілю. Можна одразу отримати стратегію.</div></div>
             </div>
             <div class="card">
-              <div class="card-title" style="font-size:15px;">Розкажи трохи більше</div>
-              <div class="card-sub" style="margin-bottom:12px;">Що саме просуваємо, ціна, акція, для кого. Що детальніше — то точніша стратегія.</div>
-              <textarea id="ocDetails" class="ob-input" rows="3" placeholder="Напр.: 2-кімнатна квартира на Подолі, свіжий ремонт, метро поруч, 18 000 грн/міс, готова до заселення"></textarea>
-              <button class="btn btn-primary" id="ocStrategyBtn" style="width:100%;margin-top:12px;" onclick="octoCampaignStrategy()">→ Отримати стратегію</button>
+              <!-- Proof of memory: the profile is already on its way to the server. -->
+              <div class="oc-known" id="ocKnown"></div>
+              <button class="oc-more-btn" id="ocMoreBtn" onclick="octoToggleDetails()">
+                <span>Додати специфіку цієї кампанії</span>
+                <span class="oc-more-opt">необовʼязково</span>
+                <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div id="ocDetailsBox" style="display:none;">
+                <div class="card-sub" style="margin:10px 0 8px;">Що саме просуваємо, ціна, акція, для кого. Профіль Octo вже знає — тут лише про цю кампанію.</div>
+                <textarea id="ocDetails" class="ob-input" rows="3" placeholder="Напр.: 2-кімнатна квартира на Подолі, свіжий ремонт, метро поруч, 18 000 грн/міс, готова до заселення"></textarea>
+              </div>
+              <button class="btn btn-primary" id="ocStrategyBtn" style="width:100%;margin-top:14px;" onclick="octoCampaignStrategy()">→ Отримати стратегію</button>
               <div class="ob-status" id="ocStatus"></div>
             </div>
           </div>
@@ -14548,9 +14567,37 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     $('ocDetailsStep').style.display = '';
     var ta = $('ocDetails');
     if (ta) { ta.placeholder = chosen.ph || DETAILS_PH_DEFAULT; ta.value = ''; }
+    renderKnown();
+    // The box starts closed; don't summon the keyboard for an optional field.
+    var box = $('ocDetailsBox'), more = $('ocMoreBtn');
+    if (box) box.style.display = 'none';
+    if (more) more.classList.remove('open');
     setStep('details');
-    ta && ta.focus();
   }
+
+  // Show the profile Octo will send anyway — the step reads like a form only
+  // because it never said what it already knows.
+  function renderKnown() {
+    var el = $('ocKnown'); if (!el) return;
+    var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    var rows = [['🏪', b.business_name], ['🎯', b.niche], ['👥', b.target_audience], ['📍', b.geo], ['🎙', b.tone]]
+      .filter(function (r) { return r[1]; });
+    if (!rows.length) {
+      el.innerHTML = '<div class="oc-known-t">Octo ще не знає твій бізнес</div>'
+        + '<button class="btn btn-primary" style="width:100%;" onclick="showScreen(\'onboard\',null)">✨ Пройти знайомство</button>';
+      return;
+    }
+    el.innerHTML = '<div class="oc-known-t">✓ Octo це вже знає</div>'
+      + rows.map(function (r) { return '<span class="chip">' + r[0] + ' ' + esc(r[1]) + '</span>'; }).join('');
+  }
+
+  window.octoToggleDetails = function () {
+    var box = $('ocDetailsBox'), btn = $('ocMoreBtn');
+    var open = box.style.display === 'none';
+    box.style.display = open ? '' : 'none';
+    btn.classList.toggle('open', open);
+    if (open) { var ta = $('ocDetails'); ta && ta.focus(); }
+  };
   window.octoCampaignBack = function () {
     $('ocDetailsStep').style.display = 'none';
     $('ocResult').innerHTML = '';
