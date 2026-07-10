@@ -13953,9 +13953,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     $('onDone').style.display = '';
     $('onDone').innerHTML =
       '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);">' +
+      // .on-hero is a flex row: the result and the CTAs must sit AFTER it,
+      // otherwise they become columns beside the mascot, two words wide.
       '<div class="on-hero"><img src="assets/new/A16.png" style="width:52px;height:52px;object-fit:contain;flex:none;">' +
       '<div><div class="card-title" style="margin:0;">✅ Octo тебе знає!</div>' +
-      '<div class="card-sub" style="margin:0;">Ось що я вже можу зробити для тебе — з ходу:</div></div>' +
+      '<div class="card-sub" style="margin:0;">Ось що я вже можу зробити для тебе — з ходу:</div></div></div>' +
       '<div id="onFirstResult" style="margin-top:16px;"></div>' +
       '<div id="onDoneCtas"></div></div>';
     octoFirstResult();
@@ -14068,13 +14070,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     window.octoOnbProgress(2);
     var box = $('onClarify');
     var cards = _clarifyQs.map(function (q, i) {
+      var hasOpts = (q.options || []).length > 0;
       var opts = (q.options || []).map(function (o) {
         return '<button class="cl-opt" data-v="' + esc(o) + '" onclick="octoClarifyPick(' + i + ',this)">' + esc(o) + '</button>';
       }).join('');
+      // "або впиши своє" reads as nonsense when there is nothing to choose from.
+      var ph = hasOpts ? 'або впиши своє…' : 'Напиши відповідь…';
       return '<div class="card cl-card" id="clCard' + i + '">' +
         '<div class="cl-top"><span class="cl-num">' + (i + 1) + '</span><div class="cl-q">' + esc(q.question) + '</div></div>' +
         '<div class="cl-opts">' + opts + '</div>' +
-        '<div class="cl-own-wrap"><input class="ob-input cl-own" id="clOwn' + i + '" placeholder="або впиши своє…" onkeydown="if(event.key===\'Enter\')octoClarifyOwn(' + i + ')">' +
+        '<div class="cl-own-wrap"><input class="ob-input cl-own" id="clOwn' + i + '" placeholder="' + ph + '" onkeydown="if(event.key===\'Enter\')octoClarifyOwn(' + i + ')">' +
         '<button class="cl-own-go" title="Зберегти" onclick="octoClarifyOwn(' + i + ')">→</button></div>' +
         '<div class="cl-actions"><button class="cl-skip" onclick="octoClarifySkip(' + i + ')">Пропустити це питання</button></div></div>';
     }).join('');
