@@ -1280,6 +1280,48 @@
     .cal-grid {
       display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
     }
+    /* ── Контент-план: компактні рядки замість стіни карток ──
+       Тиждень з трьома постами на день — це 21 картка. Кожна повторювала
+       платформу, тип, ціль і статус, тож екран читався як шум. Рядок несе
+       лише те, чим пости різняться: час, платформа, ідея, стан. */
+    .pl-tabs { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .pl-tabs::-webkit-scrollbar { display: none; }
+    .pl-tab {
+      flex: none; min-height: 44px; padding: 10px 16px; border-radius: 12px;
+      font: 700 13px 'Manrope', sans-serif; cursor: pointer; white-space: nowrap;
+      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); color: #a2a2c6;
+    }
+    .pl-tab.on { border-color: #8B7BFF; background: rgba(139,123,255,.16); color: #fff; }
+
+    .pl-day { margin-bottom: 18px; }
+    .pl-day-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .pl-day-name { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6d6d86; }
+    .pl-day.today .pl-day-name { color: #b5a8ff; }
+    .pl-day-count { font-size: 11px; font-weight: 700; color: #8f8fb6; background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 999px; }
+    .pl-list { display: flex; flex-direction: column; gap: 8px; }
+    .pl-row {
+      display: flex; align-items: center; gap: 11px; width: 100%;
+      min-height: 52px; padding: 11px 13px; border-radius: 14px;
+      background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07);
+      color: var(--text); font: inherit; text-align: left; cursor: pointer;
+      transition: border-color .15s;
+    }
+    .pl-row:hover { border-color: rgba(139,123,255,.35); }
+    .pl-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    .pl-time { font: 700 12px 'Manrope', sans-serif; color: #8f8fb6; flex: none; width: 38px; font-variant-numeric: tabular-nums; }
+    .pl-plat { font-size: 14px; flex: none; }
+    .pl-idea { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .pl-row svg { flex: none; width: 15px; height: 15px; color: #5d5d80; }
+    .pl-more {
+      width: 100%; min-height: 40px; margin-top: 8px; border-radius: 12px;
+      border: 1px dashed rgba(255,255,255,.12); background: none;
+      color: #b5a8ff; font: 700 12.5px 'Manrope', sans-serif; cursor: pointer;
+    }
+    .pl-empty { font-size: 12px; color: #5d5d80; padding: 10px 14px; border-radius: 12px; border: 1px dashed rgba(255,255,255,.08); }
+    .pl-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    /* Two selects side by side stop being tappable below this. */
+    @media (max-width: 400px) { .pl-fields { grid-template-columns: 1fr; } }
+
     .cal-day {
       min-height: 72px; background: var(--surface); border: 1.5px solid var(--border);
       border-radius: 12px; padding: 6px; cursor: pointer; transition: all 0.15s;
@@ -17496,7 +17538,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function save(list) { try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) {} }
   function biz() { try { return (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}; } catch (e) { return {}; } }
 
-  var state = { tab: 'week', fPlatform: 'all', fStatus: 'all', fGoal: 'all',
+  var state = { tab: 'week', fPlatform: 'all', fStatus: 'all', fGoal: 'all', expand: {},
     gen: { open: false, step: 1, platforms: ['instagram'], goal: 'sales', perDay: 3 }, detailId: null };
 
   function uid() { return 'p_' + Math.random().toString(36).slice(2, 9) + (load().length); }
@@ -17604,24 +17646,27 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   }
 
   function tabsBar() {
+    // One scrollable row: five wrapped chips ate a third of a phone screen.
     var tabs = [['week', '🗓 Тиждень'], ['list', '📋 Список'], ['stories', '📲 Сторіз'], ['draft', '✏️ Чернетки'], ['ready', '✅ Готові']];
-    return '<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">' + tabs.map(function (t) {
+    return '<div class="pl-tabs">' + tabs.map(function (t) {
       var on = state.tab === t[0];
-      return '<button onclick="octoPlanner.setTab(\'' + t[0] + '\')" style="padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid ' + (on ? '#8B7BFF' : 'rgba(255,255,255,.1)') + ';background:' + (on ? 'rgba(139,123,255,.16)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#fff' : '#a2a2c6') + ';">' + t[1] + '</button>';
+      return '<button class="pl-tab' + (on ? ' on' : '') + '" onclick="octoPlanner.setTab(\'' + t[0] + '\')">' + t[1] + '</button>';
     }).join('') + '</div>';
   }
 
+  // A row, not a card: time, platform, idea, state. Everything else (type,
+  // goal, "Відкрити →") repeated on every entry and told the reader nothing.
   function postCard(p) {
+    var st = byId(STATUSES, p.status);
+    var plat = byId(PLATFORMS, p.platform);
     var ct = byId(CTYPES, p.contentType).label;
-    return '<div onclick="octoPlanner.open(\'' + p.id + '\')" style="cursor:pointer;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);transition:border-color .15s;" onmouseover="this.style.borderColor=\'rgba(139,123,255,.35)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,.07)\'">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">'
-      + '<div style="font-size:11.5px;font-weight:700;color:#8f8fb6;">' + esc(dowName(p.date)) + ' · ' + esc(p.time) + '</div>'
-      + statusPill(p.status) + '</div>'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' + platBadge(p.platform) + '<span style="font-size:11px;color:#6d6d86;">·</span><span style="font-size:11.5px;font-weight:600;color:#a6a6cc;">' + esc(ct) + '</span></div>'
-      + '<div style="font-size:14px;font-weight:700;line-height:1.4;margin-bottom:6px;">' + esc(p.idea) + '</div>'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
-      + '<span style="font-size:11px;font-weight:700;color:#c9bcff;background:rgba(139,123,255,.12);padding:3px 9px;border-radius:7px;">🎯 ' + esc(byId(GOALS, p.goal).label) + '</span>'
-      + '<span style="font-size:12px;font-weight:700;color:#8B7BFF;">Відкрити →</span></div></div>';
+    return '<button class="pl-row" onclick="octoPlanner.open(\'' + p.id + '\')" title="' + esc(ct) + ' · ' + esc(st.label) + '">'
+      + '<span class="pl-dot" style="background:' + st.color + ';"></span>'
+      + '<span class="pl-time">' + esc(p.time || '') + '</span>'
+      + '<span class="pl-plat" title="' + esc(plat.label) + '">' + plat.emoji + '</span>'
+      + '<span class="pl-idea">' + esc(p.idea) + '</span>'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>'
+      + '</button>';
   }
 
   function emptyState(text) {
@@ -17632,18 +17677,29 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       + '<button class="btn btn-primary" onclick="octoPlanner.openGen()">🐙 Згенерувати план на тиждень</button></div>';
   }
 
+  var DAY_PREVIEW = 3;   // beyond this a day folds away behind one tap
+
   function weekView() {
     var list = load(); var days = weekDates();
     if (!list.length) return emptyState('Тут зʼявиться твій контент-тиждень');
-    return '<div style="display:flex;flex-direction:column;gap:14px;">' + days.map(function (d) {
-      var k = iso(d); var posts = list.filter(function (p) { return p.date === k; }).sort(function (a, b) { return (a.time || '').localeCompare(b.time || ''); });
+    return days.map(function (d) {
+      var k = iso(d);
+      var posts = list.filter(function (p) { return p.date === k; })
+        .sort(function (a, b) { return (a.time || '').localeCompare(b.time || ''); });
       var today = k === iso(new Date());
-      return '<div>'
-        + '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:' + (today ? '#b5a8ff' : '#6d6d86') + ';margin-bottom:8px;">' + (today ? '⚡ ' : '') + DOW[(d.getDay() + 6) % 7] + ' · ' + d.getDate() + '.' + pad(d.getMonth() + 1) + '</div>'
-        + (posts.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">' + posts.map(postCard).join('') + '</div>'
-          : '<div style="font-size:12px;color:#5d5d80;padding:10px 14px;border-radius:12px;border:1px dashed rgba(255,255,255,.08);">Порожньо — <a href="#" onclick="octoPlanner.add(\'' + k + '\');return false;" style="color:#8B7BFF;font-weight:700;">додати пост</a></div>')
-        + '</div>';
-    }).join('') + '</div>';
+      var open = !!state.expand[k];
+      var shown = open ? posts : posts.slice(0, DAY_PREVIEW);
+      var hidden = posts.length - shown.length;
+      var body = posts.length
+        ? '<div class="pl-list">' + shown.map(postCard).join('') + '</div>'
+          + (hidden > 0 ? '<button class="pl-more" onclick="octoPlanner.toggleDay(\'' + k + '\')">Показати ще ' + hidden + '</button>' : '')
+          + (open && posts.length > DAY_PREVIEW ? '<button class="pl-more" onclick="octoPlanner.toggleDay(\'' + k + '\')">Згорнути</button>' : '')
+        : '<div class="pl-empty">Порожньо — <a href="#" onclick="octoPlanner.add(\'' + k + '\');return false;" style="color:#8B7BFF;font-weight:700;">додати пост</a></div>';
+      return '<div class="pl-day' + (today ? ' today' : '') + '">'
+        + '<div class="pl-day-head"><span class="pl-day-name">' + (today ? '⚡ ' : '') + DOW[(d.getDay() + 6) % 7] + ' · ' + d.getDate() + '.' + pad(d.getMonth() + 1) + '</span>'
+        + (posts.length ? '<span class="pl-day-count">' + posts.length + '</span>' : '') + '</div>'
+        + body + '</div>';
+    }).join('');
   }
 
   function filtersBar() {
@@ -17671,7 +17727,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     });
     var head = forceStatus ? '' : filtersBar();
     if (!list.length) return head + emptyState(forceStatus === 'draft' ? 'Немає чернеток' : forceStatus === 'ready' ? 'Немає готових постів' : 'Нічого не знайдено');
-    return head + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">' + list.map(postCard).join('') + '</div>';
+    return head + '<div class="pl-list">' + list.map(postCard).join('') + '</div>';
   }
 
   function render() {
@@ -17775,7 +17831,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">'
       + '<div style="font-size:17px;font-weight:800;">Деталі публікації</div>'
       + '<button onclick="octoPlanner.close()" style="background:none;border:none;color:#9a9ac4;font-size:22px;cursor:pointer;">✕</button></div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+      + '<div class="pl-fields">'
       + '<div>' + field('Дата', '<input type="date" value="' + esc(p.date) + '" onchange="octoPlanner.set(\'date\',this.value)" style="' + inputStyle() + '">') + '</div>'
       + '<div>' + field('Час', '<input type="time" value="' + esc(p.time) + '" onchange="octoPlanner.set(\'time\',this.value)" style="' + inputStyle() + '">') + '</div>'
       + '<div>' + field('Платформа', selOf(PLATFORMS, p.platform, 'octoPlanner.set(\'platform\',this.value)')) + '</div>'
@@ -17812,6 +17868,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   window.octoPlanner = {
     render: render,
     setTab: function (t) { state.tab = t; render(); },
+    toggleDay: function (k) { state.expand[k] = !state.expand[k]; render(); },
     filter: function (k, v) { state[k] = v; render(); },
     toggleStory: function (i) { var t = iso(new Date()); var s = storiesLoad(); if (!s[t]) s[t] = { steps: storyStepsFor((biz().goal) || 'sales'), done: {} }; s[t].done[i] = !s[t].done[i]; storiesSave(s); render(); },
     refreshStories: function () {
