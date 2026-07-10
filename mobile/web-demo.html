@@ -4168,7 +4168,7 @@
               <div class="pdesc">Максимум + відео-реклама</div>
               <ul class="pfeatures">
                 <li><span>✅</span> <span>Все з Pro, вищі ліміти</span></li>
-                <li><span>✅</span> <span>AI-відео реклами (товар оживає)</span></li>
+                <li><span>✅</span> <span>Кілька бренд-стилів</span></li>
                 <li><span>✅</span> <span>Кілька бізнесів / воркспейсів</span></li>
                 <li><span>✅</span> <span>Пріоритетна генерація</span></li>
                 <li><span>✅</span> <span>Рання доступність нових фіч</span></li>
@@ -5318,7 +5318,7 @@
       qp3:'📈 Как расти в TikTok', qp4:'🔥 Тренды этой недели', qp5:'🎯 Как найти свою аудиторию',
       chat_placeholder:'Запитай Octo…',
       // ── Profile ──
-      profile_upgrade_hint:'💡 Обнови до Pro чтобы снять все ограничения — безлимитный чат, видео, анализ профилей.',
+      profile_upgrade_hint:'💡 Обнови до Pro — кампании, реклама товара, разбор страницы и Ask Octo без лимитов.',
       profile_upgrade_btn:'⚡ Upgrade to Pro',
       profile_ws_title:'🏢 Компании / Воркспейсы',
       profile_ws_sub:'Переключайся между проектами — у каждого своя история чата',
@@ -5409,7 +5409,7 @@
       qp3:'📈 Як рости в TikTok', qp4:'🔥 Тренди цього тижня', qp5:'🎯 Як знайти свою аудиторію',
       chat_placeholder:'Запитай Octo…',
       // ── Profile ──
-      profile_upgrade_hint:'💡 Онови до Pro, щоб зняти всі обмеження — безлімітний чат, відео, аналіз профілів.',
+      profile_upgrade_hint:'💡 Онови до Pro — кампанії, реклама товару, розбір сторінки й Ask Octo без лімітів.',
       profile_upgrade_btn:'⚡ Upgrade to Pro',
       profile_ws_title:'🏢 Компанії / Воркспейси',
       profile_ws_sub:'Перемикайся між проектами — у кожного своя історія чату',
@@ -5500,7 +5500,7 @@
       qp3:'📈 How to grow on TikTok', qp4:'🔥 This week\'s trends', qp5:'🎯 How to find your audience',
       chat_placeholder:'Ask Octo…',
       // ── Profile ──
-      profile_upgrade_hint:'💡 Upgrade to Pro to unlock everything — unlimited chat, video, profile analysis.',
+      profile_upgrade_hint:'💡 Upgrade to Pro — campaigns, product ads, page audit and Ask Octo without limits.',
       profile_upgrade_btn:'⚡ Upgrade to Pro',
       profile_ws_title:'🏢 Companies / Workspaces',
       profile_ws_sub:'Switch between projects — each has its own chat history',
@@ -13601,11 +13601,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       badge.style.color = { guest:'#888', free:'#B5A8FF', starter:'#38BDF8', pro:'#22c55e' }[plan]||'#B5A8FF';
     }
     if (sub) {
+      // Only surfaces we actually ship. Video and Carousel are locked, and the
+      // старий Caption AI isn't part of any tier we sell.
       const parts = [];
-      for (const f of ['chat','video','carousel','caption','analyzer']) {
-        const l = lims[f]; const u2 = usage[f]||0;
-        if (l !== -1) parts.push(`${FEATURE_LABELS[f]}: ${u2}/${l}`);
-        else parts.push(`${FEATURE_LABELS[f]}: ∞`);
+      for (const f of ['chat', 'analyzer']) {
+        const l = lims[f]; const u2 = usage[f] || 0;
+        parts.push(FEATURE_LABELS[f] + ': ' + (l === -1 ? '∞' : u2 + '/' + l));
       }
       sub.textContent = parts.join(' · ');
     }
