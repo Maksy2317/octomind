@@ -4377,7 +4377,9 @@
     document.getElementById('authOverlay').style.display = '';
     document.getElementById('quizWrap').style.display = 'none';
     document.getElementById('appWrap').style.display = 'none';
+    window.scrollTo(0, 0);
   }
+  window.showAuth = showAuth;
 
   // === PRICING CALCULATOR ===
   const calcVals = { marketer: 2000, video: 800, copy: 500, design: 400 };
@@ -13147,9 +13149,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       <div style="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">${fn} доступний тільки для зареєстрованих</div>
       <div style="background:rgba(108,99,255,.15);border:1px solid #6C63FF44;border-radius:14px;padding:14px;margin-bottom:20px;font-size:12px;color:rgba(255,255,255,.8);line-height:2;">
         <b style="color:#fff;display:block;margin-bottom:4px;">🆓 Безкоштовно після реєстрації:</b>
-        💬 Ask Octo — 10 повідомлень / міс<br>
-        🎬 Відео — 2 / міс · 🖼️ Карусель — 2 / міс<br>
-        ✍️ Caption AI — 3 / міс · 📅 Календар — ∞
+        📦 Реклама товару · 🔍 Розбір сторінки<br>
+        🎯 Кампанія на тиждень · 💬 Ask Octo<br>
+        💡 Усі результати зберігаються в «Мої ідеї»
       </div>
       <button onclick="_octoSheetClose(); goToAuth();" style="width:100%;padding:15px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;margin-bottom:10px;">
         Зареєструватись безкоштовно →
@@ -13163,11 +13165,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   // ── Limit reached sheet ──────────────────────────────────────────────────────
   function _limitSheet(feature, plan, used, limit) {
     const fn = FEATURE_LABELS[feature] || feature;
-    const nextPlan  = plan === 'free' ? 'starter' : 'pro';
-    const nextLabel = plan === 'free' ? 'Starter — $10/міс' : 'Pro — $20/міс';
+    // Match the Тарифи screen: Free · Pro $12 · Business $29.
+    const nextPlan  = plan === 'free' ? 'pro' : 'business';
+    const nextLabel = plan === 'free' ? 'Pro — $12/міс' : 'Business — $29/міс';
     const nextFeats = {
-      starter: '💬 60 Octo · 🎬 25 відео · 🖼️ 25 каруселей · ✍️ ∞ підписи · 🚫 без watermark',
-      pro:     '💬 ∞ Octo · 🎬 ∞ відео · 🖼️ ∞ карусель · ✍️ ∞ підписи · 5 воркспейсів',
+      pro:      '📦 30 реклам товару · 🎯 10 кампаній · 💬 Ask Octo без лімітів · 🎨 бренд-стиль',
+      business: '🏢 Кілька бізнес-профілів · вищі ліміти · пріоритетна генерація',
     }[nextPlan] || '';
     _octoSheet(`<div style="background:#1a0d30;border-radius:24px 24px 0 0;padding:28px 20px 44px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;">
       <div style="font-size:40px;text-align:center;margin-bottom:8px;">⛔</div>
@@ -13415,11 +13418,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   };
 
   // ── Go to auth screen ────────────────────────────────────────────────────────
+  // #mainApp / #authScreen never existed — the ids are #appWrap / #authOverlay,
+  // and the try/catch swallowed the error, so the guest sheet's only CTA was dead.
   window.goToAuth = function() {
-    try {
-      document.getElementById('mainApp').style.display = 'none';
-      document.getElementById('authScreen').style.display = '';
-    } catch {}
+    if (typeof window.showAuth === 'function') { window.showAuth(); return; }
+    var ov = document.getElementById('authOverlay');
+    var app = document.getElementById('appWrap');
+    if (ov) ov.style.display = '';
+    if (app) app.style.display = 'none';
   };
 
   // ── Init ─────────────────────────────────────────────────────────────────────
