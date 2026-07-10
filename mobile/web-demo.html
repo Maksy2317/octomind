@@ -606,7 +606,9 @@
     .score-lbl { font-size: 9px; color: var(--text3); }
 
     .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-    .ai { background: var(--surface2); border-radius: 10px; padding: 12px; }
+    /* A bare `.ai` also matched every chat message (.msg.ai), wrapping Octo's
+       bubbles in a grey slab. Keep it to the analyzer cards that own it. */
+    .analysis-grid .ai { background: var(--surface2); border-radius: 10px; padding: 12px; }
     .ai-icon { font-size: 18px; margin-bottom: 5px; }
     .ai-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; margin-bottom: 3px; }
     .ai-val { font-size: 13px; font-weight: 700; }
@@ -1030,6 +1032,61 @@
       .app-layout.is-chat.kb-open .chat-input-area { bottom: 0; }
       /* The suggestion chips triple the sticky slab — hide them while typing. */
       .app-layout.is-chat.kb-open .quick-prompts { display: none; }
+
+      /* ── Ask Octo: мобільний вигляд ──────────────────────────────────────
+         Топбар уже каже, де людина. Шапка чату стискається до одного рядка:
+         маскот, імʼя, живий індикатор. Дубль «AI активний» зникає. */
+      .chat-header {
+        gap: 11px; padding: 10px 12px; border-radius: 16px; margin-bottom: 12px;
+        background: linear-gradient(135deg, rgba(139,123,255,.12), rgba(255,255,255,.02));
+        border-color: var(--acc-line);
+      }
+      .chat-octo-avatar { width: 40px; height: 40px; border-radius: 12px; }
+      .chat-octo-info h3 { font-size: 14px; }
+      .chat-octo-info p { font-size: 11px; }
+      .chat-octo-status { display: none; }
+
+      /* Читабельність: 13.5px для основного тексту — замало на телефоні. */
+      .chat-messages { gap: 12px; }
+      .msg { max-width: 90%; gap: 8px; }
+      .msg-bubble { font-size: 15px; line-height: 1.55; padding: 12px 15px; border-radius: 18px 18px 18px 6px; }
+      .msg.user .msg-bubble { border-radius: 18px 18px 6px 18px; }
+      .msg-time { font-size: 10.5px; margin-top: 4px; }
+      /* Аватар користувача не несе інформації — праворуч і так видно, хто пише. */
+      .msg.user .msg-avatar { display: none; }
+      .msg.ai .msg-avatar { width: 34px; height: 34px; border-radius: 11px; }
+
+      /* Підказки: один ряд, що прокручується, замість трьох рядів обгорток. */
+      .quick-prompts {
+        flex-wrap: nowrap; overflow-x: auto; gap: 8px; margin-bottom: 10px;
+        padding-bottom: 2px; scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x proximity;
+        -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+                mask-image: linear-gradient(90deg, #000 88%, transparent);
+      }
+      .quick-prompts::-webkit-scrollbar { display: none; }
+      .qp {
+        flex: none; white-space: nowrap; scroll-snap-align: start;
+        min-height: 38px; padding: 9px 15px; border-radius: 999px;
+        font-size: 12.5px; font-weight: 600; color: var(--text2);
+        background: rgba(139,123,255,.07); border-color: var(--acc-line);
+      }
+      .qp:active { background: rgba(139,123,255,.18); }
+
+      /* Композер: поле і кругла кнопка відправки, обидві під палець. */
+      .chat-input-area { border-top: none; padding-top: 8px; }
+      .chat-row { gap: 9px; align-items: flex-end; }
+      .chat-input {
+        border-radius: 22px; padding: 12px 16px; font-size: 16px;   /* 16px = iOS не зумить */
+        background: var(--surface2); border-color: var(--border);
+      }
+      .chat-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,.16); }
+      .img-upload-btn { width: 44px; height: 44px; border-radius: 50%; font-size: 19px; }
+      #chatSendBtn {
+        width: 44px; height: 44px; min-width: 44px; padding: 0;
+        border-radius: 50%; justify-content: center;
+      }
 
       /* The topbar is the first thing under the status bar on every screen —
          without the inset the title is drawn behind the clock. */
@@ -2310,8 +2367,8 @@
               <div class="chat-row">
                 <input type="file" id="imgUpload" accept="image/*" style="display:none" onchange="handleImgUpload(event)">
                 <button class="img-upload-btn" id="imgUploadBtn" onclick="document.getElementById('imgUpload').click()" title="Прикрепить фото">📷</button>
-                <textarea class="chat-input" id="chatInput" rows="1" placeholder="Запитай Octo про маркетинг…" data-i18n-placeholder="chat_placeholder" onkeydown="chatKey(event)" oninput="chatAutogrow(this)"></textarea>
-                <button class="btn btn-primary" onclick="sendMsg()">→</button>
+                <textarea class="chat-input" id="chatInput" rows="1" placeholder="Запитай Octo…" data-i18n-placeholder="chat_placeholder" onkeydown="chatKey(event)" oninput="chatAutogrow(this)"></textarea>
+                <button class="btn btn-primary" id="chatSendBtn" onclick="sendMsg()" aria-label="Надіслати">→</button>
               </div>
             </div>
           </div>
@@ -5223,7 +5280,7 @@
       chat_title:'Octo — AI Маркетолог', chat_online:'● Онлайн и готов помочь', chat_status:'AI активен',
       qp1:'📊 Контент-план на неделю', qp2:'✍️ Напиши подпись к посту',
       qp3:'📈 Как расти в TikTok', qp4:'🔥 Тренды этой недели', qp5:'🎯 Как найти свою аудиторию',
-      chat_placeholder:'Спроси Octo о маркетинге…',
+      chat_placeholder:'Запитай Octo…',
       // ── Profile ──
       profile_upgrade_hint:'💡 Обнови до Pro чтобы снять все ограничения — безлимитный чат, видео, анализ профилей.',
       profile_upgrade_btn:'⚡ Upgrade to Pro',
@@ -5314,7 +5371,7 @@
       chat_title:'Octo — AI Маркетолог', chat_online:'● Онлайн і готовий допомогти', chat_status:'AI активний',
       qp1:'📊 Контент-план на тиждень', qp2:'✍️ Напиши підпис до посту',
       qp3:'📈 Як рости в TikTok', qp4:'🔥 Тренди цього тижня', qp5:'🎯 Як знайти свою аудиторію',
-      chat_placeholder:'Запитай Octo про маркетинг…',
+      chat_placeholder:'Запитай Octo…',
       // ── Profile ──
       profile_upgrade_hint:'💡 Онови до Pro, щоб зняти всі обмеження — безлімітний чат, відео, аналіз профілів.',
       profile_upgrade_btn:'⚡ Upgrade to Pro',
@@ -5405,7 +5462,7 @@
       chat_title:'Octo — AI Marketer', chat_online:'● Online and ready to help', chat_status:'AI active',
       qp1:'📊 Weekly content plan', qp2:'✍️ Write a post caption',
       qp3:'📈 How to grow on TikTok', qp4:'🔥 This week\'s trends', qp5:'🎯 How to find your audience',
-      chat_placeholder:'Ask Octo about marketing…',
+      chat_placeholder:'Ask Octo…',
       // ── Profile ──
       profile_upgrade_hint:'💡 Upgrade to Pro to unlock everything — unlimited chat, video, profile analysis.',
       profile_upgrade_btn:'⚡ Upgrade to Pro',
@@ -5640,7 +5697,7 @@
     if (!msgs) return;
     chatHistory.forEach(m => {
       if (m.role === 'user' && typeof m.content === 'string') {
-        msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Вы</div></div></div>`;
+        msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Ти</div></div></div>`;
       } else if (m.role === 'assistant' && typeof m.content === 'string') {
         msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
       }
@@ -5751,7 +5808,7 @@
       return m;
     });
 
-    msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${bubbleHtml}</div><div class="msg-time">Вы • сейчас</div></div></div>`;
+    msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${bubbleHtml}</div><div class="msg-time">Ти • зараз</div></div></div>`;
     const aiId = 'ai-' + Date.now();
     msgs.innerHTML += `<div class="msg ai" id="${aiId}"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble" id="bubble-${aiId}"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div></div>`;
     chatScrollBottom(msgs);
@@ -5781,7 +5838,7 @@
           try {
             const parsed = JSON.parse(data);
             if (parsed.error) {
-              bubble.innerHTML = '❌ Не удалось получить ответ — попробуй ещё раз';
+              bubble.innerHTML = '❌ Не вдалося отримати відповідь — спробуй ще раз';
               return;
             }
             if (parsed.text) { fullText += parsed.text; bubble.innerHTML = fullText.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g, '<br>'); }
@@ -9835,7 +9892,7 @@
       chatHistory.forEach(m => {
         if (typeof m.content !== 'string') return;
         if (m.role === 'user')
-          msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Вы</div></div></div>`;
+          msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Ти</div></div></div>`;
         else
           msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
       });
@@ -14867,19 +14924,32 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     } else { el.style.display = 'none'; el.innerHTML = ''; }
   };
   // Advisor (Маркетолог) intro adapts to blogger vs business.
+  // Once Octo knows the business, the four-paragraph pitch is stale — it asks
+  // for what it already has. Greet by name and get out of the way.
   window.octoUpdateAdvisorIntro = function () {
     var el = document.getElementById('advisorIntro'); if (!el) return;
     var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
-    el.innerHTML = (b.account_type === 'blogger')
+    var blogger = b.account_type === 'blogger';
+    var known = !!(b.niche || b.business_name);
+
+    if (known) {
+      // esc() lives in another closure — escape here instead of reaching for it.
+      var e = function (t) { var n = document.createElement('span'); n.textContent = String(t); return n.innerHTML; };
+      var who = b.business_name || b.niche;
+      el.innerHTML = 'Привіт! Я памʼятаю твій профіль: <strong>' + e(who) + '</strong>'
+        + (b.target_audience ? ', аудиторія — ' + e(b.target_audience) : '') + '.<br><br>'
+        + 'Питай будь-що про просування — я відповідатиму саме під тебе, без зайвих пояснень.';
+      return;
+    }
+    el.innerHTML = blogger
       ? 'Привіт! Я Octo — твій AI-маркетолог 🐙<br><br>'
-        + '<strong>Розкажи про свій блог</strong> — про що знімаєш і чого хочеш (аудиторія, охоплення, рекламні інтеграції). Можеш прикріпити скрін профілю чи посту 📷<br><br>'
-        + 'Я підкажу: <strong>про що</strong> знімати, <strong>які хуки</strong> заходять, <strong>де</strong> публікувати і <strong>як рости</strong>.<br><br>'
-        + 'Наприклад: <em>«Веду б’юті-блог у TikTok, хочу більше підписників»</em>'
+        + '<strong>Розкажи про свій блог</strong>: про що знімаєш і чого хочеш. Можеш прикріпити скрін профілю 📷<br><br>'
+        + '<em>«Веду бʼюті-блог у TikTok, хочу більше підписників»</em>'
       : 'Привіт! Я Octo — твій AI-маркетолог 🐙<br><br>'
-        + '<strong>Розкажи про свій бізнес</strong> — чим займаєшся і чого хочеш досягти (клієнти, заявки, продажі). Можеш одразу прикріпити фото товару чи закладу 📷<br><br>'
-        + 'Я розберуся і запропоную: <strong>кому</strong> рекламувати, <strong>який оффер</strong> зайде, <strong>де</strong> публікувати і <strong>який контент</strong> для цього створити.<br><br>'
-        + 'Наприклад: <em>«Маю салон краси на Позняках, хочу більше записів»</em>';
+        + '<strong>Розкажи про свій бізнес</strong>: чим займаєшся і чого хочеш досягти. Можеш прикріпити фото товару 📷<br><br>'
+        + '<em>«Маю салон краси на Позняках, хочу більше записів»</em>';
   };
+
   document.addEventListener('DOMContentLoaded', function () {
     if (typeof window.showScreen === 'function') {
       var _os = window.showScreen;
