@@ -2412,8 +2412,16 @@
           .on-src-web  { background:rgba(56,140,255,.15); color:#7db3ff; border:1px solid rgba(56,140,255,.3); }
           .on-src-user { background:rgba(76,175,80,.14); color:#7ED08A; border:1px solid rgba(76,175,80,.3); }
           .on-src-ai   { background:rgba(245,180,80,.14); color:#F5B450; border:1px solid rgba(245,180,80,.3); }
-          .on-prof-row { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+          .on-prof-row { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); align-items:flex-start; }
           .on-prof-row:last-child { border-bottom:none; }
+          .on-prof-head { display:flex; align-items:center; gap:8px; width:150px; flex:none; flex-wrap:wrap; }
+          @media (max-width:767.98px) {
+            .on-prof-row { display:block; }
+            .on-prof-head { width:auto; margin-bottom:3px; }
+            .on-prof-head .on-prof-edit { margin-left:auto; }
+            /* An imported paragraph gets four lines; the editor shows it whole. */
+            .on-prof-v { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+          }
           /* A guessed field is the one worth a second look — mark the whole row,
              not just its badge. :has() lets the row react to its own badge. */
           .on-prof-row:has(.on-src-ai) { background:rgba(245,180,80,.05); border-radius:10px; padding-left:10px; padding-right:10px; margin:2px -10px; }
@@ -2524,7 +2532,7 @@
             <div class="on-goals" id="onGoals"></div>
 
             <div class="on-import">
-              <div class="on-import-lbl">🔗 Встав сайт або Instagram — Octo сам усе заповнить</div>
+              <div class="on-import-lbl" id="onImportLbl">🔗 Встав сайт або Instagram — Octo сам усе заповнить</div>
               <div class="on-import-row">
                 <input id="onImportUrl" class="ob-input" placeholder="tvij-sajt.com  або  instagram.com/твій_нік" style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')octoImportRun()">
                 <button class="btn btn-primary" id="onImportBtn" style="flex:none;padding:0 18px;" onclick="octoImportRun()">Проаналізувати</button>
@@ -3185,9 +3193,13 @@
               border-radius:11px; padding:11px 13px; font:inherit; font-size:14px; outline:none; margin-top:10px; resize:vertical; }
             .ob-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,0.18); }
             .ob-status { display:none; align-items:center; gap:9px; margin-top:12px; font-size:13px; font-weight:600; color:var(--text2); }
-            .ob-status.ob-busy, .ob-status.ob-ok, .ob-status.ob-err { display:flex; }
+            .ob-status.ob-busy, .ob-status.ob-ok, .ob-status.ob-err, .ob-status.ob-warn { display:flex; }
             .ob-status.ob-busy { padding:12px 15px; border-radius:14px; background:rgba(139,123,255,.09); border:1px solid rgba(139,123,255,.22); animation:omUp .25s ease both; }
             .ob-status.ob-ok { color:var(--green); } .ob-status.ob-err { color:#FF8A80; }
+            /* Amber, not red: an unreadable Instagram is normal, not a fault. */
+            .ob-status.ob-warn { color:#F5B450; }
+            .on-quiz-hi { animation:onQuizPulse 1.4s ease-in-out 2; }
+            @keyframes onQuizPulse { 0%,100% { box-shadow:0 0 0 0 rgba(139,123,255,.55); } 50% { box-shadow:0 0 0 10px rgba(139,123,255,0); } }
             .ob-spin { width:17px; height:17px; border-radius:50%; border:2.5px solid rgba(139,123,255,.25); border-top-color:#8B7BFF; animation:ob-spin .8s linear infinite; flex:none; }
             @keyframes ob-spin { to { transform:rotate(360deg); } }
             .ob-res { animation:ob-rise .4s ease both; } @keyframes ob-rise { from {opacity:0;transform:translateY(8px);} to {opacity:1;transform:none;} }
@@ -14020,6 +14032,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     if (wrap) wrap.querySelectorAll('.on-type-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.t === t); });
     var sub = $('onHeroSub'); if (sub) sub.textContent = TYPE_COPY[t].sub;
     var ta = $('onText'); if (ta) ta.placeholder = TYPE_COPY[t].ph;
+    // The card's heading is visible before any profile exists — retitle it now,
+    // not only on the next renderProfile().
+    var pt = $('onProfileTitle');
+    if (pt) pt.textContent = (t === 'blogger') ? '🧠 Що Octo запамʼятав про твій блог' : '🧠 Що Octo запамʼятав про твій бізнес';
+    var imp = $('onImportLbl');
+    if (imp) imp.textContent = (t === 'blogger')
+      ? '🔗 Встав свій Instagram / TikTok або сайт — Octo спробує прочитати'
+      : '🔗 Встав сайт або Instagram — Octo сам усе заповнить';
     renderGoal30();
     // If the profile card is already shown, re-render it with the new type's labels.
     var pc = $('onProfileCard'); if (pc && pc.style.display !== 'none') renderProfile(null);
@@ -14065,14 +14085,17 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var v = p[f[0]];
       var changed = prev && (!prev[f[0]]) && v;
       if (f[0] === _editingField) {
-        return '<div class="on-prof-row"><div class="on-prof-k">' + f[1] + '</div>' +
+        return '<div class="on-prof-row"><div class="on-prof-head"><div class="on-prof-k">' + f[1] + '</div></div>' +
           '<input id="profEdit" class="ob-input" style="margin:0;flex:1;padding:6px 10px;" value="' + esc(v || '') + '" ' +
           'onkeydown="if(event.key===\'Enter\')octoProfileSave();if(event.key===\'Escape\')octoProfileCancel()" onblur="octoProfileSave()"></div>';
       }
+      // Badge and pencil live on the label line: a long value used to push them
+      // into a third narrow column and every row grew a screen tall.
       return '<div class="on-prof-row' + (changed ? ' on-fill' : '') + '">' +
-        '<div class="on-prof-k">' + f[1] + '</div>' +
+        '<div class="on-prof-head"><div class="on-prof-k">' + f[1] + '</div>' + srcBadge(f[0], !!v) +
+        '<span class="on-prof-edit" onclick="octoProfileEdit(\'' + f[0] + '\')">✎</span></div>' +
         '<div class="on-prof-v' + (v ? '' : ' empty') + '" onclick="octoProfileEdit(\'' + f[0] + '\')" title="Натисни, щоб змінити">' +
-        (v ? esc(v) : 'ще не знаю') + srcBadge(f[0], !!v) + '<span class="on-prof-edit">✎</span></div></div>';
+        (v ? esc(v) : 'ще не знаю') + '</div></div>';
     }).join('');
     // Mirror key fields into the legacy account profile so chat/other screens see them.
     try {
@@ -14366,7 +14389,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       if (btn) btn.disabled = false;
       var prof = r.profile || {};
       var keys = Object.keys(prof);
-      if (!keys.length) { importStatus('err', r.note || 'Не вдалося прочитати сторінку — спробуй інше посилання або опиши сам нижче.'); return; }
+      if (!keys.length) {
+        // Instagram blocks bots; small accounts aren't indexed. Expected, not broken.
+        importStatus('warn', r.note || 'Не вдалося прочитати сторінку — пройди коротке опитування нижче.');
+        var qb = $('onQuizBtn');
+        if (qb) { qb.classList.add('on-quiz-hi'); qb.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        return;
+      }
       // A fresh import is AUTHORITATIVE for content fields: clear any stale
       // leftovers (e.g. an old niche from a previous session) so the profile
       // matches the imported account, not a mix. Preserve type/goal/brand/colors.
