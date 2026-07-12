@@ -15376,7 +15376,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function bizProfile() {
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get(), o = {};
-      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research']
+      ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','platforms','content_format']
         .forEach(function (k) { if (b[k]) o[k] = b[k]; });
       return o;
     }
