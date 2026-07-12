@@ -12025,9 +12025,23 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       );
       if (!res.ok) { dbShowSync('offline'); return; }
       const rows = await res.json();
-      if (!Array.isArray(rows) || !rows.length) { dbShowSync('ok'); return; }
+      if (!Array.isArray(rows)) { dbShowSync('offline'); return; }
+      // (empty cloud still runs the backfill below — a brand-new account needs
+      //  its first local data uploaded)
 
-      for (const row of rows) { _applyCloudRow(row.key, row.value); }
+      var cloudKeys = {};
+      for (const row of rows) { cloudKeys[row.key] = 1; _applyCloudRow(row.key, row.value); }
+
+      // First-run backfill: data saved before cloud-sync existed (or on a device
+      // that was offline) never reached the cloud. If a key is missing there but
+      // present locally, upload it now so the other devices can pull it.
+      try {
+        var ws = (typeof wsId === 'function') ? wsId() : 'default';
+        var localBiz = localStorage.getItem('octo_biz_' + ws);
+        if (localBiz && !cloudKeys['biz_' + ws]) { var pb = JSON.parse(localBiz); if (pb && Object.keys(pb).length) window.dbSync && window.dbSync('biz_' + ws, pb); }
+        var localCamps = localStorage.getItem('octo_campaigns_' + ws);
+        if (localCamps && !cloudKeys['camps_' + ws]) { var pc = JSON.parse(localCamps); if (Array.isArray(pc) && pc.length) window.dbSync && window.dbSync('camps_' + ws, pc); }
+      } catch (e) {}
 
       dbShowSync('ok');
 
@@ -12035,6 +12049,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       try { calRender(); } catch {}
       try { renderWorkspaces(); } catch {}
       try { renderProfileCard(); } catch {}
+      try { if (window.renderDashV2) window.renderDashV2(); } catch {}
+      try { if (window.octoCampaigns && document.getElementById('cmpList')) renderList(); } catch {}
       try { if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner(); } catch {}
       try { loadTovForCurrentWs(); } catch {}
     } catch (e) { dbShowSync('offline'); }
@@ -12051,6 +12067,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       window.calPlanConfig = Object.assign(window.calPlanConfig || {}, value);
     } else if (key.startsWith('cal_')) {
       localStorage.setItem('octo_calendar_' + key.slice(4), JSON.stringify(value));
+    } else if (key.startsWith('biz_')) {
+      localStorage.setItem('octo_biz_' + key.slice(4), JSON.stringify(value));
+    } else if (key.startsWith('camps_')) {
+      if (Array.isArray(value)) localStorage.setItem('octo_campaigns_' + key.slice(6), JSON.stringify(value));
     } else if (key.startsWith('profile_')) {
       localStorage.setItem('octo_profile_' + key.slice(8), JSON.stringify(value));
     } else if (key.startsWith('tov_')) {
@@ -13985,7 +14005,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   window.octoBiz = {
     key: function () { return 'octo_biz_' + wsId(); },
     get: function () { try { return JSON.parse(localStorage.getItem(this.key()) || 'null'); } catch (e) { return null; } },
-    save: function (p) { try { localStorage.setItem(this.key(), JSON.stringify(p || {})); } catch (e) {} },
+    save: function (p) {
+      try { localStorage.setItem(this.key(), JSON.stringify(p || {})); } catch (e) {}
+      // Cloud-sync the business profile so it follows the account across devices.
+      try { if (window.dbSync) window.dbSync('biz_' + wsId(), p || {}); } catch (e) {}
+    },
     isSet: function () { var p = this.get(); return !!(p && p.niche && (p.description || p.business_name)); },
     merge: function (patch) {
       var p = this.get() || {};
@@ -15275,7 +15299,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   window.octoCampaigns = {
     key: function () { return 'octo_campaigns_' + wsId(); },
     all: function () { try { return JSON.parse(localStorage.getItem(this.key()) || '[]'); } catch (e) { return []; } },
-    saveAll: function (a) { try { localStorage.setItem(this.key(), JSON.stringify(a)); } catch (e) {} },
+    saveAll: function (a) {
+      try { localStorage.setItem(this.key(), JSON.stringify(a)); } catch (e) {}
+      try { if (window.dbSync) window.dbSync('camps_' + wsId(), a || []); } catch (e) {}
+    },
     get: function (id) { return this.all().filter(function (c) { return c.id === id; })[0] || null; },
     upsert: function (c) { var a = this.all(), i = a.map(function (x) { return x.id; }).indexOf(c.id); if (i >= 0) a[i] = c; else a.unshift(c); this.saveAll(a); },
     remove: function (id) { this.saveAll(this.all().filter(function (c) { return c.id !== id; })); },
