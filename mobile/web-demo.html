@@ -15955,17 +15955,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 
     // ── Головний сценарій. Людина з реклами приходить по нього, а не по цифри.
     // Відео не обіцяємо: формат «🎬 Відео» у майстрі заблокований. ──
-    var mainCta = '<button class="om-qa om-qa-hot" style="width:100%;display:flex;align-items:center;gap:13px;text-align:left;margin-bottom:20px;" onclick="showScreen(\'prodads\',null)">'
-      + '<span class="om-qa-ico" style="margin-bottom:0;background:var(--grad);box-shadow:0 10px 20px -8px rgba(108,99,255,.8);flex:none;">'
-      + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg></span>'
-      + '<span style="flex:1;min-width:0;">'
-      + '<span class="om-qa-t">Зробити рекламу товару</span>'
-      + '<span class="om-qa-s">Фото → готові креативи й тексти за хвилину</span></span>'
-      + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b5a8ff" stroke-width="2.2" stroke-linecap="round" style="flex:none;"><path d="M9 5l7 7-7 7"/></svg>'
-      + '</button>';
-
-    // ── Швидкі дії (3 картки з дизайну) ──
+    // ── Швидкі дії ── Product ads is one tool among the rest, not the hero
+    // banner — per the owner's call, even though it's the funnel's headline.
     var actions = '<div class="om-eyebrow">Швидкі дії</div><div class="om-grid-3" style="margin-bottom:20px;">'
+      + '<button class="om-qa" onclick="showScreen(\'prodads\',null)">'
+      + '<span class="om-qa-ico" style="background:var(--grad);box-shadow:0 10px 20px -8px rgba(108,99,255,.8);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg></span>'
+      + '<span class="om-qa-t">Реклама товару</span><span class="om-qa-s">Фото → готові креативи й тексти за хвилину</span></button>'
       + '<button class="om-qa" onclick="showScreen(\'campaign\',null)">'
       + '<span class="om-qa-ico" style="background:linear-gradient(135deg,#8B7BFF,#6C63FF);box-shadow:0 10px 20px -8px rgba(108,99,255,.8);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="#fff"/></svg></span>'
       + '<span class="om-qa-t">Створити просування</span><span class="om-qa-s">Постав бізнес-ціль — Octo зробить стратегію і матеріали</span></button>'
@@ -15994,7 +15989,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     // While the profile is unfinished, the setup banner leads: the product is
     // worthless until Octo knows the business. Once done>=5 the banner is empty
     // and the ad CTA lands on top by itself.
-    el.innerHTML = hero + mainCta + stats + greetRow + adv + actions + campHtml;
+    el.innerHTML = hero + stats + greetRow + adv + actions + campHtml;
     ensureWeekly(biz, bizSet, camps);
   };
 
