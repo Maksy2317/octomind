@@ -17974,8 +17974,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 
   function uid() { return 'p_' + Math.random().toString(36).slice(2, 9) + (load().length); }
   function pad(n) { return String(n).padStart(2, '0'); }
+  // Ukrainian plural for «матеріал»: 1 → матеріал, 2-4 → матеріали, else матеріалів.
+  function plMat(n) { var m10 = n % 10, m100 = n % 100; if (m10 === 1 && m100 !== 11) return 'матеріал'; if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'матеріали'; return 'матеріалів'; }
   function iso(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-  function weekDates() { var now = new Date(); var dow = (now.getDay() + 6) % 7; var mon = new Date(now); mon.setDate(now.getDate() - dow); var out = []; for (var i = 0; i < 7; i++) { var d = new Date(mon); d.setDate(mon.getDate() + i); out.push(d); } return out; }
+  // A rolling 7-day window that STARTS today. Anchoring to Monday meant that on
+  // a Sunday the whole "week" (Mon-Sat) was already in the past — the plan looked
+  // like it was made for last week. The plan is always "your next 7 days".
+  function weekDates() { var now = new Date(); now.setHours(0, 0, 0, 0); var out = []; for (var i = 0; i < 7; i++) { var d = new Date(now); d.setDate(now.getDate() + i); out.push(d); } return out; }
   var DOW = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота', 'Неділя'];
   function dowName(isoStr) { var p = isoStr.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]); return DOW[(d.getDay() + 6) % 7]; }
 
@@ -18020,38 +18025,95 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var cta = { sales: 'Пиши в директ, щоб замовити 💬', awareness: 'Збережи, щоб не загубити 🔖', trust: 'Розкажи в коментарях свій досвід 👇', promotion: 'Встигни до кінця тижня ⏳', launch: 'Дізнайся першим — деталі в директі ✨' }[goalId] || 'Дій сьогодні 🚀';
     return name + idea + '.\n\n' + cta;
   }
+  // ── Campaign materials → postable entries ────────────────────────────────────
+  // The content plan is a SCHEDULE, not a generator working in a vacuum. It first
+  // pulls what the user already created in their campaigns (Просування → матеріали,
+  // Реклама товару, сценарії) so the plan is filled with real work, then tops up
+  // empty slots with fresh ideas. This is the «hybrid» the user picked.
+  var MAT_CONTENT_TYPE = { post: 'post', ad_text: 'post', caption: 'post', headlines: 'post', stories: 'post', reels: 'reel', tiktok: 'tiktok', image: 'post' };
+  function campaignPosts() {
+    var out = [];
+    try {
+      var camps = (window.octoCampaigns && window.octoCampaigns.all) ? window.octoCampaigns.all() : [];
+      camps.forEach(function (c) {
+        (c.materials || []).forEach(function (m) {
+          if (!m || m.type === 'content_plan') return;   // a plan isn't a single post
+          var o = m.output || {};
+          var cap = '';
+          if (o.items && o.items.length) cap = o.items.map(function (it) { return (it.label ? it.label + ': ' : '') + (it.text || ''); }).join('\n\n');
+          else if (o.summary) cap = o.summary;
+          else if (o.overlay_text) cap = o.overlay_text;
+          else if (o.concept) cap = o.concept;
+          var ctype = MAT_CONTENT_TYPE[m.type] || 'post';
+          out.push({
+            idea: m.title || o.title || 'Матеріал кампанії',
+            caption: cap,
+            platform: ctype === 'tiktok' ? 'tiktok' : 'instagram',
+            contentType: ctype,
+            media: o.url || o.image || null,
+            sourceCampaign: c.id,
+            sourceMaterialId: m.id,
+          });
+        });
+      });
+    } catch (e) {}
+    return out;
+  }
+
   function genPlan() {
     var g = state.gen;
     var perDay = Math.max(1, Math.min(6, g.perDay || 3));
     // Marketing-mix cycle, weighted to the weekly goal (first slot each day = goal).
     var goalCat = { sales: 'selling', awareness: 'education', trust: 'social_proof', promotion: 'promo', launch: 'selling' }[g.goal] || 'selling';
     var mix = [goalCat].concat(['selling', 'education', 'social_proof', 'bts', 'promo', 'education', 'selling'].filter(function (c) { return c !== goalCat; }));
-    var days = weekDates();
+    var days = weekDates();   // today → +6
     // Prefer the hours their BEST posts went out (from page analysis); otherwise
     // sensible defaults. Multiple posts a day land at different hours.
     var slots = bestTimes() || ['09:00', '13:00', '18:00', '11:00', '16:00', '20:00'];
     if (slots.length < 3) slots = slots.concat(['09:00', '13:00', '18:00']).slice(0, 6);
     var plats = g.platforms.length ? g.platforms : ['instagram'];
+
+    // Campaign materials that aren't already scheduled — these fill the plan first.
+    var existing = load();
+    var used = {}; existing.forEach(function (p) { if (p.sourceMaterialId) used[p.sourceMaterialId] = 1; });
+    var camp = campaignPosts().filter(function (m) { return !used[m.sourceMaterialId]; });
+
     var out = [];
-    var mi = 0; // running mix index across the whole week
+    var mi = 0;           // running mix index across the whole week
+    var ci = 0;           // campaign-material index (consumed first)
     var ideaCount = {};
     days.forEach(function (d) {
       for (var j = 0; j < perDay; j++) {
-        var cat = mix[mi % mix.length];
-        var platform = plats[(mi) % plats.length];
-        var ideaArr = IDEAS[cat];
-        var ic = (ideaCount[cat] = (ideaCount[cat] || 0)); var idea = ideaArr[ic % ideaArr.length]; ideaCount[cat]++;
-        out.push({
-          id: uid(), date: iso(d), time: slots[j % slots.length], platform: platform,
-          contentType: pickType(platform, cat), goal: CAT_GOAL[cat] || g.goal, category: cat,
-          idea: idea, caption: mockCaption(idea, CAT_GOAL[cat] || g.goal), media: null,
-          reminder: '30m', status: 'draft',
-        });
+        var post;
+        if (ci < camp.length) {
+          // Real material from a campaign.
+          var m = camp[ci++];
+          post = {
+            id: uid(), date: iso(d), time: slots[j % slots.length],
+            platform: m.platform, contentType: m.contentType,
+            goal: g.goal, category: goalCat,
+            idea: m.idea, caption: m.caption, media: m.media,
+            reminder: '30m', status: 'draft',
+            sourceCampaign: m.sourceCampaign, sourceMaterialId: m.sourceMaterialId,
+          };
+        } else {
+          // Topped up with a fresh idea from the marketing mix.
+          var cat = mix[mi % mix.length];
+          var platform = plats[mi % plats.length];
+          var ideaArr = IDEAS[cat];
+          var ic = (ideaCount[cat] = (ideaCount[cat] || 0)); var idea = ideaArr[ic % ideaArr.length]; ideaCount[cat]++;
+          post = {
+            id: uid(), date: iso(d), time: slots[j % slots.length], platform: platform,
+            contentType: pickType(platform, cat), goal: CAT_GOAL[cat] || g.goal, category: cat,
+            idea: idea, caption: mockCaption(idea, CAT_GOAL[cat] || g.goal), media: null,
+            reminder: '30m', status: 'draft',
+          };
+        }
+        out.push(post);
         mi++;
       }
     });
-    // sort each day by time (posts already grouped by day)
-    save(load().concat(out));
+    save(existing.concat(out));
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -18255,9 +18317,14 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + [1, 2, 3, 4, 5].map(function (n) { return chip(g.perDay === n, n + '/день' + (n === rec ? ' · радимо' : ''), 'octoPlanner.setPerDay(' + n + ')'); }).join('')
       + '<button onclick="octoPlanner.customPerDay()" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a2a2c6;">Своє</button></div>'
       + '<div style="font-size:11.5px;color:#6d6d86;margin-top:10px;">≈ ' + (g.perDay * 7) + ' постів на тиждень, збалансованих за форматами й цілями.</div>'; }
-    else inner = '<div style="text-align:center;padding:8px 0;"><img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;"><div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Готово скласти план</div>'
+    else { var used4 = {}; load().forEach(function (p) { if (p.sourceMaterialId) used4[p.sourceMaterialId] = 1; });
+      var fromCamp = campaignPosts().filter(function (m) { return !used4[m.sourceMaterialId]; }).length;
+      inner = '<div style="text-align:center;padding:8px 0;"><img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;"><div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Готово скласти план</div>'
       + '<div style="font-size:13px;color:#9a9ac4;">' + g.perDay + '/день (≈' + (g.perDay * 7) + '/тиж) · ' + byId(GOALS, g.goal).label + ' · ' + g.platforms.map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') + '</div>'
-      + '<div style="font-size:12px;color:#6d6d86;margin-top:10px;line-height:1.5;">Octo збалансує: продаж · експертне · соц-доказ · закулісся · акція.</div></div>';
+      + (fromCamp
+          ? '<div style="font-size:12.5px;color:#c9bcff;margin-top:10px;line-height:1.5;">📦 Спершу візьму <b style="color:#fff;">' + fromCamp + '</b> ' + plMat(fromCamp) + ' із твоїх кампаній, а решту слотів дороблю ідеями.</div>'
+          : '<div style="font-size:12px;color:#6d6d86;margin-top:10px;line-height:1.5;">Octo збалансує: продаж · експертне · соц-доказ · закулісся · акція.</div>')
+      + '<div style="font-size:11.5px;color:#6d6d86;margin-top:8px;">Розклад — від сьогодні на 7 днів уперед.</div></div>'; }
     var nav = '<div style="display:flex;gap:10px;margin-top:22px;">'
       + (s > 1 ? '<button class="btn btn-secondary" onclick="octoPlanner.genBack()" style="flex:0 0 auto;">Назад</button>' : '')
       + (s < 4 ? '<button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="octoPlanner.genNext()"' + (s === 1 && !g.platforms.length ? ' disabled' : '') + '>Далі →</button>'
