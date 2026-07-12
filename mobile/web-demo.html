@@ -2684,6 +2684,9 @@
           </div>
 
           <div id="ocFlow">
+          <!-- «Продовжити останню кампанію» — so a strategy survives a reload
+               instead of silently vanishing back to the goal grid. -->
+          <div id="ocResumeBar" style="display:none;"></div>
           <div class="oc-steps" id="ocSteps">
             <div class="oc-step-pill on" data-s="goal"><span class="n">1</span>Ціль</div>
             <span style="color:var(--text4);font-size:11px;">→</span>
@@ -2752,6 +2755,37 @@
           }
           .cmp-thumbs { display:flex; gap:6px; margin:9px 0 0; }
           .cmp-thumb { width:52px; height:52px; border-radius:9px; object-fit:cover; flex:0 0 auto; background:var(--surface3); }
+
+          /* ── «Твій план дій»: connective steps under a strategy ── */
+          .oc-plan-step { display:flex; gap:13px; padding:16px 0; border-top:1px solid var(--border); }
+          .oc-plan-step:first-of-type { border-top:none; padding-top:6px; }
+          .oc-plan-n { width:27px; height:27px; border-radius:50%; flex:none; display:grid; place-items:center;
+            font:800 13px 'Manrope',sans-serif; background:rgba(139,123,255,.14); color:var(--accent2); margin-top:1px; }
+          .oc-plan-step.done .oc-plan-n { background:rgba(76,175,80,.18); color:#7bd88a; }
+          .oc-plan-body { flex:1; min-width:0; }
+          .oc-plan-t { font-size:14.5px; font-weight:750; display:flex; align-items:center; gap:7px; }
+          .oc-plan-t .ic { font-size:16px; }
+          .oc-plan-s { font-size:12.5px; color:var(--text4); margin-top:3px; line-height:1.5; }
+          .oc-plan-act { margin-top:11px; }
+          .oc-plan-link {
+            display:inline-flex; align-items:center; gap:6px; min-height:38px; padding:8px 15px; border-radius:11px;
+            border:1px solid rgba(139,123,255,.32); background:rgba(139,123,255,.09); color:#c9c0ff;
+            font:750 13px 'Manrope',sans-serif; cursor:pointer; transition:background .15s,border-color .15s;
+          }
+          .oc-plan-link:hover { background:rgba(139,123,255,.16); border-color:rgba(139,123,255,.5); }
+          .oc-plan-mats { display:flex; flex-direction:column; gap:8px; }
+
+          /* «Продовжити останню кампанію» strip */
+          .oc-resume { width:100%; display:flex; align-items:center; gap:11px; text-align:left; cursor:pointer;
+            background:linear-gradient(135deg,rgba(139,123,255,.14),rgba(139,123,255,.04));
+            border:1px solid rgba(139,123,255,.32); border-radius:14px; padding:13px 15px; color:var(--text); font:inherit;
+            transition:border-color .15s; }
+          .oc-resume:hover { border-color:rgba(139,123,255,.55); }
+          .oc-resume .rz-ico { font-size:19px; flex:none; }
+          .oc-resume .rz-tx { flex:1; min-width:0; }
+          .oc-resume .rz-t { font-size:14px; font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+          .oc-resume .rz-s { font-size:12px; color:var(--text4); margin-top:2px; }
+          .oc-resume .rz-go { font-size:12.5px; font-weight:750; color:var(--accent2); flex:none; }
           .cmp-thumb-more {
             width:52px; height:52px; border-radius:9px; flex:0 0 auto;
             display:flex; align-items:center; justify-content:center;
@@ -14642,6 +14676,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function pickGoal(id) {
     chosen = activeGoals().find(function (g) { return g.id === id; });
     $('ocGoalChosen').innerHTML = chosen.ic + ' ' + esc(chosen.t);
+    var rb = $('ocResumeBar'); if (rb) { rb.innerHTML = ''; rb.style.display = 'none'; }
     $('ocGoalStep').style.display = 'none';
     $('ocResult').innerHTML = '';
     $('ocDetailsStep').style.display = '';
@@ -14687,42 +14722,47 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 
   function renderStrategy(s) {
     curStrategy = s;
-    var mats = (s.recommended_materials || []).map(function (m, i) {
-      var can = GENERATABLE[m.type] || m.type === 'image' || m.type === 'banner';
-      var right = can
-        ? '<button class="btn btn-primary oc-genbtn" style="padding:6px 12px;font-size:12px;white-space:nowrap;flex:none;" data-i="' + i + '">Створити</button>'
-        : '<span style="font-size:11px;color:var(--text4);white-space:nowrap;flex:none;">🔒 скоро</span>';
-      return '<div class="oc-mat" style="align-items:center;"><span class="mi">' + (MAT_ICON[m.type] || '•') + '</span>' +
-        '<div style="flex:1;"><div class="ml">' + esc(m.label) + '</div><div class="mw">' + esc(m.why) + '</div></div>' + right + '</div>';
-    }).join('');
+    var goalTitle = (s.goal || (chosen ? chosen.t : '') || 'Кампанія');
+
+    // ── Card 1: the strategy itself — offer/message/CTA up top, analysis folded.
+    // It was a wall of text before; now the punchline reads first and the
+    // supporting analysis is one tap away.
     var card = document.createElement('div');
     card.className = 'card ob-res';
     card.innerHTML =
-      '<div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія просування</div>' +
-      '<div class="card-sub" style="margin:0;">' + esc(chosen ? chosen.t : '') + '</div></div></div>' +
-      sec('Ціль', '<div class="ob-kv">' + esc(s.goal) + '</div>') +
-      sec('Аудиторія', '<div class="ob-kv">' + esc(s.audience) + '</div>') +
-      sec('Проблема клієнта', '<div class="ob-kv">' + esc(s.problem) + '</div>') +
-      sec('Переваги', chips(s.benefits, 'good')) +
-      '<div class="ob-headline" style="font-size:17px;margin-top:14px;">' + esc(s.offer) + '</div>' +
-      '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' +
-      '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' +
-      // Rule 3: the strategy is edited the same way as materials — in words.
+      '<div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія</div>' +
+      '<div class="card-sub" style="margin:0;">' + esc(goalTitle) + '</div></div></div>' +
+      (s.offer ? '<div class="ob-headline" style="font-size:17px;margin-top:4px;">' + esc(s.offer) + '</div>' : '') +
+      (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '') +
+      (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '') +
+      // Foldable analysis — reasoning, not a form to fill.
+      '<button class="oc-more-btn oc-strat-more" type="button" style="margin-top:14px;">' +
+        '<span>Деталі стратегії</span>' +
+        '<span class="oc-more-opt">аудиторія · проблема · переваги</span>' +
+        '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
+      '</button>' +
+      '<div class="oc-strat-details" style="display:none;margin-top:6px;">' +
+        sec('Аудиторія', '<div class="ob-kv">' + esc(s.audience) + '</div>') +
+        sec('Проблема клієнта', '<div class="ob-kv">' + esc(s.problem) + '</div>') +
+        sec('Переваги', chips(s.benefits, 'good')) +
+      '</div>' +
+      // Edit-in-words (unchanged behaviour, kept next to the strategy it edits).
       '<div style="display:flex;gap:8px;margin-top:14px;">' +
-      '<input class="ob-input oc-strat-edit" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити у стратегії? напр.: агресивніший оффер, інша аудиторія">' +
+      '<input class="ob-input oc-strat-edit" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити? напр.: агресивніший оффер, інша аудиторія">' +
       '<button class="btn btn-primary oc-strat-editbtn" style="padding:9px 14px;font-size:13px;white-space:nowrap;flex:none;">Змінити</button></div>' +
-      '<div class="ob-status oc-strat-editst"></div>' +
-      sec('Octo пропонує створити', mats) +
-      '<button class="btn btn-primary" id="ocMakeAllBtn" style="width:100%;margin-top:16px;">✨ Створити весь пакет</button>' +
-      '<div class="ob-status" id="ocMatStatus" style="margin-top:10px;"></div>';
+      '<div class="ob-status oc-strat-editst"></div>';
     $('ocResult').appendChild(card);
-    card.querySelectorAll('.oc-genbtn').forEach(function (b) {
-      b.onclick = function () {
-        var m = s.recommended_materials[Number(b.dataset.i)];
-        if (m.type === 'image' || m.type === 'banner') makeImage(m.label, b);
-        else makeMaterial(m.type, m.label, b);
-      };
-    });
+
+    // Fold toggle for the analysis.
+    var moreBtn = card.querySelector('.oc-strat-more');
+    moreBtn.onclick = function () {
+      var box = card.querySelector('.oc-strat-details');
+      var open = box.style.display === 'none';
+      box.style.display = open ? '' : 'none';
+      moreBtn.classList.toggle('open', open);
+    };
+
+    // Edit strategy in words → re-render both cards.
     var seBtn = card.querySelector('.oc-strat-editbtn');
     seBtn.onclick = function () {
       var inp = card.querySelector('.oc-strat-edit'), st = card.querySelector('.oc-strat-editst');
@@ -14732,12 +14772,11 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo переробляє стратегію…';
       api('/api/marketing/edit', { profile: bizProfile(), material: s, instruction: instruction, label: 'Стратегія просування' })
         .then(function (r) {
-          // persist into the saved campaign, then re-render the card in place
           try {
             var cid = window.octoCampaigns && window.octoCampaigns.current;
             if (cid) { var c = window.octoCampaigns.get(cid); if (c) { c.strategy = r.material; c.updatedAt = Date.now(); window.octoCampaigns.upsert(c); } }
           } catch (e) {}
-          card.remove();
+          $('ocResult').innerHTML = '';
           renderStrategy(r.material);
         })
         .catch(function (e) {
@@ -14745,8 +14784,89 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
           st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message;
         });
     };
-    $('ocMakeAllBtn').onclick = function () { makeAll(s); };
+
+    // ── Card 2: «Твій план дій» — the connective tissue. Each step routes into a
+    // real tool (research, product-ads) or generates here; everything lands in
+    // this campaign. Only materials we truly produce are offered — no "🔒 скоро".
+    renderPlan(s, goalTitle);
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // The action plan: research → materials → product-ad → content-plan.
+  function renderPlan(s, goalTitle) {
+    // Materials list — filtered to what we can actually generate right now.
+    var recs = (s.recommended_materials || []).filter(function (m) { return GENERATABLE[m.type]; });
+    var matsHtml = recs.length
+      ? '<div class="oc-plan-mats">' + recs.map(function (m, i) {
+          return '<div class="oc-mat" style="align-items:center;"><span class="mi">' + (MAT_ICON[m.type] || '•') + '</span>' +
+            '<div style="flex:1;min-width:0;"><div class="ml">' + esc(m.label) + '</div><div class="mw">' + esc(m.why) + '</div></div>' +
+            '<button class="btn btn-primary oc-genbtn" style="padding:6px 12px;font-size:12px;white-space:nowrap;flex:none;" data-i="' + i + '">Створити</button></div>';
+        }).join('') + '</div>' +
+        '<button class="btn btn-primary" id="ocMakeAllBtn" style="width:100%;margin-top:12px;">✨ Створити весь пакет</button>' +
+        '<div class="ob-status" id="ocMatStatus" style="margin-top:8px;"></div>'
+      : '<div class="oc-plan-s">Octo не підібрав текстових матеріалів під цю ціль — спробуй уточнити деталі кампанії.</div>';
+
+    function step(n, ic, title, sub, actHtml) {
+      return '<div class="oc-plan-step"><div class="oc-plan-n">' + n + '</div><div class="oc-plan-body">' +
+        '<div class="oc-plan-t"><span class="ic">' + ic + '</span>' + esc(title) + '</div>' +
+        '<div class="oc-plan-s">' + esc(sub) + '</div>' +
+        (actHtml ? '<div class="oc-plan-act">' + actHtml + '</div>' : '') +
+        '</div></div>';
+    }
+
+    var plan = document.createElement('div');
+    plan.className = 'card ob-res';
+    plan.innerHTML =
+      '<div class="ob-rc-head"><div class="ob-ico">🗺️</div><div><div class="card-title" style="margin:0;">Твій план дій</div>' +
+      '<div class="card-sub" style="margin:0;">Крок за кроком під ціль. Усе зберігається в цю кампанію.</div></div></div>' +
+      step(1, '📊', 'Вивчити ринок і конкурентів',
+        'Octo пошукає в інтернеті, що зараз працює у твоїй ніші — болі, ціни, формати.',
+        '<button class="oc-plan-link oc-step-research" type="button">Дослідити ринок →</button>') +
+      step(2, '✍️', 'Створити матеріали',
+        'Готові тексти під цю ціль. Обери потрібне або зроби весь пакет одразу.',
+        matsHtml) +
+      step(3, '🎨', 'Реклама з фото товару',
+        'Заванаж фото товару — Octo зробить рекламний банер з текстом.',
+        '<button class="oc-plan-link oc-step-prodads" type="button">Зробити рекламу з фото →</button>') +
+      step(4, '📅', 'Контент-план на тиждень',
+        'Розклад тем і форматів по днях — щоб публікувати системно, а не хаотично.',
+        '<button class="oc-plan-link oc-step-plan" type="button">Скласти контент-план</button>' +
+        '<div class="ob-status" id="ocPlanStatus" style="margin-top:8px;"></div>');
+    $('ocResult').appendChild(plan);
+
+    // Wire material buttons.
+    plan.querySelectorAll('.oc-genbtn').forEach(function (b) {
+      b.onclick = function () { var m = recs[Number(b.dataset.i)]; makeMaterial(m.type, m.label, b); };
+    });
+    var allBtn = plan.querySelector('#ocMakeAllBtn');
+    if (allBtn) allBtn.onclick = function () { makeAllText(recs); };
+
+    // Step 1 → market research, in the context of this campaign.
+    plan.querySelector('.oc-step-research').onclick = function () {
+      window.__ocFromPlan = goalTitle;
+      showScreen('research', null);
+    };
+    // Step 3 → product ads.
+    plan.querySelector('.oc-step-prodads').onclick = function () {
+      window.__ocFromPlan = goalTitle;
+      showScreen('prodads', null);
+    };
+    // Step 4 → generate a content plan, saved into this campaign.
+    var planBtn = plan.querySelector('.oc-step-plan');
+    planBtn.onclick = function () {
+      planBtn.disabled = true; planBtn.textContent = '…';
+      var st = plan.querySelector('#ocPlanStatus');
+      if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo складає контент-план…'; }
+      makeMaterial('content_plan', 'Контент-план на тиждень', null)
+        .then(function () {
+          if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Готово — план у матеріалах цієї кампанії.'; }
+          planBtn.textContent = '✓ Складено'; planBtn.classList.add('done');
+        })
+        .catch(function (e) {
+          planBtn.disabled = false; planBtn.textContent = 'Скласти контент-план';
+          if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
+        });
+    };
   }
 
   function renderMaterialCard(label, icon, material) {
@@ -14809,17 +14929,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     btn.disabled = false;
   };
 
-  async function makeAll(s) {
+  // Generate every proposed text material in sequence. `recs` is the already
+  // filtered list from the plan (text types only — no images/video/carousel).
+  async function makeAllText(recs) {
     setStep('materials');
     var btn = $('ocMakeAllBtn'); if (btn) btn.disabled = true;
     var st = $('ocMatStatus');
-    var mats = (s.recommended_materials || []).filter(function (m) { return GENERATABLE[m.type] || m.type === 'image' || m.type === 'banner'; });
+    var mats = (recs || []).filter(function (m) { return GENERATABLE[m.type]; });
     for (var i = 0; i < mats.length; i++) {
       if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Створюю: ' + esc(mats[i].label) + ' (' + (i + 1) + '/' + mats.length + ')…'; }
-      try {
-        if (mats[i].type === 'image' || mats[i].type === 'banner') await makeImage(mats[i].label, null);
-        else await makeMaterial(mats[i].type, mats[i].label, null);
-      } catch (e) { /* keep going */ }
+      try { await makeMaterial(mats[i].type, mats[i].label, null); } catch (e) { /* keep going */ }
     }
     document.querySelectorAll('#ocResult .oc-genbtn').forEach(function (b) { b.disabled = true; b.textContent = '✓'; b.classList.remove('btn-primary'); b.style.opacity = '.6'; });
     if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
@@ -14832,8 +14951,47 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var g = $('ocGate'), f = $('ocFlow');
     if (g) g.style.display = known ? 'none' : '';
     if (f) f.style.display = known ? '' : 'none';
-    if (known) renderGoals();
+    if (known) { renderGoals(); renderResume(); }
   }
+
+  // Offer to reopen the most recent campaign that already has a strategy, so a
+  // reload (or navigating away) doesn't drop the user back at the goal grid with
+  // their work seemingly gone. Hidden while a strategy is already on screen.
+  function renderResume() {
+    var bar = $('ocResumeBar'); if (!bar) return;
+    var hasFlow = $('ocResult') && $('ocResult').innerHTML.trim();
+    var list = (window.octoCampaigns && window.octoCampaigns.all) ? window.octoCampaigns.all() : [];
+    var withStrat = list.filter(function (c) { var s = c.strategy || {}; return !!(s.offer || s.audience || s.goal); });
+    if (hasFlow || !withStrat.length) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+    var c = withStrat[0];  // upsert() unshifts new campaigns → newest first
+    var n = (c.materials && c.materials.length) || 0;
+    bar.style.display = '';
+    bar.innerHTML = '<button class="oc-resume" type="button"><span class="rz-ico">▸</span>' +
+      '<span class="rz-tx"><span class="rz-t">Продовжити: ' + esc(c.name || c.goal || 'кампанія') + '</span>' +
+      '<span class="rz-s">стратегія готова' + (n ? ' · ' + n + ' матеріал(ів)' : '') + '</span></span>' +
+      '<span class="rz-go">Відкрити →</span></button>';
+    bar.querySelector('button').onclick = function () { window.octoResumeCampaign(c.id); };
+  }
+
+  // Rebuild the strategy + plan view from a saved campaign.
+  window.octoResumeCampaign = function (id) {
+    var c = window.octoCampaigns && window.octoCampaigns.get(id);
+    if (!c || !c.strategy) return;
+    window.octoCampaigns.current = id;
+    chosen = activeGoals().find(function (g) { return g.id === c.goalId; }) || { id: c.goalId, t: c.goal || c.name, ic: '🎯' };
+    curStrategy = c.strategy;
+    $('ocGoalStep').style.display = 'none';
+    $('ocDetailsStep').style.display = 'none';
+    var rb = $('ocResumeBar'); if (rb) { rb.innerHTML = ''; rb.style.display = 'none'; }
+    $('ocResult').innerHTML = '';
+    setStep('strategy');
+    renderStrategy(c.strategy);
+    // Show materials that already exist, so nothing feels lost on resume.
+    (c.materials || []).forEach(function (m) {
+      try { renderMaterialCard(m.title, MAT_ICON[m.type] || '✍️', m.output); } catch (e) {}
+    });
+    window.scrollTo(0, 0);
+  };
 
   // Init when the campaign screen becomes visible.
   var _origShow = window.showScreen;
