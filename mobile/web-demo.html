@@ -14884,7 +14884,16 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function renderMaterialCard(label, icon, material) {
     var card = document.createElement('div');
     card.className = 'card ob-res';
-    card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">' + (icon || '✍️') + '</div><div><div class="card-title" style="margin:0;">' + esc(material.title || label) + '</div><div class="card-sub" style="margin:0;">' + esc(label) + '</div></div></div>' + window.octoRenderMaterialBody(material);
+    // The AI label often embeds the title («Стаття/Пост на LinkedIn: 'Назва'») —
+    // repeating it under the title read as a glitch. Keep only the format prefix.
+    var title = material.title || label;
+    var sub = label || '';
+    var at = sub.indexOf(title);
+    if (title && at >= 0) sub = sub.slice(0, at).replace(/[\s:—–'"«»]+$/, '');
+    if (sub === title) sub = '';
+    card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">' + (icon || '✍️') + '</div><div><div class="card-title" style="margin:0;">' + esc(title) + '</div>'
+      + (sub ? '<div class="card-sub" style="margin:0;">' + esc(sub) + '</div>' : '') + '</div></div>'
+      + window.octoRenderMaterialBody(material);
     $('ocResult').appendChild(card);
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -15317,6 +15326,13 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   .rs-as-i::before { content:'•'; position:absolute; left:2px; color:var(--text4); }
   /* Plain paragraph inside an action-sheet block (audience/problem in a strategy) */
   .oc-as-t { font-size:13px; color:var(--text2); line-height:1.55; }
+  /* Long material texts: clamp to a teaser, expand on demand */
+  .ob-vtext { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+  .ob-vtext.open { display:block; }
+  .ob-more { background:none; border:none; padding:6px 0 0; color:var(--accent2); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
+  .ob-copybtn { margin-top:12px; background:var(--surface2); border:1px solid var(--border); border-radius:11px;
+    color:var(--text2); font:700 13px 'Manrope',sans-serif; padding:9px 14px; cursor:pointer; }
+  .ob-copybtn:hover { border-color:var(--accent); color:var(--text); }
   /* Deep sections fold away: the punch (summary + action sheet) reads first,
      the full brief is one tap deeper. */
   .rs-fold { border:1px solid var(--border); border-radius:14px; background:var(--surface2); margin-top:10px; overflow:hidden; }
@@ -15831,20 +15847,57 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         + (o.why ? '<div class="ob-why"><b>Чому цей візуал:</b> ' + esc(o.why) + '</div>' : '')
         + '<a href="' + esc(o.url) + '" download style="display:inline-block;margin-top:10px;font-size:13px;color:var(--accent2);font-weight:700;">⬇️ Завантажити PNG</a>';
     }
+    // Long texts render as a 4-line teaser with «Показати повністю» — the pile
+    // of materials scans as a list of cards, not one endless wall (rule:
+    // punch → details). Applies everywhere this body is used.
+    function tblock(text) {
+      var t = String(text == null ? '' : text);
+      if (t.length <= 240) return '<p>' + esc(t) + '</p>';
+      return '<p class="ob-vtext">' + esc(t) + '</p><button class="ob-more" type="button" onclick="octoMatExpand(this)">Показати повністю ▾</button>';
+    }
+    // Copy is THE action for a text material — you take it and post it. The
+    // text is registered by id (too long/quote-riddled for an attribute).
+    function copyBtn(plain) {
+      if (!plain) return '';
+      var id = 'mc_' + Math.random().toString(36).slice(2, 9);
+      window.__octoMatTexts[id] = plain;
+      return '<div><button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + id + '\',this)">📋 Скопіювати текст</button></div>';
+    }
     if (o.variants) { // legacy text material
+      var vPlain = (o.variants || []).map(function (v) { return (v.angle ? v.angle + ': ' : '') + (v.text || '') + (v.caption ? '\n' + v.caption : ''); }).join('\n\n') + (o.cta ? '\n\nCTA: ' + o.cta : '');
       return (o.variants || []).map(function (v) {
-        return '<div class="ob-variant"><span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>'
+        return '<div class="ob-variant"><span class="ob-angle">' + esc(v.angle) + '</span>' + tblock(v.text)
           + (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '')
           + ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
-      }).join('') + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '');
+      }).join('') + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '') + copyBtn(vPlain);
     }
     var items = (o.items || []).map(function (it) {
-      return '<div class="ob-variant">' + (it.label ? '<span class="ob-angle">' + esc(it.label) + '</span>' : '') + '<p>' + esc(it.text) + '</p></div>';
+      return '<div class="ob-variant">' + (it.label ? '<span class="ob-angle">' + esc(it.label) + '</span>' : '') + tblock(it.text) + '</div>';
     }).join('');
+    var plain = [o.summary].concat((o.items || []).map(function (it) { return (it.label ? it.label + ': ' : '') + (it.text || ''); }))
+      .filter(Boolean).join('\n\n')
+      + (o.cta ? '\n\nCTA: ' + o.cta : '')
+      + ((o.hashtags || []).length ? '\n\n' + o.hashtags.map(function (h) { return (String(h)[0] === '#' ? h : '#' + h); }).join(' ') : '');
     return (o.summary ? '<p style="color:var(--text3);font-size:13px;margin-bottom:8px;">' + esc(o.summary) + '</p>' : '')
       + items
       + ((o.hashtags || []).length ? '<div class="ob-tags" style="margin-top:8px;">' + o.hashtags.map(esc).join(' ') + '</div>' : '')
-      + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '');
+      + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '')
+      + copyBtn(plain);
+  };
+  // Registry + handlers for the material-body widgets.
+  window.__octoMatTexts = window.__octoMatTexts || {};
+  window.octoCopyMat = function (id, btn) {
+    var t = window.__octoMatTexts[id] || '';
+    var done = function () { if (btn) { btn.textContent = '✓ Скопійовано'; setTimeout(function () { btn.textContent = '📋 Скопіювати текст'; }, 1600); } };
+    try { navigator.clipboard.writeText(t).then(done, done); }
+    catch (e) {
+      try { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); } catch (e2) {}
+    }
+  };
+  window.octoMatExpand = function (btn) {
+    var p = btn.previousElementSibling; if (!p) return;
+    var open = p.classList.toggle('open');
+    btn.textContent = open ? 'Згорнути ▴' : 'Показати повністю ▾';
   };
   function renderMaterial(m, campaignId) {
     // Dialog editing (Rule 3): describe the change in words — Octo redoes it.
