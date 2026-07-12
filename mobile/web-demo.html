@@ -14729,47 +14729,50 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     setStep('goal');
   };
 
+  // Shared pretty body for a strategy: offer → key message → CTA, with the
+  // analysis (audience / problem / benefits) folded into the same tinted
+  // blocks as the research action sheet. Reused by «Мої ідеї», so a campaign
+  // looks identical wherever it's opened.
+  window.octoStrategyBody = function (s) {
+    var chev = '<svg class="rs-fold-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+    var ben = (s.benefits && s.benefits.length)
+      ? s.benefits.map(function (b) { return '<div class="rs-as-i">' + esc(b) + '</div>'; }).join('')
+      : '';
+    var blocks =
+      (s.audience ? '<div class="rs-as-b as-key"><div class="rs-as-h">🧑 Аудиторія</div><div class="oc-as-t">' + esc(s.audience) + '</div></div>' : '') +
+      (s.problem ? '<div class="rs-as-b as-avoid"><div class="rs-as-h">⚠️ Проблема клієнта</div><div class="oc-as-t">' + esc(s.problem) + '</div></div>' : '') +
+      (ben ? '<div class="rs-as-b as-do"><div class="rs-as-h">✅ Переваги</div>' + ben + '</div>' : '');
+    return (s.offer
+        ? '<div class="om-eyebrow" style="margin:14px 0 6px;">Оффер</div>'
+          + '<div class="ob-headline" style="font-size:17px;margin-top:0;">' + esc(s.offer) + '</div>'
+        : '')
+      + (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '')
+      + (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '')
+      + (blocks
+        ? '<details class="rs-fold" style="margin-top:14px;"><summary><span class="rs-sec-ic">🧠</span>Деталі стратегії'
+          + '<span class="rs-fold-n" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%;">аудиторія · проблема · переваги</span>' + chev
+          + '</summary><div class="rs-fold-body"><div class="rs-as" style="margin:10px 0 2px;">' + blocks + '</div></div></details>'
+        : '');
+  };
+
   function renderStrategy(s) {
     curStrategy = s;
     var goalTitle = (s.goal || (chosen ? chosen.t : '') || 'Кампанія');
 
-    // ── Card 1: the strategy itself — offer/message/CTA up top, analysis folded.
-    // It was a wall of text before; now the punchline reads first and the
-    // supporting analysis is one tap away.
+    // ── Card 1: the strategy itself — offer/message/CTA up top, analysis folded
+    // into tinted blocks (native <details>, no wiring needed).
     var card = document.createElement('div');
     card.className = 'card ob-res';
     card.innerHTML =
       '<div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія</div>' +
-      '<div class="card-sub" style="margin:0;">' + esc(goalTitle) + '</div></div></div>' +
-      (s.offer ? '<div class="ob-headline" style="font-size:17px;margin-top:4px;">' + esc(s.offer) + '</div>' : '') +
-      (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '') +
-      (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '') +
-      // Foldable analysis — reasoning, not a form to fill.
-      '<button class="oc-more-btn oc-strat-more" type="button" style="margin-top:14px;">' +
-        '<span>Деталі стратегії</span>' +
-        '<span class="oc-more-opt">аудиторія · проблема · переваги</span>' +
-        '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
-      '</button>' +
-      '<div class="oc-strat-details" style="display:none;margin-top:6px;">' +
-        sec('Аудиторія', '<div class="ob-kv">' + esc(s.audience) + '</div>') +
-        sec('Проблема клієнта', '<div class="ob-kv">' + esc(s.problem) + '</div>') +
-        sec('Переваги', chips(s.benefits, 'good')) +
-      '</div>' +
+      '<div class="card-sub" style="margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + esc(goalTitle) + '</div></div></div>' +
+      window.octoStrategyBody(s) +
       // Edit-in-words (unchanged behaviour, kept next to the strategy it edits).
       '<div style="display:flex;gap:8px;margin-top:14px;">' +
       '<input class="ob-input oc-strat-edit" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити? напр.: агресивніший оффер, інша аудиторія">' +
       '<button class="btn btn-primary oc-strat-editbtn" style="padding:9px 14px;font-size:13px;white-space:nowrap;flex:none;">Змінити</button></div>' +
       '<div class="ob-status oc-strat-editst"></div>';
     $('ocResult').appendChild(card);
-
-    // Fold toggle for the analysis.
-    var moreBtn = card.querySelector('.oc-strat-more');
-    moreBtn.onclick = function () {
-      var box = card.querySelector('.oc-strat-details');
-      var open = box.style.display === 'none';
-      box.style.display = open ? '' : 'none';
-      moreBtn.classList.toggle('open', open);
-    };
 
     // Edit strategy in words → re-render both cards.
     var seBtn = card.querySelector('.oc-strat-editbtn');
@@ -15312,6 +15315,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   .as-key .rs-as-h { color:#b6a9ff; } .as-do .rs-as-h { color:#7ED08A; } .as-avoid .rs-as-h { color:#F5B450; }
   .rs-as-i { font-size:13px; color:var(--text2); line-height:1.45; padding:5px 0 5px 15px; position:relative; }
   .rs-as-i::before { content:'•'; position:absolute; left:2px; color:var(--text4); }
+  /* Plain paragraph inside an action-sheet block (audience/problem in a strategy) */
+  .oc-as-t { font-size:13px; color:var(--text2); line-height:1.55; }
   /* Deep sections fold away: the punch (summary + action sheet) reads first,
      the full brief is one tap deeper. */
   .rs-fold { border:1px solid var(--border); border-radius:14px; background:var(--surface2); margin-top:10px; overflow:hidden; }
@@ -15973,12 +15978,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var hasStrategy = !!(s.goal || s.audience || s.problem || s.offer || (s.benefits && s.benefits.length));
     function kv(label, val) { return val ? sec(label, '<div class="ob-kv">' + esc(val) + '</div>') : ''; }
     var strategyCard = hasStrategy
-      ? '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія просування</div><div class="card-sub" style="margin:0;">' + esc(c.goal || '') + '</div></div></div>'
-        + kv('Ціль', s.goal) + kv('Аудиторія', s.audience) + kv('Проблема клієнта', s.problem)
-        + (s.benefits && s.benefits.length ? sec('Переваги', chips(s.benefits, 'good')) : '')
-        + (s.offer ? '<div class="ob-headline" style="font-size:17px;margin-top:14px;">' + esc(s.offer) + '</div>' : '')
-        + (s.key_message ? '<div class="ob-why"><b>Ключове повідомлення:</b> ' + esc(s.key_message) + '</div>' : '')
-        + (s.cta ? '<div class="ob-cta">🎬 <b>Заклик до дії:</b> ' + esc(s.cta) + '</div>' : '')
+      ? '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія просування</div><div class="card-sub" style="margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + esc(s.goal || c.goal || '') + '</div></div></div>'
+        // Same pretty body as the Просування screen — one visual language.
+        + (typeof window.octoStrategyBody === 'function' ? window.octoStrategyBody(s) : '')
         + (s.offer
           ? '<div style="display:flex;gap:8px;margin-top:14px;">'
             + '<input class="ob-input" id="cse-' + c.id + '" style="margin-top:0;flex:1;" placeholder="✏️ Що змінити у стратегії?">'
