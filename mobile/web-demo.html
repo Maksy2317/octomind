@@ -4207,8 +4207,8 @@
               <div style="font-weight:800;font-size:16px;" id="profileEmail">—</div>
               <div id="profileSubBadge" style="margin-top:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;display:inline-block;background:rgba(255,255,255,.06);color:var(--text3);">Free Plan</div>
             </div>
-            <button onclick="showScreen('pricing',null)" class="btn btn-primary" style="padding:11px 18px;font-size:13px;" data-i18n="profile_upgrade_btn">Upgrade to Pro</button>
-            <button onclick="logOut()" class="btn btn-secondary" style="padding:11px 18px;font-size:13px;" data-i18n="logout_btn">Вийти</button>
+            <button id="profUpgradeBtn" onclick="showScreen('pricing',null)" class="btn btn-primary" style="padding:11px 18px;font-size:13px;" data-i18n="profile_upgrade_btn">Upgrade to Pro</button>
+            <button id="profAuthBtn" onclick="logOut()" class="btn btn-secondary" style="padding:11px 18px;font-size:13px;" data-i18n="logout_btn">Вийти</button>
           </div>
 
           <!-- Workspaces -->
@@ -5705,7 +5705,7 @@
       if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
       if (typeof renderDashboard !== 'undefined') renderDashboard();
     }
-    if (id === 'profile'  && typeof renderProfileCard    !== 'undefined') renderProfileCard();
+    if (id === 'profile') { try { window.renderProfile && window.renderProfile(); } catch (e) {} if (typeof renderProfileCard !== 'undefined') renderProfileCard(); }
     // Скрываем маскота на экране чата — он мешает кнопке отправки
     const w = document.getElementById('octoWidget');
     if (w) w.style.display = id === 'advisor' ? 'none' : 'block';
@@ -10019,6 +10019,7 @@
   }
 
   // ── PROFILE RENDER ───────────────────────────────────────────────────────────
+  window.renderProfile = renderProfile;
   function renderProfile() {
     const stored = localStorage.getItem('octo_user');
     const emailEl = document.getElementById('profileEmail');
@@ -10026,8 +10027,21 @@
     if (!emailEl) return;
 
     const avatarEl = document.getElementById('profileAvatar');
-    if (stored) {
-      const user = JSON.parse(stored);
+    // A guest has nothing to log out of — that button becomes "Увійти".
+    var _u = null; try { _u = JSON.parse(stored || 'null'); } catch (e) {}
+    var isGuest = !_u || _u.guest || !_u.email;
+    var authBtn = document.getElementById('profAuthBtn');
+    var upBtn = document.getElementById('profUpgradeBtn');
+    if (authBtn) {
+      authBtn.textContent = isGuest ? '→ Увійти' : 'Вийти';
+      authBtn.setAttribute('onclick', isGuest ? 'showAuth()' : 'logOut()');
+      if (isGuest) { authBtn.classList.remove('btn-secondary'); authBtn.classList.add('btn-primary'); }
+      else { authBtn.classList.add('btn-secondary'); authBtn.classList.remove('btn-primary'); }
+    }
+    // Nothing to upgrade before there's an account — register first.
+    if (upBtn) upBtn.style.display = isGuest ? 'none' : '';
+    if (stored && !isGuest) {
+      const user = _u;
       var mail = user.email || 'Гість';
       emailEl.textContent = mail;
       if (avatarEl) avatarEl.textContent = (mail[0] || 'O').toUpperCase();
