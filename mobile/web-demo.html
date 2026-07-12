@@ -25,9 +25,26 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&family=Ubuntu:wght@700&display=swap" rel="stylesheet">
-  <!-- TensorFlow.js + BodyPix — pixel-perfect person segmentation -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0/dist/body-pix.min.js" crossorigin="anonymous"></script>
+  <!-- TensorFlow.js + BodyPix (~1.5MB) load LAZILY on first photo-cutout use.
+       Eager <script> tags were both dead weight and dead code: the server CSP
+       blocked them anyway, so every visit fired two refused requests while the
+       feature silently fell back to remove.bg / rectangle. -->
+  <script>
+    window.octoLoadBodyPix = function () {
+      if (window.__bpLib) return window.__bpLib;
+      function inject(src) {
+        return new Promise(function (ok, bad) {
+          var s = document.createElement('script');
+          s.src = src; s.crossOrigin = 'anonymous'; s.onload = ok; s.onerror = bad;
+          document.head.appendChild(s);
+        });
+      }
+      window.__bpLib = inject('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js')
+        .then(function () { return inject('https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0/dist/body-pix.min.js'); })
+        .catch(function () { window.__bpLib = null; return null; });
+      return window.__bpLib;
+    };
+  </script>
   <!-- Theme restore BEFORE paint -->
   <script>
     try {
@@ -8320,14 +8337,18 @@
    */
   function photoAiGetSeg() {
     if (_bpNetPromise) return _bpNetPromise;
-    if (!window.bodyPix) return Promise.resolve(null);
-
-    _bpNetPromise = window.bodyPix.load({
-      architecture: 'MobileNetV1',
-      outputStride: 8,    // finer stride → sharper edges (was 16)
-      multiplier: 1.0,    // largest model → best accuracy (was 0.75)
-      quantBytes: 4,      // full float precision (was 2)
-    }).catch(() => { _bpNetPromise = null; return null; });
+    // Pull the 1.5MB libs only now — the first moment they're actually needed.
+    _bpNetPromise = Promise.resolve(window.octoLoadBodyPix ? window.octoLoadBodyPix() : null)
+      .then(() => {
+        if (!window.bodyPix) return null;
+        return window.bodyPix.load({
+          architecture: 'MobileNetV1',
+          outputStride: 8,    // finer stride → sharper edges (was 16)
+          multiplier: 1.0,    // largest model → best accuracy (was 0.75)
+          quantBytes: 4,      // full float precision (was 2)
+        });
+      })
+      .catch(() => { _bpNetPromise = null; return null; });
 
     return _bpNetPromise;
   }

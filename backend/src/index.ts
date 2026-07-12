@@ -62,7 +62,9 @@ app.use(helmet({
       'img-src': ["'self'", 'data:', 'blob:', 'https:'],
       'media-src': ["'self'", 'blob:', 'data:'],
       'object-src': ["'none'"],
-      'script-src': ["'self'", "'unsafe-inline'"],
+      // jsdelivr: TF.js/BodyPix are lazy-loaded from there on first photo-cutout
+      // use (the eager tags this rule used to silently block are gone).
+      'script-src': ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
       'script-src-attr': ["'unsafe-inline'"],
       'style-src': ["'self'", 'https:', "'unsafe-inline'"],
       'connect-src': ["'self'", 'https:'],
@@ -221,13 +223,25 @@ const frontendDir = path.resolve(__dirname, '../../mobile');
 // the React-Native `mobile/app` directory.
 // Stamp the shell with the build it was served from. The page can then compare
 // itself against /api/version and say plainly whether this tab is stale.
+//
+// Caching: the shell is 1.1MB, and `no-store` made every visit re-download it —
+// the single biggest cost of opening the app on mobile. `no-cache` + ETag keeps
+// the freshness guarantee (the browser revalidates on every visit) but turns
+// the unchanged case into a 304 with no body. The ETag folds in the file mtime
+// so local dev (BUILD_SHA='dev') still invalidates on edit.
 function sendHtml(res: express.Response, file: string): void {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   try {
-    const html = fs.readFileSync(path.join(frontendDir, file), 'utf8');
+    const full = path.join(frontendDir, file);
+    const etag = `"${BUILD_SHA}-${Math.floor(fs.statSync(full).mtimeMs)}"`;
+    res.setHeader('ETag', etag);
+    const req = res.req;
+    if (req && req.headers['if-none-match'] === etag) {
+      res.status(304).end();
+      return;
+    }
+    const html = fs.readFileSync(full, 'utf8');
     res.send(html.replace(/__BUILD_SHA__/g, BUILD_SHA));
   } catch {
     res.sendFile(path.join(frontendDir, file));
