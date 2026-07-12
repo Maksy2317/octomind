@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import cron from 'node-cron';
@@ -100,9 +100,46 @@ const apiLimiter = rateLimit({
   max: Number(process.env.RATE_LIMIT_MAX) || 300,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+  message: { error: 'Забагато запитів. Спробуй пізніше.' },
 });
 app.use('/api', apiLimiter);
+
+// ── AI endpoints: tighter, identity-aware limits ─────────────────────────────
+// Every request here costs real money (Gemini / image gen / Apify). Two layers:
+//  1) per identity — the token (session-stable) or the client's device id.
+//     A device id is client-invented, so rotating it mints fresh keys…
+//  2) …which is why the per-IP layer sits behind it and caps the whole address
+//     regardless of how many "devices" it claims to be.
+// Quota enforcement by plan (services/quota.ts) is the third, billing-time layer.
+const AI_ID_MAX = Number(process.env.AI_RATE_LIMIT_MAX) || 60;      // per identity/hour
+const AI_IP_MAX = Number(process.env.AI_RATE_LIMIT_IP_MAX) || 150;  // per IP/hour
+const aiIdLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: AI_ID_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = String(req.header('authorization') || '');
+    // Token prefix is stable for the session (Supabase JWTs rotate ~hourly,
+    // matching the window) and can't be minted for free like a device id.
+    if (auth.startsWith('Bearer ') && auth.length > 47) return 'a:' + auth.slice(7, 47);
+    const dev = String(req.header('x-device-id') || '').trim();
+    if (dev) return 'd:' + dev;
+    return 'ip:' + ipKeyGenerator(req.ip || '');
+  },
+  message: { error: 'Забагато AI-запитів за годину. Зроби паузу і спробуй пізніше.' },
+});
+const aiIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: AI_IP_MAX,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: (req) => 'aip:' + ipKeyGenerator(req.ip || ''),
+  message: { error: 'Забагато AI-запитів з цієї адреси. Спробуй пізніше.' },
+});
+for (const p of ['/api/marketing', '/api/ads', '/api/chat', '/api/trends']) {
+  app.use(p, aiIpLimiter, aiIdLimiter);
+}
 
 // Body-size limit — configurable; large enough for base64 photos, capped to
 // avoid memory-exhaustion via oversized JSON payloads.

@@ -55,6 +55,36 @@
       }
     } catch(e) {}
   </script>
+  <!-- Same-origin /api/ calls carry the Supabase JWT when logged in. One wrapper
+       instead of 18 call sites: the server prefers this account identity over
+       the spoofable x-device-id, so quotas and the paid plan follow the account
+       across devices. Guests keep the device-id path. -->
+  <script>
+    (function () {
+      var _fetch = window.fetch;
+      window.fetch = function (input, init) {
+        try {
+          var url = typeof input === 'string' ? input : ((input && input.url) || '');
+          if (url.indexOf('/api/') === 0) {
+            var u = JSON.parse(localStorage.getItem('octo_user') || 'null');
+            if (u && u.token && u.token !== 'guest' && !u.guest) {
+              init = init || {};
+              var h = init.headers;
+              if (h && typeof h.set === 'function') {           // Headers instance
+                if (!h.has('Authorization')) h.set('Authorization', 'Bearer ' + u.token);
+              } else {
+                init.headers = Object.assign({}, h || {});
+                if (!init.headers['Authorization'] && !init.headers['authorization']) {
+                  init.headers['Authorization'] = 'Bearer ' + u.token;
+                }
+              }
+            }
+          }
+        } catch (e) { /* never break a request over an auth nicety */ }
+        return _fetch.call(this, input, init);
+      };
+    })();
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
