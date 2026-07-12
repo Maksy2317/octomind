@@ -14993,12 +14993,39 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     window.scrollTo(0, 0);
   };
 
+  // ── The connective thread ────────────────────────────────────────────────────
+  // When the user jumps from a campaign's plan into a standalone tool (research,
+  // product ads, texts…), show a banner naming the campaign they're working on,
+  // with a one-tap way back. This is what stops the tools from feeling like
+  // disconnected mechanisms — you always know which campaign you're inside.
+  var CTX_TOOLS = { research: 1, prodads: 1, caption: 1, brand: 1, trends: 1, trend: 1, audit: 1 };
+  window.octoRenderPlanCtx = function (id) {
+    // Only ever one banner on screen.
+    document.querySelectorAll('.oc-ctx').forEach(function (b) { b.remove(); });
+    if (!CTX_TOOLS[id]) return;
+    if (!window.__ocFromPlan) return;
+    var cur = window.octoCampaigns && window.octoCampaigns.current;
+    var c = cur && window.octoCampaigns.get ? window.octoCampaigns.get(cur) : null;
+    if (!c) return;
+    var screen = document.getElementById(id); if (!screen) return;
+    var b = document.createElement('div');
+    b.className = 'card oc-ctx';
+    b.style.cssText = 'display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:14px;border:1px solid rgba(139,123,255,.3);background:linear-gradient(135deg,rgba(139,123,255,.12),transparent);';
+    b.innerHTML = '<div style="display:flex;align-items:center;gap:11px;min-width:0;"><span style="font-size:18px;flex:none;">🎯</span>'
+      + '<div style="min-width:0;"><div style="font-weight:750;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Кампанія: ' + esc(c.name || c.goal || 'кампанія') + '</div>'
+      + '<div style="font-size:12px;color:var(--text4);">Ти в контексті цієї кампанії</div></div></div>'
+      + '<button class="oc-ctx-back" type="button" style="flex:none;background:rgba(139,123,255,.14);border:1px solid rgba(139,123,255,.32);color:#c9c0ff;border-radius:10px;padding:8px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;">← до кампанії</button>';
+    b.querySelector('.oc-ctx-back').onclick = function () { showScreen('campaign', null); window.octoResumeCampaign(c.id); };
+    screen.insertBefore(b, screen.firstChild);
+  };
+
   // Init when the campaign screen becomes visible.
   var _origShow = window.showScreen;
   if (typeof _origShow === 'function') {
     window.showScreen = function (id, el) {
       _origShow(id, el);
       if (id === 'campaign') gate();
+      try { window.octoRenderPlanCtx(id); } catch (e) {}
     };
   }
   document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('campaign')) gate(); });
