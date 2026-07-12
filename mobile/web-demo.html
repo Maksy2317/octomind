@@ -16051,6 +16051,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); };
   var fmtDate = function (ts) { try { var d = new Date(ts); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2); } catch (e) { return ''; } };
+  // Ukrainian: 1 готовий матеріал · 2-4 готові матеріали · else готових матеріалів.
+  function plGotov(n) { var a = n % 10, b = n % 100; if (a === 1 && b !== 11) return 'готовий матеріал'; if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return 'готові матеріали'; return 'готових матеріалів'; }
 
   // Deterministic "Octo радить" — based on where the user is in the journey.
   // (Free & instant; the AI-powered weekly version is Phase D.)
@@ -16061,6 +16063,20 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var last = camps[0];
     if (!last.materials || !last.materials.length) return { icon: '📦', text: 'У кампанії «' + esc(last.name) + '» є стратегія, але ще нема матеріалів. Доробимо пакет?', btn: 'Догенерувати матеріали', screen: 'campaign' };
     return { icon: '📅', text: 'Кампанія «' + esc(last.name) + '» готова (' + last.materials.length + ' матеріалів). Наступний крок — опублікувати і запланувати контент на тиждень.', btn: 'Контент-план', screen: 'calendar' };
+  }
+
+  // The conductor: one unambiguous next action, placed on the cycle so the user
+  // sees the whole path — знайомство → дослідження → кампанія → план → публікація.
+  // Same journey logic as advice(), but surfaced as a lead step, not a side tip.
+  function nextStep(biz, bizSet, camps, planUpcoming, totalMats) {
+    var T = 5;
+    if (!bizSet) return { step: 1, total: T, icon: '👋', title: 'Познайом Octo зі своїм бізнесом', sub: 'Ніша, аудиторія, тон — і кожен матеріал буде саме про тебе.', btn: 'Почати знайомство', screen: 'onboard' };
+    if (!biz.market_research) return { step: 2, total: T, icon: '🔎', title: 'Досліди свій ринок', sub: '1–2 хвилини — і стратегії стануть точнішими, з реальними трендами ніші.', btn: 'Дослідити ринок', screen: 'research' };
+    if (!camps.length) return { step: 3, total: T, icon: '🎯', title: 'Створи першу кампанію', sub: 'Постав бізнес-ціль — Octo збере стратегію і план дій під неї.', btn: 'Створити просування', screen: 'campaign' };
+    var last = camps[0];
+    if (!last.materials || !last.materials.length) return { step: 3, total: T, icon: '📦', title: 'Дороби матеріали кампанії «' + esc(last.name) + '»', sub: 'Стратегія готова — час створити тексти й креативи.', btn: 'До кампанії', screen: 'campaign', resume: last.id };
+    if (!planUpcoming) return { step: 4, total: T, icon: '📅', title: 'Наповни контент-план', sub: 'У тебе ' + totalMats + ' ' + plGotov(totalMats) + ' — розклади все по днях на тиждень.', btn: 'Скласти план', screen: 'calendar' };
+    return { step: 5, total: T, icon: '🚀', title: 'Публікуй за планом', sub: 'План готовий — публікуй сьогоднішні пости, а тоді запускай новий цикл.', btn: 'Відкрити план', screen: 'calendar' };
   }
 
   window.renderDashV2 = function () {
@@ -16213,10 +16229,45 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         }).join('') + '</div>';
     }
 
+    // ── Диригент: «твій наступний крок» по циклу ──
+    // Upcoming, still-unpublished posts from the content planner tell us whether
+    // the plan stage is done.
+    var planUpcoming = 0;
+    try {
+      var pl = JSON.parse(localStorage.getItem('octo_planner_' + wsIdD()) || '[]');
+      var t0 = new Date();
+      var t0iso = t0.getFullYear() + '-' + String(t0.getMonth() + 1).padStart(2, '0') + '-' + String(t0.getDate()).padStart(2, '0');
+      planUpcoming = pl.filter(function (p) { return p.date >= t0iso && p.status !== 'posted'; }).length;
+    } catch (e) {}
+    var ns = nextStep(bizSet ? biz : null, bizSet, camps, planUpcoming, totalMats);
+    var dots = '';
+    for (var si = 1; si <= ns.total; si++) {
+      var st = si < ns.step ? 'done' : (si === ns.step ? 'cur' : 'todo');
+      dots += '<span style="height:6px;border-radius:999px;flex:1;background:'
+        + (st === 'done' ? 'rgba(139,123,255,.5)' : st === 'cur' ? 'linear-gradient(90deg,#8B7BFF,#6C63FF)' : 'rgba(255,255,255,.1)') + ';"></span>';
+    }
+    var nsClick = ns.resume
+      ? "showScreen('campaign',null);window.octoResumeCampaign('" + ns.resume + "')"
+      : "showScreen('" + ns.screen + "',null)";
+    var conductor = '<div class="card" style="border:1px solid rgba(139,123,255,.35);background:linear-gradient(150deg,rgba(139,123,255,.14),transparent);margin-bottom:20px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">'
+      + '<div class="om-eyebrow" style="margin:0;color:#b5a8ff;">🧭 Твій наступний крок</div>'
+      + '<div style="font-size:12px;font-weight:700;color:#9a9ac4;white-space:nowrap;">крок ' + ns.step + ' з ' + ns.total + '</div></div>'
+      + '<div style="display:flex;gap:6px;margin-bottom:16px;">' + dots + '</div>'
+      + '<div style="display:flex;gap:14px;align-items:flex-start;">'
+      + '<div style="font-size:26px;flex:none;line-height:1;">' + ns.icon + '</div>'
+      + '<div style="flex:1;min-width:0;"><div style="font-size:16.5px;font-weight:800;line-height:1.3;">' + ns.title + '</div>'
+      + '<div style="font-size:13px;color:var(--text3);margin-top:5px;line-height:1.5;">' + ns.sub + '</div>'
+      + '<button class="btn btn-primary" style="margin-top:14px;padding:11px 18px;font-size:13.5px;" onclick="' + nsClick + '">' + ns.btn + ' →</button>'
+      + '</div></div></div>';
+
     // While the profile is unfinished, the setup banner leads: the product is
     // worthless until Octo knows the business. Once done>=5 the banner is empty
-    // and the ad CTA lands on top by itself.
-    el.innerHTML = hero + stats + greetRow + adv + actions + campHtml;
+    // and the ad CTA lands on top by itself. The conductor sits right under it as
+    // the single "do this next". The static «Порада» only shows once there are
+    // campaigns (where the AI weekly tip replaces it) — before that it would just
+    // duplicate the conductor.
+    el.innerHTML = hero + conductor + stats + greetRow + (camps.length ? adv : '') + actions + campHtml;
     ensureWeekly(biz, bizSet, camps);
   };
 
