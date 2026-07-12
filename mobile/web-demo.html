@@ -4230,7 +4230,8 @@
         <div class="screen" id="settings">
 
           <!-- Which build is on this phone, and a way to force the new one. -->
-          <div class="card" id="buildCard" style="margin-bottom:16px;">
+          <!-- Dev-only build diagnostic: hidden unless the app is opened with #build. -->
+          <div class="card" id="buildCard" style="margin-bottom:16px;display:none;">
             <div class="card-title" style="font-size:15px;">🔄 Версія застосунку</div>
             <div class="card-sub" style="margin-bottom:12px;">Якщо здається, що зміни не доїхали — звір версії й натисни оновлення.</div>
             <div id="buildInfo" style="font:600 12.5px ui-monospace,monospace;color:var(--text3);line-height:1.9;">Перевіряю…</div>
@@ -18251,10 +18252,23 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     });
   };
 
+  // Owner-only: reveal the build card when the app is opened with #build
+  // (like the #admin panel). Users never see it; the SW auto-updates anyway.
+  function octoRevealBuild() {
+    var card = document.getElementById('buildCard'); if (!card) return;
+    var on = location.hash === '#build';
+    card.style.display = on ? '' : 'none';
+    if (on) window.octoLoadBuild();
+  }
   var _s = window.showScreen;
   if (typeof _s === 'function') {
-    window.showScreen = function (id, el) { _s(id, el); if (id === 'settings') window.octoLoadBuild(); };
+    window.showScreen = function (id, el) {
+      _s(id, el);
+      if (id === 'settings' && location.hash === '#build') window.octoLoadBuild();
+    };
   }
+  window.addEventListener('hashchange', octoRevealBuild);
+  window.addEventListener('load', function () { setTimeout(octoRevealBuild, 300); });
 })();
 </script>
 
