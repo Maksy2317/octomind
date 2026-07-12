@@ -2863,6 +2863,7 @@
             <div class="ob-status" id="rsStatus"></div>
           </div>
           <div id="rsStaleBanner" style="display:none;"></div>
+          <div id="rsNotes"></div>
           <div id="rsResult"></div>
         </div>
 
@@ -12076,6 +12077,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         if (localBiz && !cloudKeys['biz_' + ws]) { var pb = JSON.parse(localBiz); if (pb && Object.keys(pb).length) window.dbSync && window.dbSync('biz_' + ws, pb); }
         var localCamps = localStorage.getItem('octo_campaigns_' + ws);
         if (localCamps && !cloudKeys['camps_' + ws]) { var pc = JSON.parse(localCamps); if (Array.isArray(pc) && pc.length) window.dbSync && window.dbSync('camps_' + ws, pc); }
+        var localRes = localStorage.getItem('octo_research_' + ws);
+        if (localRes && !cloudKeys['research_' + ws]) { var pr = JSON.parse(localRes); if (pr && pr.research) window.dbSync && window.dbSync('research_' + ws, pr); }
+        var localNotes = localStorage.getItem('octo_notes_' + ws);
+        if (localNotes && !cloudKeys['notes_' + ws]) { var pn = JSON.parse(localNotes); if (Array.isArray(pn) && pn.length) window.dbSync && window.dbSync('notes_' + ws, pn); }
       } catch (e) {}
 
       dbShowSync('ok');
@@ -12106,6 +12111,10 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       localStorage.setItem('octo_biz_' + key.slice(4), JSON.stringify(value));
     } else if (key.startsWith('camps_')) {
       if (Array.isArray(value)) localStorage.setItem('octo_campaigns_' + key.slice(6), JSON.stringify(value));
+    } else if (key.startsWith('research_')) {
+      localStorage.setItem('octo_research_' + key.slice(9), JSON.stringify(value));
+    } else if (key.startsWith('notes_')) {
+      if (Array.isArray(value)) localStorage.setItem('octo_notes_' + key.slice(6), JSON.stringify(value));
     } else if (key.startsWith('profile_')) {
       localStorage.setItem('octo_profile_' + key.slice(8), JSON.stringify(value));
     } else if (key.startsWith('tov_')) {
@@ -15303,6 +15312,33 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   .as-key .rs-as-h { color:#b6a9ff; } .as-do .rs-as-h { color:#7ED08A; } .as-avoid .rs-as-h { color:#F5B450; }
   .rs-as-i { font-size:13px; color:var(--text2); line-height:1.45; padding:5px 0 5px 15px; position:relative; }
   .rs-as-i::before { content:'•'; position:absolute; left:2px; color:var(--text4); }
+  /* Deep sections fold away: the punch (summary + action sheet) reads first,
+     the full brief is one tap deeper. */
+  .rs-fold { border:1px solid var(--border); border-radius:14px; background:var(--surface2); margin-top:10px; overflow:hidden; }
+  .rs-fold > summary { display:flex; align-items:center; gap:9px; padding:13px 15px; cursor:pointer; list-style:none;
+    font-size:13px; font-weight:750; color:var(--text2); user-select:none; }
+  .rs-fold > summary::-webkit-details-marker { display:none; }
+  .rs-fold > summary .rs-fold-n { margin-left:auto; font-size:11px; font-weight:700; color:var(--text4);
+    background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:999px; padding:2px 9px; flex:none; }
+  .rs-fold > summary .rs-fold-chev { flex:none; transition:transform .18s; color:var(--text4); }
+  .rs-fold[open] > summary .rs-fold-chev { transform:rotate(180deg); }
+  .rs-fold > .rs-fold-body { padding:2px 15px 14px; }
+  .rs-fold > .rs-fold-body .rs-sec { margin-top:6px; }
+  /* Research header: when it was made + refresh */
+  .rs-fresh { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:10px 0 2px; font-size:12px; color:var(--text4); }
+  .rs-fresh b { color:var(--text3); }
+  .rs-fresh-btn { margin-left:auto; background:var(--surface2); border:1px solid var(--border); border-radius:9px;
+    color:var(--text2); font:700 12px 'Manrope',sans-serif; padding:7px 12px; cursor:pointer; white-space:nowrap; }
+  .rs-fresh-btn:hover { border-color:var(--accent); }
+  /* Notes: floating save chip + the saved-notes card */
+  .rs-note-chip { position:fixed; z-index:7000; background:var(--grad); color:#fff; border:none; border-radius:11px;
+    font:750 12.5px 'Manrope',sans-serif; padding:9px 14px; cursor:pointer; box-shadow:0 10px 26px -8px rgba(108,99,255,.8); }
+  .rs-note { display:flex; gap:10px; align-items:flex-start; padding:11px 0; border-top:1px solid var(--border); }
+  .rs-note:first-of-type { border-top:none; padding-top:2px; }
+  .rs-note-t { flex:1; font-size:13px; color:var(--text2); line-height:1.5; }
+  .rs-note-d { font-size:11px; color:var(--text4); margin-top:3px; }
+  .rs-note-x { flex:none; background:none; border:none; color:var(--text4); font-size:14px; cursor:pointer; padding:2px 6px; }
+  .rs-note-x:hover { color:#FF8A80; }
 </style>
 
 <!-- ═══ ДОСЛІДЖЕННЯ РИНКУ + ІДЕЯ З ТРЕНДУ ═══ -->
@@ -15343,13 +15379,88 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function netMsg(m) { return /Failed to fetch|NetworkError/i.test(m) ? 'Немає зв’язку з сервером — спробуй ще раз.' : m; }
 
   // ── Дослідження ринку ───────────────────────────────────────────────────────
+  // ── Research is a living document, not a one-off popup ──────────────────────
+  // The full brief persists per workspace (and syncs to the cloud), renders
+  // again whenever the screen opens, and carries its own freshness date. The
+  // market moves — re-run it every 2-4 weeks; the stale banner nags after 30d.
+  function rsWs() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
+  function rsKey() { return 'octo_research_' + rsWs(); }
+  function rsLoad() { try { return JSON.parse(localStorage.getItem(rsKey()) || 'null'); } catch (e) { return null; } }
+  function rsSaveRec(o) {
+    try { localStorage.setItem(rsKey(), JSON.stringify(o)); } catch (e) {}
+    try { if (window.dbSync) window.dbSync('research_' + rsWs(), o); } catch (e) {}
+  }
+  function rsFmtDate(ts) { var d = new Date(ts); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
+
+  // Render the saved (or fresh) brief: punch first — summary + action sheet —
+  // and every deep section folded away behind a tap.
+  function renderResearch(r, ts) {
+    var box = $('rsResult'); if (!box || !r) return;
+    box.innerHTML = '';
+    var srcs = (r.sources || []).map(function (s) {
+      var url = (s && s.url) ? s.url : (typeof s === 'string' ? s : '');
+      var title = (s && s.title) ? s.title : url;
+      if (!url) return '';
+      return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="ob-src" title="' + esc(url) + '">'
+        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:.7;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+        + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(title) + '</span></a>';
+    }).filter(Boolean).join('');
+    if (srcs) srcs = '<div class="ob-src-wrap">' + srcs + '</div>';
+    function rsList(items, color) {
+      if (!items || !items.length) return '';
+      return '<div class="rs-list">' + items.map(function (x) {
+        return '<div class="rs-item"><span class="rs-dot" style="background:' + color + ';"></span><div class="rs-txt">' + esc(x) + '</div></div>';
+      }).join('') + '</div>';
+    }
+    var chev = '<svg class="rs-fold-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+    function fold(ic, title, items, color, bodyHtml) {
+      var body = bodyHtml || rsList(items, color);
+      if (!body) return '';
+      var n = items && items.length ? '<span class="rs-fold-n">' + items.length + '</span>' : '<span class="rs-fold-n">·</span>';
+      return '<details class="rs-fold"><summary><span class="rs-sec-ic">' + ic + '</span>' + title + n + chev + '</summary><div class="rs-fold-body">' + body + '</div></details>';
+    }
+    // Action sheet — the operational core (best-file §0): what to know, do, avoid.
+    function asBlock(ic, title, items, cls) {
+      if (!items || !items.length) return '';
+      return '<div class="rs-as-b ' + cls + '"><div class="rs-as-h">' + ic + ' ' + title + '</div>' +
+        items.map(function (x) { return '<div class="rs-as-i">' + esc(x) + '</div>'; }).join('') + '</div>';
+    }
+    var actionSheet = (function () {
+      var b = asBlock('💡', 'Ключове', r.insights, 'as-key') + asBlock('✅', 'Зроби за 14 днів', r.quick_wins, 'as-do') + asBlock('⚠️', 'Не роби', r.avoid, 'as-avoid');
+      return b ? '<div class="rs-as">' + b + '</div>' : '';
+    })();
+    var ageD = ts ? Math.floor((Date.now() - ts) / 86400000) : null;
+    var fresh = ts
+      ? '<div class="rs-fresh">📆 Досліджено <b>' + rsFmtDate(ts) + '</b>' + (ageD > 0 ? ' · ' + ageD + ' дн тому' : ' · сьогодні')
+        + '<button class="rs-fresh-btn" onclick="octoResearchRun()">🔄 Оновити дослідження</button></div>'
+      : '';
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">🔎</div><div><div class="card-title" style="margin:0;">Дослідження ринку</div><div class="card-sub" style="margin:0;">дієвий бриф на 30 днів</div></div></div>'
+      + fresh
+      + (r.summary ? '<div class="rs-summary">' + esc(r.summary) + '</div>' : '')
+      + actionSheet
+      + '<div style="font-size:11.5px;color:var(--text4);margin:12px 0 2px;">💡 Виділи цінне речення — Octo запропонує зберегти його в нотатки.</div>'
+      + fold('🧑', 'Аудиторія — коли й навіщо (JTBD)', r.audience_jobs, '#8B7BFF')
+      + (r.positioning ? fold('🧭', 'Позиціонування', null, null, '<div class="rs-pos">' + esc(r.positioning) + '</div>') : '')
+      + fold('🎬', 'Що працює: формат → результат', r.what_works, '#3FD07A')
+      + fold('💰', 'Оффер-драбина', r.offers, '#3FD07A')
+      + fold('🪝', 'Готові хуки (скопіюй-встав)', r.hooks, '#F5B450')
+      + fold('📅', 'Сезонні приводи', r.seasonal, '#8B7BFF')
+      + fold('📊', 'Що міряти (KPI)', r.kpis, '#8B7BFF')
+      + fold('🔥', 'Тренди', r.trends, '#8B7BFF')
+      + fold('⚔️', 'Working patterns конкурентів', r.competitor_notes, '#FF8A80')
+      + (srcs ? fold('🔗', 'Джерела', r.sources, null, srcs) : '')
+      + '<button class="btn btn-primary" style="width:100%;margin-top:20px;" onclick="showScreen(\'campaign\',null)">🎯 До просування (з урахуванням ринку) →</button>';
+    box.appendChild(card);
+  }
+
   window.octoResearchRun = function () {
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
     var btn = $('rsBtn'); btn.disabled = true;
     $('rsResult').innerHTML = window.omLoaderHTML('A09', 'Octo досліджує твій ринок', 'Реальний пошук в інтернеті — до хвилини');
     status('rsStatus', '', '');
     api('/api/marketing/research', { profile: bizProfile() }).then(function (d) {
-      $('rsResult').innerHTML = '';
       status('rsStatus', 'ok', 'Готово! Octo врахує це в стратегіях.');
       var r = d.research;
       // Save a compact, actionable summary into the profile so strategy/content use it.
@@ -15361,57 +15472,87 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       if (window.octoBiz) window.octoBiz.merge({ market_research: mr });
       if (window.octoMemory) window.octoMemory.stamp('market_research');
       if (typeof octoRenderStale === 'function') octoRenderStale('research');
-      var srcs = (r.sources || []).map(function (s) {
-        var url = (s && s.url) ? s.url : (typeof s === 'string' ? s : '');
-        var title = (s && s.title) ? s.title : url;
-        if (!url) return '';
-        return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="ob-src" title="' + esc(url) + '">'
-          + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:.7;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
-          + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(title) + '</span></a>';
-      }).filter(Boolean).join('');
-      if (srcs) srcs = '<div class="ob-src-wrap">' + srcs + '</div>';
-      function rsList(items, color) {
-        if (!items || !items.length) return '';
-        return '<div class="rs-list">' + items.map(function (x) {
-          return '<div class="rs-item"><span class="rs-dot" style="background:' + color + ';"></span><div class="rs-txt">' + esc(x) + '</div></div>';
-        }).join('') + '</div>';
-      }
-      function rsSec(ic, title, items, color) {
-        if (!items || !items.length) return '';
-        return '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">' + ic + '</span>' + title + '</div>' + rsList(items, color) + '</div>';
-      }
-      // Action sheet — the operational core (best-file §0): what to know, do, avoid.
-      function asBlock(ic, title, items, cls) {
-        if (!items || !items.length) return '';
-        return '<div class="rs-as-b ' + cls + '"><div class="rs-as-h">' + ic + ' ' + title + '</div>' +
-          items.map(function (x) { return '<div class="rs-as-i">' + esc(x) + '</div>'; }).join('') + '</div>';
-      }
-      var actionSheet = (function () {
-        var b = asBlock('💡', 'Ключове', r.insights, 'as-key') + asBlock('✅', 'Зроби за 14 днів', r.quick_wins, 'as-do') + asBlock('⚠️', 'Не роби', r.avoid, 'as-avoid');
-        return b ? '<div class="rs-as">' + b + '</div>' : '';
-      })();
-      var positioning = r.positioning ? '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">🧭</span>Позиціонування</div><div class="rs-pos">' + esc(r.positioning) + '</div></div>' : '';
-      var card = document.createElement('div');
-      card.className = 'card ob-res';
-      card.innerHTML = '<div class="ob-rc-head"><div class="ob-ico">🔎</div><div><div class="card-title" style="margin:0;">Дослідження ринку</div><div class="card-sub" style="margin:0;">дієвий бриф на 30 днів</div></div></div>'
-        + (r.summary ? '<div class="rs-summary">' + esc(r.summary) + '</div>' : '')
-        + actionSheet
-        + rsSec('🧑', 'Аудиторія — коли й навіщо (JTBD)', r.audience_jobs, '#8B7BFF')
-        + positioning
-        + rsSec('🎬', 'Що працює: формат → результат', r.what_works, '#3FD07A')
-        + rsSec('💰', 'Оффер-драбина', r.offers, '#3FD07A')
-        + rsSec('🪝', 'Готові хуки (скопіюй-встав)', r.hooks, '#F5B450')
-        + rsSec('📅', 'Сезонні приводи', r.seasonal, '#8B7BFF')
-        + rsSec('📊', 'Що міряти (KPI)', r.kpis, '#8B7BFF')
-        + rsSec('🔥', 'Тренди', r.trends, '#8B7BFF')
-        + rsSec('⚔️', 'Working patterns конкурентів', r.competitor_notes, '#FF8A80')
-        + (srcs ? '<div class="rs-sec"><div class="rs-sec-h"><span class="rs-sec-ic">🔗</span>Джерела</div>' + srcs + '</div>' : '')
-        + '<button class="btn btn-primary" style="width:100%;margin-top:20px;" onclick="showScreen(\'campaign\',null)">🎯 До просування (з урахуванням ринку) →</button>';
-      $('rsResult').appendChild(card);
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Persist the FULL brief so it survives navigation and reloads.
+      var ts = Date.now();
+      rsSaveRec({ research: r, ts: ts });
+      renderResearch(r, ts);
+      var first = $('rsResult').firstChild;
+      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
     }).catch(function (e) { $('rsResult').innerHTML = ''; status('rsStatus', 'err', netMsg(e.message)); }).finally(function () { btn.disabled = false; });
   };
+
+  // ── Нотатки: виділив → зберіг. Перший цеглик «структурованого мозку» ────────
+  function ntKey() { return 'octo_notes_' + rsWs(); }
+  function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]'); } catch (e) { return []; } }
+  function ntSave(a) {
+    try { localStorage.setItem(ntKey(), JSON.stringify(a)); } catch (e) {}
+    try { if (window.dbSync) window.dbSync('notes_' + rsWs(), a); } catch (e) {}
+  }
+  function renderNotes() {
+    var box = $('rsNotes'); if (!box) return;
+    var notes = ntLoad();
+    if (!notes.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="card" style="border-color:rgba(245,180,80,.28);">'
+      + '<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;"><span style="font-size:17px;">📌</span>'
+      + '<div class="card-title" style="margin:0;font-size:15px;">Мої нотатки</div>'
+      + '<span style="font-size:11px;font-weight:700;color:var(--text4);background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:999px;padding:2px 9px;">' + notes.length + '</span></div>'
+      + notes.map(function (n) {
+        return '<div class="rs-note"><div class="rs-note-t">' + esc(n.text)
+          + '<div class="rs-note-d">' + rsFmtDate(n.ts) + '</div></div>'
+          + '<button class="rs-note-x" title="Видалити" onclick="octoNoteDel(\'' + n.id + '\')">✕</button></div>';
+      }).join('') + '</div>';
+  }
+  window.octoNoteDel = function (id) {
+    ntSave(ntLoad().filter(function (n) { return n.id !== id; }));
+    renderNotes();
+  };
+  // Selection → floating «В нотатки» chip. Works for mouse and long-press.
+  function killChip() { var c = document.getElementById('rsNoteChip'); if (c) c.remove(); }
+  function maybeChip() {
+    killChip();
+    var sel = window.getSelection && window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    var text = String(sel.toString() || '').trim();
+    if (text.length < 8 || text.length > 600) return;
+    var res = $('rsResult');
+    if (!res || !sel.anchorNode || !res.contains(sel.anchorNode)) return;
+    var rect = sel.getRangeAt(0).getBoundingClientRect();
+    var chip = document.createElement('button');
+    chip.id = 'rsNoteChip';
+    chip.className = 'rs-note-chip';
+    chip.textContent = '📌 В нотатки';
+    chip.style.left = Math.max(10, Math.min(window.innerWidth - 130, rect.left + rect.width / 2 - 55)) + 'px';
+    chip.style.top = Math.max(10, rect.top - 46) + 'px';
+    chip.onclick = function () {
+      var notes = ntLoad();
+      notes.unshift({ id: 'n_' + Math.random().toString(36).slice(2, 9), text: text, ts: Date.now(), source: 'research' });
+      ntSave(notes);
+      killChip();
+      try { window.getSelection().removeAllRanges(); } catch (e) {}
+      renderNotes();
+    };
+    document.body.appendChild(chip);
+  }
+  document.addEventListener('mouseup', function () { setTimeout(maybeChip, 10); });
+  document.addEventListener('touchend', function () { setTimeout(maybeChip, 300); });
+  document.addEventListener('scroll', killChip, true);
+
+  // On entering the screen, bring back the saved brief + notes.
+  window.octoResearchRestore = function () {
+    renderNotes();
+    var res = $('rsResult');
+    if (res && !res.innerHTML.trim()) {
+      var saved = rsLoad();
+      if (saved && saved.research) renderResearch(saved.research, saved.ts);
+    }
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.showScreen === 'function') {
+      var _os2 = window.showScreen;
+      window.showScreen = function (id, nav) { _os2(id, nav); if (id === 'research') { try { window.octoResearchRestore(); } catch (e) {} } };
+    }
+  });
 
   // ── Ідея з тренду ───────────────────────────────────────────────────────────
   var trImages = [];
