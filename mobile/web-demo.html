@@ -11113,6 +11113,9 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   }
 
   async function calSyncReminders() {
+    // The planner owns /api/push/schedule now (the endpoint REPLACES the list
+    // per subscription — two writers would fight). Delegate when it's loaded.
+    if (window.octoPlannerSyncReminders) return window.octoPlannerSyncReminders();
     try {
       if (!('serviceWorker' in navigator)) return;
       const reg = await navigator.serviceWorker.ready;
@@ -11161,7 +11164,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function calCheckReminders() {
     const now = new Date();
     const key = calKey(now.getFullYear(), now.getMonth(), now.getDate());
-    const data = calLoad();
+    // Read through the facade → the planner (the legacy tree only keeps history).
+    const data = (window.octoCalStore && window.octoCalStore.load) ? window.octoCalStore.load() : calLoad();
     const posts = (data[key] || []).filter(function(p) { return p.reminder; });
     if (!posts.length) return;
     const count = posts.length;
@@ -12088,12 +12092,15 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
         if (localRes && !cloudKeys['research_' + ws]) { var pr = JSON.parse(localRes); if (pr && pr.research) window.dbSync && window.dbSync('research_' + ws, pr); }
         var localNotes = localStorage.getItem('octo_notes_' + ws);
         if (localNotes && !cloudKeys['notes_' + ws]) { var pn = JSON.parse(localNotes); if (Array.isArray(pn) && pn.length) window.dbSync && window.dbSync('notes_' + ws, pn); }
+        var localPlan = localStorage.getItem('octo_planner_' + ws);
+        if (localPlan && !cloudKeys['planner_' + ws]) { var pp = JSON.parse(localPlan); if (Array.isArray(pp) && pp.length) window.dbSync && window.dbSync('planner_' + ws, pp); }
       } catch (e) {}
 
       dbShowSync('ok');
 
       // Refresh UI with synced data
       try { calRender(); } catch {}
+      try { if (window.octoPlanner && document.getElementById('plannerRoot') && document.getElementById('plannerRoot').innerHTML) window.octoPlanner.render(); } catch {}
       try { renderWorkspaces(); } catch {}
       try { renderProfileCard(); } catch {}
       try { if (window.renderDashV2) window.renderDashV2(); } catch {}
@@ -12122,6 +12129,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       localStorage.setItem('octo_research_' + key.slice(9), JSON.stringify(value));
     } else if (key.startsWith('notes_')) {
       if (Array.isArray(value)) localStorage.setItem('octo_notes_' + key.slice(6), JSON.stringify(value));
+    } else if (key.startsWith('planner_')) {
+      if (Array.isArray(value)) localStorage.setItem('octo_planner_' + key.slice(8), JSON.stringify(value));
     } else if (key.startsWith('profile_')) {
       localStorage.setItem('octo_profile_' + key.slice(8), JSON.stringify(value));
     } else if (key.startsWith('tov_')) {
@@ -16512,7 +16521,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     // Compact state snapshot — what Octo "sees" this week.
     var calCount = 0;
     try {
-      var cal = JSON.parse(localStorage.getItem('octo_calendar_' + wsIdD()) || '{}');
+      // The planner is the schedule now (octoCalStore is a facade over it).
+      var cal = window.octoCalStore ? window.octoCalStore.load() : {};
       var now = new Date();
       for (var i = 0; i < 7; i++) {
         var d = new Date(now); d.setDate(now.getDate() + i);
@@ -17366,30 +17376,50 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
   function calKeyOf(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
-  // Shared calendar store (same key the calendar screen uses).
+  // ── Compatibility facade over the PLANNER ────────────────────────────────────
+  // octoCalStore used to be its own localStorage tree (octo_calendar_): the
+  // schedule modal wrote there while the «Контент-план» screen showed the
+  // planner — two schedules, different numbers. The facade keeps the old call
+  // shape but the planner store is the only source of truth now.
+  var CT_FROM_OLD = { reels: 'reel', stories: 'post', caption: 'post', video: 'reel' };
   window.octoCalStore = {
-    key: function () { return 'octo_calendar_' + wsId(); },
-    load: function () { try { return JSON.parse(localStorage.getItem(this.key()) || '{}'); } catch (e) { return {}; } },
-    save: function (d) { try { localStorage.setItem(this.key(), JSON.stringify(d)); } catch (e) {} },
+    load: function () {
+      // Old readers expect { 'YYYY-MM-DD': [ {type,note,time,reminder,status,mat} ] }.
+      var out = {};
+      var list = (window.octoPlannerStore && window.octoPlannerStore.load) ? window.octoPlannerStore.load() : [];
+      list.forEach(function (p) {
+        if (!p || !p.date) return;
+        if (!out[p.date]) out[p.date] = [];
+        out[p.date].push({
+          type: p.contentType || 'post', note: p.idea || '', time: p.time || '',
+          reminder: !!p.reminder,
+          status: p.status === 'posted' ? 'published' : 'scheduled',
+          mat: { title: p.idea || '', mtype: p.contentType || 'post', thumb: p.media || '', url: p.media || '', campaignId: p.sourceCampaign || null, materialId: p.sourceMaterialId || null },
+        });
+      });
+      Object.keys(out).forEach(function (k) { out[k].sort(function (a, b) { return (a.time || '99:99').localeCompare(b.time || '99:99'); }); });
+      return out;
+    },
     add: function (dateKey, post) {
-      var d = this.load();
-      if (!d[dateKey]) d[dateKey] = [];
-      d[dateKey].push(post);
-      d[dateKey].sort(function (a, b) { return (a.time || '99:99').localeCompare(b.time || '99:99'); });
-      this.save(d);
-      try { if (window.calRender) window.calRender(); } catch (e) {}
-      try { if (window.calSyncReminders) window.calSyncReminders(); } catch (e) {}
+      var mat = (post && post.mat) || {};
+      if (window.octoPlannerAdd) window.octoPlannerAdd({
+        date: dateKey, time: post.time || '11:00',
+        contentType: CT_FROM_OLD[post.type] || 'post',
+        idea: mat.title || post.note || 'Публікація',
+        media: mat.thumb || mat.url || null,
+        reminder: post.reminder ? '30m' : null,
+        status: post.status === 'published' ? 'posted' : 'ready',
+        sourceCampaign: mat.campaignId || null, sourceMaterialId: mat.materialId || null,
+      });
     },
   };
 
   // Count scheduled (not yet published) upcoming posts — for badges.
   window.octoScheduledCount = function () {
-    var d = window.octoCalStore.load(), n = 0, today = new Date(); today.setHours(0, 0, 0, 0);
-    Object.keys(d).forEach(function (k) {
-      var parts = k.split('-'); var dt = new Date(+parts[0], +parts[1] - 1, +parts[2]);
-      if (dt >= today) (d[k] || []).forEach(function (p) { if (p.status !== 'published') n++; });
-    });
-    return n;
+    var list = (window.octoPlannerStore && window.octoPlannerStore.load) ? window.octoPlannerStore.load() : [];
+    var t = new Date(); t.setHours(0, 0, 0, 0);
+    var tIso = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    return list.filter(function (p) { return p.date >= tIso && p.status !== 'posted'; }).length;
   };
 
   // ── Schedule modal — any screen calls octoOpenSchedule(payload) ─────────────
@@ -18247,7 +18277,100 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
   function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
   function key() { return 'octo_planner_' + wsId(); }
   function load() { try { return JSON.parse(localStorage.getItem(key()) || '[]'); } catch (e) { return []; } }
-  function save(list) { try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) {} }
+  function save(list) {
+    try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) {}
+    // The planner is THE schedule — it syncs to the cloud like biz_/camps_ do,
+    // and (throttled) re-registers push reminders for its upcoming posts.
+    try { if (window.dbSync) window.dbSync('planner_' + wsId(), list); } catch (e) {}
+    schedulePushSync();
+  }
+
+  // ── Push reminders from the planner ──────────────────────────────────────────
+  // The server's /api/push/schedule REPLACES the whole list per subscription, so
+  // exactly one client system may own it. That system is the planner now (the
+  // legacy calendar store is migrated below and no longer syncs).
+  var REMIND_MS = { '10m': 600000, '30m': 1800000, '1h': 3600000, '1d': 86400000 };
+  var _pushSyncT = null;
+  function schedulePushSync() { clearTimeout(_pushSyncT); _pushSyncT = setTimeout(plannerSyncReminders, 800); }
+  async function plannerSyncReminders() {
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) return;
+      var now = Date.now();
+      var reminders = [];
+      load().forEach(function (p) {
+        if (p.status === 'posted' || !p.reminder || !p.date || !p.time) return;
+        var dp = p.date.split('-').map(Number); var tp = p.time.split(':').map(Number);
+        if (dp.length !== 3 || tp.length < 2) return;
+        var at = new Date(dp[0], dp[1] - 1, dp[2], tp[0], tp[1], 0, 0).getTime() - (REMIND_MS[p.reminder] || 0);
+        if (at <= now) return;
+        reminders.push({ id: p.id, utcTimestamp: at, type: p.contentType || 'post', note: p.idea || '', displayTime: p.time });
+      });
+      await fetch('/api/push/schedule', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint, reminders: reminders }),
+      });
+    } catch (e) { /* push is best-effort */ }
+  }
+  window.octoPlannerSyncReminders = plannerSyncReminders;
+
+  // ── Public API: other screens add posts through here ─────────────────────────
+  window.octoPlannerStore = { load: load, save: save };
+  window.octoPlannerAdd = function (entry) {
+    var p = {
+      id: uid(), date: entry.date, time: entry.time || '11:00',
+      platform: entry.platform || 'instagram',
+      contentType: entry.contentType || 'post',
+      goal: entry.goal || 'sales', category: entry.category || 'selling',
+      idea: entry.idea || 'Публікація', caption: entry.caption || '',
+      media: entry.media || null,
+      reminder: entry.reminder || null,
+      status: entry.status || 'ready',
+      sourceCampaign: entry.sourceCampaign || null,
+      sourceMaterialId: entry.sourceMaterialId || null,
+    };
+    save(load().concat([p]));
+    try { if (document.getElementById('plannerRoot') && document.getElementById('plannerRoot').innerHTML) render(); } catch (e) {}
+    try { if (window.renderDashV2) window.renderDashV2(); } catch (e) {}
+    return p;
+  };
+
+  // ── One-time migration from the legacy calendar store ────────────────────────
+  // The old calendar UI is gone, but «Запланувати публікацію» kept writing to
+  // octo_calendar_ while the dashboard read it — two parallel schedules showing
+  // different numbers. Future entries move into the planner; past ones stay
+  // behind (history only). Removing the moved entries also stops the legacy
+  // reminder sync from fighting the planner over /api/push/schedule.
+  function migrateOldCalendar() {
+    var okey = 'octo_calendar_' + wsId();
+    var old; try { old = JSON.parse(localStorage.getItem(okey) || 'null'); } catch (e) { old = null; }
+    if (!old || typeof old !== 'object') return;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var typeMap = { reels: 'reel', stories: 'post', caption: 'post', video: 'reel' };
+    var moved = 0, keep = {};
+    Object.keys(old).forEach(function (k) {
+      var parts = k.split('-').map(Number);
+      var dt = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : null;
+      if (!dt || dt < today) { keep[k] = old[k]; return; }   // past stays as history
+      (old[k] || []).forEach(function (post) {
+        var mat = post.mat || {};
+        window.octoPlannerAdd({
+          date: k, time: post.time || '11:00',
+          contentType: typeMap[post.type] || 'post',
+          idea: mat.title || post.note || 'Публікація',
+          media: mat.thumb || mat.url || null,
+          reminder: post.reminder ? '30m' : null,
+          status: post.status === 'published' ? 'posted' : 'ready',
+          sourceCampaign: mat.campaignId || null, sourceMaterialId: mat.materialId || null,
+        });
+        moved++;
+      });
+    });
+    if (moved) { try { localStorage.setItem(okey, JSON.stringify(keep)); } catch (e) {} }
+  }
+  try { migrateOldCalendar(); } catch (e) {}
   function biz() { try { return (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}; } catch (e) { return {}; } }
 
   var state = { tab: 'week', fPlatform: 'all', fStatus: 'all', fGoal: 'all', day: null,
