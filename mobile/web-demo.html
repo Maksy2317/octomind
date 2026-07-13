@@ -14019,6 +14019,7 @@
   // Selection is off by default — this is an idea library, not a file manager.
   var cmpSelecting = false;
   var cmpSel = new Set();
+  var cmpQuery = '';
 
   window.cmpEnterSelect = function () { cmpSelecting = true; cmpSel.clear(); renderList(); };
   window.cmpExitSelect = function () { cmpSelecting = false; cmpSel.clear(); renderList(); };
@@ -14118,7 +14119,9 @@
         ? '<div class="cmp-thumbs">' + imgs.map(function (m) { return '<img class="cmp-thumb" src="' + esc(m.output.url) + '" alt="">'; }).join('')
           + (n > imgs.length ? '<div class="cmp-thumb-more">+' + (n - imgs.length) + '</div>' : '') + '</div>'
         : '';
-      return '<div class="cmp-card" data-id="' + c.id + '" onclick="cmpCardClick(\'' + c.id + '\',this)">'
+      var hay = [c.name, c.goal, (c.strategy && c.strategy.offer) || '']
+        .concat(mats.map(function (m) { return m.title || ''; })).join(' ').toLowerCase();
+      return '<div class="cmp-card" data-id="' + c.id + '" data-search="' + esc(hay) + '" onclick="cmpCardClick(\'' + c.id + '\',this)">'
         + '<div class="cmp-check">✓</div>'
         + '<div class="cmp-card-body">'
         + '<div class="cmp-top"><div class="cmp-name">' + esc(c.name) + '</div>'
@@ -14128,11 +14131,17 @@
         + thumbs + '</div></div>';
     }).join('');
 
+    // Search appears once the library is big enough to need it.
+    var search = all.length >= 5
+      ? '<input id="cmpSearch" class="ob-input" style="margin:0 0 12px;" placeholder="🔎 Пошук за назвою, ціллю, матеріалом…" oninput="cmpFilter(this.value)" value="' + esc(cmpQuery) + '">'
+      : '';
+
     el.className = 'cmp-list' + (cmpSelecting ? ' selecting' : '');
     el.innerHTML = '<div class="cmp-head">'
       + '<div style="font-size:13px;color:var(--text4);font-weight:700;">' + all.length + ' записів</div>'
       + '<button class="cmp-select-btn" onclick="' + (cmpSelecting ? 'cmpExitSelect()' : 'cmpEnterSelect()') + '">'
-      + (cmpSelecting ? '✕ Готово' : '☑️ Обрати') + '</button></div>' + cards;
+      + (cmpSelecting ? '✕ Готово' : '☑️ Обрати') + '</button></div>'
+      + search + '<div id="cmpNoRes" style="display:none;color:var(--text4);font-size:13px;padding:14px 2px;">Нічого не знайдено.</div>' + cards;
 
     // Re-paint selection after a re-render (merge/delete keep the mode on).
     if (cmpSelecting) {
@@ -14140,8 +14149,23 @@
         if (cmpSel.has(card.dataset.id)) card.classList.add('selected');
       });
     }
+    if (cmpQuery) cmpFilter(cmpQuery);
     cmpSyncBar();
   }
+  // Filter the rendered cards in place — no re-render, so the search box keeps
+  // focus while typing.
+  window.cmpFilter = function (q) {
+    cmpQuery = q || '';
+    var needle = cmpQuery.trim().toLowerCase();
+    var el = $('cmpList'); if (!el) return;
+    var shown = 0;
+    el.querySelectorAll('.cmp-card').forEach(function (card) {
+      var hit = !needle || (card.dataset.search || '').indexOf(needle) >= 0;
+      card.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+    var nr = $('cmpNoRes'); if (nr) nr.style.display = shown ? 'none' : '';
+  };
 
   // ── Render: single campaign (strategy + all materials in one place) ─────────
   // Shared material renderer — handles the generic GeneratedMaterial shape
@@ -14181,7 +14205,13 @@
       if (!plain) return '';
       var id = 'mc_' + Math.random().toString(36).slice(2, 9);
       window.__octoMatTexts[id] = plain;
-      return '<div><button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + id + '\',this)">📋 Скопіювати текст</button></div>';
+      // Web Share on mobile: one tap to Instagram/Telegram/etc. instead of
+      // copy→switch app→paste. Only shown where the API exists (mostly phones).
+      var share = (typeof navigator !== 'undefined' && navigator.share)
+        ? '<button class="ob-copybtn" type="button" onclick="octoShareMat(\'' + id + '\')">📤 Поділитися</button>' : '';
+      return '<div style="display:flex;flex-wrap:wrap;gap:8px;">'
+        + '<button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + id + '\',this)">📋 Скопіювати текст</button>'
+        + share + '</div>';
     }
     if (o.variants) { // legacy text material
       var vPlain = (o.variants || []).map(function (v) { return (v.angle ? v.angle + ': ' : '') + (v.text || '') + (v.caption ? '\n' + v.caption : ''); }).join('\n\n') + (o.cta ? '\n\nCTA: ' + o.cta : '');
@@ -14206,6 +14236,11 @@
   };
   // Registry + handlers for the material-body widgets.
   window.__octoMatTexts = window.__octoMatTexts || {};
+  window.octoShareMat = function (id) {
+    var t = window.__octoMatTexts[id] || '';
+    if (navigator.share) { navigator.share({ text: t }).catch(function () {}); }
+    else { window.octoCopyMat(id); }
+  };
   window.octoCopyMat = function (id, btn) {
     var t = window.__octoMatTexts[id] || '';
     var done = function () { if (btn) { btn.textContent = '✓ Скопійовано'; setTimeout(function () { btn.textContent = '📋 Скопіювати текст'; }, 1600); } };
