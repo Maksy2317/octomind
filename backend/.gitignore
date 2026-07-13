@@ -3,3 +3,6 @@ dist/
 .env
 uploads/
 !uploads/.gitkeep
+
+# Prompt-eval snapshots (local drift history; run: npm run eval)
+eval-snapshots/
