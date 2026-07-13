@@ -13153,6 +13153,22 @@
     if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
     try { window.octoTrack('package_done', { count: mats.length }); } catch (e) {}
     if (btn) { btn.disabled = false; btn.textContent = '✨ Створити ще раз'; }
+    // The bridge the flow was missing: a finished pack goes straight onto the
+    // content plan, not into a drawer the user must rediscover. Reuses the
+    // campaign-library scheduler (AI picks days/times, dedup by material id) —
+    // its progress/summary lands in the csch-<id> status node we create here.
+    var cid = window.octoCampaigns && window.octoCampaigns.current;
+    if (cid && st && !document.getElementById('ocToPlanBtn')) {
+      var pb = document.createElement('button');
+      pb.id = 'ocToPlanBtn'; pb.className = 'btn btn-primary';
+      pb.style.cssText = 'width:100%;margin-top:10px;';
+      pb.textContent = '📅 Розкласти пакет по днях';
+      var pst = document.createElement('div');
+      pst.id = 'csch-' + cid; pst.className = 'ob-status';
+      pb.onclick = function () { window.octoScheduleCampaign(cid, pb); try { window.octoTrack('plan_generated', { via: 'bridge' }); } catch (e) {} };
+      st.parentNode.insertBefore(pb, st.nextSibling);
+      st.parentNode.insertBefore(pst, pb.nextSibling);
+    }
   }
 
   // Gate the campaign behind knowing the business (Understand → then campaigns).
