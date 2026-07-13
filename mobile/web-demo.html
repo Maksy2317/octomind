@@ -2034,147 +2034,8 @@
 </div>
 
 <!-- ============ QUIZ ============ -->
-<div id="quizWrap" style="display:none;">
-  <div class="quiz-box">
-    <div class="quiz-logo">
-      <img class="octo-img" src="assets/new/A16.png" alt="Octo">
-      <h1>Octo<span>Mind</span></h1>
-      <p>AI Marketing Assistant — давай познакомимся</p>
-    </div>
+  <div id="quizWrap" style="display:none;"></div>
 
-    <div class="quiz-progress">
-      <div class="quiz-progress-dot active" id="qd1"></div>
-      <div class="quiz-progress-dot" id="qd2"></div>
-      <div class="quiz-progress-dot" id="qd3"></div>
-      <div class="quiz-progress-dot" id="qd4"></div>
-    </div>
-
-    <!-- Q1 -->
-    <div class="quiz-card active" id="q1">
-      <div class="quiz-q-label">Вопрос 1 из 4</div>
-      <div class="quiz-q-text">В какой сфере ты работаешь?</div>
-      <div class="quiz-options">
-        <div class="quiz-option" onclick="selectQ(1,'E-commerce',this)">
-          <span class="quiz-option-icon">🛒</span> E-commerce
-        </div>
-        <div class="quiz-option" onclick="selectQ(1,'Личный бренд / блогер',this)">
-          <span class="quiz-option-icon">🌟</span> Личный бренд / блогер
-        </div>
-        <div class="quiz-option" onclick="selectQ(1,'Услуги (салон, агентство и т.д.)',this)">
-          <span class="quiz-option-icon">💼</span> Услуги (салон, агентство и т.д.)
-        </div>
-        <div class="quiz-option" onclick="selectQ(1,'Другое',this)">
-          <span class="quiz-option-icon">✨</span> Другое
-        </div>
-      </div>
-    </div>
-
-    <!-- Q1 reaction -->
-    <div class="quiz-card" id="q1r">
-      <div class="octo-reaction">
-        <span class="octo-face"><img src="assets/new/A09.png" style="width:28px;height:28px;object-fit:contain;"></span>
-        <span class="octo-reaction-text">Окей, понял твою сферу… уже думаю, как тебе увеличить продажи 👀</span>
-      </div>
-      <div class="quiz-q-label">Вопрос 2 из 4</div>
-      <div class="quiz-q-text">Какая твоя главная цель сейчас?</div>
-      <div class="quiz-options">
-        <div class="quiz-option" onclick="selectQ(2,'Больше клиентов',this)">
-          <span class="quiz-option-icon">👥</span> Больше клиентов
-        </div>
-        <div class="quiz-option" onclick="selectQ(2,'Рост подписчиков',this)">
-          <span class="quiz-option-icon">📈</span> Рост подписчиков
-        </div>
-        <div class="quiz-option" onclick="selectQ(2,'Увеличить продажи',this)">
-          <span class="quiz-option-icon">💰</span> Увеличить продажи
-        </div>
-        <div class="quiz-option" onclick="selectQ(2,'Узнаваемость бренда',this)">
-          <span class="quiz-option-icon">🎯</span> Узнаваемость бренда
-        </div>
-      </div>
-    </div>
-
-    <!-- Q2 reaction -->
-    <div class="quiz-card" id="q2r">
-      <div class="octo-reaction">
-        <span class="octo-face"><img src="assets/new/A23.png" style="width:28px;height:28px;object-fit:contain;"></span>
-        <span class="octo-reaction-text">Хорошо… фокус на результат. Значит будем давить туда, где быстрее всего рост 🚀</span>
-      </div>
-      <div class="quiz-q-label">Вопрос 3 из 4</div>
-      <div class="quiz-q-text">Что сейчас больше всего тормозит твой рост?</div>
-      <div class="quiz-options">
-        <div class="quiz-option" onclick="selectQ(3,'Нет идей для контента',this)">
-          <span class="quiz-option-icon">💡</span> Нет идей для контента
-        </div>
-        <div class="quiz-option" onclick="selectQ(3,'Реклама не работает',this)">
-          <span class="quiz-option-icon">📢</span> Реклама не работает
-        </div>
-        <div class="quiz-option" onclick="selectQ(3,'Мало времени',this)">
-          <span class="quiz-option-icon">⏰</span> Мало времени
-        </div>
-        <div class="quiz-option" onclick="selectQ(3,'Не понимаю маркетинг',this)">
-          <span class="quiz-option-icon">🤯</span> Не понимаю маркетинг
-        </div>
-      </div>
-    </div>
-
-    <!-- Q3 reaction -->
-    <div class="quiz-card" id="q3r">
-      <div class="octo-reaction">
-        <span class="octo-face"><img src="assets/new/A18.png" style="width:28px;height:28px;object-fit:contain;"></span>
-        <span class="octo-reaction-text">Ага… вот где узкое место. Я как раз умею это закрывать 👌</span>
-      </div>
-      <div class="quiz-q-label">Вопрос 4 из 4</div>
-      <div class="quiz-q-text">Где ты сейчас продвигаешься?</div>
-      <div class="quiz-options">
-        <div class="quiz-option" onclick="selectQ(4,'TikTok',this)">
-          <span class="quiz-option-icon">🎵</span> TikTok
-        </div>
-        <div class="quiz-option" onclick="selectQ(4,'Instagram',this)">
-          <span class="quiz-option-icon">📸</span> Instagram
-        </div>
-        <div class="quiz-option" onclick="selectQ(4,'YouTube',this)">
-          <span class="quiz-option-icon">▶️</span> YouTube
-        </div>
-        <div class="quiz-option" onclick="selectQ(4,'Всё сразу',this)">
-          <span class="quiz-option-icon">⚡</span> Всё сразу
-        </div>
-      </div>
-    </div>
-
-    <!-- Final -->
-    <div class="quiz-final" id="qfinal">
-      <div class="quiz-final-header">
-        <img src="assets/new/A11.png" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;">
-        <h2>Я проанализировал твою ситуацию…</h2>
-        <p>Вот что тебе нужно прямо сейчас</p>
-      </div>
-
-      <div class="quiz-results">
-        <div class="quiz-result-title">Твой профиль</div>
-        <div class="quiz-result-item"><span>🎯</span> <span id="qr1">—</span></div>
-        <div class="quiz-result-item"><span>🚀</span> <span id="qr2">—</span></div>
-        <div class="quiz-result-item"><span>⚡</span> <span id="qr3">—</span></div>
-        <div class="quiz-result-item"><span>📱</span> <span id="qr4">—</span></div>
-      </div>
-
-      <div class="quiz-needs">
-        <h3>👉 Тебе нужно:</h3>
-        <div class="quiz-need-item"><span>✅</span> Больше системного контента</div>
-        <div class="quiz-need-item"><span>✅</span> Автоматизация маркетинга</div>
-        <div class="quiz-need-item"><span>✅</span> Быстрые тесты гипотез</div>
-        <div style="margin-top:10px; font-size:13px; color:var(--text3); font-style:italic;">
-          🐙 Я могу сделать это за тебя.
-        </div>
-      </div>
-
-      <button class="quiz-cta" onclick="enterApp()">
-        🎯 Створити стратегію з AI →
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ============ APP ============ -->
 <div id="appWrap">
   <div class="app-layout">
     <nav class="sidebar">
@@ -2384,24 +2245,6 @@
               <div class="tool-name">Ask Octo</div>
               <div class="tool-desc" data-i18n="tool_octo_desc">Постав будь-яке питання з маркетингу — стратегія, підписи, контент-план, поради для зростання.</div>
               <span class="tool-tag" data-i18n="tool_chat_tag">Чат</span><span class="tool-tag" data-i18n="tool_strategy_tag">Стратегія</span><span class="tool-tag" data-i18n="tool_content_tag">Контент</span>
-            </div>
-            <div class="tool-card" onclick="showScreen('analyzer',null)">
-              <div class="tool-icon">🔍</div>
-              <div class="tool-name">Profile Analyzer</div>
-              <div class="tool-desc" data-i18n="tool_analyzer_desc">Встав посилання Instagram або TikTok — отримай повний аудит профілю з планом покращень.</div>
-              <span class="tool-tag">Instagram</span><span class="tool-tag">TikTok</span><span class="tool-tag" data-i18n="tool_audit_tag">Аудит</span>
-            </div>
-            <div class="tool-card" onclick="showScreen('video',null)">
-              <div class="tool-icon">🎬</div>
-              <div class="tool-name">Video Creator</div>
-              <div class="tool-desc" data-i18n="tool_video_desc">Завантаж відео — AI вибере шаблон і обробить під Stories, Reels або TikTok.</div>
-              <span class="tool-tag">Reels</span><span class="tool-tag">TikTok</span><span class="tool-tag">Stories</span>
-            </div>
-            <div class="tool-card" onclick="showScreen('photo',null);photoSwitchTab('carousel')">
-              <div class="tool-icon">🖼️</div>
-              <div class="tool-name">Carousel Builder</div>
-              <div class="tool-desc" data-i18n="tool_carousel_desc">Завантаж фото — AI об'єднає в єдиний стиль і напише підписи до кожного слайду.</div>
-              <span class="tool-tag" data-i18n="tool_design_tag">Дизайн</span><span class="tool-tag" data-i18n="tool_captions_tag">Підписи</span><span class="tool-tag" data-i18n="tool_style_tag">Стиль</span>
             </div>
             <div class="tool-card" onclick="showScreen('caption',null)">
               <div class="tool-icon">✍️</div>
@@ -3310,962 +3153,11 @@
           <div id="brResult"></div>
         </div>
 
-        <!-- Стратегія — marketing brain (legacy, поза меню) -->
-        <div class="screen" id="strategy">
-
-          <!-- ═══ MARKETING BRAIN (real /api/marketing) ═══ -->
-          <style>
-            .ob-input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text);
-              border-radius:11px; padding:11px 13px; font:inherit; font-size:14px; outline:none; margin-top:10px; resize:vertical; }
-            .ob-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,0.18); }
-            .ob-status { display:none; align-items:center; gap:9px; margin-top:12px; font-size:13px; font-weight:600; color:var(--text2); }
-            .ob-status.ob-busy, .ob-status.ob-ok, .ob-status.ob-err, .ob-status.ob-warn { display:flex; }
-            .ob-status.ob-busy { padding:12px 15px; border-radius:14px; background:rgba(139,123,255,.09); border:1px solid rgba(139,123,255,.22); animation:omUp .25s ease both; }
-            .ob-status.ob-ok { color:var(--green); } .ob-status.ob-err { color:#FF8A80; }
-            /* Amber, not red: an unreadable Instagram is normal, not a fault. */
-            .ob-status.ob-warn { color:#F5B450; }
-            .on-quiz-hi { animation:onQuizPulse 1.4s ease-in-out 2; }
-            @keyframes onQuizPulse { 0%,100% { box-shadow:0 0 0 0 rgba(139,123,255,.55); } 50% { box-shadow:0 0 0 10px rgba(139,123,255,0); } }
-            .ob-spin { width:17px; height:17px; border-radius:50%; border:2.5px solid rgba(139,123,255,.25); border-top-color:#8B7BFF; animation:ob-spin .8s linear infinite; flex:none; }
-            @keyframes ob-spin { to { transform:rotate(360deg); } }
-            .ob-res { animation:ob-rise .4s ease both; } @keyframes ob-rise { from {opacity:0;transform:translateY(8px);} to {opacity:1;transform:none;} }
-            .ob-rc-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
-            .ob-ico { width:34px;height:34px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:17px;background:var(--surface3); }
-            .ob-sec { font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin:14px 0 7px; }
-            .ob-chips { display:flex;flex-wrap:wrap;gap:6px; }
-            .ob-chip { background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:12.5px;color:var(--text2); }
-            .ob-src-wrap { display:flex;flex-wrap:wrap;gap:7px;margin-top:2px; }
-            .ob-src { display:inline-flex;align-items:center;gap:6px;max-width:220px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--text3);text-decoration:none;transition:border-color .15s,color .15s; }
-            .ob-src:hover { border-color:var(--accent);color:var(--text1); }
-            .ob-chip.warn { border-color:rgba(255,183,77,.4);color:#FFB74D; } .ob-chip.good { border-color:rgba(76,175,80,.4);color:#9CDf9F; }
-            .ob-why { background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-left:3px solid var(--accent);
-              border-radius:10px;padding:11px 14px;margin-top:12px;font-size:13.5px;color:var(--text2); } .ob-why b { color:var(--accent2); }
-            .ob-headline { font-size:19px;font-weight:800;line-height:1.3;background:linear-gradient(90deg,#fff,var(--accent2));
-              -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px; }
-            .ob-funnel { counter-reset:ob-f;display:flex;flex-direction:column;gap:7px;padding:0;margin:0; }
-            .ob-funnel li { list-style:none;counter-increment:ob-f;position:relative;background:var(--surface2);border:1px solid var(--border);
-              border-radius:10px;padding:9px 13px 9px 42px;font-size:13.5px;color:var(--text2); }
-            .ob-funnel li::before { content:counter(ob-f);position:absolute;left:11px;top:50%;transform:translateY(-50%);
-              width:21px;height:21px;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center; }
-            .ob-variant { background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:15px;margin-top:10px; }
-            .ob-angle { display:inline-block;font-size:11px;font-weight:800;color:var(--accent2);background:rgba(167,139,250,.12);
-              border-radius:6px;padding:3px 9px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px; }
-            .ob-variant p { font-size:14px;color:var(--text2);white-space:pre-wrap;margin:0; }
-            .ob-cap { margin-top:8px;font-size:12.5px;color:var(--text3);font-style:italic; }
-            .ob-tags { margin-top:8px;font-size:12.5px;color:var(--accent2);word-spacing:.35em; }
-            .ob-cta { margin-top:14px;padding:11px 14px;border-radius:10px;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.3);font-size:13.5px;color:#B8E6BA; }
-            .ob-copy { float:right;background:none;border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:4px 10px;font-size:11.5px;cursor:pointer; }
-            .ob-copy:hover { color:var(--text);border-color:var(--accent); }
-            .ob-kv { margin-top:4px;font-size:14px;color:var(--text2); }
-          </style>
-          <div class="card">
-            <div class="card-title">🧠 Маркетинговий мозок</div>
-            <div class="card-sub">Аналіз твого бізнесу → офер → стратегія → готові тексти. Бере профіль поточного акаунту (заповни в «Особистий кабінет»).</div>
-            <textarea id="obDesc" class="ob-input" rows="2" placeholder="Коротко опиши бізнес: що продаєш, чим особливий (необов'язково — але покращує результат)"></textarea>
-            <input id="obBrief" class="ob-input" placeholder="Побажання до текстів — напр.: анонс акції на вихідні (необов'язково)" />
-            <button class="btn btn-primary" id="obRunBtn" style="width:100%;margin-top:12px;" onclick="octoRunBrain()">🚀 Запустити аналіз</button>
-            <div class="ob-status" id="obStatus"></div>
-          </div>
-          <div id="obResult"></div>
-        </div>
-
-        <!-- Analyzer (legacy — прибраний з меню, лишається для сумісності) -->
-        <div class="screen" id="analyzer">
-          <div class="card">
-            <div class="card-title">🔍 Анализ профиля</div>
-            <div class="card-sub">Вставь ссылку на Instagram или TikTok — Octo проведёт полный аудит</div>
-            <div class="url-row">
-              <input class="url-input" id="profileUrl" placeholder="https://instagram.com/username или https://tiktok.com/@username" />
-              <button class="btn btn-primary" onclick="analyzeProfile()">Анализировать →</button>
-            </div>
-            <span class="tag">📸 Instagram</span>
-            <span class="tag">🎵 TikTok</span>
-            <span class="tag">Бесплатно</span>
-          </div>
-
-          <div id="analysisResult" style="display:none">
-            <div class="card" style="text-align:center; margin-bottom:14px;">
-              <div class="score-wrap">
-                <div class="score-ring">
-                  <div class="score-inner"><div class="score-num">70</div><div class="score-lbl">/ 100</div></div>
-                </div>
-                <div style="font-size:15px; font-weight:800;" id="profileName">@username</div>
-                <div style="font-size:12px; color:var(--text3); margin-top:4px;">Marketing Score — есть куда расти</div>
-              </div>
-            </div>
-
-            <div class="analysis-grid">
-              <div class="ai"><div class="ai-icon">📊</div><div class="ai-lbl">Engagement Rate</div><div class="ai-val">3.2%</div><div class="ai-sub">Выше среднего (2.1%)</div></div>
-              <div class="ai"><div class="ai-icon">🎨</div><div class="ai-lbl">Визуальный стиль</div><div class="ai-val">Средний</div><div class="ai-sub">Нет единой темы</div></div>
-              <div class="ai"><div class="ai-icon">📅</div><div class="ai-lbl">Частота постинга</div><div class="ai-val">4 раза/нед</div><div class="ai-sub">Хорошо, можно больше</div></div>
-              <div class="ai"><div class="ai-icon">🎯</div><div class="ai-lbl">Целевая аудитория</div><div class="ai-val">Размыта</div><div class="ai-sub">Нужно сузить нишу</div></div>
-            </div>
-
-            <div class="card">
-              <div class="card-title">🐙 Разбор от Octo</div>
-              <div style="margin-top:10px;" class="fb-list">
-                <div class="fb good"><span>✅</span><span>Хорошая частота постинга — ты постишь регулярно, алгоритм тебя замечает</span></div>
-                <div class="fb good"><span>✅</span><span>Engagement выше среднего по нише — аудитория вовлечена в контент</span></div>
-                <div class="fb bad"><span>❌</span><span>Нет единого визуального стиля — посты разных цветов, это путает алгоритм и аудиторию</span></div>
-                <div class="fb bad"><span>❌</span><span>Подписи слишком короткие — используй 3-5 предложений + CTA для роста охватов</span></div>
-                <div class="fb bad"><span>❌</span><span>Нет Reels/TikTok — видеоконтент получает в 5–10x больше органического охвата</span></div>
-                <div class="fb tip"><span>🐙</span><span>Выбери 3 основных цвета и используй их во всех постах. Создай карусель с единым стилем прямо сейчас.</span></div>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-title">🎯 План Octo на 30 дней</div>
-              <div style="margin-top:10px;" class="fb-list">
-                <div class="fb tip"><span>📌</span><span><strong>Неделя 1:</strong> Выбери визуальный стиль. Сделай 3 карусели в едином стиле через Carousel Builder.</span></div>
-                <div class="fb tip"><span>📌</span><span><strong>Неделя 2:</strong> Сними и опубликуй 3 Reels. Используй шаблоны из Video Creator.</span></div>
-                <div class="fb tip"><span>📌</span><span><strong>Неделя 3–4:</strong> Розыгрыш + коллаборация с 2 аккаунтами из своей ниши.</span></div>
-              </div>
-            </div>
-
-            <!-- ── COMPETITOR ANALYSIS ── -->
-            <div class="card" style="border:2px dashed var(--accent);background:linear-gradient(135deg,rgba(108,99,255,0.06) 0%,rgba(167,139,250,0.04) 100%);">
-              <div class="card-title">⚔️ Сравни с конкурентом</div>
-              <div class="card-sub" style="margin-bottom:16px;">Вставь ссылку конкурента — Octo покажет сравнение профилей</div>
-              <div class="url-row">
-                <input class="url-input" id="compUrl" placeholder="https://tiktok.com/@competitor или instagram.com/…" />
-                <button class="btn btn-primary" id="compBtn" onclick="analyzeCompetitor()">Сравнить →</button>
-              </div>
-            </div>
-
-            <!-- Competitor loading -->
-            <div id="compLoading" style="display:none;text-align:center;padding:30px 0;">
-              <div class="loading" style="justify-content:center;margin-bottom:12px;"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-              <p style="color:var(--text3);font-size:14px;">Octo анализирует конкурента…</p>
-            </div>
-
-            <!-- Competitor result -->
-            <div id="compResult" style="display:none">
-
-              <!-- VS header -->
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                <div class="comp-badge" id="compMyBadge">Я</div>
-                <div style="flex:1;height:2px;background:var(--border);position:relative;">
-                  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--surface);padding:0 10px;font-size:18px;font-weight:900;color:var(--accent);">VS</div>
-                </div>
-                <div class="comp-badge comp-badge-enemy" id="compThemBadge">Конкурент</div>
-              </div>
-
-              <!-- Metrics comparison grid -->
-              <div class="comp-grid" id="compGrid"></div>
-
-              <!-- Winner banner -->
-              <div id="compWinner" class="card" style="text-align:center;margin-bottom:14px;"></div>
-
-              <!-- AI insights -->
-              <div class="card">
-                <div class="card-title">🐙 Что говорит Octo</div>
-                <div id="compInsights" class="fb-list" style="margin-top:10px;"></div>
-              </div>
-
-              <!-- Action plan -->
-              <div class="card">
-                <div class="card-title">🚀 Как обогнать конкурента</div>
-                <div id="compPlan" class="fb-list" style="margin-top:10px;"></div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-        <!-- Video -->
-        <div class="screen" id="video">
-          <!-- Mode switcher -->
-          <div class="vsteps" style="margin-bottom:14px;">
-            <div class="vstep active" id="vModeCreator" onclick="vSwitchMode('creator')">🎬 Відео</div>
-            <div class="vstep" id="vModeSubs" onclick="vSwitchMode('subs')">📝 Субтитри</div>
-          </div>
-
-          <!-- ═══ VIDEO CREATOR mode ═══ -->
-          <div id="vModeCreatorWrap">
-          <div class="vsteps">
-            <div class="vstep active" id="vn1">1. Завантаження</div>
-            <div class="vstep" id="vn2">2. Формат</div>
-            <div class="vstep" id="vn3">3. Шаблон</div>
-            <div class="vstep" id="vn4">4. Готово</div>
-          </div>
-
-          <!-- Step 1: Upload -->
-          <div id="vs1">
-            <!-- Feature pills -->
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-              <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                <span style="font-size:15px;">🎨</span><span style="font-size:12px;font-weight:600;color:var(--text);">5 шаблонів</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                <span style="font-size:15px;">📝</span><span style="font-size:12px;font-weight:600;color:var(--text);">Автосубтитри</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                <span style="font-size:15px;">📐</span><span style="font-size:12px;font-weight:600;color:var(--text);">9:16 · Stories · Reels</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                <span style="font-size:15px;">🐙</span><span style="font-size:12px;font-weight:600;color:var(--text);">AI заповнює текст</span>
-              </div>
-            </div>
-
-            <div class="dropzone" id="vDropzone" onclick="document.getElementById('vf').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="vDrop(event)">
-              <div style="font-size:44px;margin-bottom:10px;">🎥</div>
-              <h3>Завантаж відео</h3>
-              <p>MP4, MOV, AVI, WebM · до 200MB</p>
-              <p style="font-size:12px;color:var(--text4);margin-top:6px;">або перетягни файл сюди</p>
-              <input type="file" id="vf" style="display:none" accept="video/*" onchange="vFileOk(event)">
-            </div>
-            <div id="vfInfo" style="display:none;margin-bottom:14px;" class="fb good">
-              <span>✅</span>
-              <div style="flex:1;">
-                <div id="vfName" style="color:var(--text2);font-weight:700;font-size:13px;"></div>
-                <div id="vfSize" style="color:var(--text4);font-size:11px;"></div>
-              </div>
-              <div id="vfThumbWrap" style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;"></div>
-            </div>
-            <button class="btn btn-primary btn-full" id="vb1" disabled onclick="vs(2)">Далі →</button>
-          </div>
-
-          <!-- Step 2: Format -->
-          <div id="vs2" style="display:none">
-            <div class="card-title" style="margin-bottom:12px;">Вибери платформу</div>
-            <div class="format-grid">
-              <div class="fc" onclick="vFmt('stories',this)">
-                <div class="fc-icon">📸</div><div class="fc-name">Stories</div><div class="fc-meta">15 сек · 9:16</div>
-              </div>
-              <div class="fc" onclick="vFmt('reels',this)">
-                <div class="fc-icon">🎬</div><div class="fc-name">Reels</div><div class="fc-meta">15–90 сек · 9:16</div>
-              </div>
-              <div class="fc" onclick="vFmt('tiktok',this)">
-                <div class="fc-icon">🎵</div><div class="fc-name">TikTok</div><div class="fc-meta">15–60 сек · 9:16</div>
-              </div>
-            </div>
-            <button class="btn btn-secondary btn-sm" onclick="vs(1)" style="margin-right:8px">← Назад</button>
-            <button class="btn btn-primary btn-sm" id="vb2" disabled onclick="vAI()">🐙 Аналізувати →</button>
-          </div>
-
-          <!-- Step 3: Templates (from AI) -->
-          <div id="vs3" style="display:none">
-            <input type="file" id="vCustomTmplFile" accept="image/*,video/mp4" style="display:none" onchange="vCustomTmplLoad(this)">
-            <div id="vAnalysisBadge" class="fb tip" style="margin-bottom:14px;display:none;">
-              <span>🐙</span>
-              <span id="vAnalysisText" style="font-size:12px;color:var(--text2);"></span>
-            </div>
-            <div class="card-title" style="margin-bottom:4px;">Вибери шаблон</div>
-            <div class="card-sub" style="margin-bottom:16px;">Octo рекомендує перший варіант</div>
-            <div class="tgrid" id="vtg"></div>
-            <!-- Custom template upload button -->
-            <label for="vCustomTmplFile" id="vCustomTmplCard" class="tc" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:100px;cursor:pointer;border-style:dashed;margin-top:2px;grid-column:1/-1;">
-              <div id="vCustomTmplInner" style="display:flex;flex-direction:column;align-items:center;gap:5px;">
-                <span style="font-size:28px;">➕</span>
-                <span style="font-size:11px;font-weight:700;">Свій шаблон</span>
-                <span style="font-size:10px;color:var(--text4);">PNG, JPG — накладеться як рамка</span>
-              </div>
-            </label>
-            <!-- Text slot inputs panel (shown when structured template selected) -->
-            <div id="vTextPanel" style="display:none; margin-top:16px; background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px;">
-              <div style="font-size:13px; font-weight:700; margin-bottom:12px; color:var(--text);">✏️ Заповни текст для відео</div>
-              <div id="vSlotInputs"></div>
-              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-                <div id="vAiFillWrap" style="display:none;">
-                  <button class="btn btn-secondary btn-sm" onclick="vAiFillSlots()" id="vAiFillBtn">🐙 Заповнити через AI</button>
-                </div>
-                <button class="btn btn-secondary btn-sm" id="vStep3PreviewBtn" onclick="vOpenLivePreview('step3')" style="display:none;">👁 Переглянути відео</button>
-              </div>
-            </div>
-            <div style="margin-top:16px;">
-              <button class="btn btn-secondary btn-sm" onclick="vs(2)" style="margin-right:8px">← Назад</button>
-              <button class="btn btn-primary btn-sm" id="vb3" disabled onclick="vProcess()">🚀 Застосувати та обробити →</button>
-            </div>
-          </div>
-
-          <!-- Step 4: Processing + Done -->
-          <div id="vs4" style="display:none">
-            <div id="vProcessing" class="card" style="text-align:center;padding:40px;">
-              <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
-              <div class="card-title" style="margin-bottom:8px;">Обробляємо відео...</div>
-              <div style="color:var(--text3);font-size:13px;margin-bottom:24px;">FFmpeg застосовує шаблон · конвертуємо в 9:16</div>
-              <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
-                <div id="vProgressBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:5%;transition:width 0.8s ease;"></div>
-              </div>
-              <div id="vProgressLabel" style="font-size:12px;color:var(--text4);margin-top:8px;">Завантаження та обробка...</div>
-            </div>
-            <div id="vDone" style="display:none;">
-              <!-- ── Compact header ── -->
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:12px 16px;background:linear-gradient(135deg,#1a1040,#12121E);border:1px solid #4CAF5044;border-radius:14px;">
-                <span style="font-size:28px;line-height:1;">🎉</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;color:#4CAF50;font-size:15px;">Відео готове!</div>
-                  <div id="vrd" style="font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Шаблон застосовано</div>
-                </div>
-                <a id="vDownloadLink" href="#" download="octo_video.mp4" class="btn btn-primary btn-sm" style="text-decoration:none;white-space:nowrap;flex-shrink:0;">💾 Завантажити</a>
-              </div>
-
-              <!-- ── Main layout: video left, editor right ── -->
-              <div class="v-done-layout">
-
-                <!-- Video pane -->
-                <div class="v-done-vidpane">
-                  <div id="vDoneVideoWrap" style="border-radius:12px;overflow:hidden;background:#000;line-height:0;position:relative;">
-                    <video id="vPreviewVideo" controls playsinline style="width:100%;aspect-ratio:9/16;display:block;object-fit:contain;"></video>
-                  </div>
-                  <button class="btn btn-secondary btn-full" onclick="vOpenLivePreview('done')" style="margin-top:8px;font-size:13px;">⛶ Переглянути на повний екран</button>
-                  <!-- Tech info below video -->
-                  <div style="margin-top:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
-                    <div id="vDoneInfo" style="font-size:11px;color:var(--text4);line-height:1.8;"></div>
-                  </div>
-                </div>
-
-                <!-- Editor pane (structured templates only) -->
-                <div class="v-done-editpane" id="vSlotEditor" style="display:none;">
-                  <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">✏️ Редагуй елементи</div>
-
-                  <!-- Tab bar -->
-                  <div class="slot-tab-bar" id="vSlotTabBar"></div>
-
-                  <!-- Active slot editor (populated by vActivateSlotTab) -->
-                  <div class="slot-active-editor" id="vSlotActiveEditor"></div>
-
-                  <!-- Re-render -->
-                  <button class="btn btn-primary btn-full" onclick="vRerender()" style="margin-top:4px;">🔄 Застосувати зміни</button>
-                </div>
-              </div>
-
-              <!-- ── Bottom actions ── -->
-              <div style="display:flex;gap:8px;margin-top:10px;">
-                <button class="btn btn-secondary" style="flex:1;" onclick="vRework()">↩ Змінити текст</button>
-                <button class="btn btn-secondary" style="flex:1;" onclick="vReset()">+ Новий проект</button>
-              </div>
-            </div>
-            <div id="vError" style="display:none;" class="card">
-              <div style="text-align:center;padding:20px;">
-                <div style="font-size:40px;margin-bottom:12px;">❌</div>
-                <div class="card-title" style="color:#ff6b6b;">Помилка обробки</div>
-                <div class="card-sub" id="vErrorMsg" style="margin-bottom:16px;"></div>
-                <button class="btn btn-secondary" onclick="vs(3)">← Спробувати ще раз</button>
-              </div>
-            </div>
-          </div>
-          </div><!-- /vModeCreatorWrap -->
-
-          <!-- ═══ SUBTITLES mode ═══ -->
-          <div id="vModeSubsWrap" style="display:none;">
-
-            <!-- Sub-steps indicator -->
-            <div class="vsteps" style="margin-bottom:16px;">
-              <div class="vstep active" id="ssn1">1. Відео</div>
-              <div class="vstep" id="ssn2">2. Налаштування</div>
-              <div class="vstep" id="ssn3">3. Субтитри</div>
-              <div class="vstep" id="ssn4">4. Готово</div>
-            </div>
-
-            <!-- Sub-step 1: upload video -->
-            <div id="ss1">
-              <!-- How it works — pills -->
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">🎙️</span><span style="font-size:12px;font-weight:600;color:var(--text);">Whisper AI</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">✏️</span><span style="font-size:12px;font-weight:600;color:var(--text);">Редагуй субтитри</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">🔥</span><span style="font-size:12px;font-weight:600;color:var(--text);">Вбити у відео</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;">
-                  <span style="font-size:15px;">🌐</span><span style="font-size:12px;font-weight:600;color:var(--text);">6 мов</span>
-                </div>
-              </div>
-
-              <div class="dropzone" id="ssDropzone" onclick="document.getElementById('ssFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="ssDrop(event)">
-                <div style="font-size:44px;margin-bottom:10px;">🎙️</div>
-                <h3>Завантаж відео</h3>
-                <p>MP4, MOV, AVI, WebM · до 200MB</p>
-                <p style="font-size:12px;color:var(--text4);margin-top:6px;">AI розпізнає мову та додасть субтитри</p>
-                <input type="file" id="ssFile" style="display:none" accept="video/*" onchange="ssFileOk(event)">
-              </div>
-              <div id="ssFileInfo" style="display:none;margin-bottom:14px;" class="fb good">
-                <span>✅</span>
-                <div style="flex:1;">
-                  <div id="ssFileName" style="color:var(--text2);font-weight:700;font-size:13px;"></div>
-                  <div id="ssFileSize" style="color:var(--text4);font-size:11px;"></div>
-                </div>
-              </div>
-              <button class="btn btn-primary btn-full" id="ssb1" disabled onclick="ssStep(2)">Далі →</button>
-            </div>
-
-            <!-- Sub-step 2: settings -->
-            <div id="ss2" style="display:none;">
-
-              <!-- Template selection -->
-              <div style="margin-bottom:14px;">
-                <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">🎨 Оберіть стиль</div>
-                <div class="ss-templates-row" id="ssTemplateRow">
-
-                  <!-- 1. Karaoke Red — top (ASS marginV=60 → ~3% from top) -->
-                  <div class="ss-tmpl-card active" id="ssTmpl0" onclick="ssSelectTemplate(0)">
-                    <div class="ss-tmpl-preview" style="background-color:#111;">
-                      <span style="position:absolute;top:3%;left:3%;right:3%;z-index:1;
-                        font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;line-height:1.3;
-                        text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;">
-                        <span style="color:#fff;">HE </span><span style="color:#FF2D2D;">WAS</span>
-                      </span>
-                    </div>
-                    <div class="ss-tmpl-label">🔥 Karaoke Red</div>
-                  </div>
-
-                  <!-- 2. Flash Yellow — center (ASS alignment=5) -->
-                  <div class="ss-tmpl-card" id="ssTmpl1" onclick="ssSelectTemplate(1)">
-                    <div class="ss-tmpl-preview" style="background-color:#0d0d0d;">
-                      <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;
-                        font-weight:900;font-size:20px;color:#FFE600;text-transform:uppercase;white-space:nowrap;
-                        text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000;
-                        letter-spacing:1px;">GO!</span>
-                    </div>
-                    <div class="ss-tmpl-label">⚡ Flash Yellow</div>
-                  </div>
-
-                  <!-- 3. Hormozi Gold — center -->
-                  <div class="ss-tmpl-card" id="ssTmpl2" onclick="ssSelectTemplate(2)">
-                    <div class="ss-tmpl-preview" style="background-color:#111;">
-                      <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;
-                        font-weight:900;font-size:11px;text-transform:uppercase;text-align:center;
-                        text-shadow:-1px -1px 0 #000,1px 1px 0 #000;line-height:1.7;">
-                        <span style="color:#fff;">JUST </span><span style="color:#FFE600;">DO</span><br>
-                        <span style="color:#fff;">IT NOW</span>
-                      </span>
-                    </div>
-                    <div class="ss-tmpl-label">💛 Hormozi Gold</div>
-                  </div>
-
-                  <!-- 4. Netflix Clean — bottom (ASS marginV=120/1920 ≈ 6%) -->
-                  <div class="ss-tmpl-card" id="ssTmpl3" onclick="ssSelectTemplate(3)">
-                    <div class="ss-tmpl-preview" style="background-color:#0a0a0a;">
-                      <span style="position:absolute;bottom:6%;left:3%;right:3%;z-index:1;
-                        font-weight:600;font-size:9px;color:#fff;text-align:center;
-                        text-shadow:0 1px 4px #000,0 0 10px rgba(0,0,0,.9);">this happened</span>
-                    </div>
-                    <div class="ss-tmpl-label">📺 Netflix Clean</div>
-                  </div>
-
-                  <!-- 5. Podcast Box — bottom with dark box -->
-                  <div class="ss-tmpl-card" id="ssTmpl4" onclick="ssSelectTemplate(4)">
-                    <div class="ss-tmpl-preview" style="background-color:#0a0a0a;">
-                      <span style="position:absolute;bottom:6%;left:3%;right:3%;z-index:1;
-                        font-weight:700;font-size:9px;color:#fff;text-align:center;
-                        background:rgba(0,0,0,0.82);padding:3px 6px;border-radius:3px;
-                        letter-spacing:.2px;">this happened</span>
-                    </div>
-                    <div class="ss-tmpl-label">🎙 Podcast Box</div>
-                  </div>
-
-                  <!-- 6. Reels Bold — yellow bg, black text, bottom -->
-                  <div class="ss-tmpl-card" id="ssTmpl5" onclick="ssSelectTemplate(5)">
-                    <div class="ss-tmpl-preview" style="background-color:#0a0a0a;">
-                      <span style="position:absolute;bottom:6%;left:3%;right:3%;z-index:1;
-                        font-weight:900;font-size:9px;text-transform:uppercase;text-align:center;
-                        color:#000;background:#FFE600;padding:3px 5px;border-radius:3px;
-                        letter-spacing:.5px;">JUST DO IT</span>
-                    </div>
-                    <div class="ss-tmpl-label">🟡 Reels Bold</div>
-                  </div>
-
-                  <!-- 7. Center Box — white text on dark pill, center -->
-                  <div class="ss-tmpl-card" id="ssTmpl6" onclick="ssSelectTemplate(6)">
-                    <div class="ss-tmpl-preview" style="background-color:#111;">
-                      <span style="position:absolute;top:50%;left:5%;right:5%;transform:translateY(-50%);z-index:1;
-                        font-weight:700;font-size:9px;color:#fff;text-align:center;line-height:1.4;
-                        background:rgba(0,0,0,0.78);padding:4px 7px;border-radius:4px;">він будував бізнес роками</span>
-                    </div>
-                    <div class="ss-tmpl-label">🎬 Center Box</div>
-                  </div>
-
-                </div>
-                <!-- Description of selected template -->
-                <div class="ss-tmpl-desc" id="ssTmplDesc">Вірусний TikTok · білий&nbsp;+&nbsp;<span style="color:#FF2D2D;font-weight:700;">червоний</span>&nbsp;· слово за словом</div>
-              </div>
-
-              <!-- Language selector (always visible) -->
-              <div style="margin-bottom:14px;">
-                <div style="font-size:10px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🌐 Мова відео</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
-                  <button class="ss-opt-btn active" id="ssLangAuto" onclick="ssLang('auto',this)">🤖 Авто</button>
-                  <button class="ss-opt-btn" id="ssLangUk" onclick="ssLang('uk',this)">🇺🇦 UA</button>
-                  <button class="ss-opt-btn" id="ssLangRu" onclick="ssLang('ru',this)">🇷🇺 RU</button>
-                  <button class="ss-opt-btn" id="ssLangEn" onclick="ssLang('en',this)">🇬🇧 EN</button>
-                  <button class="ss-opt-btn" id="ssLangDe" onclick="ssLang('de',this)">🇩🇪 DE</button>
-                  <button class="ss-opt-btn" id="ssLangFr" onclick="ssLang('fr',this)">🇫🇷 FR</button>
-                </div>
-              </div>
-
-              <!-- Toggle to reveal advanced/custom settings -->
-              <button class="ss-opt-btn" id="ssCustomToggleBtn" onclick="ssToggleCustom()"
-                style="width:100%;margin-bottom:14px;color:var(--text4);font-size:12px;">⚙️ Змінити стиль вручну ▾</button>
-
-              <!-- Custom settings panel (hidden by default) -->
-              <div id="ss2Custom" style="display:none;margin-bottom:8px;">
-
-                <!-- Live preview + settings side by side -->
-                <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:4px;">
-
-                  <!-- Live preview (phone frame) -->
-                  <div class="ss-preview-wrap">
-                    <div class="ss-preview-ratio">
-                      <div class="ss-preview-frame" id="ssPreviewFrame">
-                        <!-- Placeholder when no frame -->
-                        <div id="ssPreviewPlaceholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;">
-                          <span style="font-size:28px;">🎬</span>
-                          <span style="font-size:9px;color:rgba(255,255,255,0.4);text-align:center;">перший<br>кадр</span>
-                        </div>
-                      </div>
-                      <!-- Subtitle text overlay -->
-                      <div class="ss-preview-text" id="ssPreviewText">Текст субтитрів</div>
-                    </div>
-                    <div style="text-align:center;font-size:9px;color:var(--text4);padding:4px 0;">Live preview</div>
-                  </div>
-
-                  <!-- Settings panel -->
-                  <div style="flex:1;display:flex;flex-direction:column;gap:10px;">
-
-                    <!-- Style mode -->
-                    <div>
-                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">✨ Стиль</div>
-                      <div style="display:flex;gap:5px;">
-                        <button class="ss-opt-btn active" id="ssModeSegs" onclick="ssMode('segments',this)" style="flex:1;">📝 Речення</button>
-                        <button class="ss-opt-btn" id="ssModeWords" onclick="ssMode('words',this)" style="flex:1;">⚡ Слово в слово</button>
-                      </div>
-                    </div>
-
-                    <!-- Size -->
-                    <div>
-                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📏 Розмір</div>
-                      <div style="display:flex;gap:5px;">
-                        <button class="ss-opt-btn" id="ssSzS" onclick="ssSz(72,this)">S</button>
-                        <button class="ss-opt-btn" id="ssSzM" onclick="ssSz(96,this)">M</button>
-                        <button class="ss-opt-btn" id="ssSzL" onclick="ssSz(120,this)">L</button>
-                      </div>
-                    </div>
-
-                    <!-- Color -->
-                    <div>
-                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🎨 Колір</div>
-                      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <div class="ss-clr" id="ssClrWhite" onclick="ssClr('white',this)"
-                          style="width:32px;height:32px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer;flex-shrink:0;"></div>
-                        <div class="ss-clr" id="ssClrYellow" onclick="ssClr('yellow',this)"
-                          style="width:32px;height:32px;border-radius:50%;background:#FFE600;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
-                        <div class="ss-clr" id="ssClrRed" onclick="ssClr('red',this)"
-                          style="width:32px;height:32px;border-radius:50%;background:#FF2D2D;border:3px solid transparent;cursor:pointer;flex-shrink:0;"></div>
-                        <div class="ss-clr" id="ssClrBlack" onclick="ssClr('black',this)"
-                          style="width:32px;height:32px;border-radius:50%;background:#111;border:3px solid transparent;cursor:pointer;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2);"></div>
-                      </div>
-                    </div>
-
-                    <!-- Uppercase toggle -->
-                    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
-                      <span style="font-size:12px;color:var(--text2);font-weight:600;">🔠 Великі літери</span>
-                      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
-                        <input type="checkbox" id="ssUpperToggle" style="opacity:0;width:0;height:0;" onchange="ssState._styleCustomised=true;ssState.style.uppercase=this.checked;ssUpdatePreview();">
-                        <span id="ssUpperTrack" style="position:absolute;inset:0;background:#555;border-radius:20px;transition:.3s;"></span>
-                        <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssUpperThumb"></span>
-                      </label>
-                    </div>
-
-                    <!-- Position -->
-                    <div>
-                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">📍 Позиція</div>
-                      <div style="display:flex;gap:5px;">
-                        <button class="ss-opt-btn" id="ssPosTop" onclick="ssPos('top',this)">⬆ Верх</button>
-                        <button class="ss-opt-btn active" id="ssPosBottom" onclick="ssPos('bottom',this)">⬇ Низ</button>
-                        <button class="ss-opt-btn" id="ssPosCenter" onclick="ssPos('center',this)">· Центр</button>
-                      </div>
-                    </div>
-
-                    <!-- Background toggle -->
-                    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;">
-                      <span style="font-size:12px;color:var(--text2);font-weight:600;">🟫 Фон за текстом</span>
-                      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer;">
-                        <input type="checkbox" id="ssBgToggle" style="opacity:0;width:0;height:0;" onchange="ssState._styleCustomised=true;ssState.style.background=this.checked;ssUpdatePreview();">
-                        <span id="ssBgTrack" style="position:absolute;inset:0;background:#555;border-radius:20px;transition:.3s;"></span>
-                        <span style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.3s;" id="ssBgThumb"></span>
-                      </label>
-                    </div>
-
-                    <!-- Font picker -->
-                    <div>
-                      <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">🔤 Шрифт</div>
-                      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        <button class="fpick fpick-default fp-sel" id="ssFontDefault" onclick="ssFontPick('default',this)">Arial</button>
-                        <button class="fpick fpick-condensed" id="ssFontCondensed" onclick="ssFontPick('condensed',this)" style="font-family:Impact,'Arial Narrow',sans-serif;">Impact</button>
-                        <button class="fpick fpick-ubuntu" id="ssFontRounded" onclick="ssFontPick('rounded',this)">Rounded</button>
-                        <button class="fpick fpick-mono" id="ssFontMono" onclick="ssFontPick('mono',this)">Mono</button>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div><!-- /ss2Custom -->
-
-              <div style="display:flex;gap:8px;margin-top:4px;">
-                <button class="btn btn-secondary" onclick="ssStep(1)" style="padding:10px 16px;">← Назад</button>
-                <button class="btn btn-primary" id="ssGenerateBtn" style="flex:1;" onclick="ssGenerate()">🐙 Генерувати субтитри →</button>
-              </div>
-            </div>
-
-            <!-- Sub-step 3: review & edit subtitles -->
-            <div id="ss3" style="display:none;">
-              <!-- Generating spinner (two-phase: upload → transcribe) -->
-              <div id="ssGenerating" class="card" style="text-align:center;padding:40px;">
-                <div style="font-size:48px;margin-bottom:16px;" id="ssGenIcon">📤</div>
-                <div class="card-title" style="margin-bottom:8px;" id="ssGenTitle">Завантажуємо відео...</div>
-                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;" id="ssGenSub">Підготовка аудіо для аналізу</div>
-                <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
-                  <div id="ssGenBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:10%;animation:ssBarAnim 2s infinite ease-in-out;"></div>
-                </div>
-              </div>
-              <!-- Segments list -->
-              <div id="ssSegments" style="display:none;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                  <div class="card-title">Субтитри</div>
-                  <div style="display:flex;gap:6px;align-items:center;">
-                    <span id="ssModeTag" style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:var(--accent);color:#fff;"></span>
-                    <span id="ssDetLang" style="font-size:11px;color:var(--text4);"></span>
-                  </div>
-                </div>
-                <div id="ssSegList" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
-                <!-- Edit hint (segments mode only) -->
-                <div id="ssEditHint" style="font-size:11px;color:var(--text4);margin-bottom:14px;">✏️ Натисни на текст щоб відредагувати</div>
-                <!-- Word-by-word note -->
-                <div id="ssWordNote" style="display:none;font-size:11px;color:var(--text2);margin-bottom:14px;background:var(--surface2);border-radius:8px;padding:8px 10px;line-height:1.5;">⚡ Режим <b>Слово в слово</b>: редагування тексту не змінює анімацію — слова показуються за таймингами Whisper. Тут можна видалити сегменти.</div>
-                <div style="display:flex;gap:8px;">
-                  <button class="btn btn-secondary btn-sm" onclick="ssStep(2)">← Назад</button>
-                  <button class="btn btn-primary btn-sm" style="flex:1;" onclick="ssBurn()">🔥 Вбити субтитри у відео →</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sub-step 4: done -->
-            <div id="ss4" style="display:none;">
-              <div id="ssBurning" class="card" style="text-align:center;padding:40px;">
-                <div style="font-size:48px;margin-bottom:16px;">⚙️</div>
-                <div class="card-title" style="margin-bottom:8px;">Вбиваємо субтитри...</div>
-                <div style="color:var(--text3);font-size:13px;margin-bottom:24px;">FFmpeg рендерить відео з підписами</div>
-                <div style="background:var(--surface2);border-radius:20px;height:6px;overflow:hidden;">
-                  <div style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:20px;width:60%;animation:ssBarAnim 1.5s infinite ease-in-out;"></div>
-                </div>
-              </div>
-              <div id="ssDone" style="display:none;">
-                <!-- Video preview -->
-                <div style="border-radius:14px;overflow:hidden;background:#000;margin-bottom:12px;line-height:0;position:relative;">
-                  <video id="ssDoneVideo" controls playsinline style="width:100%;max-height:340px;display:block;"></video>
-                </div>
-                <div style="display:flex;gap:8px;margin-bottom:8px;">
-                  <a id="ssDownloadLink" href="#" download="octo_subtitles.mp4" class="btn btn-primary" style="flex:1;text-decoration:none;text-align:center;">💾 Завантажити</a>
-                  <button class="btn btn-secondary" style="flex:1;" onclick="ssRestyle()">🎨 Змінити стиль</button>
-                </div>
-                <button class="btn btn-secondary btn-full" onclick="ssReset()">+ Нові субтитри</button>
-              </div>
-              <div id="ssBurnError" style="display:none;" class="card">
-                <div style="text-align:center;padding:20px;">
-                  <div style="font-size:40px;margin-bottom:12px;">❌</div>
-                  <div class="card-title" style="color:#ff6b6b;">Помилка рендеру</div>
-                  <div class="card-sub" id="ssBurnErrorMsg" style="margin-bottom:16px;word-break:break-word;"></div>
-                  <div style="display:flex;gap:8px;justify-content:center;">
-                    <button class="btn btn-secondary btn-sm" onclick="ssShowSegments()">✏️ Редагувати</button>
-                    <button class="btn btn-primary btn-sm" onclick="ssBurn()">🔥 Спробувати ще раз</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div><!-- /vModeSubsWrap -->
-
-
-        </div>
-
-        <!-- Photo (unified: Carousel + Filters + AI Editor) -->
-        <div class="screen" id="photo">
-          <!-- Hidden file inputs for carousel slots -->
-          <input type="file" id="carFile0" accept="image/*" style="display:none" onchange="carSlotFile(0,this)">
-          <input type="file" id="carFile1" accept="image/*" style="display:none" onchange="carSlotFile(1,this)">
-          <input type="file" id="carFile2" accept="image/*" style="display:none" onchange="carSlotFile(2,this)">
-          <input type="file" id="carFile3" accept="image/*" style="display:none" onchange="carSlotFile(3,this)">
-          <input type="file" id="carFile4" accept="image/*" style="display:none" onchange="carSlotFile(4,this)">
-          <input type="file" id="carFile5" accept="image/*" style="display:none" onchange="carSlotFile(5,this)">
-          <input type="file" id="carFile6" accept="image/*" style="display:none" onchange="carSlotFile(6,this)">
-          <input type="file" id="carFile7" accept="image/*" style="display:none" onchange="carSlotFile(7,this)">
-          <input type="file" id="photoFile"   accept="image/*" style="display:none" onchange="photoLoad(this)">
-          <input type="file" id="photoAiFile" accept="image/*" style="display:none" onchange="photoAiLoad(this)">
-
-          <!-- Mode tabs -->
-          <div class="vsteps" style="margin-bottom:14px;">
-            <div class="vstep active" id="photoTabCarousel" onclick="photoSwitchTab('carousel')">🎠 Карусель</div>
-            <div class="vstep"        id="photoTabFilters"  onclick="photoSwitchTab('filters')">🎨 Фільтри</div>
-            <div class="vstep"        id="photoTabAi"       onclick="photoSwitchTab('ai')">🤖 AI Редактор</div>
-          </div>
-
-          <!-- ── Carousel tab ── -->
-          <div id="photoCarouselWrap">
-            <div class="card">
-              <div class="card-title">🖼️ AI Carousel</div>
-              <div class="card-sub">Завантаж 2–8 фото — Octo аналізує всі разом і робить єдиний стиль</div>
-              <div class="pgrid" id="carSlots"></div>
-              <div style="margin-top:12px;">
-                <textarea id="carStylePromptInput" placeholder="Стиль (необов'язково): luxury fashion, minimalist, vibrant…"
-                  style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text1);border-radius:10px;padding:10px;font-size:12px;resize:none;box-sizing:border-box;outline:none;"
-                  rows="2"></textarea>
-              </div>
-              <div style="display:flex;gap:6px;margin-top:8px;">
-                <button id="carLangBtnUk" class="ss-opt-btn active" onclick="carSetLang('uk',this)">🇺🇦 UA</button>
-                <button id="carLangBtnRu" class="ss-opt-btn" onclick="carSetLang('ru',this)">🇷🇺 RU</button>
-                <button id="carLangBtnEn" class="ss-opt-btn" onclick="carSetLang('en',this)">🇬🇧 EN</button>
-              </div>
-              <div style="margin-top:10px;">
-                <div style="font-size:10px;color:var(--text4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🎨 Тема</div>
-                <div id="carThemePicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-              </div>
-              <button class="btn btn-primary btn-full" onclick="carBuild()" id="carBuildBtn" disabled style="opacity:0.5;margin-top:14px;">🤖 Аналізувати та створити →</button>
-            </div>
-            <div id="carProgCard" style="display:none;" class="card">
-              <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;" id="carProgSub">Аналізую фото…</div>
-              <div style="background:var(--surface3);border-radius:100px;height:6px;overflow:hidden;margin-bottom:4px;">
-                <div id="carProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7C5CFC,#38BDF8);border-radius:100px;transition:width .4s;"></div>
-              </div>
-              <div style="font-size:11px;color:var(--text4);" id="carProgTime"></div>
-            </div>
-            <div id="carRes" style="display:none">
-              <div class="card">
-                <div class="card-title">✅ Карусель готова!</div>
-                <div class="card-sub" id="carResInfo"></div>
-                <div id="carSlidesPrev" style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:4px;"></div>
-                <!-- Font picker -->
-                <div style="margin-top:12px;">
-                  <div style="font-size:10px;color:var(--text4);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">🔤 Шрифт</div>
-                  <div id="carFontPicker" style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button onclick="carSetFont('modern')"  class="ss-opt-btn active" id="carFont_modern">Сучасний</button>
-                    <button onclick="carSetFont('classic')" class="ss-opt-btn"        id="carFont_classic">Класичний</button>
-                    <button onclick="carSetFont('impact')"  class="ss-opt-btn"        id="carFont_impact">💥 Удар</button>
-                    <button onclick="carSetFont('thin')"    class="ss-opt-btn"        id="carFont_thin">✦ Тонкий</button>
-                  </div>
-                </div>
-                <div style="display:flex;gap:8px;margin-top:14px;">
-                  <button class="btn btn-primary btn-sm" onclick="carDownloadZip()" id="carDlBtn">📦 ZIP</button>
-                  <button class="btn btn-secondary btn-sm" onclick="carBuild()">🔄 Пересоздати</button>
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-title">✏️ Редагувати підписи</div>
-                <div style="font-size:11px;color:var(--text4);margin-bottom:8px;">Змінюй текст → натискай ✅ щоб оновити слайд</div>
-                <div id="carCaptions" style="display:flex;flex-direction:column;gap:8px;"></div>
-              </div>
-            </div>
-          </div><!-- /photoCarouselWrap -->
-
-          <!-- ── Filters tab (existing) ── -->
-          <div id="photoFiltersWrap" style="display:none;">
-            <div id="photoStep1">
-              <div class="card">
-                <div class="card-title">📸 TikTok Photo Edit</div>
-                <div class="card-sub">Загрузи фото — выбери TikTok-шаблон и скачай результат</div>
-                <label for="photoFile" class="dropzone" style="margin-bottom:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;">
-                  <div style="font-size:44px;margin-bottom:8px;">📸</div>
-                  <h3>Нажми или перетащи фото</h3>
-                  <p style="color:var(--text3);font-size:12px;margin-top:4px;">JPG, PNG, WEBP · до 50MB</p>
-                </label>
-              </div>
-            </div>
-            <div id="photoStep2" style="display:none">
-              <div class="card">
-                <div class="card-title" style="margin-bottom:10px;">🎨 Обери TikTok-шаблон</div>
-                <div class="photo-tmpl-grid" id="photoTmplGrid"></div>
-                <div class="photo-before-after">
-                  <div class="photo-ba-wrap">
-                    <canvas id="photoBefore" width="1080" height="1080"></canvas>
-                    <div class="photo-ba-label">Оригинал</div>
-                  </div>
-                  <div class="photo-ba-wrap" style="cursor:zoom-in;" onclick="photoFilterFullscreen()" title="Натисни для повного перегляду">
-                    <canvas id="photoAfter" width="1080" height="1080"></canvas>
-                    <div class="photo-ba-label" id="photoAfterLabel">Шаблон</div>
-                    <div style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:5px;padding:2px 6px;pointer-events:none;">🔍</div>
-                  </div>
-                </div>
-                <div style="display:flex;gap:8px;margin-top:4px;">
-                  <button class="btn btn-primary" style="flex:1;" onclick="photoDownload()">💾 Скачати</button>
-                  <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoFilterFullscreen()">🔍 На весь екран</button>
-                  <button class="btn btn-secondary" style="flex:0 0 auto;" onclick="photoReset()">↩</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ── AI Editor tab ── -->
-          <div id="photoAiWrap" style="display:none;">
-
-            <!-- Step 1: upload -->
-            <div id="photoAiStep1">
-              <div class="card">
-                <div class="card-title">🤖 AI Photo Editor</div>
-                <div class="card-sub">Завантаж фото і скажи що змінити — AI зробить це</div>
-                <label for="photoAiFile" class="dropzone" style="margin-bottom:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;">
-                  <div style="font-size:44px;margin-bottom:8px;">🖼️</div>
-                  <h3>Завантаж фото</h3>
-                  <p style="color:var(--text3);font-size:12px;margin-top:4px;">JPG, PNG · до 20MB</p>
-                </label>
-              </div>
-            </div>
-
-            <!-- Step 2: instruction — redesigned -->
-            <div id="photoAiStep2" style="display:none;">
-              <div class="card" style="padding:0;overflow:hidden;">
-
-                <!-- Photo preview (full-width, contained) -->
-                <img id="photoAiBefore"
-                  style="width:100%;display:block;max-height:320px;object-fit:contain;background:var(--surface3);">
-
-                <!-- Controls -->
-                <div style="padding:16px 16px 20px;">
-
-                  <!-- Preset chips -->
-                  <div id="photoAiChips" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;">
-                    <button class="pa-chip" onclick="photoAiPreset('Прибери прищі та недоліки шкіри',this)">✨ Шкіра</button>
-                    <button class="pa-chip" onclick="photoAiPreset('Розмий фон, залиш людину чіткою',this)">🌀 Фон</button>
-                    <button class="pa-chip" onclick="photoAiPreset('видалити людей на задньому фоні',this)">👤 Люди</button>
-                    <button class="pa-chip" onclick="photoAiPreset('Зроби більш кінематографічне освітлення',this)">🎬 Кіно</button>
-                    <button class="pa-chip" onclick="photoAiPreset('Поміняй небо на красивий захід сонця',this)">🌅 Небо</button>
-                    <button class="pa-chip" onclick="photoAiPreset('Збільш контраст і насиченість кольорів',this)">🎨 Кольори</button>
-                  </div>
-
-                  <!-- Prompt textarea -->
-                  <textarea id="photoAiPrompt" rows="2" class="pa-textarea"
-                    placeholder="Або опиши своє: прибери людей на фоні · зроби небо драматичним · розмий фон…"></textarea>
-
-                  <!-- Primary action -->
-                  <button onclick="photoAiGenerate()" id="photoAiBtn"
-                    class="btn btn-primary btn-full"
-                    style="margin-top:12px;font-size:14px;padding:13px 16px;">
-                    ✨ Редагувати →
-                  </button>
-
-                  <!-- Player-edit question (hidden until needed) -->
-                  <div id="photoAiPlayerQ" style="display:none;margin-top:12px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:14px;padding:14px 16px;text-align:center;">
-                    <div style="font-size:22px;margin-bottom:6px;">🎭</div>
-                    <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;">Змінити також головного гравця?</div>
-                    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5;">
-                      <b>Так</b> → AI трансформує і гравця (стиль супергероя, арт, тощо)<br>
-                      <b>Ні</b> → гравець залишиться 100% оригінальним
-                    </div>
-                    <div style="display:flex;gap:8px;">
-                      <button id="photoAiPlayerYes" class="btn btn-primary" style="flex:1;font-size:13px;padding:10px 8px;">✨ Так, змінити</button>
-                      <button id="photoAiPlayerNo"  class="btn btn-secondary" style="flex:1;font-size:13px;padding:10px 8px;">🛡 Ні, зберегти</button>
-                    </div>
-                  </div>
-
-                  <!-- Divider -->
-                  <div style="margin:18px 0 14px;display:flex;align-items:center;gap:10px;">
-                    <div style="flex:1;height:1px;background:var(--border);"></div>
-                    <span style="font-size:10px;color:var(--text4);letter-spacing:.8px;text-transform:uppercase;">або</span>
-                    <div style="flex:1;height:1px;background:var(--border);"></div>
-                  </div>
-
-                  <!-- Manual mode — card-row style -->
-                  <button onclick="photoAiManualMode()" class="pa-manual-btn">
-                    <div style="width:40px;height:40px;border-radius:12px;background:#6C63FF22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🖌️</div>
-                    <div style="flex:1;min-width:0;">
-                      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;">Ручний режим</div>
-                      <div style="font-size:11px;color:var(--text3);line-height:1.4;">Малюй пензлем де видалити людей — точний контроль</div>
-                    </div>
-                    <span style="font-size:18px;color:var(--text4);flex-shrink:0;">›</span>
-                  </button>
-
-                  <!-- Reset -->
-                  <button onclick="photoAiReset()"
-                    style="margin-top:10px;width:100%;background:none;border:none;color:var(--text4);font-size:12px;cursor:pointer;padding:8px;transition:color .15s;"
-                    onmouseover="this.style.color='var(--text3)'"
-                    onmouseout="this.style.color='var(--text4)'">
-                    ↩ Вибрати інше фото
-                  </button>
-
-                </div>
-              </div>
-            </div>
-
-            <!-- Step 3: progress -->
-            <div id="photoAiStep3" style="display:none;">
-              <div class="card" style="text-align:center;padding:40px 24px;">
-                <div style="font-size:48px;margin-bottom:16px;">🤖</div>
-                <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:8px;">AI редагує фото…</div>
-                <div style="font-size:12px;color:var(--text3);margin-bottom:20px;" id="photoAiProgText">~15–20 секунд</div>
-                <div style="background:var(--surface2);border-radius:100px;height:6px;overflow:hidden;max-width:260px;margin:0 auto;">
-                  <div id="photoAiProgBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7C5CFC,#38BDF8);border-radius:100px;transition:width .6s;"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Step 4: result -->
-            <div id="photoAiStep4" style="display:none;">
-              <div class="card">
-                <div class="card-title" style="margin-bottom:12px;">✅ Готово!</div>
-                <!-- Main result — square image centred, no side letterboxing -->
-                <div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:center;">
-                  <img id="photoAiAfterImg" style="max-width:100%;max-height:520px;width:auto;height:auto;border-radius:12px;cursor:zoom-in;display:block;" onclick="photoAiFullscreen()" title="Натисни для повного перегляду">
-                  <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:6px;">Після ✨ · натисни для повного перегляду 🔍</div>
-                </div>
-                <!-- Side-by-side comparison -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-                  <div>
-                    <img id="photoAiBeforeSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);aspect-ratio:1/1;display:block;">
-                    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">До</div>
-                  </div>
-                  <div>
-                    <img id="photoAiAfterSmall" style="width:100%;border-radius:8px;object-fit:contain;background:var(--surface3);aspect-ratio:1/1;display:block;">
-                    <div style="text-align:center;font-size:11px;color:var(--text4);margin-top:4px;">Після ✨</div>
-                  </div>
-                </div>
-                <!-- Sky colour picker — visible only after sky edits -->
-                <div id="skyColorPicker" style="display:none;margin-bottom:14px;">
-                  <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:8px;">🎨 Спробуй інший колір неба:</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                    <button class="sky-chip" onclick="photoAiQuickSky('sunset sky dramatic orange red fiery clouds',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#ff6b35,#c0392b)"></span>🌅 Захід
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('clear bright blue sky sunny daytime',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#74b9ff,#0984e3)"></span>☀️ Блакитне
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('golden hour sky warm yellow orange haze beautiful',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#fdcb6e,#e17055)"></span>✨ Золотий
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('dramatic dark storm clouds lightning moody epic',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#636e72,#2d3436)"></span>⛈️ Гроза
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('pink purple magenta romantic sky pastel clouds',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#fd79a8,#a29bfe)"></span>🌸 Рожеве
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('night sky full of bright stars milky way dark blue',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#2c3e50,#0c1445)"></span>⭐ Ніч
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('dramatic overcast grey epic clouds moody cinematic',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#b2bec3,#636e72)"></span>☁️ Хмарне
-                    </button>
-                    <button class="sky-chip" onclick="photoAiQuickSky('vibrant colorful vivid sky purple teal orange gradients',this)">
-                      <span class="sky-dot" style="background:linear-gradient(135deg,#a29bfe,#00cec9,#fdcb6e)"></span>🌈 Яскраве
-                    </button>
-                  </div>
-                </div>
-                <button onclick="photoAiDownload()" class="btn btn-primary btn-full">💾 Скачати</button>
-                <div style="display:flex;gap:8px;margin-top:8px;">
-                  <button onclick="photoAiAgain()" class="btn btn-secondary btn-sm" style="flex:1;">🔄 Змінити запит</button>
-                  <button onclick="photoAiReset()" class="btn btn-secondary btn-sm" style="flex:1;">📸 Нове фото</button>
-                </div>
-              </div>
-            </div>
-
-          </div><!-- /photoAiWrap -->
-        </div>
-
         <!-- Pricing -->
         <div class="screen" id="pricing">
           <div style="text-align:center;margin-bottom:var(--toast-bottom);">
             <img src="assets/new/A14.png" style="width:72px;height:72px;object-fit:contain;margin-bottom:10px;">
-            <h2 style="font-size:26px;margin-bottom:6px;" data-i18n="pricing_title">Выбери свой план</h2>
+            <h2 style="font-size:26px;margin-bottom:6px;" data-i18n="pricing_title">Обери свій план</h2>
             <p style="color:var(--text3);" data-i18n="pricing_sub">Начни бесплатно. Расти с OctoMind.</p>
           </div>
 
@@ -4405,11 +3297,10 @@
 
           <!-- LANGUAGE SWITCHER -->
           <div style="margin-bottom:24px;">
-            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_language">🌐 Язык интерфейса</div>
+            <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;" data-i18n="s_language">🌐 Мова інтерфейсу</div>
             <div style="display:flex;gap:10px;">
               <button id="lang-uk" onclick="setLang('uk')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--accent);background:rgba(139,123,255,.14);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇺🇦 Українська</button>
               <button id="lang-en" onclick="setLang('en')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">🇬🇧 English</button>
-              <button id="lang-ru" onclick="setLang('ru')" style="flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s;">RU</button>
             </div>
           </div>
 
@@ -4418,7 +3309,7 @@
             <div style="font-size:13px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:700;">🎨 <span data-i18n="s_theme_section">Тема</span></div>
             <div class="srow">
               <div class="sinfo">
-                <h4 data-i18n="s_theme">Светлый режим</h4>
+                <h4 data-i18n="s_theme">Світла тема</h4>
                 <p data-i18n="s_theme_sub">Переключить на светлую тему</p>
               </div>
               <div class="toggle" id="themeToggle" onclick="toggleTheme()"></div>
@@ -4583,7 +3474,6 @@
           <div style="margin-bottom:24px;">
             <div class="cap-label">🌐 Мова підпису</div>
             <div class="cap-chips" id="capLang">
-              <div class="cap-chip" data-val="ru" onclick="capChip('capLang',this)">🇷🇺 Русский</div>
               <div class="cap-chip selected" data-val="uk" onclick="capChip('capLang',this)">🇺🇦 Українська</div>
               <div class="cap-chip" data-val="en" onclick="capChip('capLang',this)">🇬🇧 English</div>
             </div>
@@ -4803,7 +3693,7 @@
       errEl.textContent = 'Заполни email и пароль'; errEl.style.display = 'block'; return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errEl.textContent = 'Введи корректный email (например: name@gmail.com)'; errEl.style.display = 'block'; return;
+      errEl.textContent = 'Введи коректний email (наприклад: name@gmail.com)'; errEl.style.display = 'block'; return;
     }
     if (password.length < 6) {
       errEl.textContent = 'Пароль — минимум 6 символов'; errEl.style.display = 'block'; return;
@@ -4818,13 +3708,13 @@
 
     // Error messages in Russian
     const errMap = {
-      'Invalid login credentials': 'Неверный email или пароль',
-      'Email not confirmed': 'Сначала подтверди email — проверь почту 📬',
-      'User already registered': 'Этот email уже зарегистрирован — попробуй войти',
-      'Password should be at least 6 characters': 'Пароль — минимум 6 символов',
-      'Unable to validate email address: invalid format': 'Неверный формат email',
-      'email_address_invalid': 'Неверный формат email',
-      'invalid_credentials': 'Неверный email или пароль',
+      'Invalid login credentials': 'Неправильний email або пароль',
+      'Email not confirmed': 'Спершу підтверди email — перевір пошту 📬',
+      'User already registered': 'Цей email вже зареєстрований — спробуй увійти',
+      'Password should be at least 6 characters': 'Пароль — мінімум 6 символів',
+      'Unable to validate email address: invalid format': 'Неправильний формат email',
+      'email_address_invalid': 'Неправильний формат email',
+      'invalid_credentials': 'Неправильний email або пароль',
     };
 
     try {
@@ -4837,7 +3727,7 @@
 
       // Supabase errors come as data.msg or data.error_code (NOT data.error)
       if (!res.ok || data.error_code || (data.code >= 400)) {
-        const raw = data.msg || data.message || data.error || 'Ошибка входа';
+        const raw = data.msg || data.message || data.error || 'Помилка входу';
         errEl.textContent = errMap[data.error_code] || errMap[raw] || raw;
         errEl.style.display = 'block';
         return;
@@ -4846,21 +3736,21 @@
       // Registration: needs email confirmation (no access_token yet)
       if (!isLogin && !data.access_token) {
         errEl.style.background = '#0f2a18'; errEl.style.borderColor = '#1e5c32'; errEl.style.color = '#4ade80';
-        errEl.textContent = '✅ Отправили письмо на ' + email + ' — подтверди email и войди';
+        errEl.textContent = '✅ Надіслали листа на ' + email + ' — підтверди email і увійди';
         errEl.style.display = 'block';
         return;
       }
 
       // Must have token to proceed
       if (!data.access_token) {
-        errEl.textContent = 'Не удалось войти — попробуй ещё раз'; errEl.style.display = 'block'; return;
+        errEl.textContent = 'Не вдалося увійти — спробуй ще раз'; errEl.style.display = 'block'; return;
       }
 
       localStorage.setItem('octo_user', JSON.stringify({ email, token: data.access_token, refresh: data.refresh_token }));
       try { window.octoTrack(isLogin ? 'login' : 'signup'); } catch (e) {}
       goToApp();
     } catch {
-      errEl.textContent = 'Нет соединения — проверь интернет'; errEl.style.display = 'block';
+      errEl.textContent = 'Немає зʼєднання — перевір інтернет'; errEl.style.display = 'block';
     } finally {
       btn.textContent = isLogin ? '🚀 Увійти' : '✨ Створити акаунт';
       btn.disabled = false;
@@ -5376,97 +4266,6 @@
 
   // ── TRANSLATIONS ─────────────────────────────────────────────────────────────
   const translations = {
-    ru: {
-      // ── Pricing ──
-      pricing_title:'Выбери свой план', pricing_sub:'Начни бесплатно. Расти с OctoMind.',
-      plan_free:'Free', plan_free_desc:'Для знакомства с платформой',
-      plan_pro_desc:'Для серьёзного контент-мейкера', plan_agency_desc:'Для агентств и команд',
-      per_month:'/ мес', popular:'Популярный',
-      f_videos5:'5 видео в месяц', f_carousels3:'3 карусели', f_analysis1:'1 анализ профиля',
-      f_octo10:'Ask Octo (10 вопросов)', f_nowatermark:'Без водяного знака',
-      f_videos150:'150 видео в месяц', f_carousels_unlimited:'Неограниченные карусели',
-      f_analysis10:'10 анализов профиля', f_octo_unlimited:'Ask Octo безлимит', f_kb:'Своя база знаний',
-      f_videos_unlimited:'Безлимитные видео', f_analysis_unlimited:'Безлимитный анализ',
-      f_team5:'5 аккаунтов в команде', f_api:'API доступ', f_whitelabel:'Белая метка (White Label)',
-      btn_current:'Текущий план', btn_choose_pro:'Выбрать Pro →', btn_contact:'Связаться →', btn_save:'💾 Сохранить',
-      // ── Settings ──
-      s_language:'🌐 Язык интерфейса', s_brand:'Профиль бренда',
-      s_brandname:'Название бренда', s_brandname_sub:'AI использует при генерации контента',
-      s_niche:'Ниша', s_niche_sub:'Octo подберёт шаблоны под сферу',
-      s_audience:'Целевая аудитория', s_audience_sub:'Возраст подписчиков',
-      s_octo_settings:'Настройки Octo', s_tone:'Тон контента', s_tone_sub:'Как Octo пишет тексты',
-      tone_friendly:'Дружелюбный', tone_pro:'Профессиональный', tone_sales:'Продающий', tone_fun:'Развлекательный',
-      s_autotemplate:'Авто-выбор шаблона', s_autotemplate_sub:'Octo выбирает лучший шаблон сам',
-      s_notifications:'Уведомления', s_notifications_sub:'Когда видео готово',
-      s_theme_section:'Тема', s_theme:'Светлый режим', s_theme_sub:'Переключить на светлую тему',
-      s_pwa_section:'📱 Приложение и уведомления',
-      s_pwa_push:'Уведомления', s_pwa_push_sub:'Напоминание в запланированное время каждого поста',
-      s_pwa_install:'Установить как приложение', s_pwa_install_sub:'Иконка на главном экране телефона',
-      // ── Navigation ──
-      nav_main:'Главное', nav_create:'Студия', nav_account:'Аккаунт', nav_overview:'Обзор',
-      screen_strategy:'Стратегия 📋', screen_strategy_sub:'Анализ бизнеса, оффер и план продвижения',
-      screen_campaign:'Продвижение 🎯', screen_campaign_sub:'Поставь бизнес-цель — Octo сделает стратегию и материалы',
-      nav_campaigns:'Мои идеи', screen_campaigns:'Мои идеи 💡', screen_campaigns_sub:'Стратегии, материалы и сохранённые идеи в одном месте',
-      nav_trend:'Идея из тренда', nav_tools:'Инструменты AI', nav_research:'Исследование рынка', nav_audit:'Разбор контента', nav_brand:'Бренд-стиль',
-      screen_research:'Исследование рынка 🔎', screen_research_sub:'Octo найдёт, что работает в твоей нише',
-      screen_trend:'Идея из тренда 💡', screen_trend_sub:'Референс → оригинальный сценарий под твой бизнес',
-      screen_brand:'Бренд-стиль 🎨', screen_brand_sub:'Octo подберёт цвета, тон и лого под твой бизнес',
-      nav_trends:'Тренды', screen_trends:'Тренды 🔥', screen_trends_sub:'Вирусные ролики твоей ниши — с разбором, почему залетело',
-      nav_prodads:'Реклама товара', screen_prodads:'Реклама товара 📦', screen_prodads_sub:'Фото товара → готовые креативы, тексты и концепции',
-      screen_onboard:'Знакомство 👋', screen_onboard_sub:'Расскажи о бизнесе — Octo запомнит и будет работать под тебя',
-      screen_audit:'Разбор контента 🔍', screen_audit_sub:'Загрузи посты — Octo покажет слабые места и что исправить',
-      nav_profile_item:'Личный кабинет', nav_settings_item:'Настройки', nav_upgrade:'Upgrade to Pro',
-      plan_free_label:'Free Plan', plan_credits:'3 из 5 кредитов использовано',
-      // ── Topbar screen titles ──
-      screen_dashboard:'Обзор', screen_dashboard_sub:'Твой маркетинг на одном экране',
-      screen_advisor:'Маркетолог 🧠', screen_advisor_sub:'Расскажи о бизнесе — Octo разберется и предложит план',
-      screen_analyzer:'Profile Analyzer', screen_analyzer_sub:'Получи полный аудит Instagram или TikTok',
-      screen_video:'Video Creator', screen_video_sub:'Обработай видео с AI шаблонами',
-      screen_carousel:'Carousel Builder', screen_carousel_sub:'Создай карусель с единым стилем',
-      screen_photo:'Photo Edit', screen_photo_sub:'Улучши фото для Instagram',
-      screen_pricing:'Тарифи', screen_pricing_sub:'Прості тарифи без прихованих платежів',
-      screen_profile:'Личный кабинет', screen_profile_sub:'Твой аккаунт и настройки',
-      screen_settings:'Налаштування', screen_settings_sub:'Мова, сповіщення та інтеграції',
-      screen_caption:'Тексти', screen_caption_sub:'Посты, подписи и объявления в вашем тоне',
-      screen_calendar:'Контент-план', screen_calendar_sub:'Публикации на неделю вперёд',
-      car_sub:'Загрузи 2–10 фото — Octo создаёт единый стиль и подписи',
-      car_tmpl_title:'Шаблон оформления', car_build_btn:'Создать карусель',
-      car_done_title:'Карусель готова!', car_done_sub:'Octo добавил единый стиль и подписи к каждому слайду',
-      car_download:'Скачать все', car_redo:'Пересоздать', car_captions_title:'Подписи от Octo',
-      // ── Dashboard ──
-      stat_videos:'Видео создано', stat_videos_ch:'↑ 3 на этой неделе',
-      stat_carousels:'Карусели', stat_carousels_ch:'↑ 2 на этой неделе',
-      stat_profiles:'Профилей проанализировано', stat_profiles_ch:'↑ 1 на этой неделе',
-      stat_octo:'Ask Octo запросов', stat_octo_ch:'↑ 8 на этой неделе',
-      dash_hi:'Привет! Я Octo — твой AI маркетолог',
-      dash_hi_sub:'Основываясь на твоём квизе, я уже знаю чем тебе помочь. Спроси меня что угодно по маркетингу!',
-      dash_ask_btn:'🐙 Спросить Octo →',
-      tool_octo_desc:'Задай любой вопрос по маркетингу — стратегия, подписи, контент-план, советы для роста.',
-      tool_chat_tag:'Чат', tool_strategy_tag:'Стратегия', tool_content_tag:'Контент', tool_audit_tag:'Аудит',
-      tool_analyzer_desc:'Вставь ссылку Instagram или TikTok — получи полный аудит профиля с планом улучшений.',
-      tool_video_desc:'Загрузи видео — AI выберет шаблон и обработает под Stories, Reels или TikTok.',
-      tool_carousel_desc:'Загрузи фото — AI объединит в единый стиль и напишет подписи к каждому слайду.',
-      tool_caption_desc:'Опиши контент — AI напишет 3 варианта подписей с хэштегами для TikTok, Reels и Stories.',
-      tool_design_tag:'Дизайн', tool_captions_tag:'Подписи', tool_style_tag:'Стиль',
-      tips_title:'💡 Советы Octo на сегодня', tips_sub:'Актуальные тренды в соцсетях',
-      tip1:'Reels, опубликованные с 9 до 11 утра, получают в 2 раза больше охватов. Планируй публикации!',
-      tip2:'Карусели получают в 3х больше сохранений, чем одиночные фото. Создай карусель через Carousel Builder.',
-      tip3:'Профили с единым визуальным стилем получают на 40% больше подписчиков. Используй наши шаблоны.',
-      // ── Chat ──
-      chat_title:'Octo — AI Маркетолог', chat_online:'● Онлайн и готов помочь', chat_status:'AI активен',
-      qp1:'📊 Контент-план на неделю', qp2:'✍️ Напиши подпись к посту',
-      qp3:'📈 Как расти в TikTok', qp4:'🔥 Тренды этой недели', qp5:'🎯 Как найти свою аудиторию',
-      chat_placeholder:'Запитай Octo…',
-      // ── Profile ──
-      profile_upgrade_hint:'💡 Обнови до Pro — кампании, реклама товара, разбор страницы и Ask Octo без лимитов.',
-      profile_upgrade_btn:'⚡ Upgrade to Pro',
-      profile_ws_title:'🏢 Компании / Воркспейсы',
-      profile_ws_sub:'Переключайся между проектами — у каждого своя история чата',
-      ws_add_placeholder:'Название компании...', ws_add_btn:'+ Добавить', logout_btn:'Выйти',
-      ws_default:'🏠 Основной проект', ws_created:'Создан', ws_active:'● Активен',
-      ws_delete_confirm:'Удалить эту компанию? История чата будет потеряна.',
-      logout_confirm:'Выйти из аккаунта?',
-    },
     uk: {
       // ── Pricing ──
       pricing_title:'Обери свій план', pricing_sub:'Починай безкоштовно. Зростай з OctoMind.',
@@ -5652,6 +4451,7 @@
   };
 
   let currentLang = localStorage.getItem('octo_lang') || 'uk';
+  if (currentLang === 'ru') currentLang = 'uk';   // ru locale removed — UA/EN product
 
   function setLang(lang) {
     currentLang = lang;
@@ -5677,7 +4477,7 @@
       }
     }
     // Highlight active language button
-    ['ru','uk','en'].forEach(l => {
+    ['uk','en'].forEach(l => {
       const btn = document.getElementById('lang-' + l);
       if (!btn) return;
       if (l === lang) {
@@ -5840,13 +4640,7 @@
   }
 
   // Chat
-  const aiR = {
-    'контент': 'Вот контент-план на неделю 📅<br><br><strong>Пн:</strong> Образовательная карусель "3 совета"<br><strong>Вт:</strong> Reels с трендовым звуком (15–30 сек)<br><strong>Ср:</strong> Stories — опрос аудитории<br><strong>Чт:</strong> Закулисье / день из жизни<br><strong>Пт:</strong> Продающий пост<br><strong>Сб:</strong> Отзыв клиента или UGC<br><strong>Вс:</strong> Личный пост, история<br><br>💡 Публикуй Reels 3x в неделю — максимальный органический охват.',
-    'подпись': 'Вот варианты подписей 🐙<br><br>🔥 <strong>Продающий:</strong><br>"Ты уже пробовал [продукт]? Вот почему 1000+ клиентов выбрали нас 👇 Ссылка в шапке."<br><br>💡 <strong>Вовлекающий:</strong><br>"Согласен? Напиши + в комментах и я пришлю тебе [бонус] 🎁"<br><br>📊 <strong>Образовательный:</strong><br>"3 ошибки, которые убивают охваты 👇<br>1. Нерегулярный постинг<br>2. Нет CTA<br>3. Плохое качество<br><br>Сохрани, чтобы не забыть!"',
-    'tiktok': 'Как расти в TikTok в 2025 🚀<br><br>🔥 <strong>Алгоритм любит:</strong><br>• Видео до 30 сек с высоким completion rate<br>• Первые 2 секунды должны зацепить<br>• Трендовые звуки (обновляй каждую неделю)<br>• Серийный контент (часть 1, 2, 3...)<br><br>📈 <strong>Стратегия:</strong><br>• Постить 1–2 раза в день первый месяц<br>• 3–5 хэштегов (не 30!)<br>• Отвечать на ВСЕ комменты первые 2 часа',
-    'тренд': '🔥 Тренды этой недели:<br><br><strong>TikTok:</strong><br>• "POV" формат — от лица клиента<br>• Трансформации "before/after"<br>• "Day in my life" за кулисами бизнеса<br><br><strong>Instagram Reels:</strong><br>• Образовательные карусели "N причин"<br>• Закулисье создания продукта<br>• Отзывы клиентов в видео<br><br><strong>Сейчас работает:</strong><br>• Аутентичность > полировка<br>• Короткие факты с цифрами<br>• Личные истории',
-    'аудитори': 'Как найти целевую аудиторию 🎯<br><br><strong>1. Определи боль</strong> — что твой продукт решает?<br><strong>2. Анализ конкурентов</strong> — кто комментирует их посты?<br><strong>3. Instagram Analytics</strong> → Insights → Audience<br><strong>4. Тест гипотез</strong> — 3 поста для разных сегментов<br><br>💡 Твоя аудитория судя по квизу: 22–35 лет, хотят расти в соцсетях и экономить время на маркетинге.',
-  };
+  // (legacy mock chat answers removed — the chat is API-backed)
 
   function qpSend(el) {
     document.getElementById('chatInput').value = el.textContent.replace(/[📊✍️📈🔥🎯]/g, '').trim();
@@ -5963,7 +4757,7 @@
     if (pendingImage) {
       userContent = [
         { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
-        { type: 'text', text: text || 'Проанализируй это фото с маркетинговой точки зрения.' }
+        { type: 'text', text: text || 'Проаналізуй це фото з маркетингової точки зору.' }
       ];
       bubbleHtml = `<img src="${pendingImage.previewUrl}" class="msg-img">${text ? `<span>${text}</span>` : '<span>Проанализируй это фото с маркетинговой точки зрения.</span>'}`;
       clearImg();
@@ -6040,7 +4834,7 @@
   // Analyzer
   function analyzeProfile() {
     const url = document.getElementById('profileUrl').value;
-    if (!url) { alert('Вставь ссылку на профиль'); return; }
+    if (!url) { alert('Встав посилання на профіль'); return; }
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
     const name = url.split('/').filter(Boolean).pop() || 'username';
     document.getElementById('profileName').textContent = '@' + name;
@@ -10095,7 +8889,7 @@
     if (!name) return;
     const ws = getWorkspaces();
     const id = 'ws_' + Date.now();
-    const locale = currentLang === 'en' ? 'en-GB' : currentLang === 'uk' ? 'uk-UA' : 'ru-RU';
+    const locale = currentLang === 'en' ? 'en-GB' : 'uk-UA';
     ws.push({ id, name, created: new Date().toLocaleDateString(locale) });
     saveWorkspaces(ws);
     input.value = '';
@@ -10207,7 +9001,7 @@
   // ── CAPTION AI ────────────────────────────────────────────────────────────────
   // Called every time the Caption screen opens — syncs language chip to app lang
   function capInitScreen() {
-    const langMap = { uk: 'uk', ru: 'ru', en: 'en' };
+    const langMap = { uk: 'uk', ru: 'uk', en: 'en' };
     const target  = langMap[currentLang] || 'uk';
     document.querySelectorAll('#capLang .cap-chip').forEach(c => {
       c.classList.toggle('selected', c.dataset.val === target);
@@ -13217,7 +12011,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
 
     // Language
     if (profile.lang) {
-      const langMap = { 'Українська': 'uk', 'Русский': 'ru', 'English': 'en' };
+      const langMap = { 'Українська': 'uk', 'Русский': 'uk', 'English': 'en' };
       const langVal = Object.keys(langMap).reduce(function(f, k) {
         return (!f && profile.lang.indexOf(k) >= 0) ? langMap[k] : f;
       }, null);
