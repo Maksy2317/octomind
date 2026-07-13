@@ -224,6 +224,20 @@ cron.schedule('0 5 * * *', async () => {
   }
 }, { timezone: 'UTC' });
 
+// ── Weekly email digest (Monday 08:00 Kyiv = 05:00 UTC) ─────────────────────
+// No-op until RESEND_API_KEY/EMAIL_FROM are set; users without upcoming
+// planner posts are never emailed. Manual/dry runs: POST /api/admin/digest-run.
+cron.schedule('0 5 * * 1', async () => {
+  try {
+    const { runWeeklyDigest } = await import('./services/digest');
+    const r = await runWeeklyDigest(false);
+    console.log(`[CRON] Weekly digest: candidates=${r.candidates} sent=${r.sent} skipped=${r.skipped}` +
+      (r.errors.length ? ` errors=${r.errors.slice(0, 3).join(' | ')}` : ''));
+  } catch (e) {
+    console.error('[CRON] Weekly digest failed:', (e as Error).message);
+  }
+}, { timezone: 'UTC' });
+
 // ── Cleanup of stale uploads/outputs (older than 48h) ────────────────────────
 const FILE_MAX_AGE_MS = Number(process.env.FILE_MAX_AGE_HOURS || 48) * 3_600_000;
 function runCleanup() {

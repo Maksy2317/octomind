@@ -37,6 +37,23 @@ adminRouter.get('/stats', async (req: Request, res: Response, next: NextFunction
 // GET /api/admin/funnel?days=14 — the activation funnel from the events table.
 // Aggregated in Node (early volumes are tiny); one identity = user_id, else
 // device_id, so anonymous → signed-up journeys still count once per person.
+// POST /api/admin/digest-run — trigger the weekly digest by hand.
+// Body: { dryRun?: boolean } — dryRun collects candidates and renders a preview
+// without sending anything (works before Resend is configured).
+adminRouter.post('/digest-run', async (req: Request, res: Response, next: NextFunction) => {
+  if (!authorized(req)) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+  try {
+    const { runWeeklyDigest } = await import('../services/digest');
+    const dryRun = req.body?.dryRun !== false;   // default SAFE: dry run
+    res.json(await runWeeklyDigest(dryRun));
+  } catch (err) {
+    next(err);
+  }
+});
+
 const FUNNEL_STEPS = [
   'app_open', 'onboarding_done', 'strategy_created', 'material_created',
   'package_done', 'plan_generated', 'post_published',
