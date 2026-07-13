@@ -13947,7 +13947,7 @@
   };
 
   var now = function () { return Date.now(); };
-  var fmtDate = function (ts) { try { var d = new Date(ts); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); } catch (e) { return ''; } };
+  var fmtDate = function (ts) { try { var d = new Date(ts); if (isNaN(d.getTime())) return ''; return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); } catch (e) { return ''; } };
 
   // ── Hooks called from the Просування flow ──────────────────────────────────
   window.octoCampaignSaveStrategy = function (chosen, details, strategy) {
