@@ -12255,9 +12255,20 @@
       (a.strengths && a.strengths.length ? '<div class="ob-sec">Що працює</div>' + chips(a.strengths, 'good') : '') +
       (a.weaknesses && a.weaknesses.length ? '<div class="ob-sec">Слабкі місця</div>' + chips(a.weaknesses, 'warn') : '') +
       (fixes ? '<div class="ob-sec">Що виправити</div>' + fixes : '') +
-      '<button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showScreen(\'campaign\',null)">🎯 До просування з урахуванням цього →</button>';
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">' +
+      '<button class="btn btn-primary au-save" style="flex:1;min-width:150px;font-size:13px;">💾 Зберегти розбір</button>' +
+      '<button class="btn btn-secondary" style="flex:1;min-width:150px;font-size:13px;" onclick="showScreen(\'campaign\',null)">🎯 До просування →</button></div>';
     $('auResult').innerHTML = '';
     $('auResult').appendChild(card);
+    var asv = card.querySelector('.au-save');
+    if (asv) asv.onclick = function () {
+      var items = []
+        .concat((a.strengths || []).map(function (s) { return { label: '✅ Працює', text: s }; }))
+        .concat((a.weaknesses || []).map(function (w) { return { label: '⚠️ Слабко', text: w }; }))
+        .concat((a.fixes || []).map(function (f) { return { label: '🔧 Виправити', text: (f.what || '') + (f.why ? ' — ' + f.why : '') }; }));
+      window.octoSaveIdea('audit', 'Розбір контенту' + (typeof a.score === 'number' ? ' (' + Math.round(a.score) + '/100)' : ''),
+        { title: 'Розбір контенту', summary: a.summary || '', items: items }, asv);
+    };
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -13895,8 +13906,14 @@
         + (steps ? '<div class="ob-sec">Сценарій</div>' + steps : '')
         + (i.caption ? sec('Підпис', '<p style="font-size:13.5px;color:var(--text2);white-space:pre-wrap;">' + esc(i.caption) + '</p>') : '')
         + (i.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(i.cta) + '</div>' : '')
-        + (i.why ? '<div class="ob-why"><b>Чому спрацює:</b> ' + esc(i.why) + '</div>' : '');
+        + (i.why ? '<div class="ob-why"><b>Чому спрацює:</b> ' + esc(i.why) + '</div>' : '')
+        + '<div style="margin-top:14px;"><button class="btn btn-primary tr-save" style="font-size:13px;padding:9px 15px;">💾 Зберегти в ідеї</button></div>';
       $('trResult').appendChild(card);
+      var sv = card.querySelector('.tr-save');
+      if (sv) sv.onclick = function () {
+        window.octoSaveIdea('reels', 'Ідея: ' + String(i.idea || '').slice(0, 60),
+          { title: 'Ідея з тренду', summary: i.hook || '', items: (i.script || []).map(function (s, n) { return { label: 'Крок ' + (n + 1), text: s }; }), cta: i.cta, caption: i.caption }, sv);
+      };
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
     }).catch(function (e) { status('trStatus', 'err', netMsg(e.message)); }).finally(function () { btn.disabled = false; });
@@ -13965,6 +13982,36 @@
     c.updatedAt = now();
     window.octoCampaigns.upsert(c);
     try { window.octoTrack('material_created', { type: type }); } catch (e) {}
+  };
+
+  // Save a standalone tool result (trend idea, content audit, trend video) into a
+  // campaign so it isn't lost. Prefers the active campaign; otherwise a single
+  // «Збережені ідеї» bucket. Returns the campaign id it landed in.
+  window.octoSaveIdea = function (type, title, output, btn) {
+    var id = window.octoCampaigns.current;
+    var c = id ? window.octoCampaigns.get(id) : null;
+    if (!c) {
+      c = window.octoCampaigns.all().filter(function (x) { return x.loose; })[0];
+      if (!c) {
+        c = { id: rid(), name: '💡 Збережені ідеї', loose: true, goal: '', strategy: null, materials: [], status: 'active', createdAt: now(), updatedAt: now() };
+      }
+    }
+    c.materials.push({ id: rid(), type: type, title: title, output: output, createdAt: now() });
+    c.updatedAt = now();
+    window.octoCampaigns.upsert(c);
+    try { window.octoTrack('material_created', { type: type, via: 'tool' }); } catch (e) {}
+    if (btn) {
+      btn.textContent = '✓ У «Мої ідеї»';
+      btn.disabled = true; btn.classList.remove('btn-primary'); btn.style.opacity = '.65';
+      btn.onclick = null;
+      var open = document.createElement('button');
+      open.className = 'btn btn-secondary';
+      open.style.cssText = 'margin-left:8px;padding:9px 14px;font-size:13px;';
+      open.textContent = '📁 Відкрити';
+      open.onclick = function () { showScreen('campaigns', null); window.octoOpenCampaign(c.id); };
+      if (btn.parentNode) btn.parentNode.insertBefore(open, btn.nextSibling);
+    }
+    return c.id;
   };
 
   // ── Render: library list ────────────────────────────────────────────────────
