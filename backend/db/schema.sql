@@ -150,3 +150,19 @@ as $$
 $$;
 
 revoke all on function public.admin_stats() from anon, authenticated;
+
+-- ── Product analytics ─────────────────────────────────────────────────────────
+-- Every client event lands here through POST /api/track (whitelisted names,
+-- fire-and-forget). RLS is enabled with NO policies: only the backend's
+-- service key can read or write — the browser never touches this table.
+create table if not exists public.events (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  event      text not null,
+  user_id    uuid references public.users(id) on delete set null,
+  device_id  text,
+  props      jsonb
+);
+create index if not exists events_event_time_idx on public.events (event, created_at desc);
+create index if not exists events_user_time_idx  on public.events (user_id, created_at desc);
+alter table public.events enable row level security;

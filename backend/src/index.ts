@@ -19,6 +19,7 @@ import { adsRouter } from './routes/ads';
 import { usageRouter } from './routes/usage';
 import { adminRouter } from './routes/admin';
 import { payRouter } from './routes/pay';
+import { trackRouter } from './routes/track';
 import { ensureBucket } from './services/storage';
 import { errorHandler } from './middleware/errorHandler';
 import { cleanupOldFiles } from './services/cleanup';
@@ -170,6 +171,7 @@ app.use('/api/ads', adsRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/pay', payRouter);
+app.use('/api/track', trackRouter);
 
 // Ensure the public Storage bucket exists so generated ad images persist across
 // Railway redeploys (the disk is ephemeral). Idempotent, fail-open.

@@ -85,6 +85,43 @@
       };
     })();
   </script>
+  <!-- Product analytics: whitelisted events → POST /api/track → Supabase.
+       Fire-and-forget with keepalive; a failed beacon must never be felt. -->
+  <script>
+    window.octoTrack = function (event, props) {
+      try {
+        var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+        var dev = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+        while (dev.length < 8) dev += '0';
+        fetch('/api/track', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'x-device-id': dev.slice(0, 128) },
+          body: JSON.stringify({ event: event, props: props || undefined }),
+        }).catch(function () {});
+      } catch (e) {}
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+      // app_open: once per half hour per tab, after the app scripts defined
+      // getActiveWsId so the identity matches every later event.
+      try {
+        var last = +(sessionStorage.getItem('octo_t_open') || 0);
+        if (Date.now() - last > 1800000) {
+          sessionStorage.setItem('octo_t_open', String(Date.now()));
+          window.octoTrack('app_open');
+        }
+      } catch (e) {}
+      // paywall_view: the pricing screen is the paywall.
+      try {
+        var _ss = window.showScreen;
+        if (typeof _ss === 'function') {
+          window.showScreen = function (id, el) {
+            _ss(id, el);
+            if (id === 'pricing') { try { window.octoTrack('paywall_view'); } catch (e) {} }
+          };
+        }
+      } catch (e) {}
+    });
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -4820,6 +4857,7 @@
       }
 
       localStorage.setItem('octo_user', JSON.stringify({ email, token: data.access_token, refresh: data.refresh_token }));
+      try { window.octoTrack(isLogin ? 'login' : 'signup'); } catch (e) {}
       goToApp();
     } catch {
       errEl.textContent = 'Нет соединения — проверь интернет'; errEl.style.display = 'block';
@@ -13688,6 +13726,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     var old = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Готую оплату…'; }
     var dev = (function () { try { var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-'); while (id.length < 8) id += '0'; return id.slice(0, 128); } catch (e) { return 'biz_default00'; } })();
+    try { window.octoTrack('upgrade_click', { plan: plan }); } catch (e) {}
     fetch('/api/pay/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': dev }, body: JSON.stringify({ plan: plan }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -14513,7 +14552,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
       var followFallback = acctType() === 'blogger' ? 'Розкажи ще трохи — про що твій контент і хто дивиться?' : 'Розкажи ще трохи — чим твій бізнес особливий?';
-      if (r.enough && !r.follow_up) { renderFollow(null); octoClarify(); }
+      if (r.enough && !r.follow_up) { renderFollow(null); octoClarify(); try { window.octoTrack('onboarding_done'); } catch (e) {} }
       else { renderFollow(r.follow_up || followFallback); $('onDone').style.display = 'none'; }
     } catch (e) {
       status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
@@ -14540,6 +14579,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var keys = Object.keys(prof);
       if (!keys.length) {
         // Instagram blocks bots; small accounts aren't indexed. Expected, not broken.
+        try { window.octoTrack('import_fail'); } catch (e) {}
         importStatus('warn', r.note || 'Не вдалося прочитати сторінку — пройди коротке опитування нижче.');
         var qb = $('onQuizBtn');
         if (qb) { qb.classList.add('on-quiz-hi'); qb.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -14558,6 +14598,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       window.octoBiz.save(cur);
       // Real brand colours pulled from the site → seed the brand kit.
       if (Array.isArray(r.site_colors) && r.site_colors.length) window.octoBiz.merge({ site_colors: r.site_colors });
+      try { window.octoTrack('import_success', { fields: keys.length }); } catch (e) {}
       importStatus('ok', '✅ Заповнив ' + keys.length + ' полів із ' + (r.source_type === 'social' ? 'соцмережі' : 'сайту') + '. Перевір нижче й виправ, якщо десь не так.');
       renderProfile(prev);
       renderFlags([]);
@@ -15007,6 +15048,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var r = await api('/api/marketing/strategy', body);
       if (ocBox) ocBox.innerHTML = '';
       renderStrategy(r.strategy);
+      try { window.octoTrack('strategy_created', { goal: chosen && chosen.id }); } catch (e) {}
       try { if (window.octoCampaignSaveStrategy) window.octoCampaignSaveStrategy(chosen, (($('ocDetails') || {}).value || ''), r.strategy); } catch (e) {}
       status('', '');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
@@ -15030,6 +15072,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     }
     document.querySelectorAll('#ocResult .oc-genbtn').forEach(function (b) { b.disabled = true; b.textContent = '✓'; b.classList.remove('btn-primary'); b.style.opacity = '.6'; });
     if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
+    try { window.octoTrack('package_done', { count: mats.length }); } catch (e) {}
     if (btn) { btn.disabled = false; btn.textContent = '✨ Створити ще раз'; }
   }
 
@@ -15563,6 +15606,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       // Persist the FULL brief so it survives navigation and reloads.
       var ts = Date.now();
       rsSaveRec({ research: r, ts: ts });
+      try { window.octoTrack('research_done'); } catch (e) {}
       renderResearch(r, ts);
       var first = $('rsResult').firstChild;
       if (first) first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -15616,6 +15660,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       var notes = ntLoad();
       notes.unshift({ id: 'n_' + Math.random().toString(36).slice(2, 9), text: text, ts: Date.now(), source: 'research' });
       ntSave(notes);
+      try { window.octoTrack('note_saved'); } catch (e) {}
       killChip();
       try { window.getSelection().removeAllRanges(); } catch (e) {}
       renderNotes();
@@ -15759,6 +15804,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     c.materials.push({ id: rid(), type: type, title: title, output: output, createdAt: now() });
     c.updatedAt = now();
     window.octoCampaigns.upsert(c);
+    try { window.octoTrack('material_created', { type: type }); } catch (e) {}
   };
 
   // ── Render: library list ────────────────────────────────────────────────────
@@ -17380,6 +17426,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     c.updatedAt = Date.now();
     PA.setCount = c.materials.length;
     window.octoCampaigns.upsert(c);
+    try { window.octoTrack('prodad_saved', { materials: c.materials.length }); } catch (e) {}
     if (window.renderDashV2) try { window.renderDashV2(); } catch (e) {}
   }
 
@@ -18867,7 +18914,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       inp.click();
     },
     publishHelper: function () { toast('Скопіюй підпис, завантаж медіа — і опублікуй вручну у своїй соцмережі'); },
-    markPosted: function () { octoPlanner.set('status', 'posted'); state.detailId = null; paintDetail(); render(); toast('✅ Позначено опублікованим'); },
+    markPosted: function () { octoPlanner.set('status', 'posted'); state.detailId = null; paintDetail(); render(); toast('✅ Позначено опублікованим'); try { window.octoTrack('post_published'); } catch (e) {} },
     del: function () { if (!state.detailId) return; save(load().filter(function (p) { return p.id !== state.detailId; })); state.detailId = null; paintDetail(); render(); toast('🗑 Видалено'); },
     // generate wizard
     openGen: function () { state.gen.open = true; state.gen.step = 1; paintGen(); },
@@ -18878,7 +18925,7 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
     customPerDay: function () { var n = parseInt(prompt('Скільки постів на день? (1-6)', String(state.gen.perDay)), 10); if (n >= 1 && n <= 6) { state.gen.perDay = n; paintGen(); } },
     genNext: function () { if (state.gen.step === 1 && !state.gen.platforms.length) return; if (state.gen.step === 2) state.gen.perDay = recommendPerDay(); state.gen.step = Math.min(4, state.gen.step + 1); paintGen(); },
     genBack: function () { state.gen.step = Math.max(1, state.gen.step - 1); paintGen(); },
-    genRun: function () { genPlan(); state.gen.open = false; state.tab = 'week'; paintGen(); render(); toast('✅ План на тиждень готовий'); },
+    genRun: function () { genPlan(); state.gen.open = false; state.tab = 'week'; paintGen(); render(); toast('✅ План на тиждень готовий'); try { window.octoTrack('plan_generated'); } catch (e) {} },
   };
 })();
 </script>
