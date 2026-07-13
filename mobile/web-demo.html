@@ -12128,7 +12128,12 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       _syncPending++;
       dbShowSync('syncing');
       try {
-        await fetch(SUPABASE_URL + '/rest/v1/user_data', {
+        // on_conflict=user_id,key is REQUIRED: without it PostgREST resolves
+        // merge-duplicates on the primary key (id), which we never send, so
+        // every UPDATE of an existing row was a plain INSERT that 409'd on the
+        // (user_id,key) unique constraint — silently, caught below. That broke
+        // cross-device sync for every change after a key's first write.
+        const _r = await fetch(SUPABASE_URL + '/rest/v1/user_data?on_conflict=user_id,key', {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
@@ -12139,7 +12144,8 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
           body: JSON.stringify({ user_id: userId, key: key, value: value === null ? null : value }),
         });
         _syncPending--;
-        if (_syncPending <= 0) { _syncPending = 0; dbShowSync('ok'); }
+        if (!_r.ok) { dbShowSync('offline'); }
+        else if (_syncPending <= 0) { _syncPending = 0; dbShowSync('ok'); }
       } catch (e) {
         _syncPending = Math.max(0, _syncPending - 1);
         dbShowSync('offline');
@@ -12165,14 +12171,56 @@ ${capStyleAnalysis ? `\n🎯 ВАЖЛИВО — пиши в стилі цьог�
       // (empty cloud still runs the backfill below — a brand-new account needs
       //  its first local data uploaded)
 
+      var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+
+      // Snapshot local content-arrays BEFORE cloud overwrites them. A guest who
+      // built campaigns/notes/a plan and THEN logs into an account that already
+      // has cloud data must not lose that work — user-created content is merged
+      // (union by id), never clobbered.
+      function _readArr(k) { try { var v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+      var guestSnap = {
+        camps: _readArr('octo_campaigns_' + ws),
+        notes: _readArr('octo_notes_' + ws),
+        planner: _readArr('octo_planner_' + ws),
+      };
+
       var cloudKeys = {};
       for (const row of rows) { cloudKeys[row.key] = 1; _applyCloudRow(row.key, row.value); }
+
+      // Union a guest snapshot with the just-hydrated cloud array by id; on an id
+      // collision the newer record (updatedAt/ts/createdAt) wins.
+      function _mergeById(local, current) {
+        var by = {}; var order = [];
+        function put(x, prefer) {
+          if (!x || !x.id) return;
+          if (!(x.id in by)) { order.push(x.id); by[x.id] = x; return; }
+          var a = by[x.id], b = x;
+          var au = a.updatedAt || a.ts || a.createdAt || 0, bu = b.updatedAt || b.ts || b.createdAt || 0;
+          by[x.id] = (bu > au || (bu === au && prefer)) ? b : a;
+        }
+        (current || []).forEach(function (x) { put(x, false); });
+        (local || []).forEach(function (x) { put(x, true); });   // tie → keep guest's edit
+        return order.map(function (id) { return by[id]; });
+      }
+      function _mergeArr(lsKey, cloudKey, snap) {
+        var current = _readArr(lsKey);
+        var merged = _mergeById(snap, current);
+        // Only write/sync if the merge actually added something the cloud lacked.
+        if (merged.length !== current.length) {
+          try { localStorage.setItem(lsKey, JSON.stringify(merged)); } catch (e) {}
+          try { window.dbSync && window.dbSync(cloudKey, merged); } catch (e) {}
+        }
+      }
+      try {
+        _mergeArr('octo_campaigns_' + ws, 'camps_' + ws, guestSnap.camps);
+        _mergeArr('octo_notes_' + ws, 'notes_' + ws, guestSnap.notes);
+        _mergeArr('octo_planner_' + ws, 'planner_' + ws, guestSnap.planner);
+      } catch (e) {}
 
       // First-run backfill: data saved before cloud-sync existed (or on a device
       // that was offline) never reached the cloud. If a key is missing there but
       // present locally, upload it now so the other devices can pull it.
       try {
-        var ws = (typeof wsId === 'function') ? wsId() : 'default';
         var localBiz = localStorage.getItem('octo_biz_' + ws);
         if (localBiz && !cloudKeys['biz_' + ws]) { var pb = JSON.parse(localBiz); if (pb && Object.keys(pb).length) window.dbSync && window.dbSync('biz_' + ws, pb); }
         var localCamps = localStorage.getItem('octo_campaigns_' + ws);
