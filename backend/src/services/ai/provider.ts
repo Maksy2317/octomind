@@ -96,13 +96,10 @@ async function geminiJson(system: string, user: string, images: LlmImage[], maxT
 // ── Gemini chat (free-text, multi-turn, vision) — for /api/chat ────────────────
 // Accepts Anthropic-shaped messages ([{role, content}] where content is a string
 // or an array of text/image blocks) and returns a plain-text reply. No JSON mime.
-export async function geminiChat(
-  system: string,
-  messages: Array<{ role?: string; content: unknown }>,
-): Promise<string> {
-  const key = process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error('GOOGLE_API_KEY not configured');
-  const contents = messages.map((m) => {
+
+// Anthropic-shaped chat messages → Gemini `contents` (text + inline images).
+function toGeminiContents(messages: Array<{ role?: string; content: unknown }>): Array<Record<string, unknown>> {
+  return messages.map((m) => {
     const role = m.role === 'assistant' ? 'model' : 'user';
     let parts: Array<Record<string, unknown>>;
     if (typeof m.content === 'string') {
@@ -119,6 +116,59 @@ export async function geminiChat(
     }
     return { role, parts };
   });
+}
+
+// TRUE token streaming for the chat: streamGenerateContent over SSE, each text
+// delta handed to `onText` the moment Gemini produces it. The buffered
+// geminiChat below stays as the fallback (and for one-string callers).
+export async function geminiChatStream(
+  system: string,
+  messages: Array<{ role?: string; content: unknown }>,
+  onText: (t: string) => void,
+): Promise<void> {
+  const key = process.env.GOOGLE_API_KEY;
+  if (!key) throw new Error('GOOGLE_API_KEY not configured');
+  const body = {
+    system_instruction: { parts: [{ text: system }] },
+    contents: toGeminiContents(messages),
+    generationConfig: { maxOutputTokens: 4096, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+  };
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  );
+  if (!r.ok || !r.body) throw new Error(`Gemini stream ${r.status}: ${(await r.text()).slice(0, 200)}`);
+
+  const decoder = new TextDecoder();
+  let buf = '';
+  let emitted = false;
+  for await (const chunk of r.body as unknown as AsyncIterable<Uint8Array>) {
+    buf += decoder.decode(chunk, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const data = JSON.parse(payload) as any;
+        const text = (data?.candidates?.[0]?.content?.parts || [])
+          .map((p: any) => p.text || '').join('');
+        if (text) { emitted = true; onText(text); }
+      } catch { /* partial or keepalive line — ignore */ }
+    }
+  }
+  if (!emitted) throw new Error('Gemini stream returned no text');
+}
+
+export async function geminiChat(
+  system: string,
+  messages: Array<{ role?: string; content: unknown }>,
+): Promise<string> {
+  const key = process.env.GOOGLE_API_KEY;
+  if (!key) throw new Error('GOOGLE_API_KEY not configured');
+  const contents = toGeminiContents(messages);
   const body = {
     system_instruction: { parts: [{ text: system }] },
     contents,

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import { optionalIdentity } from '../middleware/identity';
 import { meter } from '../middleware/quota';
-import { geminiChat } from '../services/ai/provider';
+import { geminiChat, geminiChatStream } from '../services/ai/provider';
 
 export const chatRouter = Router();
 
@@ -119,11 +119,25 @@ chatRouter.post('/', meter('chat'), async (req: Request, res: Response) => {
 
   try {
     if (preferGemini) {
+      // TRUE streaming: tokens reach the client as Gemini produces them. The
+      // word-sliced emit() of the buffered reply was fake streaming — the user
+      // stared at a spinner for the whole generation, then watched a replay.
+      let sent = false;
       try {
-        emit(await geminiChat(systemPrompt, recent));
+        await geminiChatStream(systemPrompt, recent, (t) => {
+          sent = true;
+          res.write(`data: ${JSON.stringify({ text: t })}\n\n`);
+        });
       } catch (gErr) {
-        if (hasAnthropic) await runAnthropicStream();
-        else throw gErr;
+        // Nothing reached the client → full fallback chain. If the stream died
+        // midway, falling back would duplicate text — surface the error instead.
+        if (sent) throw gErr;
+        try {
+          emit(await geminiChat(systemPrompt, recent));
+        } catch (g2) {
+          if (hasAnthropic) await runAnthropicStream();
+          else throw g2;
+        }
       }
     } else if (hasAnthropic) {
       try {
