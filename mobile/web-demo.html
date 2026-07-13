@@ -88,6 +88,31 @@
   <!-- Product analytics: whitelisted events → POST /api/track → Supabase.
        Fire-and-forget with keepalive; a failed beacon must never be felt. -->
   <script>
+    // «Октомозок»: a compact memory blob (saved notes + past campaigns) fed into
+    // every AI request so strategies/materials/chat build on what the user liked
+    // and don't repeat what's already made. Read from storage at call time.
+    window.octoMemoryContext = function () {
+      try {
+        var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+        var parts = [];
+        var notes = JSON.parse(localStorage.getItem('octo_notes_' + ws) || '[]');
+        if (Array.isArray(notes) && notes.length) {
+          parts.push('Збережені нотатки/ідеї користувача:\n' + notes.slice(0, 10).map(function (n) {
+            return '• ' + String((n && n.text) || '').slice(0, 160);
+          }).join('\n'));
+        }
+        var camps = JSON.parse(localStorage.getItem('octo_campaigns_' + ws) || '[]');
+        if (Array.isArray(camps) && camps.length) {
+          parts.push('Минулі кампанії користувача:\n' + camps.slice(0, 6).map(function (c) {
+            var offer = (c && c.strategy && c.strategy.offer) ? ' — оффер: ' + String(c.strategy.offer).slice(0, 80) : '';
+            var n = (c && c.materials && c.materials.length) || 0;
+            return '• «' + String((c && (c.name || c.goal)) || 'Кампанія').slice(0, 60) + '»' + offer + (n ? ' (' + n + ' матеріалів)' : '');
+          }).join('\n'));
+        }
+        return parts.join('\n\n').slice(0, 1600);
+      } catch (e) { return ''; }
+    };
+
     window.octoTrack = function (event, props) {
       try {
         var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
@@ -4607,6 +4632,7 @@
       if (profile.lang)      lines.push('Preferred caption language: ' + profile.lang);
     }
     if (tov && tov.analysis) lines.push('Writing style / Tone of Voice: ' + tov.analysis);
+    try { var _mem = window.octoMemoryContext && window.octoMemoryContext(); if (_mem) lines.push('━━━ Saved notes & past campaigns ━━━\n' + _mem); } catch (e) {}
     return lines.length ? lines.join('\n') : null;
   }
 
@@ -12832,6 +12858,7 @@
       var b = window.octoBiz.get(), o = {};
       ['account_type','business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','brand','platforms','content_format','monetization']
         .forEach(function (k) { if (b[k]) o[k] = b[k]; });
+      try { var _m = window.octoMemoryContext && window.octoMemoryContext(); if (_m) o.saved_context = _m; } catch (e) {}
       if (Object.keys(o).length) return o;
     }
     var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
@@ -12842,6 +12869,7 @@
     if (p.niche) out.niche = dz(p.niche);
     if (p.audience) out.target_audience = dz(p.audience);
     if (Array.isArray(p.style) && p.style.length) out.tone = p.style.map(dz).join(', ');
+    try { var _m2 = window.octoMemoryContext && window.octoMemoryContext(); if (_m2) out.saved_context = _m2; } catch (e) {}
     return out;
   }
   async function api(path, body) {
@@ -13619,6 +13647,7 @@
       var b = window.octoBiz.get(), o = {};
       ['business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','platforms','content_format']
         .forEach(function (k) { if (b[k]) o[k] = b[k]; });
+      try { var _mem = window.octoMemoryContext && window.octoMemoryContext(); if (_mem) o.saved_context = _mem; } catch (e) {}
       return o;
     }
     return {};
@@ -14810,6 +14839,7 @@
       var b = window.octoBiz.get();
       ['business_name','niche','description','target_audience','geo','usp','goal','tone','brand','page_style'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
     }
+    try { var _mem = window.octoMemoryContext && window.octoMemoryContext(); if (_mem) o.saved_context = _mem; } catch (e) {}
     return o;
   }
   function api(path, body) {
@@ -15750,6 +15780,7 @@
       var b = window.octoBiz.get();
       ['business_name','niche','description','target_audience','geo','usp','goal','tone','brand','page_style'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
     }
+    try { var _mem = window.octoMemoryContext && window.octoMemoryContext(); if (_mem) o.saved_context = _mem; } catch (e) {}
     return o;
   }
   function fmt(n) {
@@ -16457,6 +16488,7 @@
     if (b.tiktok_handle) L.push('TikTok page: @' + b.tiktok_handle);
     if (b.page_style) L.push('What already works on their page: ' + b.page_style);
     if (b.market_research) L.push('Market research summary: ' + String(b.market_research).slice(0, 600));
+    try { var _mem = window.octoMemoryContext && window.octoMemoryContext(); if (_mem) L.push('━━━ Saved notes & past campaigns ━━━\n' + _mem); } catch (e) {}
     return L.length ? L.join('\n') : null;
   };
 
