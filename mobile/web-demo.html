@@ -88,6 +88,37 @@
   <!-- Product analytics: whitelisted events → POST /api/track → Supabase.
        Fire-and-forget with keepalive; a failed beacon must never be felt. -->
   <script>
+    // localStorage is ~5MB and campaigns carry base64 images. setItem was wrapped
+    // in bare try/catch everywhere, so hitting the cap lost the write SILENTLY —
+    // the user kept working and their data was never saved. Now the failure is
+    // caught, named, and surfaced once with a way out.
+    window.octoSafeStore = function (key, json) {
+      try { localStorage.setItem(key, json); return true; }
+      catch (e) {
+        var quota = e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
+        if (quota) window.octoStorageFull();
+        else console.warn('[Store] write failed for', key, e && e.message);
+        return false;
+      }
+    };
+    window.octoStorageFull = function () {
+      if (document.getElementById('octoStoreFull')) return;   // one banner at a time
+      var b = document.createElement('div');
+      b.id = 'octoStoreFull';
+      b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 76px);z-index:9998;'
+        + 'display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;'
+        + 'background:#2a1a12;border:1px solid rgba(245,180,80,.45);color:#ffe9c9;'
+        + 'font:600 13px/1.45 Manrope,sans-serif;box-shadow:0 10px 30px -12px rgba(0,0,0,.7);max-width:560px;margin:0 auto;';
+      b.innerHTML = '<span style="font-size:20px;flex:none;">⚠️</span>'
+        + '<span style="flex:1;">Сховище браузера заповнене — <b>нове не збережеться</b>. Видали старі набори у «Мої ідеї» (особливо з фото).</span>'
+        + '<button style="flex:none;background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:9px;padding:8px 12px;font:inherit;cursor:pointer;">Відкрити</button>'
+        + '<button aria-label="Закрити" style="flex:none;background:none;border:none;color:#ffe9c9;font-size:18px;cursor:pointer;padding:0 4px;">✕</button>';
+      var btns = b.querySelectorAll('button');
+      btns[0].onclick = function () { b.remove(); try { showScreen('campaigns', null); } catch (e) {} };
+      btns[1].onclick = function () { b.remove(); };
+      document.body.appendChild(b);
+    };
+
     // «Октомозок»: a compact memory blob (saved notes + past campaigns) fed into
     // every AI request so strategies/materials/chat build on what the user liked
     // and don't repeat what's already made. Read from storage at call time.
@@ -12308,7 +12339,7 @@
     key: function () { return 'octo_biz_' + wsId(); },
     get: function () { try { return JSON.parse(localStorage.getItem(this.key()) || 'null'); } catch (e) { return null; } },
     save: function (p) {
-      try { localStorage.setItem(this.key(), JSON.stringify(p || {})); } catch (e) {}
+      window.octoSafeStore(this.key(), JSON.stringify(p || {}));
       // Cloud-sync the business profile so it follows the account across devices.
       try { if (window.dbSync) window.dbSync('biz_' + wsId(), p || {}); } catch (e) {}
     },
@@ -13220,14 +13251,26 @@
     var btn = $('ocMakeAllBtn'); if (btn) btn.disabled = true;
     var st = $('ocMatStatus');
     var mats = (recs || []).filter(function (m) { return GENERATABLE[m.type]; });
+    // Count outcomes: claiming «Пакет готовий» after every generation failed is
+    // the kind of lie that costs trust on the first bad network.
+    var ok = 0, failed = 0, lastErr = '';
     for (var i = 0; i < mats.length; i++) {
       if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Створюю: ' + esc(mats[i].label) + ' (' + (i + 1) + '/' + mats.length + ')…'; }
-      try { await makeMaterial(mats[i].type, mats[i].label, null); } catch (e) { /* keep going */ }
+      try { await makeMaterial(mats[i].type, mats[i].label, null); ok++; }
+      catch (e) { failed++; lastErr = (e && e.message) || ''; }
     }
-    document.querySelectorAll('#ocResult .oc-genbtn').forEach(function (b) { b.disabled = true; b.textContent = '✓'; b.classList.remove('btn-primary'); b.style.opacity = '.6'; });
-    if (st) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
-    try { window.octoTrack('package_done', { count: mats.length }); } catch (e) {}
-    if (btn) { btn.disabled = false; btn.textContent = '✨ Створити ще раз'; }
+    // Only the materials that actually landed get a ✓.
+    if (ok) {
+      document.querySelectorAll('#ocResult .oc-genbtn').forEach(function (b) { b.disabled = true; b.textContent = '✓'; b.classList.remove('btn-primary'); b.style.opacity = '.6'; });
+    }
+    if (st) {
+      if (ok && !failed) { st.className = 'ob-status ob-ok'; st.textContent = '✅ Пакет готовий — усе збережено в кампанію.'; }
+      else if (ok && failed) { st.className = 'ob-status ob-warn'; st.textContent = '⚠️ Готово ' + ok + ' із ' + mats.length + ' — решту не вдалося створити. Спробуй ще раз.'; }
+      else { st.className = 'ob-status ob-err'; st.textContent = '⚠️ Не вдалося створити жоден матеріал. ' + (/Failed to fetch|NetworkError/i.test(lastErr) ? 'Немає звʼязку з сервером.' : esc(lastErr.slice(0, 90))); }
+    }
+    if (ok) { try { window.octoTrack('package_done', { count: ok, failed: failed }); } catch (e) {} }
+    if (btn) { btn.disabled = false; btn.textContent = ok ? '✨ Створити ще раз' : '✨ Спробувати ще раз'; }
+    if (!ok) return;   // nothing to schedule — don't offer the plan bridge
     // The bridge the flow was missing: a finished pack goes straight onto the
     // content plan, not into a drawer the user must rediscover. Reuses the
     // campaign-library scheduler (AI picks days/times, dedup by material id) —
@@ -13689,7 +13732,7 @@
   function rsKey() { return 'octo_research_' + rsWs(); }
   function rsLoad() { try { return JSON.parse(localStorage.getItem(rsKey()) || 'null'); } catch (e) { return null; } }
   function rsSaveRec(o) {
-    try { localStorage.setItem(rsKey(), JSON.stringify(o)); } catch (e) {}
+    window.octoSafeStore(rsKey(), JSON.stringify(o));
     try { if (window.dbSync) window.dbSync('research_' + rsWs(), o); } catch (e) {}
   }
   function rsFmtDate(ts) { var d = new Date(ts); return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear(); }
@@ -13789,7 +13832,7 @@
   function ntKey() { return 'octo_notes_' + rsWs(); }
   function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]'); } catch (e) { return []; } }
   function ntSave(a) {
-    try { localStorage.setItem(ntKey(), JSON.stringify(a)); } catch (e) {}
+    window.octoSafeStore(ntKey(), JSON.stringify(a));
     try { if (window.dbSync) window.dbSync('notes_' + rsWs(), a); } catch (e) {}
   }
   function renderNotes() {
@@ -13937,7 +13980,9 @@
     key: function () { return 'octo_campaigns_' + wsId(); },
     all: function () { try { return JSON.parse(localStorage.getItem(this.key()) || '[]'); } catch (e) { return []; } },
     saveAll: function (a) {
-      try { localStorage.setItem(this.key(), JSON.stringify(a)); } catch (e) {}
+      // Biggest payload in the app (base64 creatives) — the one most likely to
+      // hit the quota, so failures must be visible, not swallowed.
+      window.octoSafeStore(this.key(), JSON.stringify(a));
       try { if (window.dbSync) window.dbSync('camps_' + wsId(), a || []); } catch (e) {}
     },
     get: function (id) { return this.all().filter(function (c) { return c.id === id; })[0] || null; },
@@ -16637,7 +16682,7 @@
   function key() { return 'octo_planner_' + wsId(); }
   function load() { try { return JSON.parse(localStorage.getItem(key()) || '[]'); } catch (e) { return []; } }
   function save(list) {
-    try { localStorage.setItem(key(), JSON.stringify(list)); } catch (e) {}
+    window.octoSafeStore(key(), JSON.stringify(list));
     // The planner is THE schedule — it syncs to the cloud like biz_/camps_ do,
     // and (throttled) re-registers push reminders for its upcoming posts.
     try { if (window.dbSync) window.dbSync('planner_' + wsId(), list); } catch (e) {}
