@@ -10348,17 +10348,22 @@
         (local || []).forEach(function (x) { put(x, true); });   // tie → keep guest's edit
         return order.map(function (id) { return by[id]; });
       }
-      function _mergeArr(lsKey, cloudKey, snap) {
+      function _mergeArr(lsKey, cloudKey, snap, tombs) {
         var current = _readArr(lsKey);
         var merged = _mergeById(snap, current);
-        // Only write/sync if the merge actually added something the cloud lacked.
-        if (merged.length !== current.length) {
+        // Drop anything a newer tombstone says was deleted, so a delete on one
+        // device isn't undone by the other device's stale copy.
+        if (tombs) merged = merged.filter(function (x) { var t = tombs[x.id]; return !(t && t > (x.updatedAt || x.createdAt || x.ts || 0)); });
+        // Write back whenever the merge changed anything (add, edit, or delete) —
+        // convergence stops the ping-pong once every device agrees.
+        if (JSON.stringify(merged) !== JSON.stringify(current)) {
           try { localStorage.setItem(lsKey, JSON.stringify(merged)); } catch (e) {}
           try { window.dbSync && window.dbSync(cloudKey, merged); } catch (e) {}
         }
       }
+      var camptomb = {}; try { camptomb = JSON.parse(localStorage.getItem('octo_camptomb_' + ws) || '{}'); } catch (e) {}
       try {
-        _mergeArr('octo_campaigns_' + ws, 'camps_' + ws, guestSnap.camps);
+        _mergeArr('octo_campaigns_' + ws, 'camps_' + ws, guestSnap.camps, camptomb);
         _mergeArr('octo_notes_' + ws, 'notes_' + ws, guestSnap.notes);
         _mergeArr('octo_planner_' + ws, 'planner_' + ws, guestSnap.planner);
       } catch (e) {}
@@ -10394,6 +10399,19 @@
     } catch (e) { window.__octoHydrating = false; dbShowSync('offline'); }
   };
 
+  // Re-sync when the tab comes back to the foreground — narrows the window where
+  // a change made on another open device would be clobbered. Throttled so a
+  // quick tab-flick doesn't spam Supabase; guarded to logged-in sessions.
+  var _lastFocusSync = 0;
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    var u = _getOctoUser();
+    if (!u || u.guest || !u.token || u.token === 'guest') return;
+    if (Date.now() - _lastFocusSync < 8000) return;
+    _lastFocusSync = Date.now();
+    try { window.syncFromCloud(); } catch (e) {}
+  });
+
   function _applyCloudRow(key, value) {
     if (value === null || value === undefined) return;
     if (key === 'workspaces') {
@@ -10415,6 +10433,15 @@
       if (Array.isArray(value)) localStorage.setItem('octo_notes_' + key.slice(6), JSON.stringify(value));
     } else if (key.startsWith('planner_')) {
       if (Array.isArray(value)) localStorage.setItem('octo_planner_' + key.slice(8), JSON.stringify(value));
+    } else if (key.startsWith('camptomb_')) {
+      // Delete tombstones: MERGE by max ts, never overwrite — a delete from one
+      // device must not be dropped by another device's older map.
+      if (value && typeof value === 'object') {
+        var _tk = 'octo_camptomb_' + key.slice(9), _cur = {};
+        try { _cur = JSON.parse(localStorage.getItem(_tk) || '{}'); } catch (e) {}
+        Object.keys(value).forEach(function (id) { if (!_cur[id] || value[id] > _cur[id]) _cur[id] = value[id]; });
+        try { localStorage.setItem(_tk, JSON.stringify(_cur)); } catch (e) {}
+      }
     } else if (key.startsWith('profile_')) {
       localStorage.setItem('octo_profile_' + key.slice(8), JSON.stringify(value));
     } else if (key.startsWith('tov_')) {
@@ -14010,7 +14037,16 @@
     },
     get: function (id) { return this.all().filter(function (c) { return c.id === id; })[0] || null; },
     upsert: function (c) { var a = this.all(), i = a.map(function (x) { return x.id; }).indexOf(c.id); if (i >= 0) a[i] = c; else a.unshift(c); this.saveAll(a); },
-    remove: function (id) { this.saveAll(this.all().filter(function (c) { return c.id !== id; })); },
+    remove: function (id) {
+      // Tombstone the delete so a second open device's sync can't resurrect it
+      // via a union merge (it can't tell "deleted" from "not seen yet").
+      try {
+        var tk = 'octo_camptomb_' + wsId(), t = JSON.parse(localStorage.getItem(tk) || '{}');
+        t[id] = Date.now(); localStorage.setItem(tk, JSON.stringify(t));
+        if (window.dbSync) window.dbSync('camptomb_' + wsId(), t);
+      } catch (e) {}
+      this.saveAll(this.all().filter(function (c) { return c.id !== id; }));
+    },
     current: null,
   };
 
