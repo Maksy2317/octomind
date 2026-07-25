@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -120,6 +120,34 @@ marketingRouter.post('/offer', async (req: Request, res: Response, next: NextFun
 // POST /api/marketing/audit  — vision audit of the client's own content.
 // Body: { images: [{ media_type, data(base64) }], profile? }
 const ALLOWED_MEDIA = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+// POST /api/marketing/improve-post — analyse ONE of the user's posts and return
+// an honest read + a stronger rewrite. Caption required; a screenshot optional.
+marketingRouter.post('/improve-post', meter('analysis'), async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const caption = typeof req.body?.caption === 'string' ? req.body.caption.slice(0, 2000) : '';
+  const platform = typeof req.body?.platform === 'string' ? req.body.platform.slice(0, 40) : '';
+  const raw = Array.isArray(req.body?.images) ? req.body.images : [];
+  const images: AuditImage[] = raw
+    .filter((im: unknown): im is AuditImage =>
+      !!im && typeof (im as AuditImage).data === 'string' && ALLOWED_MEDIA.has((im as AuditImage).media_type))
+    .slice(0, 2);
+  if (!caption.trim() && !images.length) {
+    res.status(400).json({ error: 'Встав текст поста або додай скрін' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const result = await improvePost(ctx, caption, platform, images);
+    await logGeneration(req, {
+      type: 'improve_post', input: { context: ctx, platform, hasImage: images.length > 0 },
+      output: result as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+});
+
 marketingRouter.post('/audit', async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   const raw = Array.isArray(req.body?.images) ? req.body.images : [];

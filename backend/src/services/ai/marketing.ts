@@ -898,6 +898,63 @@ export interface ContentAudit {
   fixes: Array<{ what: string; why: string }>; // що виправити і чому
 }
 
+// ── Single-post analysis + rewrite ────────────────────────────────────────────
+// "AI аналізує ТВІЙ пост і робить його кращим": takes one post the user already
+// made (caption + optional screenshot) and returns an honest read PLUS a
+// concrete, stronger rewrite — so the value is visible, not abstract.
+export interface PostImprovement {
+  score: number;                                   // 0-100
+  verdict: string;                                 // 1-2 речення чесно
+  strengths: string[];
+  weaknesses: string[];
+  improved: {
+    hook: string;                                  // сильніший перший рядок
+    caption: string;                               // переписаний підпис цілком
+    cta: string;
+    hashtags: string[];
+  };
+  hook_variants: string[];                         // 2-3 альтернативні хуки для A/B
+  what_changed: string[];                          // що саме змінив і чому
+}
+
+const IMPROVE_SCHEMA =
+  '{"score": number (0-100), "verdict": string, "strengths": string[], "weaknesses": string[], ' +
+  '"improved": {"hook": string, "caption": string, "cta": string, "hashtags": string[]}, ' +
+  '"hook_variants": string[], "what_changed": string[]}';
+
+export function improvePost(
+  profileCtx: string,
+  caption: string,
+  platform: string,
+  images: AuditImage[],
+): Promise<PostImprovement> {
+  const plat = (platform || '').toLowerCase();
+  const platRule = /tiktok/.test(plat)
+    ? 'Платформа TikTok: хук у перші 1-3 сек, ключова фраза на початку підпису, розмовний тон, 3-5 хештегів.'
+    : /reel/.test(plat)
+      ? 'Платформа Instagram Reels: сильний перший кадр/рядок, орієнтація на збереження й поширення, 3-5 хештегів, CTA на save/share/DM.'
+      : /stor/.test(plat)
+        ? 'Платформа Instagram Stories: послідовність, інтерактив (опитування/питання/стікери), CTA на дію.'
+        : 'Платформа Instagram/Facebook (стрічка): сильний гачок, підпис під збереження, чіткий CTA, 3-5 хештегів.';
+  const system =
+    'Ти — сильний SMM-копірайтер і редактор. Тобі дають ОДИН пост клієнта (його підпис' +
+    (images.length ? ' і скрін самого поста' : '') + '). ' +
+    'Спершу ЧЕСНО оціни (без лестощів), тоді ПЕРЕПИШИ його сильніше, зберігаючи суть і факти. ' +
+    'weaknesses і what_changed — найважливіше: конкретно про ЦЕЙ пост, не загально. ' +
+    'improved.caption — готовий до публікації, кращий за оригінал. ' +
+    platRule + ' ' +
+    FACTS_RULE + ' ' +
+    LANG_RULE +
+    ' Схема JSON: ' + IMPROVE_SCHEMA + '.';
+  const user =
+    `Дані про бізнес:\n${profileCtx}\n\nПлатформа: ${platform || 'Instagram'}\n\n` +
+    `Оригінальний пост клієнта:\n${untrustedBlock(String(caption || '').slice(0, 2000))}\n\n` +
+    'Оціни й перепиши сильніше.';
+  return images.length
+    ? jsonCallVision<PostImprovement>(system, user, images, 2500)
+    : jsonCall<PostImprovement>(system, user, 2500);
+}
+
 export function auditContent(profileCtx: string, images: AuditImage[]): Promise<ContentAudit> {
   const system =
     'Ти — старший маркетолог, який робить ЧЕСНИЙ аудит контенту клієнта (на зображеннях — його ' +

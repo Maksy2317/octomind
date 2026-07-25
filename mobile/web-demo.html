@@ -2568,8 +2568,68 @@
             display:grid; place-items:center; flex:none; }
           .au-fix .w { font-size:13.5px; font-weight:700; }
           .au-fix .y { font-size:12.5px; color:var(--text3); margin-top:2px; }
+          /* Section label + tag chips used across audit / research / funnel results. */
+          .ob-sec { font-size:12px; font-weight:800; letter-spacing:.03em; text-transform:uppercase;
+            color:var(--text3); margin:16px 0 8px; }
+          .ob-chips { display:flex; flex-wrap:wrap; gap:7px; }
+          .ob-chip { display:inline-block; font-size:12.5px; line-height:1.35; padding:6px 11px; border-radius:9px;
+            background:var(--surface2); border:1px solid var(--border); color:var(--text2); }
+          .ob-chip.good { border-color:rgba(63,208,122,.35); background:rgba(63,208,122,.10); color:var(--text); }
+          .ob-chip.warn { border-color:rgba(255,176,60,.35); background:rgba(255,176,60,.10); color:var(--text); }
         </style>
         <div class="screen" id="audit">
+          <style>
+            .ai-modes { display:flex; gap:8px; margin-bottom:16px; }
+            .ai-mode { flex:1; padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--surface2);
+              color:var(--text3); font:750 13.5px 'Manrope',sans-serif; cursor:pointer; transition:all .15s; }
+            .ai-mode.on { border-color:var(--accent); background:rgba(139,123,255,.14); color:var(--text); }
+            .ai-chip2 { padding:8px 13px; border-radius:10px; border:1px solid var(--border); background:var(--surface2);
+              color:var(--text3); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
+            .ai-chip2.on { border-color:var(--accent); background:rgba(139,123,255,.14); color:var(--text); }
+            /* The caption box — match the dark surfaces, not the browser default. */
+            #ipCaption { width:100%; box-sizing:border-box; background:var(--surface2); border:1px solid var(--border);
+              border-radius:12px; padding:12px 14px; color:var(--text); font:500 14px 'Manrope',sans-serif;
+              line-height:1.5; resize:vertical; }
+            #ipCaption::placeholder { color:var(--text4); }
+            #ipCaption:focus { outline:none; border-color:var(--accent); }
+          </style>
+          <!-- Choose what the AI analyses: one post you give it, or the whole page. -->
+          <div class="ai-modes">
+            <button class="ai-mode on" id="aiModePost" onclick="octoAuditMode('post')">✍️ Покращити пост</button>
+            <button class="ai-mode" id="aiModePage" onclick="octoAuditMode('page')">📊 Вся сторінка</button>
+          </div>
+
+          <!-- ── POST MODE: analyse & rewrite one post (any network, works now) ── -->
+          <div id="auPostMode">
+            <div class="card">
+              <div class="on-hero">
+                <img src="assets/new/A09.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
+                <div>
+                  <div class="card-title" style="margin:0;">🔬 AI покращить твій пост</div>
+                  <div class="card-sub" style="margin:0;">Встав свій підпис (і за бажанням скрін) — Octo чесно оцінить і одразу перепише сильніше.</div>
+                </div>
+              </div>
+              <textarea id="ipCaption" class="ob-input" rows="4" style="margin-top:12px;" placeholder="Встав сюди текст свого поста…"></textarea>
+              <div style="font-size:11.5px;color:var(--text4);margin:10px 0 6px;">Під яку мережу?</div>
+              <div id="ipPlat" style="display:flex;gap:7px;flex-wrap:wrap;">
+                <button class="ai-chip2 on" data-p="Instagram Reels" onclick="octoImprovePlat(this)">Instagram Reels</button>
+                <button class="ai-chip2" data-p="Instagram Stories" onclick="octoImprovePlat(this)">Instagram Stories</button>
+                <button class="ai-chip2" data-p="Instagram" onclick="octoImprovePlat(this)">Instagram (стрічка)</button>
+                <button class="ai-chip2" data-p="TikTok" onclick="octoImprovePlat(this)">TikTok</button>
+              </div>
+              <input type="file" id="ipFile" accept="image/*" style="display:none" onchange="octoImproveFile(event)">
+              <div style="display:flex;gap:10px;align-items:center;margin-top:12px;">
+                <button class="btn btn-secondary" style="padding:9px 14px;font-size:13px;" onclick="document.getElementById('ipFile').click()">📷 Скрін поста</button>
+                <span id="ipThumbName" style="font-size:12px;color:var(--text4);"></span>
+              </div>
+              <button class="btn btn-primary" id="ipBtn" style="width:100%;margin-top:14px;" onclick="octoImprovePost()">✨ Оцінити й покращити</button>
+              <div class="ob-status" id="ipStatus"></div>
+            </div>
+            <div id="ipResult"></div>
+          </div>
+
+          <!-- ── PAGE MODE: whole-account audit (real metrics / screenshots) ── -->
+          <div id="auPageMode" style="display:none;">
           <!-- Own page by @handle: real metrics, not screenshots -->
           <div class="card">
             <div class="on-hero">
@@ -2607,6 +2667,7 @@
             <div class="ob-status" id="auStatus"></div>
           </div>
           <div id="auResult"></div>
+          </div><!-- /auPageMode -->
         </div>
 
         <!-- ═══ КАМПАНІЯ (goal-first flow, Phase A) ═══ -->
@@ -12367,6 +12428,89 @@
       .catch(function (e) { status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message); })
       .finally(function () { btn.disabled = false; });
   };
+
+  // ── «AI покращить твій пост»: analyse one post + rewrite ─────────────────────
+  var improvePlat = 'Instagram Reels';
+  var improveImg = null;   // one optional screenshot { media_type, data }
+
+  window.octoAuditMode = function (mode) {
+    var post = mode === 'post';
+    $('auPostMode').style.display = post ? '' : 'none';
+    $('auPageMode').style.display = post ? 'none' : '';
+    $('aiModePost').classList.toggle('on', post);
+    $('aiModePage').classList.toggle('on', !post);
+  };
+  window.octoImprovePlat = function (btn) {
+    improvePlat = btn.dataset.p;
+    var wrap = document.getElementById('ipPlat');
+    if (wrap) wrap.querySelectorAll('.ai-chip2').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  };
+  window.octoImproveFile = function (ev) {
+    var f = (ev.target.files || [])[0]; if (!f) return;
+    fileToImage(f).then(function (im) {
+      improveImg = { media_type: im.media_type, data: im.data };
+      var n = document.getElementById('ipThumbName'); if (n) n.textContent = '📎 ' + (f.name || 'скрін').slice(0, 30);
+    }).catch(function () {});
+    ev.target.value = '';
+  };
+  window.octoImprovePost = function () {
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
+    var caption = ($('ipCaption') || {}).value || '';
+    if (!caption.trim() && !improveImg) { var s0 = $('ipStatus'); if (s0) { s0.className = 'ob-status ob-err'; s0.textContent = 'Встав текст поста або додай скрін.'; } return; }
+    var btn = $('ipBtn'); if (btn) btn.disabled = true;
+    var st = $('ipStatus'); if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo аналізує твій пост і переписує сильніше…'; }
+    $('ipResult').innerHTML = '';
+    fetch('/api/marketing/improve-post', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify({ caption: caption.trim(), platform: improvePlat, profile: bizProfile(), images: improveImg ? [improveImg] : [] }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        if (st) { st.className = 'ob-status'; st.textContent = ''; }
+        renderImprove(d.result);
+        try { window.octoTrack('material_created', { type: 'improve_post' }); } catch (e) {}
+        if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
+      })
+      .catch(function (e) { if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message); } })
+      .finally(function () { if (btn) btn.disabled = false; });
+  };
+
+  function renderImprove(r) {
+    if (!r) return;
+    var imp = r.improved || {};
+    var tags = (imp.hashtags || []).map(function (h) { return (String(h)[0] === '#' ? h : '#' + h); }).join(' ');
+    // Register the improved caption for the shared copy/share buttons.
+    var plain = (imp.hook ? imp.hook + '\n\n' : '') + (imp.caption || '') + (imp.cta ? '\n\n' + imp.cta : '') + (tags ? '\n\n' + tags : '');
+    var mcid = 'mc_' + Math.random().toString(36).slice(2, 9);
+    window.__octoMatTexts = window.__octoMatTexts || {}; window.__octoMatTexts[mcid] = plain;
+    var shareBtn = (typeof navigator !== 'undefined' && navigator.share) ? '<button class="ob-copybtn" type="button" onclick="octoShareMat(\'' + mcid + '\')">📤 Поділитися</button>' : '';
+
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML =
+      '<div class="ob-rc-head"><div class="ob-ico">🔬</div><div><div class="card-title" style="margin:0;">Аналіз твого поста</div><div class="card-sub" style="margin:0;">' + esc(improvePlat) + '</div></div></div>'
+      + (typeof r.score === 'number' ? '<div class="au-score"><div class="num">' + Math.round(r.score) + '</div><div><div style="font-weight:700;">/ 100</div><div class="lbl">оцінка поста</div></div></div>' : '')
+      + (r.verdict ? '<p style="color:var(--text2);font-size:14px;margin-top:6px;">' + esc(r.verdict) + '</p>' : '')
+      + (r.strengths && r.strengths.length ? '<div class="ob-sec">Що працює</div>' + chips(r.strengths, 'good') : '')
+      + (r.weaknesses && r.weaknesses.length ? '<div class="ob-sec">Слабкі місця</div>' + chips(r.weaknesses, 'warn') : '')
+      // The rewrite — the visible payoff.
+      + '<div class="rs-as-b as-do" style="margin-top:16px;"><div class="rs-as-h">✨ Покращена версія</div>'
+      + (imp.hook ? '<div style="font-weight:750;font-size:14.5px;margin:2px 0 8px;">' + esc(imp.hook) + '</div>' : '')
+      + '<div style="font-size:14px;color:var(--text2);line-height:1.55;white-space:pre-wrap;">' + esc(imp.caption || '') + '</div>'
+      + (imp.cta ? '<div class="ob-cta" style="margin-top:10px;">🎬 <b>CTA:</b> ' + esc(imp.cta) + '</div>' : '')
+      + (tags ? '<div class="ob-tags" style="margin-top:8px;">' + esc(tags) + '</div>' : '')
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"><button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + mcid + '\',this)">📋 Скопіювати</button>' + shareBtn + '</div></div>'
+      + (r.hook_variants && r.hook_variants.length ? '<div class="ob-sec">🔀 Ще хуки для тесту</div>' + (r.hook_variants || []).map(function (h) { return '<div class="oc-mat" style="align-items:flex-start;"><span class="mi">🪝</span><div class="ml" style="font-weight:500;color:var(--text2);">' + esc(h) + '</div></div>'; }).join('') : '')
+      + (r.what_changed && r.what_changed.length ? '<div class="ob-sec">🛠 Що я змінив і чому</div>' + (r.what_changed || []).map(function (w) { return '<div class="rs-item"><span class="rs-dot" style="background:#3FD07A;"></span><div class="rs-txt">' + esc(w) + '</div></div>'; }).join('') : '')
+      + '<button class="btn btn-primary ip-save" style="width:100%;margin-top:16px;">💾 Зберегти в ідеї</button>';
+    $('ipResult').innerHTML = '';
+    $('ipResult').appendChild(card);
+    var sv = card.querySelector('.ip-save');
+    if (sv) sv.onclick = function () {
+      window.octoSaveIdea('post', 'Покращений пост' + (typeof r.score === 'number' ? ' (' + Math.round(r.score) + '→)' : ''),
+        { title: 'Покращений пост', summary: r.verdict || '', items: [{ label: 'Хук', text: imp.hook || '' }, { label: 'Підпис', text: imp.caption || '' }], cta: imp.cta, hashtags: imp.hashtags }, sv);
+    };
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 })();
 </script>
 
