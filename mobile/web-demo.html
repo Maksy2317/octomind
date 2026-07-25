@@ -207,6 +207,11 @@
     @keyframes omSpin { to { transform: rotate(360deg); } }
     @keyframes omPulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
     @keyframes omDot { 0%,80%,100% { transform: translateY(0) scale(.7); opacity: .4; } 40% { transform: translateY(-6px) scale(1); opacity: 1; } }
+    /* Skeleton placeholders — shown while cloud data hydrates on a fresh device */
+    @keyframes omShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+    .om-skel { border-radius: 8px; background: var(--surface2); background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); background-size: 400px 100%; background-repeat: no-repeat; animation: omShimmer 1.3s infinite; }
+    .om-skel-card { border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 10px; }
+    .om-skel-line { height: 12px; margin-bottom: 10px; }
     /* Хмаринка роздумів: три пульсуючі крапки */
     .om-dots { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 14px; background: rgba(139,123,255,.14); border: 1px solid rgba(139,123,255,.28); }
     .om-dots span { width: 8px; height: 8px; border-radius: 50%; background: #b5a8ff; animation: omDot 1.2s ease-in-out infinite; }
@@ -4451,6 +4456,16 @@
       '<h3>' + title + '</h3><p>' + text + '</p>' +
       (ctaLabel ? '<button class="btn btn-primary" onclick="' + ctaOnclick + '">' + ctaLabel + '</button>' : '') +
       '</div>';
+  };
+  // Skeleton list — shimmer placeholders shown while cloud data hydrates on a
+  // fresh device, so «Ще немає…» never flashes over data that's still loading.
+  window.omSkeletonCards = function (n) {
+    var one = '<div class="om-skel-card">'
+      + '<div class="om-skel om-skel-line" style="width:55%;"></div>'
+      + '<div class="om-skel om-skel-line" style="width:80%;"></div>'
+      + '<div class="om-skel om-skel-line" style="width:35%;margin-bottom:0;"></div>'
+      + '</div>';
+    return new Array(n || 3).fill(one).join('');
   };
   // Friendly error state — sad Octo + "try again". Use when a generation glitches
   // (transient model/rate-limit hiccup) instead of a raw error string.
@@ -10283,6 +10298,13 @@
     const userId = _jwtUserId(user.token);
     if (!userId) return;
 
+    // Hydrating = a logged-in device whose local stores are still empty while the
+    // cloud pull is in flight. Lists render skeletons instead of an «Ще немає…»
+    // empty-state that's actually just "loading". Cleared in finally.
+    try {
+      var ws0 = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+      window.__octoHydrating = !localStorage.getItem('octo_campaigns_' + ws0);
+    } catch (e) { window.__octoHydrating = false; }
     dbShowSync('syncing');
     try {
       const res = await fetch(
@@ -10358,6 +10380,7 @@
       } catch (e) {}
 
       dbShowSync('ok');
+      window.__octoHydrating = false;
 
       // Refresh UI with synced data
       try { calRender(); } catch {}
@@ -10368,7 +10391,7 @@
       try { if (window.octoCampaigns && document.getElementById('cmpList')) renderList(); } catch {}
       try { if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner(); } catch {}
       try { loadTovForCurrentWs(); } catch {}
-    } catch (e) { dbShowSync('offline'); }
+    } catch (e) { window.__octoHydrating = false; dbShowSync('offline'); }
   };
 
   function _applyCloudRow(key, value) {
@@ -14150,6 +14173,9 @@
     var el = $('cmpList'); if (!el) return;
     var all = window.octoCampaigns.all();
     if (!all.length) {
+      // Data may still be coming from the cloud on a fresh device — show
+      // skeletons, not «Ще немає», until the hydrating pull resolves.
+      if (window.__octoHydrating) { el.className = ''; el.innerHTML = window.omSkeletonCards(3); return; }
       el.innerHTML = window.omEmptyHTML('A10', 'Ще немає кампаній',
         'Постав ціль у «Просуванні» — Octo збере стратегію та всі матеріали сюди, в один проєкт.',
         '🎯 Створити просування', "showScreen('campaign',null)");
