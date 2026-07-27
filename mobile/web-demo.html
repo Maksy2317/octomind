@@ -1419,6 +1419,22 @@
       #settings button, #photo button, #video button, #caption button { min-height: 44px; }
     }
 
+    /* ── Поля вводу ─────────────────────────────────────────────────────────
+       .ob-input стоїть на 22 полях по всьому застосунку, але оформлення не мав
+       узагалі (лише min-height у мобільній медіа-групі) — тож усі вони падали
+       на дефолт браузера: білий фон, чорний текст, а textarea ще й моноширинним
+       шрифтом. Тут даємо класу справжній вигляд у токенах теми. */
+    .ob-input {
+      width: 100%; box-sizing: border-box;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; color: var(--text);
+      font: 500 14px 'Manrope', system-ui, sans-serif; line-height: 1.5;
+      outline: none; transition: border-color .15s;
+    }
+    .ob-input::placeholder { color: var(--text4); }
+    .ob-input:focus { border-color: var(--accent); }
+    textarea.ob-input { resize: vertical; min-height: 88px; }
+
     /* ── CAPTION AI ── */
     .cap-label {
       font-size: 13px; font-weight: 700; color: var(--text3);
@@ -2188,7 +2204,10 @@
       </div>
 
       <div class="nav-label" data-i18n="nav_create">Студія</div>
-      <div class="nav-item" data-screen="brand" onclick="showScreen('brand',this)">
+      <!-- Бренд-стиль приховано: користувачу не зрозуміло, що це і навіщо.
+           Екран і код лишаються — щоб повернути, досить прибрати display:none
+           тут і в шторці «Ще». -->
+      <div class="nav-item" data-screen="brand" style="display:none;" onclick="showScreen('brand',this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 1.9 1.9 0 0 0-.5-1.3 1.9 1.9 0 0 1-.4-1.2 2 2 0 0 1 2-2H17a4 4 0 0 0 4-4c0-3.9-4-7.5-9-7.5Z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="11.5" r="1"/></svg></span> <span data-i18n="nav_brand">Бренд-стиль</span>
         <span class="nav-badge new">New</span>
       </div>
@@ -2267,7 +2286,7 @@
       <button class="sheet-item" onclick="goFromSheet('research')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>Дослідження ринку<span class="sheet-badge">New</span></button>
       <button class="sheet-item" onclick="goFromSheet('audit')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v13H4z"/><path d="M8 21h8M12 17v4M8 11l2.5-2.5 2 2L16 7"/></svg></span>Розбір контенту<span class="sheet-badge">New</span></button>
       <button class="sheet-item" onclick="goFromSheet('trend')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 1 3.5 10.9c-.8.6-1.5 1.6-1.5 2.6h-4c0-1-.7-2-1.5-2.6A6 6 0 0 1 12 3Z"/><path d="M10 20h4"/></svg></span>Ідея з тренду</button>
-      <button class="sheet-item" onclick="goFromSheet('brand')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5.5L20 9.5l-4 4 1 6-5-2.8L7 19.5l1-6-4-4 5.5-1L12 3Z"/></svg></span>Бренд-стиль</button>
+      <button class="sheet-item" style="display:none;" onclick="goFromSheet('brand')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5.5L20 9.5l-4 4 1 6-5-2.8L7 19.5l1-6-4-4 5.5-1L12 3Z"/></svg></span>Бренд-стиль</button>
       <button class="sheet-item" onclick="goFromSheet('calendar')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span>Календар</button>
 
       <div class="sheet-group">Акаунт</div>
@@ -2625,12 +2644,6 @@
             .ai-chip2 { padding:8px 13px; border-radius:10px; border:1px solid var(--border); background:var(--surface2);
               color:var(--text3); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
             .ai-chip2.on { border-color:var(--accent); background:rgba(139,123,255,.14); color:var(--text); }
-            /* The caption box — match the dark surfaces, not the browser default. */
-            #ipCaption { width:100%; box-sizing:border-box; background:var(--surface2); border:1px solid var(--border);
-              border-radius:12px; padding:12px 14px; color:var(--text); font:500 14px 'Manrope',sans-serif;
-              line-height:1.5; resize:vertical; }
-            #ipCaption::placeholder { color:var(--text4); }
-            #ipCaption:focus { outline:none; border-color:var(--accent); }
           </style>
           <!-- Choose what the AI analyses: one post you give it, or the whole page. -->
           <div class="ai-modes">
@@ -3372,7 +3385,7 @@
                 <li><span>✅</span> <span>~30 AI-зображень + реклама товару</span></li>
                 <li><span>✅</span> <span>Тренди повністю + AI-розбір</span></li>
                 <li><span>✅</span> <span>Ask Octo — без ліміту</span></li>
-                <li><span>✅</span> <span>Бренд-стиль, контент-план, розбір сторінки</span></li>
+                <li><span>✅</span> <span>Команда Octo, контент-план, розбір сторінки</span></li>
                 <li><span>✅</span> <span>Дослідження ринку (web-пошук)</span></li>
               </ul>
               <button class="btn btn-primary btn-full" id="payBtnPro" onclick="octoOpenCheckout('pro')">Оформити Pro →</button>
@@ -15350,7 +15363,8 @@
 
   function paintWeekly(w) {
     var card = document.getElementById('dashAdvice'); if (!card) return;
-    var ok = { campaign:1, campaigns:1, trends:1, research:1, audit:1, brand:1, calendar:1 };
+    // brand свідомо відсутній: екран приховано, тож порада не має вести в нікуди.
+    var ok = { campaign:1, campaigns:1, trends:1, research:1, audit:1, team:1, calendar:1 };
     // Одна тиха дія замість трьох primary-кнопок — порада не має змагатися
     // з «Твоїм наступним кроком» за увагу.
     var btns = (w.actions || []).filter(function (x) { return ok[x.screen]; }).slice(0, 1)
