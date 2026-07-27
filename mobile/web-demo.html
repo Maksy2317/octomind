@@ -265,6 +265,16 @@
     .om-qa:hover { transform: translateY(-2px); }
     .om-qa.om-qa-hot { border: 1px solid rgba(139,123,255,.35); background: linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05)); }
     .om-qa .om-qa-ico { display: flex; width: 40px; height: 40px; border-radius: 12px; align-items: center; justify-content: center; margin-bottom: 13px; }
+    /* Кольори іконок — класом, а не інлайном: інакше у світлій темі їх нічим
+       перекрити, і пастельна обводка бліднула до нечитабельного (контраст ~1.4). */
+    .om-ico--violet { background: rgba(139,123,255,.13); color: #b5a8ff; }
+    .om-ico--blue   { background: rgba(56,189,248,.13);  color: #7cc9f2; }
+    .om-ico--green  { background: rgba(63,208,122,.13);  color: #7ddb9f; }
+    .om-ico--amber  { background: rgba(255,194,75,.13);  color: #ffd58a; }
+    body.light-mode .om-ico--violet { background: rgba(108,99,255,.12); color: #5546cf; }
+    body.light-mode .om-ico--blue   { background: rgba(14,140,200,.12); color: #16719f; }
+    body.light-mode .om-ico--green  { background: rgba(28,150,86,.12);  color: #197a48; }
+    body.light-mode .om-ico--amber  { background: rgba(190,130,20,.14); color: #8f6108; }
     .om-qa .om-qa-t { display: block; font-size: 15px; font-weight: 800; margin-bottom: 4px; }
     .om-qa .om-qa-s { display: block; font-size: 12.5px; line-height: 1.5; color: #9a9ac4; font-weight: 500; }
 
@@ -15231,18 +15241,23 @@
     // banner — per the owner's call, even though it's the funnel's headline.
     // Ask Octo свідомо НЕ тут: він уже є в шапці й у картці вітання. Кожна дія
     // має бути на екрані рівно один раз — саме дублі й робили Огляд «наляпистим».
+    // Усі 4 іконки — в ОДНІЙ формі (13% заливка + кольорова обводка), різняться
+    // лише відтінком, як у стат-картках нижче. Раніше перші дві були залиті
+    // градієнтом: це лишилось від часів, коли вони вважались «головними», але
+    // сигналу не несло — єдиний виділений заклик на екрані має бути один
+    // («Твій наступний крок»), решта інструментів рівні між собою.
     var actions = '<div class="om-eyebrow">Швидкі дії</div><div class="om-qa-row">'
       + '<button class="om-qa" onclick="showScreen(\'prodads\',null)">'
-      + '<span class="om-qa-ico" style="background:var(--grad);box-shadow:0 4px 12px -6px rgba(108,99,255,.35);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg></span>'
+      + '<span class="om-qa-ico om-ico--violet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg></span>'
       + '<span class="om-qa-t">Реклама товару</span><span class="om-qa-s">Фото → готові креативи й тексти за хвилину</span></button>'
       + '<button class="om-qa" onclick="showScreen(\'campaign\',null)">'
-      + '<span class="om-qa-ico" style="background:linear-gradient(135deg,#8B7BFF,#6C63FF);box-shadow:0 4px 12px -6px rgba(108,99,255,.35);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="#fff"/></svg></span>'
+      + '<span class="om-qa-ico om-ico--blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></span>'
       + '<span class="om-qa-t">Просування</span><span class="om-qa-s">Постав бізнес-ціль — Octo зробить стратегію і матеріали</span></button>'
       + '<button class="om-qa" onclick="showScreen(\'team\',null)">'
-      + '<span class="om-qa-ico" style="background:rgba(139,123,255,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b5a8ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 20a6.5 6.5 0 0 0-3-5.5"/></svg></span>'
+      + '<span class="om-qa-ico om-ico--green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 20a6.5 6.5 0 0 0-3-5.5"/></svg></span>'
       + '<span class="om-qa-t">Команда Octo</span><span class="om-qa-s">Фахівець під кожну задачу — від рефералів до офферу</span></button>'
       + '<button class="om-qa" onclick="showScreen(\'audit\',null)">'
-      + '<span class="om-qa-ico" style="background:rgba(56,189,248,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7cc9f2" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>'
+      + '<span class="om-qa-ico om-ico--amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>'
       + '<span class="om-qa-t">Розбір контенту</span><span class="om-qa-s">Аудит Instagram або TikTok профілю з планом покращень</span></button>'
       + '</div>';
 
