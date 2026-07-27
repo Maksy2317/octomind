@@ -69,6 +69,7 @@ function upgradeMessage(feature: Feature): string {
     analysis:   'розборів сторінки',
     research:   'досліджень ринку',
     brand:      'бренд-стилів',
+    skill:      'скілів Команди Octo',
   };
   return `Ліміт ${label[feature]} на цьому тарифі вичерпано. Відкрий Pro, щоб продовжити.`;
 }

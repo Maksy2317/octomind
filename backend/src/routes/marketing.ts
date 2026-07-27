@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, runSkill, isSkill, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -140,6 +140,29 @@ marketingRouter.post('/improve-post', meter('analysis'), async (req: Request, re
     const result = await improvePost(ctx, caption, platform, images);
     await logGeneration(req, {
       type: 'improve_post', input: { context: ctx, platform, hasImage: images.length > 0 },
+      output: result as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/skill — run one «Команда Octo» specialist skill by id.
+// Body: { skill: string, input?: string, profile?: {} }. Returns { result }.
+marketingRouter.post('/skill', meter('skill'), async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const skill = typeof req.body?.skill === 'string' ? req.body.skill.trim().slice(0, 40) : '';
+  const input = typeof req.body?.input === 'string' ? req.body.input.slice(0, 1500) : '';
+  if (!skill || !isSkill(skill)) {
+    res.status(400).json({ error: 'Невідомий скіл' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const result = await runSkill(skill, ctx, input);
+    await logGeneration(req, {
+      type: 'skill', input: { skill, hasInput: Boolean(input.trim()), context: ctx },
       output: result as unknown as Record<string, unknown>, profileId,
     });
     res.json({ result });

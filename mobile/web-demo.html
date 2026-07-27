@@ -2132,6 +2132,10 @@
       </div>
 
       <div class="nav-label" data-i18n="nav_tools">Інструменти AI</div>
+      <div class="nav-item" data-screen="team" onclick="showScreen('team',this)">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 20a6.5 6.5 0 0 0-3-5.5"/></svg></span> Команда Octo
+        <span class="nav-badge new">New</span>
+      </div>
       <div class="nav-item" data-screen="trends" onclick="showScreen('trends',this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a6 6 0 0 1-6-6c0-4 4-6 4-10 2 2 3 3.5 3 6 1-1 1.5-2 1.5-3.5C18 11 18 13 18 16a6 6 0 0 1-6 6Z"/></svg></span> <span data-i18n="nav_trends">Тренди</span>
         <span class="nav-badge new">New</span>
@@ -2223,6 +2227,7 @@
     <div class="sheet" id="moreSheet" role="dialog" aria-label="Ще">
       <div class="sheet-handle"></div>
       <div class="sheet-group">Інструменти AI</div>
+      <button class="sheet-item" onclick="goFromSheet('team')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 20a6.5 6.5 0 0 0-3-5.5"/></svg></span>Команда Octo<span class="sheet-badge">New</span></button>
       <button class="sheet-item" onclick="goFromSheet('campaign')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></span>Просування<span class="sheet-badge">AI</span></button>
       <button class="sheet-item" onclick="goFromSheet('trends')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 3 3 7-7"/><path d="M15 7h4v4"/></svg></span>Тренди<span class="sheet-badge">New</span></button>
       <button class="sheet-item" onclick="goFromSheet('research')"><span class="sheet-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>Дослідження ринку<span class="sheet-badge">New</span></button>
@@ -2718,6 +2723,37 @@
           .oc-mat .ml { font-size:13.5px; font-weight:700; }
           .oc-mat .mw { font-size:12px; color:var(--text3); margin-top:2px; }
         </style>
+
+        <!-- ═══ Команда Octo — бібліотека маркетингових скілів (фахівців) ═══ -->
+        <div class="screen" id="team">
+          <style>
+            .tm-hero { display:flex; align-items:center; gap:14px; padding:16px; border-radius:18px; margin-bottom:18px;
+              background:linear-gradient(135deg,rgba(139,123,255,.16),rgba(56,189,248,.06)); border:1px solid rgba(139,123,255,.25); }
+            .tm-hero img { width:56px; height:56px; object-fit:contain; flex:none; }
+            .tm-hero h2 { font-size:17px; font-weight:800; margin:0 0 3px; }
+            .tm-hero p { font-size:12.5px; color:var(--text3); margin:0; line-height:1.4; }
+            .tm-cat { font-size:12px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--text3); margin:20px 0 10px; }
+            .tm-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+            .tm-card { text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:15px; padding:13px;
+              cursor:pointer; transition:border-color .15s, transform .1s; font:inherit; color:var(--text); }
+            .tm-card:hover { border-color:var(--accent); }
+            .tm-card:active { transform:scale(.985); }
+            .tm-emoji { font-size:22px; display:block; margin-bottom:7px; }
+            .tm-name { font-size:13.5px; font-weight:750; margin-bottom:3px; }
+            .tm-blurb { font-size:11.5px; color:var(--text3); line-height:1.35; }
+            @media (max-width:360px){ .tm-grid { grid-template-columns:1fr; } }
+          </style>
+          <div class="tm-hero">
+            <img src="assets/new/A16.png" alt="Octo">
+            <div>
+              <h2>Команда Octo</h2>
+              <p>Не одна кнопка, а команда маркетингових спеціалістів. Обери фахівця під задачу — Octo застосує його метод і дасть план + готові матеріали під твій бізнес.</p>
+            </div>
+          </div>
+          <div id="teamGrid"></div>
+          <div id="teamResult" style="margin-top:8px;"></div>
+        </div>
+
         <div class="screen" id="campaign">
 
           <!-- Gate: shown until Octo knows the business -->
@@ -4641,6 +4677,11 @@
     if (id === 'dashboard') {
       if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
       if (typeof renderDashboard !== 'undefined') renderDashboard();
+    }
+    if (id === 'team') {
+      document.getElementById('topTitle').textContent = 'Команда Octo';
+      document.getElementById('topSub').textContent = 'Маркетингові спеціалісти під кожну задачу';
+      try { window.octoRenderTeam && window.octoRenderTeam(); } catch (e) {}
     }
     if (id === 'profile') { try { window.renderProfile && window.renderProfile(); } catch (e) {} if (typeof renderProfileCard !== 'undefined') renderProfileCard(); }
     // Скрываем маскота на экране чата — он мешает кнопке отправки
@@ -12510,6 +12551,164 @@
         { title: 'Покращений пост', summary: r.verdict || '', items: [{ label: 'Хук', text: imp.hook || '' }, { label: 'Підпис', text: imp.caption || '' }], cta: imp.cta, hashtags: imp.hashtags }, sv);
     };
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+})();
+</script>
+
+<!-- ═══ Команда Octo — бібліотека маркетингових скілів ═══ -->
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
+  function deviceId() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+  function bizProfile() {
+    try {
+      if (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) {
+        var b = window.octoBiz.get(), o = {};
+        ['account_type','business_name','niche','description','target_audience','geo','price_segment','usp','goal','tone','market_research','platforms','content_format','monetization'].forEach(function (k) { if (b[k]) o[k] = b[k]; });
+        return o;
+      }
+    } catch (e) {}
+    return {};
+  }
+
+  // Client menu — ids MUST match the backend SKILLS registry. Curated for our
+  // ICP (local small business / creator on IG+TikTok); no B2B-SaaS/dev skills.
+  var GROUPS = [
+    { cat: '📈 Залучити нових клієнтів', skills: [
+      { id: 'referrals',    emoji: '🧲', name: 'Реферальна програма', blurb: 'Клієнти приводять клієнтів', hint: 'Кого хочеш залучати рефералами? (необовʼязково)' },
+      { id: 'influencer',   emoji: '🤝', name: 'Колаби з блогерами',  blurb: 'Мікроблогери приводять аудиторію', hint: 'Який бюджет чи бартер готовий дати за колаб?' },
+      { id: 'co-marketing', emoji: '👥', name: 'Партнерство з сусідами', blurb: 'Крос-промо з бізнесами поруч', hint: 'Які бізнеси є поруч із тобою?' },
+      { id: 'pr',           emoji: '🗞', name: 'Локальний PR',        blurb: 'Місцеві медіа й телеграм-канали', hint: 'Є інфопривід? (подія, новинка)' },
+    ]},
+    { cat: '🫂 Утримати й повернути', skills: [
+      { id: 'community',    emoji: '🫂', name: 'Своє ком’юніті',      blurb: 'Постійні люди навколо бренду', hint: 'Де вже спілкуєшся з клієнтами?' },
+      { id: 'winback',      emoji: '💬', name: 'Повернути клієнтів',  blurb: 'Розбуди сплячу базу', hint: 'Хто твої «сплячі» клієнти?' },
+    ]},
+    { cat: '🎯 Упаковка й запуск', skills: [
+      { id: 'offer',        emoji: '🎁', name: 'Скласти оффер',       blurb: 'Пропозиція, від якої не відмовляться', hint: 'Що просуваєш? (товар / послуга / акція)' },
+      { id: 'launch',       emoji: '🚀', name: 'План запуску',        blurb: 'Виведи новинку/акцію по днях', hint: 'Що запускаєш і коли?' },
+      { id: 'pricing',      emoji: '🏷', name: 'Ціни й пакети',       blurb: 'Скільки брати і як пакувати', hint: 'Що продаєш і які приблизно ціни?' },
+    ]},
+    { cat: '🧠 Ідеї та експертиза', skills: [
+      { id: 'psychology',   emoji: '🧠', name: 'Маркетинг-психологія', blurb: 'Тригери, що підштовхують купити', hint: 'До чого застосувати? (пост / оффер)' },
+      { id: 'ideas',        emoji: '💡', name: 'Швидкі ідеї',         blurb: '8-10 дій на цей тиждень', hint: 'Є фокус? (напр. більше записів)' },
+      { id: 'council',      emoji: '🧑‍⚖️', name: 'Рада маркетологів',  blurb: 'Кілька експертних поглядів', hint: 'Сформулюй питання до ради' },
+    ]},
+  ];
+  var SKILL_BY_ID = {};
+  GROUPS.forEach(function (g) { g.skills.forEach(function (s) { SKILL_BY_ID[s.id] = s; }); });
+
+  window.octoRenderTeam = function () {
+    var grid = $('teamGrid'); if (!grid || grid.dataset.built) return;
+    grid.innerHTML = GROUPS.map(function (g) {
+      return '<div class="tm-cat">' + esc(g.cat) + '</div><div class="tm-grid">' +
+        g.skills.map(function (s) {
+          return '<button class="tm-card" onclick="octoOpenSkill(\'' + s.id + '\')">' +
+            '<span class="tm-emoji">' + s.emoji + '</span>' +
+            '<div class="tm-name">' + esc(s.name) + '</div>' +
+            '<div class="tm-blurb">' + esc(s.blurb) + '</div></button>';
+        }).join('') + '</div>';
+    }).join('');
+    grid.dataset.built = '1';
+  };
+
+  // Tap a skill → small sheet with an optional context field → run.
+  window.octoOpenSkill = function (id) {
+    var s = SKILL_BY_ID[id]; if (!s) return;
+    window._octoSheet(
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:22px 22px 0 0;padding:22px 18px 30px;width:100%;max-width:600px;box-sizing:border-box;">' +
+      '<div style="width:38px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-size:26px;">' + s.emoji + '</span>' +
+      '<div style="font-size:16px;font-weight:800;">' + esc(s.name) + '</div></div>' +
+      '<div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;">' + esc(s.blurb) + ' — Octo зробить план під твій бізнес.</div>' +
+      '<textarea id="tmInput" rows="3" placeholder="' + esc(s.hint) + '" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font:500 14px Manrope,sans-serif;line-height:1.5;resize:vertical;"></textarea>' +
+      '<button onclick="octoRunSkill(\'' + s.id + '\')" style="width:100%;margin-top:14px;padding:14px;border:none;border-radius:14px;font:800 15px Manrope,sans-serif;color:#fff;background:var(--grad);cursor:pointer;">✨ Запустити фахівця</button>' +
+      '<button onclick="_octoSheetClose()" style="width:100%;margin-top:8px;padding:11px;background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:12px;font:600 13px Manrope,sans-serif;cursor:pointer;">Скасувати</button>' +
+      '</div>'
+    );
+    setTimeout(function () { var i = $('tmInput'); if (i) i.focus(); }, 60);
+  };
+
+  window.octoRunSkill = function (id) {
+    var s = SKILL_BY_ID[id]; if (!s) return;
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) { window._octoSheetClose(); return; }
+    var input = (($('tmInput') || {}).value || '').trim();
+    window._octoSheetClose();
+    var res = $('teamResult');
+    res.innerHTML = '<div class="card"><div class="ob-status ob-busy"><span class="ob-spin"></span> ' + esc(s.name) + ' працює над задачею…</div></div>';
+    res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    fetch('/api/marketing/skill', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify({ skill: id, input: input, profile: bizProfile() }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        renderSkill(s, d.result);
+        try { window.octoTrack && window.octoTrack('material_created', { type: 'skill', skill: id }); } catch (e) {}
+        if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
+      })
+      .catch(function (e) {
+        res.innerHTML = '<div class="card"><div class="ob-status ob-err">⚠️ ' +
+          esc(/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message) + '</div></div>';
+      });
+  };
+
+  function renderSkill(s, r) {
+    var res = $('teamResult');
+    if (!r) { res.innerHTML = '<div class="card"><div class="ob-status ob-err">Порожня відповідь. Спробуй ще раз.</div></div>'; return; }
+    var sectionsHtml = (r.sections || []).map(function (sec) {
+      return '<div class="ob-sec">' + esc(sec.heading || '') + '</div>' +
+        (sec.items || []).map(function (it) {
+          return '<div class="rs-item"><span class="rs-dot" style="background:var(--accent);"></span><div class="rs-txt">' + esc(it) + '</div></div>';
+        }).join('');
+    }).join('');
+    var stepsHtml = (r.action_steps && r.action_steps.length)
+      ? '<div class="ob-sec">✅ Що зробити цього тижня</div>' +
+        r.action_steps.map(function (st, i) {
+          return '<div class="au-fix"><span class="n">' + (i + 1) + '</span><div><div class="w">' + esc(st) + '</div></div></div>';
+        }).join('')
+      : '';
+    // Ready-to-use materials get copy buttons (register in the shared store).
+    window.__octoMatTexts = window.__octoMatTexts || {};
+    var matsHtml = (r.materials && r.materials.length)
+      ? '<div class="ob-sec">📋 Готові матеріали</div>' +
+        r.materials.map(function (m) {
+          var mid = 'sk_' + Math.random().toString(36).slice(2, 9);
+          window.__octoMatTexts[mid] = m.text || '';
+          return '<div class="rs-as-b as-do" style="margin-top:8px;">' +
+            '<div class="rs-as-h">' + esc(m.label || 'Матеріал') + '</div>' +
+            '<div style="font-size:13.5px;color:var(--text2);line-height:1.5;white-space:pre-wrap;">' + esc(m.text || '') + '</div>' +
+            '<div style="margin-top:10px;"><button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + mid + '\',this)">📋 Скопіювати</button></div></div>';
+        }).join('')
+      : '';
+    var card = document.createElement('div');
+    card.className = 'card ob-res';
+    card.innerHTML =
+      '<div class="ob-rc-head"><div class="ob-ico">' + s.emoji + '</div><div>' +
+      '<div class="card-title" style="margin:0;">' + esc(r.title || s.name) + '</div>' +
+      '<div class="card-sub" style="margin:0;">' + esc(s.name) + '</div></div></div>' +
+      (r.summary ? '<p style="color:var(--text2);font-size:14px;margin-top:6px;">' + esc(r.summary) + '</p>' : '') +
+      sectionsHtml + stepsHtml + matsHtml +
+      '<button class="btn btn-primary tm-save" style="width:100%;margin-top:16px;">💾 Зберегти в ідеї</button>';
+    res.innerHTML = '';
+    res.appendChild(card);
+    var sv = card.querySelector('.tm-save');
+    if (sv) sv.onclick = function () {
+      var items = [];
+      (r.sections || []).forEach(function (sec) {
+        (sec.items || []).forEach(function (it) { items.push({ label: sec.heading || '', text: it }); });
+      });
+      (r.action_steps || []).forEach(function (st) { items.push({ label: '✅ Крок', text: st }); });
+      window.octoSaveIdea('skill', (r.title || s.name),
+        { title: (r.title || s.name), summary: r.summary || '', items: items, materials: r.materials }, sv);
+    };
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 })();
 </script>

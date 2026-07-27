@@ -15,7 +15,7 @@ import { Plan } from './db/models';
 import { isLive } from './payments/wayforpay';
 
 export type Feature =
-  | 'campaign' | 'image' | 'chat' | 'trend_feed' | 'analysis' | 'research' | 'brand';
+  | 'campaign' | 'image' | 'chat' | 'trend_feed' | 'analysis' | 'research' | 'brand' | 'skill';
 
 type Period = 'day' | 'month';
 type Rule = { n: number; per: Period } | null; // null = unlimited
@@ -36,6 +36,8 @@ const LIMITS: Record<Feature, Record<Plan, Rule>> = {
   research:   { free: { n: 1,  per: 'month' }, pro: { n: 20, per: 'month' }, business: null },
   // бренд-кіт
   brand:      { free: { n: 1,  per: 'month' }, pro: null,                    business: null },
+  // «Команда Octo» — один скіл-фахівець (легка текстова генерація)
+  skill:      { free: { n: 10, per: 'month' }, pro: null,                    business: null },
 };
 
 function periodStartIso(per: Period): string {
