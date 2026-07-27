@@ -237,6 +237,22 @@
     .om-grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 20px; }
     .om-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
     @media (max-width: 800px) { .om-grid-2, .om-grid-3 { grid-template-columns: 1fr; } }
+    /* Швидкі дії: 4 в ряд на десктопі, стрічка-свайп на телефоні — щоб вони
+       не з'їдали пів-екрана заввишки й не тіснили головну дію. */
+    .om-qa-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+    @media (max-width: 900px) { .om-qa-row { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 620px) {
+      .om-qa-row { display: flex; grid-template-columns: none; gap: 10px; overflow-x: auto;
+        scroll-snap-type: x proximity; padding-bottom: 4px; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; }
+      .om-qa-row::-webkit-scrollbar { display: none; }
+      .om-qa-row .om-qa { flex: 0 0 64%; scroll-snap-align: start; padding: 15px; }
+      /* Опис ховаємо — у стрічці важлива назва; іконка підтягується, щоб
+         картка не була порожньою всередині. */
+      .om-qa-row .om-qa .om-qa-s { display: none; }
+      .om-qa-row .om-qa .om-qa-ico { margin-bottom: 9px; width: 36px; height: 36px; }
+      .om-qa-row .om-qa .om-qa-t { font-size: 14px; margin-bottom: 0; }
+    }
     /* Стат-картка з дизайну: лейбл + іконка-квадрат + Unbounded число */
     .om-stat { padding: 18px; border-radius: 18px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); }
     .om-stat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -277,6 +293,14 @@
     body.light-mode .quiz-option:hover { border-color: var(--accent); background: var(--surface2); }
     body.light-mode .quiz-option.selected { background: var(--surface3); border-color: var(--accent); }
     body.light-mode .card { background: var(--surface); border-color: var(--border); }
+    /* Дашборд-компоненти мають зашитий білий текст на 3.5% білому — у світлій
+       темі вони ставали невидимі. Тут повертаємо їм токени теми. */
+    body.light-mode .om-qa,
+    body.light-mode .om-stat { background: var(--surface); border-color: var(--border); color: var(--text); }
+    body.light-mode .om-qa .om-qa-s,
+    body.light-mode .om-stat-label,
+    body.light-mode .om-stat-sub,
+    body.light-mode .om-eyebrow { color: var(--text3); }
     body.light-mode .dropzone { background: var(--surface2); border-color: var(--border); }
     body.light-mode .dropzone:hover { border-color: var(--accent); background: var(--surface3); }
     body.light-mode .btn-secondary { background: var(--surface2); border-color: var(--border); color: var(--text); }
@@ -15175,15 +15199,17 @@
         : (nextPost.d.getTime() === todayD.getTime() + 86400000 ? 'завтра' : nextPost.d.getDate() + '.' + String(nextPost.d.getMonth() + 1).padStart(2, '0'));
       npSub = esc(String(nextPost.title).slice(0, 40)) + ' · ' + dLbl + (nextPost.time ? ' ' + nextPost.time : '');
     }
+    // Вітання — цілий рядок клікабельний (шеврон замість кнопки): Ask Octo вже
+    // є в шапці, тож окрема кнопка тут була третім дублем однієї дії.
     var greetRow = '<div class="om-grid-2">'
-      + '<div style="display:flex;align-items:center;gap:18px;padding:22px 24px;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);flex-wrap:wrap;">'
-      + '<img src="assets/new/A16.png" style="width:86px;height:86px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 10px 18px rgba(20,10,50,.5));">'
-      + '<div style="flex:1;min-width:180px;">'
-      + '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '!' : 'Привіт! Я Octo — твій AI-маркетолог') + '</div>'
-      + '<div style="font-size:13.5px;line-height:1.5;font-weight:500;color:#a6a6cc;">' + (bizSet ? 'На основі твого профілю я вже знаю, чим допомогти. Запитай будь-що з маркетингу.' : 'Розкажи про бізнес — і я запропоную, кому рекламувати і що створити.') + '</div></div>'
-      + '<button class="btn btn-primary" style="flex:0 0 auto;border-radius:13px;padding:12px 18px;" onclick="showScreen(\'advisor\',null)">Запитати Octo <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>'
-      + '</div>'
-      + '<button onclick="showScreen(\'calendar\',null)" style="display:flex;align-items:center;gap:15px;padding:20px 22px;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);color:#fff;text-align:left;cursor:pointer;font-family:inherit;">'
+      + '<button onclick="showScreen(\'advisor\',null)" style="display:flex;align-items:center;gap:15px;padding:18px 20px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--text);text-align:left;cursor:pointer;font-family:inherit;">'
+      + '<img src="assets/new/A16.png" style="width:58px;height:58px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 8px 14px rgba(20,10,50,.5));">'
+      + '<span style="flex:1;min-width:0;">'
+      + '<span style="display:block;font-size:15.5px;font-weight:800;margin-bottom:3px;">' + (bizSet && biz.business_name ? 'Привіт, ' + esc(biz.business_name) + '!' : 'Привіт! Я Octo — твій AI-маркетолог') + '</span>'
+      + '<span style="display:block;font-size:12.5px;line-height:1.45;font-weight:500;color:#8f8fb6;">' + (bizSet ? 'Octo пам’ятає твій профіль — запитай будь-що з маркетингу' : 'Розкажи про бізнес — і я запропоную, що створити') + '</span></span>'
+      + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8B7BFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6l6 6-6 6"/></svg>'
+      + '</button>'
+      + '<button onclick="showScreen(\'calendar\',null)" style="display:flex;align-items:center;gap:15px;padding:20px 22px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--text);text-align:left;cursor:pointer;font-family:inherit;">'
       + '<span style="width:44px;height:44px;border-radius:13px;background:rgba(255,194,75,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#ffd58a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg></span>'
       + '<span style="flex:1;"><span style="display:block;font-size:14.5px;font-weight:800;">Наступний пост</span><span style="display:block;font-size:12.5px;font-weight:500;color:#8f8fb6;margin-top:3px;">' + npSub + '</span></span>'
       + '<span style="font-size:13px;font-weight:700;color:#8B7BFF;">Відкрити</span>'
@@ -15195,22 +15221,26 @@
       + '<div style="font-size:24px;flex:none;">' + a.icon + '</div>'
       + '<div style="flex:1;"><div class="om-eyebrow" style="margin:0 0 4px;color:#b5a8ff;">Порада від Octo</div>'
       + '<div style="font-size:14px;color:var(--text2);">' + a.text + '</div>'
-      + '<button class="btn btn-primary" style="margin-top:12px;padding:9px 16px;font-size:13px;" onclick="showScreen(\'' + a.screen + '\',null)">' + a.btn + ' →</button></div></div></div>';
+      // Тихий текстовий лінк замість трьох primary-кнопок: порада інформує,
+      // а діяти є де — у «Швидких діях» вище.
+      + '<button style="margin-top:10px;background:none;border:none;padding:0;font:800 13px inherit;color:#b5a8ff;cursor:pointer;" onclick="showScreen(\'' + a.screen + '\',null)">' + a.btn + ' →</button></div></div></div>';
 
     // ── Головний сценарій. Людина з реклами приходить по нього, а не по цифри.
     // Відео не обіцяємо: формат «🎬 Відео» у майстрі заблокований. ──
     // ── Швидкі дії ── Product ads is one tool among the rest, not the hero
     // banner — per the owner's call, even though it's the funnel's headline.
-    var actions = '<div class="om-eyebrow">Швидкі дії</div><div class="om-grid-3" style="margin-bottom:20px;">'
+    // Ask Octo свідомо НЕ тут: він уже є в шапці й у картці вітання. Кожна дія
+    // має бути на екрані рівно один раз — саме дублі й робили Огляд «наляпистим».
+    var actions = '<div class="om-eyebrow">Швидкі дії</div><div class="om-qa-row">'
       + '<button class="om-qa" onclick="showScreen(\'prodads\',null)">'
       + '<span class="om-qa-ico" style="background:var(--grad);box-shadow:0 4px 12px -6px rgba(108,99,255,.35);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v9"/></svg></span>'
       + '<span class="om-qa-t">Реклама товару</span><span class="om-qa-s">Фото → готові креативи й тексти за хвилину</span></button>'
       + '<button class="om-qa" onclick="showScreen(\'campaign\',null)">'
       + '<span class="om-qa-ico" style="background:linear-gradient(135deg,#8B7BFF,#6C63FF);box-shadow:0 4px 12px -6px rgba(108,99,255,.35);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="#fff"/></svg></span>'
-      + '<span class="om-qa-t">Створити просування</span><span class="om-qa-s">Постав бізнес-ціль — Octo зробить стратегію і матеріали</span></button>'
-      + '<button class="om-qa" onclick="showScreen(\'advisor\',null)">'
-      + '<span class="om-qa-ico" style="background:rgba(139,123,255,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b5a8ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12.5h5"/></svg></span>'
-      + '<span class="om-qa-t">Ask Octo</span><span class="om-qa-s">Стратегія, підписи, контент-план, поради для зростання</span></button>'
+      + '<span class="om-qa-t">Просування</span><span class="om-qa-s">Постав бізнес-ціль — Octo зробить стратегію і матеріали</span></button>'
+      + '<button class="om-qa" onclick="showScreen(\'team\',null)">'
+      + '<span class="om-qa-ico" style="background:rgba(139,123,255,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b5a8ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 20a6.5 6.5 0 0 0-3-5.5"/></svg></span>'
+      + '<span class="om-qa-t">Команда Octo</span><span class="om-qa-s">Фахівець під кожну задачу — від рефералів до офферу</span></button>'
       + '<button class="om-qa" onclick="showScreen(\'audit\',null)">'
       + '<span class="om-qa-ico" style="background:rgba(56,189,248,.13);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7cc9f2" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>'
       + '<span class="om-qa-t">Розбір контенту</span><span class="om-qa-s">Аудит Instagram або TikTok профілю з планом покращень</span></button>'
@@ -15284,7 +15314,9 @@
       }
     } catch (e) {}
 
-    el.innerHTML = hero + conductor + staleStrip + stats + greetRow + (camps.length ? adv : '') + actions + campHtml;
+    // Порядок M2: спершу ОДНА головна дія, потім Octo, потім інструменти, і аж
+    // тоді цифри та порада. Цифри — довідка, а не привід зайти, тож вони нижче.
+    el.innerHTML = hero + conductor + staleStrip + greetRow + actions + stats + (camps.length ? adv : '') + campHtml;
     ensureWeekly(biz, bizSet, camps);
   };
 
@@ -15304,8 +15336,10 @@
   function paintWeekly(w) {
     var card = document.getElementById('dashAdvice'); if (!card) return;
     var ok = { campaign:1, campaigns:1, trends:1, research:1, audit:1, brand:1, calendar:1 };
-    var btns = (w.actions || []).filter(function (x) { return ok[x.screen]; }).slice(0, 3)
-      .map(function (x) { return '<button class="btn btn-primary" style="margin:10px 8px 0 0;padding:8px 14px;font-size:12.5px;" onclick="showScreen(\'' + x.screen + '\',null)">' + esc(x.label) + '</button>'; })
+    // Одна тиха дія замість трьох primary-кнопок — порада не має змагатися
+    // з «Твоїм наступним кроком» за увагу.
+    var btns = (w.actions || []).filter(function (x) { return ok[x.screen]; }).slice(0, 1)
+      .map(function (x) { return '<button style="margin-top:10px;background:none;border:none;padding:0;font:800 13px inherit;color:#b5a8ff;cursor:pointer;" onclick="showScreen(\'' + x.screen + '\',null)">' + esc(x.label) + ' →</button>'; })
       .join('');
     card.innerHTML = '<div style="display:flex;gap:12px;align-items:flex-start;">'
       + '<img src="assets/new/A08.png" style="width:40px;height:40px;object-fit:contain;flex:none;">'
