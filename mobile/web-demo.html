@@ -1587,6 +1587,7 @@
     .pl-chip--blue   { color: #7cc9f2; background: rgba(56,189,248,.13); border-color: rgba(56,189,248,.28); }
     .pl-chip--amber  { color: #ffd58a; background: rgba(255,194,75,.13); border-color: rgba(255,194,75,.28); }
     .pl-chip--done   { color: #7ddb9f; background: rgba(63,208,122,.13); border-color: rgba(63,208,122,.3); }
+    .pl-chip--ready  { color: #7ddb9f; background: transparent; border-color: rgba(63,208,122,.4); }
     .pl-bmore { margin-left: auto; width: 30px; height: 30px; border-radius: 9px; flex: none; cursor: pointer;
       border: 1px solid var(--border); background: transparent; color: var(--text3); display: grid; place-items: center; }
     .pl-bmore svg { width: 15px; height: 15px; }
@@ -17303,7 +17304,10 @@
         if (dp.length !== 3 || tp.length < 2) return;
         var at = new Date(dp[0], dp[1] - 1, dp[2], tp[0], tp[1], 0, 0).getTime() - (REMIND_MS[p.reminder] || 0);
         if (at <= now) return;
-        reminders.push({ id: p.id, utcTimestamp: at, type: p.contentType || 'post', note: p.idea || '', displayTime: p.time });
+        // Якщо матеріал і текст уже готові — кажемо це прямо в сповіщенні.
+        // Тоді людина знає, що заходити треба лише натиснути, а не працювати.
+        var note = (p.idea || '') + (isPrepped(p) ? ' · відео і підпис готові' : '');
+        reminders.push({ id: p.id, utcTimestamp: at, type: p.contentType || 'post', note: note, displayTime: p.time });
       });
       await fetch('/api/push/schedule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -17730,6 +17734,9 @@
     return !!(p.caption && String(p.caption).trim().length > 10);
   }
   function isPosted(p) { return p.status === 'posted'; }
+  // «Напів-автомат»: у неділю залив контент — далі лишається тільки натиснути.
+  // Готовий до публікації = є і матеріал, і текст.
+  function isPrepped(p) { return !!p.media && isReady(p); }
 
   function briefCard(p) {
     var m = typeMeta(p.contentType);
@@ -17745,7 +17752,8 @@
       + '<header class="pl-brief-top">'
       +   '<span class="pl-btime">' + esc(p.time || '') + '</span>'
       +   '<span class="pl-chip pl-chip--' + m.tint + '">' + m.label + '</span>'
-      +   (posted ? '<span class="pl-chip pl-chip--done">Опубліковано</span>' : '')
+      +   (posted ? '<span class="pl-chip pl-chip--done">Опубліковано</span>'
+            : (isPrepped(p) ? '<span class="pl-chip pl-chip--ready">Готово до публікації</span>' : ''))
       +   '<button class="pl-bmore" onclick="octoPlanner.menu(\'' + p.id + '\')" aria-label="Ще дії">'
       +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>'
       +   '</button>'
