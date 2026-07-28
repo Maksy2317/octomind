@@ -1561,6 +1561,80 @@
        Тиждень з трьома постами на день — це 21 картка. Кожна повторювала
        платформу, тип, ціль і статус, тож екран читався як шум. Рядок несе
        лише те, чим пости різняться: час, платформа, ідея, стан. */
+    /* ── «Сьогодні»: знімальний бриф ──────────────────────────────────────────
+       Головне питання власника — «що мені зняти сьогодні». Тому картка веде
+       згори вниз як інструкція: час і формат → ідея → кадри → репліка →
+       готовий підпис → одна дія. Ніяких статусів-дропдаунів. */
+    .pl-today-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .pl-today-day { font: 800 20px/1.15 'Manrope', sans-serif; letter-spacing: -.01em; }
+    .pl-today-sub { font-size: 13px; color: var(--text3); margin-top: 3px; }
+    /* Кільце прогресу дня — єдиний «показник» тут, і він про зроблене, не про план. */
+    .pl-ring { --pct: 0; width: 54px; height: 54px; flex: none; border-radius: 50%; display: grid; place-items: center;
+      background: conic-gradient(#8B7BFF calc(var(--pct) * 1%), rgba(255,255,255,.08) 0); position: relative; }
+    .pl-ring::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--bg); }
+    .pl-ring span { position: relative; z-index: 1; font: 800 12px 'Manrope', sans-serif; color: var(--text2); }
+
+    .pl-briefs { display: flex; flex-direction: column; gap: 14px; }
+    .pl-brief { border-radius: 20px; padding: 18px; background: var(--surface); border: 1px solid var(--border);
+      position: relative; overflow: hidden; }
+    .pl-brief.done { opacity: .58; }
+    .pl-brief-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .pl-btime { font: 800 14px 'Manrope', sans-serif; letter-spacing: -.01em; }
+    .pl-chip { font: 700 10.5px 'Manrope', sans-serif; letter-spacing: .04em; text-transform: uppercase;
+      padding: 4px 9px; border-radius: 7px; border: 1px solid; }
+    .pl-chip--violet { color: #b5a8ff; background: rgba(139,123,255,.13); border-color: rgba(139,123,255,.28); }
+    .pl-chip--blue   { color: #7cc9f2; background: rgba(56,189,248,.13); border-color: rgba(56,189,248,.28); }
+    .pl-chip--amber  { color: #ffd58a; background: rgba(255,194,75,.13); border-color: rgba(255,194,75,.28); }
+    .pl-chip--done   { color: #7ddb9f; background: rgba(63,208,122,.13); border-color: rgba(63,208,122,.3); }
+    .pl-bmore { margin-left: auto; width: 30px; height: 30px; border-radius: 9px; flex: none; cursor: pointer;
+      border: 1px solid var(--border); background: transparent; color: var(--text3); display: grid; place-items: center; }
+    .pl-bmore svg { width: 15px; height: 15px; }
+    .pl-bidea { font: 800 17px/1.3 'Manrope', sans-serif; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+    .pl-why { font-size: 12.5px; color: var(--text3); line-height: 1.5; margin-top: 5px; }
+
+    .pl-sec { margin-top: 15px; }
+    .pl-sec-h { font: 800 10px 'Manrope', sans-serif; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--text3); margin-bottom: 8px; }
+    /* Кадри — нумерований розкадрований список: видно, що знімати по черзі. */
+    .pl-shots { list-style: none; margin: 0; padding: 0; counter-reset: shot; display: flex; flex-direction: column; gap: 7px; }
+    .pl-shots li { counter-increment: shot; position: relative; padding-left: 30px; font-size: 13.5px; line-height: 1.5; color: var(--text2); }
+    .pl-shots li::before { content: counter(shot); position: absolute; left: 0; top: 0; width: 21px; height: 21px;
+      border-radius: 6px; background: rgba(139,123,255,.14); border: 1px solid rgba(139,123,255,.26);
+      color: #b5a8ff; font: 800 11px 'Manrope', sans-serif; display: grid; place-items: center; }
+    /* Репліка — те, що вимовляють у кадр, тож подана як пряма мова. */
+    .pl-say { margin: 0; padding: 11px 14px; border-radius: 12px; border-left: 2px solid var(--accent);
+      background: rgba(139,123,255,.07); font: 600 14px/1.5 'Manrope', sans-serif; color: var(--text); }
+    .pl-caption { font-size: 13.5px; line-height: 1.6; color: var(--text2); white-space: pre-wrap;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+    .pl-tags { display: block; margin-top: 8px; color: #8f8fb6; font-size: 12.5px; }
+    .pl-noc { font-size: 13px; color: var(--text3); font-style: italic; }
+
+    .pl-acts { display: flex; gap: 9px; margin-top: 16px; }
+    .pl-btn { flex: 1; min-height: 44px; border-radius: 12px; cursor: pointer; font: 750 13px 'Manrope', sans-serif;
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text2);
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: border-color .15s, background .15s; }
+    .pl-btn:hover { border-color: rgba(139,123,255,.4); }
+    .pl-btn--go { border-color: rgba(63,208,122,.3); color: #7ddb9f; background: rgba(63,208,122,.07); }
+    .pl-btn--go svg { width: 15px; height: 15px; }
+    .pl-btn--go.on { background: rgba(63,208,122,.16); border-color: rgba(63,208,122,.45); color: #a8ecc4; }
+
+    .pl-bempty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 44px 20px;
+      border-radius: 22px; border: 1px dashed var(--border); background: rgba(255,255,255,.02); }
+    .pl-bempty img { width: 110px; height: 110px; object-fit: contain; margin-bottom: 6px; }
+    .pl-bempty-t { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+    .pl-bempty-s { font-size: 13px; color: var(--text3); max-width: 380px; line-height: 1.55; margin-bottom: 18px; }
+
+    /* Темп — окремо на тип, бо сторіз і Reels коштують різного часу. */
+    .pl-tempo-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .pl-tempo-row:last-of-type { border-bottom: none; }
+    .pl-tempo-t { font-size: 14px; font-weight: 750; }
+    .pl-tempo-n { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+    .pl-tempo-txt { flex: 1; min-width: 0; }
+    .pl-tempo-opts { display: flex; gap: 5px; flex: none; }
+    .pl-tempo-b { width: 32px; height: 34px; border-radius: 9px; cursor: pointer; font: 800 13px 'Manrope', sans-serif;
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text3); }
+    .pl-tempo-b.on { border-color: var(--accent); background: rgba(139,123,255,.16); color: var(--text); }
+
     .pl-tabs { display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .pl-tabs::-webkit-scrollbar { display: none; }
     .pl-tab {
@@ -17148,6 +17222,13 @@
 
   function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
   function key() { return 'octo_planner_' + wsId(); }
+  // Анонімний фолбек для API (для залогінених JWT підставляє глобальна обгортка
+  // fetch). Той самий формат, що й в інших екранах.
+  function devId() {
+    var id = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
   function load() { try { return JSON.parse(localStorage.getItem(key()) || '[]'); } catch (e) { return []; } }
   function save(list) {
     window.octoSafeStore(key(), JSON.stringify(list));
@@ -17197,6 +17278,10 @@
       contentType: entry.contentType || 'post',
       goal: entry.goal || 'sales', category: entry.category || 'selling',
       idea: entry.idea || 'Публікація', caption: entry.caption || '',
+      // Поля знімального брифу — головне, заради чого існує «Сьогодні».
+      shoot: Array.isArray(entry.shoot) ? entry.shoot : [],
+      say: entry.say || '', hashtags: Array.isArray(entry.hashtags) ? entry.hashtags : [],
+      why: entry.why || '',
       media: entry.media || null,
       reminder: entry.reminder || null,
       status: entry.status || 'ready',
@@ -17245,8 +17330,12 @@
   try { migrateOldCalendar(); } catch (e) {}
   function biz() { try { return (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {}; } catch (e) { return {}; } }
 
-  var state = { tab: 'week', fPlatform: 'all', fStatus: 'all', fGoal: 'all', day: null,
-    gen: { open: false, step: 1, platforms: ['instagram'], goal: 'sales', perDay: 3 }, detailId: null };
+  // «Сьогодні» — головна вкладка: власник відкриває план щодня, щоб знати, що
+  // ЗНІМАТИ сьогодні. Тиждень лишається поруч і стане головним з автопостингом.
+  // Темп задається окремо на тип: сторіз дешеві (щодня), Reels дорогі (на тиждень).
+  var state = { tab: 'today', fPlatform: 'all', fStatus: 'all', fGoal: 'all', day: null,
+    gen: { open: false, step: 1, platforms: ['instagram'], goal: 'sales',
+      tempo: { reels: 3, posts: 2, stories: 1 }, busy: false, error: '' }, detailId: null };
 
   function uid() { return 'p_' + Math.random().toString(36).slice(2, 9) + (load().length); }
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -17260,25 +17349,9 @@
   var DOW = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота', 'Неділя'];
   function dowName(isoStr) { var p = isoStr.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]); return DOW[(d.getDay() + 6) % 7]; }
 
-  // ── Mock weekly plan: a real marketing mix, not random ────────────────────────
-  var IDEAS = {
-    selling: ['Чому обирають саме тебе — головна перевага', 'Топ-товар тижня + заклик замовити', 'Розбір: що входить у послугу і скільки коштує'],
-    education: ['3 поради, які реально працюють у твоїй ніші', 'Поширена помилка клієнтів — і як її уникнути', 'Міні-гайд: як обрати правильно'],
-    social_proof: ['Відгук клієнта + результат до/після', 'Кейс: як ми допомогли клієнту', 'Скріншот подяки + історія'],
-    bts: ['Закулісся: як влаштований твій робочий день', 'Знайомство з командою / майстром', 'Процес роботи зсередини'],
-    promo: ['Акція тижня: спецпропозиція з дедлайном', 'Знижка для перших N клієнтів', 'Бонус за запис цього тижня'],
-  };
-  var CAT_LABEL = { selling: 'Продаж', education: 'Експертне', social_proof: 'Соц-доказ', bts: 'Закулісся', promo: 'Акція' };
-  var CAT_GOAL = { selling: 'sales', education: 'awareness', social_proof: 'trust', bts: 'trust', promo: 'promotion' };
-  // FEED formats only — stories live in their own tab (they're 10-20/day and
-  // would flood a calendar), so the content plan never schedules a Story.
-  function pickType(platform, cat) {
-    if (platform === 'tiktok') return 'tiktok';
-    if (platform === 'facebook') return 'fb_post';
-    if (platform === 'linkedin') return 'li_post';
-    if (platform === 'instagram') return (cat === 'selling' || cat === 'promo' || cat === 'bts') ? 'reel' : 'post';
-    return 'post';
-  }
+  // Банк із 5 зашитих тем на категорію + шаблонний підпис жив тут і видавав себе
+  // за AI-план: барбершоп і рієлтор отримували ОДНАКОВІ рядки. Саме тому екран
+  // не ніс цінності. Замінено справжньою генерацією (genPlanAI → /content-plan).
 
   // ── Stories: a daily story FLOW (checklist), not calendar entries ─────────────
   var STORY_STEPS = {
@@ -17296,11 +17369,6 @@
   function storiesKey() { return 'octo_stories_' + wsId(); }
   function storiesLoad() { try { return JSON.parse(localStorage.getItem(storiesKey()) || '{}'); } catch (e) { return {}; } }
   function storiesSave(o) { try { localStorage.setItem(storiesKey(), JSON.stringify(o)); } catch (e) {} }
-  function mockCaption(idea, goalId) {
-    var b = biz(); var name = b.business_name ? (b.business_name + ' — ') : '';
-    var cta = { sales: 'Пиши в директ, щоб замовити 💬', awareness: 'Збережи, щоб не загубити 🔖', trust: 'Розкажи в коментарях свій досвід 👇', promotion: 'Встигни до кінця тижня ⏳', launch: 'Дізнайся першим — деталі в директі ✨' }[goalId] || 'Дій сьогодні 🚀';
-    return name + idea + '.\n\n' + cta;
-  }
   // ── Campaign materials → postable entries ────────────────────────────────────
   // The content plan is a SCHEDULE, not a generator working in a vacuum. It first
   // pulls what the user already created in their campaigns (Просування → матеріали,
@@ -17336,61 +17404,88 @@
     return out;
   }
 
-  function genPlan() {
+  // ── Справжня генерація: брифи від AI ────────────────────────────────────────
+  // Раніше «AI-план» був локальним перемішувачем 5 зашитих тем + шаблонного
+  // підпису — барбершоп і рієлтор отримували однакові рядки. Тепер це реальний
+  // виклик, що повертає кадри, репліку й готовий підпис під конкретний бізнес.
+  function genPlanAI() {
     var g = state.gen;
-    var perDay = Math.max(1, Math.min(6, g.perDay || 3));
-    // Marketing-mix cycle, weighted to the weekly goal (first slot each day = goal).
-    var goalCat = { sales: 'selling', awareness: 'education', trust: 'social_proof', promotion: 'promo', launch: 'selling' }[g.goal] || 'selling';
-    var mix = [goalCat].concat(['selling', 'education', 'social_proof', 'bts', 'promo', 'education', 'selling'].filter(function (c) { return c !== goalCat; }));
-    var days = weekDates();   // today → +6
-    // Prefer the hours their BEST posts went out (from page analysis); otherwise
-    // sensible defaults. Multiple posts a day land at different hours.
-    var slots = bestTimes() || ['09:00', '13:00', '18:00', '11:00', '16:00', '20:00'];
-    if (slots.length < 3) slots = slots.concat(['09:00', '13:00', '18:00']).slice(0, 6);
-    var plats = g.platforms.length ? g.platforms : ['instagram'];
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('campaign')) return;
+    g.busy = true; g.error = ''; paintGen();
 
-    // Campaign materials that aren't already scheduled — these fill the plan first.
-    var existing = load();
-    var used = {}; existing.forEach(function (p) { if (p.sourceMaterialId) used[p.sourceMaterialId] = 1; });
-    var camp = campaignPosts().filter(function (m) { return !used[m.sourceMaterialId]; });
+    var b = biz();
+    var goalLabel = (byId(GOALS, g.goal) || {}).label || 'більше клієнтів';
+    var days = weekDates();
 
-    var out = [];
-    var mi = 0;           // running mix index across the whole week
-    var ci = 0;           // campaign-material index (consumed first)
-    var ideaCount = {};
-    days.forEach(function (d) {
-      for (var j = 0; j < perDay; j++) {
-        var post;
-        if (ci < camp.length) {
-          // Real material from a campaign.
-          var m = camp[ci++];
-          post = {
-            id: uid(), date: iso(d), time: slots[j % slots.length],
-            platform: m.platform, contentType: m.contentType,
-            goal: g.goal, category: goalCat,
-            idea: m.idea, caption: m.caption, media: m.media,
-            reminder: '30m', status: 'draft',
-            sourceCampaign: m.sourceCampaign, sourceMaterialId: m.sourceMaterialId,
-          };
-        } else {
-          // Topped up with a fresh idea from the marketing mix.
-          var cat = mix[mi % mix.length];
-          var platform = plats[mi % plats.length];
-          var ideaArr = IDEAS[cat];
-          var ic = (ideaCount[cat] = (ideaCount[cat] || 0)); var idea = ideaArr[ic % ideaArr.length]; ideaCount[cat]++;
-          post = {
-            id: uid(), date: iso(d), time: slots[j % slots.length], platform: platform,
-            contentType: pickType(platform, cat), goal: CAT_GOAL[cat] || g.goal, category: cat,
-            idea: idea, caption: mockCaption(idea, CAT_GOAL[cat] || g.goal), media: null,
-            reminder: '30m', status: 'draft',
-          };
-        }
-        out.push(post);
-        mi++;
-      }
+    fetch('/api/marketing/content-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': devId() },
+      body: JSON.stringify({
+        goal: goalLabel,
+        platforms: (g.platforms.length ? g.platforms : ['instagram']).map(function (id) { return (byId(PLATFORMS, id) || {}).label || id; }),
+        tempo: g.tempo,
+        profile: b,
+      }),
+    }).then(function (r) {
+      return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; });
+    }).then(function (d) {
+      var items = (d.plan && d.plan.items) || [];
+      if (!items.length) throw new Error('Порожній план');
+      var PLAT_ID = { instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook' };
+      var out = items.map(function (it) {
+        var off = Math.max(0, Math.min(6, parseInt(it.day_offset, 10) || 0));
+        var platRaw = String(it.platform || 'instagram').toLowerCase();
+        var platId = PLAT_ID[platRaw] || (platRaw.indexOf('tik') >= 0 ? 'tiktok' : 'instagram');
+        var t = String(it.type || 'post').toLowerCase();
+        var ctype = t === 'reel' ? 'reel' : t === 'story' ? 'story' : (platId === 'tiktok' ? 'tiktok' : 'post');
+        return {
+          id: uid(), date: iso(days[off]), time: /^\d{2}:\d{2}$/.test(it.time || '') ? it.time : '18:00',
+          platform: platId, contentType: ctype,
+          // Модель інколи повертає українську назву («Продаж») замість коду —
+          // зводимо до наших id, щоб дані лишались машинно-читними.
+          goal: g.goal, category: normCat(it.category),
+          idea: shortIdea(it.idea),
+          shoot: Array.isArray(it.shoot) ? it.shoot.slice(0, 5).map(String) : [],
+          say: it.say ? String(it.say) : '',
+          // Модель часом усе одно вставляє хештеги в підпис — тоді вони
+          // задвоювалися з окремим рядком. Прибираємо хвіст із підпису.
+          caption: stripTags(it.caption, it.hashtags),
+          hashtags: Array.isArray(it.hashtags) ? it.hashtags.slice(0, 8).map(String) : [],
+          why: it.why ? String(it.why) : '',
+          media: null, reminder: '30m', status: 'planned',
+        };
+      });
+      // «Гібрид» (рішення користувача): уже створені матеріали кампаній — це
+      // реальна робота, її не можна ігнорувати. Вони йдуть у план першими,
+      // рівномірно по тижню, а брифи від AI доповнюють.
+      var existing = load();
+      var usedMat = {}; existing.forEach(function (p) { if (p.sourceMaterialId) usedMat[p.sourceMaterialId] = 1; });
+      var camp = campaignPosts().filter(function (m) { return !usedMat[m.sourceMaterialId]; });
+      var campItems = camp.map(function (m, i) {
+        return {
+          id: uid(), date: iso(days[i % 7]), time: '12:00',
+          platform: m.platform, contentType: m.contentType,
+          goal: g.goal, category: 'selling',
+          idea: m.idea, shoot: [], say: '', caption: m.caption || '',
+          hashtags: [], why: 'Готовий матеріал із твоєї кампанії',
+          media: m.media || null, reminder: '30m', status: 'planned',
+          sourceCampaign: m.sourceCampaign, sourceMaterialId: m.sourceMaterialId,
+        };
+      });
+      save(existing.concat(campItems, out));
+      g.busy = false; g.open = false;
+      state.tab = 'today';
+      paintGen(); render();
+      try { window.octoTrack('material_created', { type: 'content_plan', n: out.length }); } catch (e) {}
+      if (typeof octoUseFeature !== 'undefined') octoUseFeature('campaign');
+      toast('📅 План на тиждень готовий');
+    }).catch(function (e) {
+      g.busy = false;
+      g.error = /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message;
+      paintGen();
     });
-    save(existing.concat(out));
   }
+
 
   // ── Rendering ─────────────────────────────────────────────────────────────────
   function statusPill(id) { var s = byId(STATUSES, id); return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:' + s.color + '22;color:' + s.color + ';"><span style="width:6px;height:6px;border-radius:50%;background:' + s.color + ';"></span>' + s.label + '</span>'; }
@@ -17400,17 +17495,24 @@
     var list = load();
     var week = weekDates().map(iso);
     var thisWeek = list.filter(function (p) { return week.indexOf(p.date) >= 0; });
-    var ready = list.filter(function (p) { return p.status === 'ready'; }).length;
-    var drafts = list.filter(function (p) { return p.status === 'draft'; }).length;
+    // Усі три числа — про ОДИН і той самий тиждень. Раніше «постів» рахувалось
+    // за тиждень, а «готові/чернетки» за весь час, тож 21 ≠ 0+41 і виглядало
+    // як помилка. Плюс статус тепер вираховується (є підпис → готовий), а не
+    // ведеться руками, тож вкладка «Готові» більше не буває вічно порожньою.
+    var ready = thisWeek.filter(isReady).length;
+    var drafts = thisWeek.length - ready;
     var goalIds = {}; thisWeek.forEach(function (p) { goalIds[p.goal] = 1; });
     var platIds = {}; thisWeek.forEach(function (p) { platIds[p.platform] = 1; });
     var goalStr = Object.keys(goalIds).map(function (id) { return byId(GOALS, id).label; }).slice(0, 2).join(', ') || '—';
-    var platStr = Object.keys(platIds).map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') || '—';
+    // Назви, не самі емодзі: «Платформи 📷🎵» нічого не повідомляло.
+    var platStr = Object.keys(platIds).map(function (id) { return byId(PLATFORMS, id).label; }).join(', ') || '—';
     function c(label, val, tint) { return '<div style="padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);"><div style="font-size:11px;font-weight:700;color:#9a9ac4;">' + label + '</div><div style="font-size:' + (tint ? 22 : 17) + 'px;font-weight:800;margin-top:5px;' + (tint ? "font-family:'Unbounded','Manrope',sans-serif;color:" + tint + ';' : '') + '">' + val + '</div></div>'; }
     // Five cards ate half a phone screen, and «Платформи 🎵» said nothing that
     // the rows below don't. One line of numbers on a phone; cards on desktop.
     var strip = '<div class="pl-summary-strip">'
-      + '<b>' + thisWeek.length + '</b> постів · <b style="color:#3DDC97;">' + ready + '</b> готових · <b style="color:#F5B942;">' + drafts + '</b> чернеток'
+      + '<b>' + thisWeek.length + '</b> ' + plNoun(thisWeek.length, 'пост', 'пости', 'постів')
+      + ' · <b style="color:#3DDC97;">' + ready + '</b> ' + plNoun(ready, 'готовий', 'готових', 'готових')
+      + ' · <b style="color:#F5B942;">' + drafts + '</b> ' + plNoun(drafts, 'чернетка', 'чернетки', 'чернеток')
       + (goalStr !== '—' ? ' · 🎯 ' + esc(goalStr) : '') + '</div>';
     return strip + '<div class="pl-summary-cards">'
       + c('Ціль тижня', goalStr) + c('Платформи', platStr)
@@ -17421,7 +17523,9 @@
 
   function tabsBar() {
     // One scrollable row: five wrapped chips ate a third of a phone screen.
-    var tabs = [['week', '🗓 Тиждень'], ['list', '📋 Список'], ['stories', '📲 Сторіз'], ['draft', '✏️ Чернетки'], ['ready', '✅ Готові']];
+    // «Чернетки/Готові» прибрано: вони НАЗИВАЛИ стани, але нічим не допомагали
+    // рухати роботу — статус тепер вираховується сам (є підпис → готовий).
+    var tabs = [['today', 'Сьогодні'], ['week', 'Тиждень'], ['stories', 'Сторіз'], ['list', 'Усе']];
     return '<div class="pl-tabs">' + tabs.map(function (t) {
       var on = state.tab === t[0];
       return '<button class="pl-tab' + (on ? ' on' : '') + '" onclick="octoPlanner.setTab(\'' + t[0] + '\')">' + t[1] + '</button>';
@@ -17443,12 +17547,27 @@
       + '</button>';
   }
 
-  function emptyState(text) {
-    return '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 20px;border-radius:22px;border:1px dashed rgba(255,255,255,.14);background:rgba(255,255,255,.02);">'
-      + '<img src="assets/new/A18.png" style="width:120px;height:120px;object-fit:contain;margin-bottom:6px;">'
-      + '<div style="font-size:17px;font-weight:800;margin-bottom:6px;">' + text + '</div>'
-      + '<div style="font-size:13px;color:#9a9ac4;max-width:380px;margin-bottom:18px;">Octo складе тобі готовий контент-план на тиждень — з ідеями, форматами й цілями під твій бізнес.</div>'
-      + '<button class="btn btn-primary" onclick="octoPlanner.openGen()">🐙 Згенерувати план на тиждень</button></div>';
+  // Порожній стан ЗАЛЕЖИТЬ від контексту. Раніше це була одна функція на всі
+  // вкладки: вона завжди пропонувала «згенерувати план», тож на вкладці «Готові»
+  // при 41 чернетці радила згенерувати ще — і так по колу. Тепер дія веде туди,
+  // де робота реально є.
+  function emptyState(kind, totalPosts) {
+    var title, sub, btn, act;
+    if (totalPosts) {
+      // План існує — просто на сьогодні порожньо. Не пропонуємо генерувати ще.
+      title = kind === 'today' ? 'На сьогодні публікацій немає' : 'Тут порожньо';
+      sub = 'У плані вже є ' + totalPosts + ' ' + plPost(totalPosts) + ' на інші дні.';
+      btn = 'Відкрити тиждень'; act = "octoPlanner.setTab('week')";
+    } else {
+      title = 'Плану ще немає';
+      sub = 'Octo складе тиждень так, щоб ти щодня знав, ЩО ЗНІМАТИ — з кадрами, текстом і готовим підписом.';
+      btn = 'Скласти план на тиждень'; act = 'octoPlanner.openGen()';
+    }
+    return '<div class="pl-bempty">'
+      + '<img src="assets/new/A18.png" alt="">'
+      + '<div class="pl-bempty-t">' + title + '</div>'
+      + '<div class="pl-bempty-s">' + sub + '</div>'
+      + '<button class="btn btn-primary" onclick="' + act + '">' + btn + '</button></div>';
   }
 
   var DOW_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
@@ -17458,7 +17577,7 @@
   // already lives in the «Список» tab.
   function weekView() {
     var list = load(); var days = weekDates();
-    if (!list.length) return emptyState('Тут зʼявиться твій контент-тиждень');
+    if (!list.length) return emptyState('week', 0);
 
     var todayIso = iso(new Date());
     var sel = state.day;
@@ -17514,20 +17633,144 @@
       return true;
     });
     var head = forceStatus ? '' : filtersBar();
-    if (!list.length) return head + emptyState(forceStatus === 'draft' ? 'Немає чернеток' : forceStatus === 'ready' ? 'Немає готових постів' : 'Нічого не знайдено');
+    if (!list.length) return head + emptyState('list', load().length);
     return head + '<div class="pl-list">' + list.map(postCard).join('') + '</div>';
+  }
+
+  // ── «Сьогодні»: знімальні брифи ─────────────────────────────────────────────
+  // Головне питання власника — «що мені зняти сьогодні», тож картка дає готовий
+  // план дій: кадри → що сказати → готовий підпис → опубліковано.
+  var TYPE_META = {
+    reel:  { label: 'Reels',  tint: 'violet' },
+    story: { label: 'Сторіз', tint: 'amber'  },
+    post:  { label: 'Пост',   tint: 'blue'   },
+    tiktok:{ label: 'TikTok', tint: 'violet' },
+  };
+  function typeMeta(t) { return TYPE_META[t] || TYPE_META.post; }
+
+  // Статус більше не ведеться руками: готовий = є з чим виходити в ефір.
+  // Для сторіз це репліка в кадр (підпис їм не потрібен), для решти — підпис.
+  function isReady(p) {
+    if (p.contentType === 'story') return !!((p.say || p.caption || '').trim().length > 5);
+    return !!(p.caption && String(p.caption).trim().length > 10);
+  }
+  function isPosted(p) { return p.status === 'posted'; }
+
+  function briefCard(p) {
+    var m = typeMeta(p.contentType);
+    var shoot = Array.isArray(p.shoot) ? p.shoot : [];
+    var posted = isPosted(p);
+    var tags = (p.hashtags || []).map(function (h) { return String(h)[0] === '#' ? h : '#' + h; }).join(' ');
+    var copyText = (p.caption || '') + (tags ? '\n\n' + tags : '');
+    window.__octoMatTexts = window.__octoMatTexts || {};
+    var cid = 'pl_' + p.id;
+    window.__octoMatTexts[cid] = copyText;
+
+    return '<article class="pl-brief' + (posted ? ' done' : '') + '">'
+      + '<header class="pl-brief-top">'
+      +   '<span class="pl-btime">' + esc(p.time || '') + '</span>'
+      +   '<span class="pl-chip pl-chip--' + m.tint + '">' + m.label + '</span>'
+      +   (posted ? '<span class="pl-chip pl-chip--done">Опубліковано</span>' : '')
+      +   '<button class="pl-bmore" onclick="octoPlanner.openDetail(\'' + p.id + '\')" aria-label="Деталі">'
+      +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>'
+      +   '</button>'
+      + '</header>'
+      + '<h3 class="pl-bidea">' + esc(p.idea || 'Публікація') + '</h3>'
+      + (p.why ? '<p class="pl-why">' + esc(p.why) + '</p>' : '')
+
+      + (shoot.length
+        ? '<section class="pl-sec"><div class="pl-sec-h">Що знімати</div><ol class="pl-shots">'
+          + shoot.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('')
+          + '</ol></section>'
+        : '')
+
+      + (p.say
+        ? '<section class="pl-sec"><div class="pl-sec-h">Що сказати</div>'
+          + '<blockquote class="pl-say">' + esc(p.say) + '</blockquote></section>'
+        : '')
+
+      + (p.caption
+        ? '<section class="pl-sec"><div class="pl-sec-h">Готовий підпис</div>'
+          + '<div class="pl-caption">' + esc(p.caption) + (tags ? '<span class="pl-tags">' + esc(tags) + '</span>' : '') + '</div></section>'
+        : '<section class="pl-sec"><div class="pl-noc">Підпису ще немає — Octo напише його під цей кадр.</div></section>')
+
+      + '<footer class="pl-acts">'
+      +   (p.caption ? '<button class="pl-btn" onclick="octoCopyMat(\'' + cid + '\',this)">Скопіювати підпис</button>' : '<button class="pl-btn" onclick="octoPlanner.writeCaption(\'' + p.id + '\',this)">Написати підпис</button>')
+      +   '<button class="pl-btn pl-btn--go' + (posted ? ' on' : '') + '" onclick="octoPlanner.togglePosted(\'' + p.id + '\')">'
+      +     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg>'
+      +     (posted ? 'Опубліковано' : 'Опублікував') + '</button>'
+      + '</footer></article>';
+  }
+
+  function todayView() {
+    var todayIso = iso(new Date());
+    var all = load();
+    var mine = all.filter(function (p) { return p.date === todayIso; })
+      .sort(function (a, b) { return String(a.time).localeCompare(String(b.time)); });
+
+    if (!mine.length) {
+      return emptyState('today', all.length);
+    }
+
+    var done = mine.filter(isPosted).length;
+    var pct = Math.round((done / mine.length) * 100);
+    var d = new Date();
+    var head = '<div class="pl-today-head">'
+      + '<div><div class="pl-today-day">' + DOW[(d.getDay() + 6) % 7] + '</div>'
+      + '<div class="pl-today-sub">' + (done === mine.length
+          ? 'Все зроблено на сьогодні 🎉'
+          : (mine.length - done) + ' ' + plPost(mine.length - done) + ' попереду') + '</div></div>'
+      + '<div class="pl-ring" style="--pct:' + pct + '"><span>' + done + '/' + mine.length + '</span></div></div>';
+
+    return head + '<div class="pl-briefs">' + mine.map(briefCard).join('') + '</div>';
+  }
+  // Українські відмінки: 1 пост / 2-4 пости / 5+ постів (і 11-14 — завжди «постів»).
+  function plNoun(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  function plPost(n) { return plNoun(n, 'публікація', 'публікації', 'публікацій'); }
+  // `idea` — заголовок картки, а не опис. Модель інколи віддає ціле речення
+  // («Відео, що показує різні стрижки… щоб продемонструвати майстерність»),
+  // і воно з'їдало пів-екрана. Ріжемо до першої думки.
+  // Страхувальна сітка (основне правило — у промпті). Ріжемо лише те, що
+  // справді довге, і по межі слова: розбивати по сполучниках виявилось надто
+  // агресивно — «Відео, що показує…» перетворювалось на голе «Відео».
+  function shortIdea(v) {
+    var s = String(v || 'Публікація').trim().replace(/\s+/g, ' ').replace(/[.!]+$/, '');
+    if (s.length <= 52) return s || 'Публікація';
+    var head = s.split(/[,;:]/)[0].trim();
+    if (head.length >= 20 && head.length <= 52) return head;
+    return s.slice(0, 49).replace(/\s+\S*$/, '') + '…';
+  }
+  // Хвіст хештегів у кінці підпису — вони живуть окремим полем.
+  function stripTags(cap, tags) {
+    var s = String(cap || '');
+    if (!Array.isArray(tags) || !tags.length) return s.trim();
+    s = s.replace(/(?:\s*#[^\s#]+)+\s*$/u, '');
+    return s.trim();
+  }
+  // Модель може повернути категорію словом — приводимо до наших id.
+  var CAT_ALIAS = { 'продаж': 'selling', 'продажі': 'selling', 'акція': 'promo',
+    'експертне': 'education', 'користь': 'education', 'навчання': 'education',
+    'соц-доказ': 'social_proof', 'відгук': 'social_proof', 'закулісся': 'bts' };
+  function normCat(v) {
+    var s = String(v || '').trim().toLowerCase();
+    if (['selling', 'education', 'social_proof', 'bts', 'promo'].indexOf(s) >= 0) return s;
+    return CAT_ALIAS[s] || 'selling';
   }
 
   function render() {
     var root = document.getElementById('plannerRoot'); if (!root) return;
     var header = '<div class="pl-head">'
       + '<div class="pl-head-text"><div style="font:800 22px/1.2 Manrope,sans-serif;letter-spacing:-.01em;">Контент-план</div>'
-      + '<div style="font-size:13.5px;color:#9a9ac4;margin-top:3px;">Твій тиждень контенту — Octo підказує що і коли постити.</div></div>'
-      + '<button class="btn btn-primary pl-gen" onclick="octoPlanner.openGen()">🐙 Згенерувати план на тиждень</button></div>';
-    var body = state.tab === 'week' ? weekView()
-      : state.tab === 'list' ? listView(null)
-        : state.tab === 'stories' ? storiesView()
-          : state.tab === 'draft' ? listView('draft') : listView('ready');
+      + '<div style="font-size:13.5px;color:#9a9ac4;margin-top:3px;">Що знімати сьогодні — і готовий підпис до кожного кадру.</div></div></div>';
+    var body = state.tab === 'today' ? todayView()
+      : state.tab === 'week' ? weekView()
+        : state.tab === 'list' ? listView(null)
+          : storiesView();
     root.innerHTML = header + summaryCards() + tabsBar() + body;
   }
 
@@ -17581,30 +17824,49 @@
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + PLATFORMS.map(function (p) { return chip(g.platforms.indexOf(p.id) >= 0, p.emoji + ' ' + p.label, 'octoPlanner.togglePlat(\'' + p.id + '\')'); }).join('') + '</div>';
     else if (s === 2) inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Головна ціль тижня?</div><div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Octo зробить акцент на цьому.</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + GOALS.map(function (gg) { return chip(g.goal === gg.id, gg.emoji + ' ' + gg.label, 'octoPlanner.setGoal(\'' + gg.id + '\')'); }).join('') + '</div>';
-    else if (s === 3) { var rec = recommendPerDay(); var cur = currentPerDay();
-      var reason = biz().cadence_reason;
-      var recNote = reason
-        ? esc(reason).replace(cur + '/день', '<b style="color:#fff;">' + cur + '/день</b>').replace(rec + '/день', '<b style="color:#c9bcff;">' + rec + '/день</b>')
-        : (cur
-          ? 'Ти зараз постиш ~<b style="color:#fff;">' + cur + '/день</b>. Щоб активно рости — Octo радить <b style="color:#c9bcff;">' + rec + '/день</b> 🚀'
-          : 'Для ' + (g.platforms.length || 1) + ' платформ Octo радить <b style="color:#c9bcff;">' + rec + ' пости/день</b>.');
-      inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Скільки постів на день?</div>'
-      + '<div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">' + recNote + '</div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + [1, 2, 3, 4, 5].map(function (n) { return chip(g.perDay === n, n + '/день' + (n === rec ? ' · радимо' : ''), 'octoPlanner.setPerDay(' + n + ')'); }).join('')
-      + '<button onclick="octoPlanner.customPerDay()" style="padding:10px 15px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a2a2c6;">Своє</button></div>'
-      + '<div style="font-size:11.5px;color:#6d6d86;margin-top:10px;">≈ ' + (g.perDay * 7) + ' постів на тиждень, збалансованих за форматами й цілями.</div>'; }
-    else { var used4 = {}; load().forEach(function (p) { if (p.sourceMaterialId) used4[p.sourceMaterialId] = 1; });
-      var fromCamp = campaignPosts().filter(function (m) { return !used4[m.sourceMaterialId]; }).length;
-      inner = '<div style="text-align:center;padding:8px 0;"><img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;"><div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Готово скласти план</div>'
-      + '<div style="font-size:13px;color:#9a9ac4;">' + g.perDay + '/день (≈' + (g.perDay * 7) + '/тиж) · ' + byId(GOALS, g.goal).label + ' · ' + g.platforms.map(function (id) { return byId(PLATFORMS, id).emoji; }).join(' ') + '</div>'
-      + (fromCamp
-          ? '<div style="font-size:12.5px;color:#c9bcff;margin-top:10px;line-height:1.5;">📦 Спершу візьму <b style="color:#fff;">' + fromCamp + '</b> ' + plMat(fromCamp) + ' із твоїх кампаній, а решту слотів дороблю ідеями.</div>'
-          : '<div style="font-size:12px;color:#6d6d86;margin-top:10px;line-height:1.5;">Octo збалансує: продаж · експертне · соц-доказ · закулісся · акція.</div>')
-      + '<div style="font-size:11.5px;color:#6d6d86;margin-top:8px;">Розклад — від сьогодні на 7 днів уперед.</div></div>'; }
+    // Темп задається ОКРЕМО на тип. Раніше було «N постів/день», де сторіз і
+    // Reels рахувались однаково — звідси 21 «пост» на тиждень і нуль зроблених:
+    // людина бачила нереальну гору. Сторіз дешеві, Reels дорогі.
+    else if (s === 3) {
+      var t = g.tempo;
+      function row(key, title, note, opts) {
+        return '<div class="pl-tempo-row"><div class="pl-tempo-txt"><div class="pl-tempo-t">' + title + '</div>'
+          + '<div class="pl-tempo-n">' + note + '</div></div><div class="pl-tempo-opts">'
+          + opts.map(function (n) {
+            return '<button class="pl-tempo-b' + (t[key] === n ? ' on' : '') + '" onclick="octoPlanner.setTempo(\'' + key + '\',' + n + ')">' + n + '</button>';
+          }).join('') + '</div></div>';
+      }
+      inner = '<div style="font-size:17px;font-weight:800;margin-bottom:4px;">Який темп потягнеш?</div>'
+        + '<div style="font-size:13px;color:#9a9ac4;margin-bottom:16px;">Чесно: краще менше, але щоб виходило. Порожній план — гірше за маленький.</div>'
+        + row('stories', 'Сторіз', 'на день · телефон, без монтажу', [0, 1, 2, 3])
+        + row('reels', 'Reels / TikTok', 'на тиждень · зняти + змонтувати', [0, 1, 2, 3, 4, 5])
+        + row('posts', 'Пости в стрічку', 'на тиждень · фото + текст', [0, 1, 2, 3, 4, 5])
+        + '<div style="font-size:11.5px;color:#6d6d86;margin-top:12px;">Разом ≈ <b style="color:#c9bcff;">' + (t.reels + t.posts + t.stories * 7) + '</b> публікацій на тиждень.</div>';
+    }
+    else {
+      var t2 = g.tempo, tot = t2.reels + t2.posts + t2.stories * 7;
+      inner = '<div style="text-align:center;padding:8px 0;">'
+      + (g.busy
+        ? '<img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;animation:omFloat 3s ease-in-out infinite;">'
+          + '<div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Octo складає план…</div>'
+          + '<div style="font-size:13px;color:#9a9ac4;line-height:1.5;">Пише кадри, репліки й підписи під твій бізнес. Це займає до хвилини.</div>'
+        : '<img src="assets/new/A18.png" style="width:96px;height:96px;object-fit:contain;">'
+          + '<div style="font-size:17px;font-weight:800;margin:6px 0 4px;">Готово скласти план</div>'
+          + '<div style="font-size:13px;color:#9a9ac4;">' + tot + ' публікацій · ' + byId(GOALS, g.goal).label + ' · '
+            + g.platforms.map(function (id) { return byId(PLATFORMS, id).label; }).join(', ') + '</div>'
+          + '<div style="font-size:12.5px;color:#c9bcff;margin-top:10px;line-height:1.5;">До кожної Octo напише, <b style="color:#fff;">що зняти</b>, що сказати і готовий підпис.</div>'
+          + (function () {
+              var used = {}; load().forEach(function (p) { if (p.sourceMaterialId) used[p.sourceMaterialId] = 1; });
+              var n = campaignPosts().filter(function (m) { return !used[m.sourceMaterialId]; }).length;
+              return n ? '<div style="font-size:12px;color:#9a9ac4;margin-top:8px;line-height:1.5;">Плюс додам <b style="color:#c9bcff;">' + n + '</b> ' + plMat(n) + ' із твоїх кампаній — вони вже готові.</div>' : '';
+            })())
+      + (g.error ? '<div style="margin-top:12px;font-size:12.5px;color:#ff9d9d;background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.25);border-radius:12px;padding:10px 12px;">⚠️ ' + esc(g.error) + '</div>' : '')
+      + '</div>';
+    }
     var nav = '<div style="display:flex;gap:10px;margin-top:22px;">'
-      + (s > 1 ? '<button class="btn btn-secondary" onclick="octoPlanner.genBack()" style="flex:0 0 auto;">Назад</button>' : '')
+      + (s > 1 && !g.busy ? '<button class="btn btn-secondary" onclick="octoPlanner.genBack()" style="flex:0 0 auto;">Назад</button>' : '')
       + (s < 4 ? '<button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="octoPlanner.genNext()"' + (s === 1 && !g.platforms.length ? ' disabled' : '') + '>Далі →</button>'
-        : '<button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="octoPlanner.genRun()">🐙 Скласти план</button>') + '</div>';
+        : '<button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="octoPlanner.genRun()"' + (g.busy ? ' disabled' : '') + '>' + (g.busy ? 'Складаю…' : 'Скласти план') + '</button>') + '</div>';
     return steps + inner + nav;
   }
   function paintGen() {
@@ -17677,6 +17939,39 @@
       save(load().concat([p])); state.detailId = p.id; render(); paintDetail();
     },
     open: function (id) { state.detailId = id; paintDetail(); },
+    openDetail: function (id) { state.detailId = id; paintDetail(); },
+    // Один тап замість дропдаунів: опублікував → позначив. Це єдиний статус,
+    // який людина справді знає; «готовий» вираховується з наявності підпису.
+    togglePosted: function (id) {
+      var p = get(id); if (!p) return;
+      upd(id, { status: p.status === 'posted' ? 'planned' : 'posted' });
+      render();
+      if (p.status !== 'posted') { try { window.octoTrack('post_published'); } catch (e) {} }
+    },
+    // Бриф без підпису — дописуємо його тим самим двигуном, що й «Покращити пост».
+    writeCaption: function (id, btn) {
+      var p = get(id); if (!p) return;
+      if (typeof octoCanUse !== 'undefined' && !octoCanUse('campaign')) return;
+      if (btn) { btn.disabled = true; btn.textContent = 'Пишу…'; }
+      fetch('/api/marketing/improve-post', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': devId() },
+        body: JSON.stringify({
+          caption: (p.idea || '') + (p.say ? '\n' + p.say : ''),
+          platform: p.contentType === 'reel' ? 'Instagram Reels' : p.contentType === 'story' ? 'Instagram Stories' : (p.platform === 'tiktok' ? 'TikTok' : 'Instagram'),
+          profile: biz(), images: [],
+        }),
+      }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+        .then(function (d) {
+          var imp = (d.result && d.result.improved) || {};
+          upd(id, { caption: imp.caption || '', hashtags: imp.hashtags || [], say: p.say || imp.hook || '' });
+          render();
+          toast('✍️ Підпис готовий');
+        })
+        .catch(function (e) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Написати підпис'; }
+          toast('⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку' : e.message));
+        });
+    },
     close: function () { state.detailId = null; paintDetail(); render(); },
     set: function (k, v) { if (!state.detailId) return; upd(state.detailId, (function () { var o = {}; o[k] = v; return o; })()); },
     copyCaption: function () { var p = get(state.detailId); if (!p) return; try { navigator.clipboard.writeText(p.caption || p.idea); toast('📋 Підпис скопійовано'); } catch (e) { toast('Скопіюй вручну'); } },
@@ -17695,11 +17990,12 @@
     closeGen: function () { state.gen.open = false; paintGen(); },
     togglePlat: function (id) { var a = state.gen.platforms; var i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else a.push(id); state.gen.perDay = recommendPerDay(); paintGen(); },
     setGoal: function (id) { state.gen.goal = id; paintGen(); },
-    setPerDay: function (n) { state.gen.perDay = n; paintGen(); },
-    customPerDay: function () { var n = parseInt(prompt('Скільки постів на день? (1-6)', String(state.gen.perDay)), 10); if (n >= 1 && n <= 6) { state.gen.perDay = n; paintGen(); } },
-    genNext: function () { if (state.gen.step === 1 && !state.gen.platforms.length) return; if (state.gen.step === 2) state.gen.perDay = recommendPerDay(); state.gen.step = Math.min(4, state.gen.step + 1); paintGen(); },
+    setTempo: function (k, n) { state.gen.tempo[k] = n; paintGen(); },
+    genNext: function () { if (state.gen.step === 1 && !state.gen.platforms.length) return; state.gen.step = Math.min(4, state.gen.step + 1); paintGen(); },
     genBack: function () { state.gen.step = Math.max(1, state.gen.step - 1); paintGen(); },
-    genRun: function () { genPlan(); state.gen.open = false; state.tab = 'week'; paintGen(); render(); toast('✅ План на тиждень готовий'); try { window.octoTrack('plan_generated'); } catch (e) {} },
+    // Модалку закриває вже сама генерація — після успіху. Раніше вона зникала
+    // одразу, і «✅ План готовий» показувалось ще до того, як план існував.
+    genRun: function () { genPlanAI(); try { window.octoTrack('plan_generated'); } catch (e) {} },
   };
 })();
 </script>

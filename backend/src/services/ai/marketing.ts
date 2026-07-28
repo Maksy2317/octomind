@@ -1659,6 +1659,83 @@ export function scheduleCampaign(
   return jsonCall<CampaignSchedule>(system, user, 1500);
 }
 
+// ── Контент-план: брифи на зйомку ────────────────────────────────────────────
+// Раніше план збирався на клієнті з зашитого масиву 5 тем + шаблонного підпису,
+// тож барбершоп і рієлтор отримували однакові рядки — і користувач справедливо
+// не бачив у ньому сенсу. Головне питання власника не «коли постити», а
+// «ЩО МЕНІ ЗНЯТИ СЬОГОДНІ», тож кожен пункт — бриф, а не тема.
+
+export interface PlanItem {
+  day_offset: number;        // 0 = сьогодні … 6
+  time: string;              // "HH:MM"
+  type: 'reel' | 'story' | 'post';
+  platform: string;          // instagram | tiktok
+  category: string;          // selling | education | social_proof | bts | promo
+  idea: string;              // короткий заголовок
+  shoot: string[];           // 2-4 кадри: що саме знімати
+  say: string;               // хук / що сказати вголос
+  caption: string;           // готовий підпис
+  hashtags: string[];
+  why: string;               // навіщо це бізнесу — один рядок
+}
+
+export interface ContentPlan {
+  summary: string;
+  items: PlanItem[];
+}
+
+export interface PlanTempo {
+  reels?: number;            // на тиждень
+  posts?: number;            // на тиждень
+  stories?: number;          // на ДЕНЬ
+}
+
+const PLAN_SCHEMA =
+  '{"summary":str,"items":[{"day_offset":num(0-6),"time":"HH:MM",' +
+  '"type":"reel"|"story"|"post","platform":str,"category":str,"idea":str,' +
+  '"shoot":str[],"say":str,"caption":str,"hashtags":str[],"why":str}]}';
+
+export function generateContentPlan(
+  profileCtx: string,
+  goal: string,
+  platforms: string[],
+  tempo: PlanTempo,
+): Promise<ContentPlan> {
+  // Свідомо скромні межі: нереальний темп — головна причина, чому плани не
+  // виконуються. Сторіз дешеві (телефон, без монтажу) — їх можна щодня;
+  // Reels дорогі (зняти + змонтувати), тож кілька на тиждень.
+  const reels = Math.max(0, Math.min(7, Math.round(tempo.reels ?? 3)));
+  const posts = Math.max(0, Math.min(14, Math.round(tempo.posts ?? 3)));
+  const stories = Math.max(0, Math.min(3, Math.round(tempo.stories ?? 1)));
+  const total = reels + posts + stories * 7;
+  const plats = platforms.length ? platforms.join(', ') : 'Instagram';
+
+  const system =
+    'Ти — продюсер контенту для малого бізнесу. Складаєш план на 7 днів (day_offset 0 = сьогодні). ' +
+    'КЛЮЧОВЕ: власник питає не «коли постити», а «ЩО МЕНІ ЗНЯТИ СЬОГОДНІ». Тому кожен пункт — ' +
+    'знімальний бриф, який можна виконати без роздумів, з телефоном у руці. ' +
+    'idea — КОРОТКА назва, 2-5 слів, як пункт у списку справ («До/після за 30 хвилин»), НЕ речення й не опис. ' +
+    'shoot — 2-4 конкретні кадри («крупно руки з машинкою», «клієнт у дзеркалі всміхається»), ' +
+    'а не абстракції на кшталт «зніміть якісне відео». ' +
+    'say — що сказати вголос або вивести текстом на екран у перші секунди (сильний гачок). ' +
+    'caption — готовий до публікації підпис БЕЗ хештегів (хештеги віддавай окремо в hashtags). ' +
+    'why — один рядок, навіщо це бізнесу. ' +
+    'Тримай маркетинговий мікс: не все продає — чергуй продаж, користь, соц-доказ, закулісся, акцію. ' +
+    'Формати ЛИШЕ reel, story, post — жодних каруселей, монтажу складних відео, YouTube. ' +
+    `Платформи лише ці: ${plats}. Час постингу — коли аудиторія цього бізнесу онлайн. ` +
+    `Зроби РІВНО ${total} пунктів: ${reels} reel, ${posts} post на тиждень і ${stories} story на КОЖЕН день. ` +
+    'Сторіз розподіли по всіх 7 днях, Reels і пости — по різних днях, не купою. ' +
+    FACTS_RULE + ' ' + BRAND_RULE + ' ' + LANG_RULE +
+    ' Схема JSON: ' + PLAN_SCHEMA + '.';
+
+  const user =
+    `Бізнес:\n${profileCtx}\n\nЦіль тижня: ${goal || 'більше клієнтів'}\n\n` +
+    `Темп: ${reels} Reels/тиждень, ${posts} постів/тиждень, ${stories} сторіз/день.\n\n` +
+    'Склади план на 7 днів так, щоб кожен день було зрозуміло, що знімати.';
+
+  return jsonCall<ContentPlan>(system, user, 8000);
+}
+
 // ── Material editing via dialog (Rule 3: no manual editors — words only) ──────
 // Takes the CURRENT material JSON + the client's instruction, returns the same
 // JSON shape with revised content. Shape-preserving so any material type works.

@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, runSkill, isSkill, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, runSkill, isSkill, generateContentPlan, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -143,6 +143,30 @@ marketingRouter.post('/improve-post', meter('analysis'), async (req: Request, re
       output: result as unknown as Record<string, unknown>, profileId,
     });
     res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/content-plan — a 7-day plan of SHOOTING BRIEFS.
+// Body: { goal?, platforms?: string[], tempo?: {reels,posts,stories}, profile? }
+marketingRouter.post('/content-plan', meter('campaign'), async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const goal = typeof req.body?.goal === 'string' ? req.body.goal.slice(0, 120) : '';
+  const platforms = Array.isArray(req.body?.platforms)
+    ? req.body.platforms.filter((p: unknown) => typeof p === 'string').slice(0, 4)
+    : [];
+  const t = (req.body?.tempo || {}) as Record<string, unknown>;
+  const num = (v: unknown, d: number) => (typeof v === 'number' && isFinite(v) ? v : d);
+  const tempo = { reels: num(t.reels, 3), posts: num(t.posts, 3), stories: num(t.stories, 1) };
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const plan = await generateContentPlan(ctx, goal, platforms, tempo);
+    await logGeneration(req, {
+      type: 'content_plan', input: { context: ctx, goal, platforms, tempo },
+      output: plan as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ plan });
   } catch (err) {
     next(err);
   }
