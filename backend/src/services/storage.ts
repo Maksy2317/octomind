@@ -45,20 +45,24 @@ export async function ensureBucket(): Promise<void> {
 }
 
 /**
- * Upload an image buffer and return its permanent public URL.
+ * Upload any buffer and return its permanent public URL.
  * Returns null on any failure so the caller can fall back to local disk.
  */
-export async function uploadImage(buf: Buffer, ext: string, mime?: string): Promise<string | null> {
+export async function uploadBuffer(
+  buf: Buffer,
+  ext: string,
+  contentType: string,
+  prefix = 'gen',
+): Promise<string | null> {
   if (!isStorageConfigured()) return null;
   try {
     if (!bucketReady) await ensureBucket();
     if (!bucketReady) return null;
-    const contentType = mime || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
-    const objectPath = `gen/${randomUUID()}.${ext}`;
+    const objectPath = `${prefix}/${randomUUID()}.${ext}`;
     const res = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${objectPath}`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': contentType, 'cache-control': '31536000', 'x-upsert': 'true' }),
-      body: buf,
+      body: new Uint8Array(buf),
     });
     if (!res.ok) {
       console.warn('[Storage] upload failed', res.status, (await res.text()).slice(0, 120));
@@ -70,3 +74,26 @@ export async function uploadImage(buf: Buffer, ext: string, mime?: string): Prom
     return null;
   }
 }
+
+export async function uploadImage(buf: Buffer, ext: string, mime?: string): Promise<string | null> {
+  const contentType = mime || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+  return uploadBuffer(buf, ext, contentType, 'gen');
+}
+
+/**
+ * User-shot photo/video attached to a content-plan item.
+ *
+ * Lives in Storage rather than on disk on purpose: Railway wipes the filesystem
+ * on every redeploy, and — more importantly — Instagram and TikTok fetch media
+ * BY PUBLIC URL when publishing, so this same URL is what autoposting will need.
+ */
+export async function uploadPlanMedia(buf: Buffer, mime: string): Promise<string | null> {
+  const ext = MEDIA_EXT[mime];
+  if (!ext) return null;
+  return uploadBuffer(buf, ext, mime, 'plan');
+}
+
+export const MEDIA_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+  'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
+};

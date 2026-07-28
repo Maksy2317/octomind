@@ -1612,6 +1612,21 @@
     .pl-shot-t { font-size: 13.5px; line-height: 1.5; color: var(--text2); }
     .pl-shot.on .pl-shot-t { color: var(--text3); text-decoration: line-through; }
 
+    /* Відзняте: прев'ю прямо в картці — видно, що матеріал уже готовий. */
+    .pl-upload { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; min-height: 52px;
+      border-radius: 12px; cursor: pointer; font: 700 13px 'Manrope', sans-serif; color: var(--text3);
+      border: 1px dashed var(--border); background: transparent; transition: border-color .15s, color .15s; }
+    .pl-upload:hover { border-color: rgba(139,123,255,.45); color: var(--text2); }
+    .pl-upload.busy { pointer-events: none; opacity: .6; }
+    .pl-upload svg { width: 17px; height: 17px; }
+    .pl-media { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+      background: var(--surface2); }
+    .pl-media img, .pl-media video { display: block; width: 100%; max-height: 260px; object-fit: cover; }
+    .pl-media-x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 9px;
+      display: grid; place-items: center; cursor: pointer; border: none; color: #fff;
+      background: rgba(10,8,20,.66); backdrop-filter: blur(4px); }
+    .pl-media-x svg { width: 14px; height: 14px; }
+
     /* Тон підпису — переписує Octo, а не користувач. */
     .pl-tones { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
     .pl-tones.busy { opacity: .5; pointer-events: none; }
@@ -17311,7 +17326,7 @@
       shoot: Array.isArray(entry.shoot) ? entry.shoot : [],
       say: entry.say || '', hashtags: Array.isArray(entry.hashtags) ? entry.hashtags : [],
       why: entry.why || '',
-      media: entry.media || null,
+      media: entry.media || null, mediaKind: entry.mediaKind || null,
       reminder: entry.reminder || null,
       status: entry.status || 'ready',
       sourceCampaign: entry.sourceCampaign || null,
@@ -17678,6 +17693,25 @@
   function typeMeta(t) { return TYPE_META[t] || TYPE_META.post; }
   function shotsDone(p) { return Array.isArray(p.shotsDone) ? p.shotsDone : []; }
 
+  // Завантаження відзнятого. Файл іде multipart (а не base64 у JSON) — відео
+  // на 50 МБ у base64 роздулось би до ~67 МБ і впиралось у ліміт тіла запиту.
+  function uploadMedia(id, file) {
+    var card = document.querySelector('.pl-brief [onclick*="pickMedia(\'' + id + '\')"]');
+    if (card) { card.classList.add('busy'); card.textContent = 'Завантажую…'; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/api/calendar/media', { method: 'POST', headers: { 'x-device-id': devId() }, body: fd })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        upd(id, { media: d.url, mediaKind: d.kind });
+        render(); toast('📎 Матеріал прикріплено');
+      })
+      .catch(function (e) {
+        render();
+        toast('⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку' : e.message));
+      });
+  }
+
   // Спільний виклик правки: /edit зберігає структуру переданого обʼєкта,
   // тож ним і переписуємо підпис, і міняємо ідею — без нового API.
   function editCall(material, instruction) {
@@ -17748,6 +17782,22 @@
         ? '<section class="pl-sec"><div class="pl-sec-h">Що сказати</div>'
           + '<blockquote class="pl-say">' + esc(p.say) + '</blockquote></section>'
         : '')
+
+      // Відзняте лягає сюди: видно, що матеріал уже є, і саме цей URL піде
+      // в автопостинг, коли підключимо API платформ.
+      + '<section class="pl-sec"><div class="pl-sec-h">Відзняте</div>'
+      + (p.media
+        ? '<div class="pl-media">'
+          + (p.mediaKind === 'video'
+            ? '<video src="' + esc(p.media) + '" controls playsinline preload="metadata"></video>'
+            : '<img src="' + esc(p.media) + '" alt="">')
+          + '<button class="pl-media-x" onclick="octoPlanner.clearMedia(\'' + p.id + '\')" aria-label="Прибрати">'
+          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+          + '</button></div>'
+        : '<button class="pl-upload" onclick="octoPlanner.pickMedia(\'' + p.id + '\')">'
+          + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-3"/></svg>'
+          + 'Прикріпити відзняте</button>')
+      + '</section>'
 
       + (p.caption
         ? '<section class="pl-sec"><div class="pl-sec-h">Готовий підпис</div>'
@@ -18071,6 +18121,26 @@
         toast('⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку' : e.message));
       });
     },
+
+    // ── Відзняте медіа ────────────────────────────────────────────────────────
+    pickMedia: function (id) {
+      var inp = document.getElementById('plMediaInput');
+      if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file'; inp.id = 'plMediaInput';
+        inp.accept = 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm';
+        inp.style.display = 'none';
+        document.body.appendChild(inp);
+      }
+      inp.onchange = function (ev) {
+        var f = (ev.target.files || [])[0];
+        ev.target.value = '';
+        if (!f) return;
+        uploadMedia(id, f);
+      };
+      inp.click();
+    },
+    clearMedia: function (id) { upd(id, { media: null, mediaKind: null }); render(); },
 
     // Не встиг сьогодні — перекинув на завтра одним тапом.
     moveDay: function (id, delta) {

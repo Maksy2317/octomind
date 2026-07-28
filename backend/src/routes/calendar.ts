@@ -1,9 +1,53 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
+import multer from 'multer';
+import { uploadPlanMedia, MEDIA_EXT, isStorageConfigured } from '../services/storage';
 
 export const calendarRouter = Router();
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// ── Медіа для контент-плану ──────────────────────────────────────────────────
+// memoryStorage, а не диск: Railway стирає файлову систему при кожному деплої,
+// тож відзняте відео мусить одразу лягти в Storage і отримати постійний URL.
+// Цей же URL знадобиться для автопостингу — Instagram і TikTok забирають медіа
+// саме за публічним посиланням.
+const planMedia = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: (parseInt(process.env.MAX_PLAN_MEDIA_MB || '100', 10)) * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (MEDIA_EXT[file.mimetype]) cb(null, true);
+    else cb(new Error('Підтримуємо фото (jpg, png, webp) і відео (mp4, mov, webm)'));
+  },
+});
+
+// Помилки multer (не той тип, завеликий файл) — це помилка КОРИСТУВАЧА, тож 400.
+// Без цієї обгортки вони летіли в загальний обробник і поверталися як 500,
+// тобто «щось зламалось» замість зрозумілого пояснення.
+function mediaUpload(req: Request, res: Response, next: NextFunction): void {
+  planMedia.single('file')(req, res, (err: unknown) => {
+    if (!err) return next();
+    const msg = (err as Error).message || 'Не вдалося прочитати файл';
+    const tooBig = (err as { code?: string }).code === 'LIMIT_FILE_SIZE';
+    res.status(400).json({
+      error: tooBig
+        ? `Файл завеликий — до ${process.env.MAX_PLAN_MEDIA_MB || '100'} МБ`
+        : msg,
+    });
+  });
+}
+
+// POST /api/calendar/media — віддає { url, kind }
+calendarRouter.post('/media', mediaUpload, async (req: Request, res: Response) => {
+  if (!isStorageConfigured()) {
+    res.status(503).json({ error: 'Сховище не налаштоване' });
+    return;
+  }
+  if (!req.file) { res.status(400).json({ error: 'Файл не надіслано' }); return; }
+  const url = await uploadPlanMedia(req.file.buffer, req.file.mimetype);
+  if (!url) { res.status(502).json({ error: 'Не вдалося зберегти файл' }); return; }
+  res.json({ url, kind: req.file.mimetype.startsWith('video/') ? 'video' : 'image' });
+});
 
 type CalendarPostType = 'tiktok' | 'reels' | 'stories' | 'carousel' | 'post';
 
