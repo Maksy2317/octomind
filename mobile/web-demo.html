@@ -81,7 +81,22 @@
             }
           }
         } catch (e) { /* never break a request over an auth nicety */ }
-        return _fetch.call(this, input, init);
+        var isApi = false;
+        try { isApi = (typeof input === 'string' ? input : ((input && input.url) || '')).indexOf('/api/') === 0; } catch (e) {}
+        var p = _fetch.call(this, input, init);
+        if (!isApi) return p;
+        // Єдина точка для edge-помилок (Railway/Cloudflare 502/504 віддають
+        // HTML, а не JSON): 20 екранів роблять r.json() і показували б сирий
+        // «HTTP 502». Підміняємо тіло дружнім JSON — код екранів не міняємо.
+        return p.then(function (r) {
+          if (r.status !== 502 && r.status !== 503 && r.status !== 504) return r;
+          var ct = (r.headers && r.headers.get && r.headers.get('content-type')) || '';
+          if (ct.indexOf('application/json') >= 0) return r;   // бекенд уже відповів по-людськи
+          return new Response(
+            JSON.stringify({ error: 'Octo зараз перевантажений — спробуй ще раз за хвилину.', retryable: true }),
+            { status: r.status, headers: { 'Content-Type': 'application/json' } }
+          );
+        });
       };
     })();
   </script>

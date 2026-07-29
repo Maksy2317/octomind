@@ -239,17 +239,22 @@ export async function llmCall(
   const run = (p: Provider) => (p === 'gemini' ? geminiJson : anthropicJson)(system, user, images, maxTokens);
 
   const t0 = Date.now();
+  const done = (text: string, p: Provider): LlmResult =>
+    ({ text, provider: p, model: p === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 });
+
+  // Перехідні збої, які лікуються повтором: 429 (ліміт) і 503 «model is
+  // currently experiencing high load». Раніше ретраїлись лише 429 — тож у
+  // години пік Gemini 503 одразу падав на Anthropic, а там порожній баланс,
+  // і користувач бачив сирий JSON «credit balance is too low».
+  const transient = (e: unknown) => /429|503|overloaded|high load|UNAVAILABLE|resource.?exhausted/i.test((e as Error).message || '');
+
   try {
     try {
-      const text = await run(primary);
-      return { text, provider: primary, model: primary === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+      return done(await run(primary), primary);
     } catch (e1) {
-      // Gemini free tier is 10 req/min — bursts trip 429 constantly. A short
-      // wait usually clears it; only then fall through to the other provider.
-      if (/429/.test((e1 as Error).message)) {
+      if (transient(e1)) {
         await new Promise((r) => setTimeout(r, 4000));
-        const text = await run(primary);
-        return { text, provider: primary, model: primary === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+        return done(await run(primary), primary);
       }
       throw e1;
     }
@@ -260,8 +265,24 @@ export async function llmCall(
     const other: Provider = primary === 'gemini' ? 'anthropic' : 'gemini';
     if (!opts.provider && providerConfigured(other)) {
       console.warn(`[AI] ${primary} failed (${(e as Error).message.slice(0, 100)}) → fallback ${other}`);
-      const text = await run(other);
-      return { text, provider: other, model: other === 'gemini' ? GEMINI_MODEL : ANTHROPIC_MODEL, ms: Date.now() - t0 };
+      try {
+        return done(await run(other), other);
+      } catch (e2) {
+        // Обидва лягли. Ключове: НЕ підміняти справжню причину помилкою
+        // фолбека (раніше «Gemini 503» ховався за «Anthropic credit balance»),
+        // і не показувати користувачу сирий JSON — 503 підхопить errorHandler.
+        console.error(
+          `[AI] BOTH providers failed. ${primary}: ${(e as Error).message.slice(0, 140)} | ${other}: ${(e2 as Error).message.slice(0, 140)}`,
+        );
+        const busy = new Error('Octo зараз перевантажений — спробуй ще раз за хвилину.');
+        (busy as Error & { status: number }).status = 503;
+        throw busy;
+      }
+    }
+    if (transient(e)) {
+      const busy = new Error('Octo зараз перевантажений — спробуй ще раз за хвилину.');
+      (busy as Error & { status: number }).status = 503;
+      throw busy;
     }
     throw e;
   }
