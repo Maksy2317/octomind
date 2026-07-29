@@ -14,7 +14,7 @@ import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile, GenerationType } from '../services/db/models';
 import {
   analyzeBusiness, generateOfferStrategy, generateMarketingText, generateCampaignStrategy,
-  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, runSkill, isSkill, generateContentPlan, researchNiche, adaptTrend, generateMaterial, editMaterial,
+  extractBusinessProfile, importProfileFromUrl, generateFirstResult, generateClarifyingQuestions, auditContent, improvePost, runSkill, isSkill, generateContentPlan, extractWritingStyle, researchNiche, adaptTrend, generateMaterial, editMaterial,
   generateImageBrief, generateBrandKit, scheduleCampaign, weeklyAdvice,
   profileToContext, isMarketingConfigured, MARKETING_MODEL,
   BusinessAnalysis, OfferStrategy, AuditImage,
@@ -143,6 +143,30 @@ marketingRouter.post('/improve-post', meter('analysis'), async (req: Request, re
       output: result as unknown as Record<string, unknown>, profileId,
     });
     res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/marketing/style — extract a writing-style fingerprint from the
+// user's own pasted posts. Body: { posts: string, profile? }. The client saves
+// the returned style_dna into the profile, so EVERY later generation mimics it.
+marketingRouter.post('/style', meter('analysis'), async (req: Request, res: Response, next: NextFunction) => {
+  if (!guardConfigured(res)) return;
+  const posts = typeof req.body?.posts === 'string' ? req.body.posts.slice(0, 6000) : '';
+  // Один пост — не стиль, а випадковість. Просимо хоча б два.
+  if (posts.trim().length < 80) {
+    res.status(400).json({ error: 'Встав хоча б 2-3 своїх пости (разом від 80 символів)' });
+    return;
+  }
+  try {
+    const { ctx, profileId } = await resolveContext(req);
+    const style = await extractWritingStyle(ctx, posts);
+    await logGeneration(req, {
+      type: 'style', input: { chars: posts.length },
+      output: style as unknown as Record<string, unknown>, profileId,
+    });
+    res.json({ style });
   } catch (err) {
     next(err);
   }

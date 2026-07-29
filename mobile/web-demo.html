@@ -3557,6 +3557,22 @@
             </div>
           </div>
 
+          <!-- «Мій стиль»: відбиток письма зі справжніх постів. Instagram ховає
+               пости за логін-стіною, тож імпорт із посилання стилю не бачить —
+               тут користувач вставляє пости руками, і кожна генерація пише як він. -->
+          <div class="card" id="styleCard">
+            <div class="card-title" style="margin-bottom:4px;">✍️ Мій стиль</div>
+            <div class="card-sub" style="margin-bottom:14px;">Встав 2-5 своїх постів — Octo вивчить, як ти пишеш, і всі тексти звучатимуть твоїм голосом.</div>
+            <div id="styleState" style="display:none;margin-bottom:14px;padding:13px 15px;border-radius:13px;background:rgba(63,208,122,.07);border:1px solid rgba(63,208,122,.25);">
+              <div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7ddb9f;margin-bottom:6px;">Стиль вивчено</div>
+              <div id="styleSummary" style="font-size:13.5px;color:var(--text2);line-height:1.5;"></div>
+              <div id="styleTraits" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;"></div>
+            </div>
+            <textarea id="stylePosts" class="ob-input" rows="6" placeholder="Встав сюди 2-5 своїх постів (кожен з нового рядка або через порожній рядок)…"></textarea>
+            <button class="btn btn-primary" id="styleBtn" style="width:100%;margin-top:12px;" onclick="octoStyleRun()">🧬 Вивчити мій стиль</button>
+            <div class="ob-status" id="styleStatus"></div>
+          </div>
+
           <!-- Account profile card (rendered dynamically) -->
           <div id="profileCard"></div>
         </div>
@@ -18328,6 +18344,80 @@
     try { sessionStorage.removeItem(KEY); } catch (e) {}
     showScreen(target, null);
   }, 1000);
+})();
+
+// ── «Мій стиль»: відбиток письма зі справжніх постів ──────────────────────────
+// Живе В КІНЦІ файлу навмисно: обгортає window.showScreen, і щоб композиція
+// склалась, мусить виконатись після всіх попередніх overrides (планер тощо).
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+  function devId() {
+    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    while (id.length < 8) id += '0';
+    return id.slice(0, 128);
+  }
+
+  function refresh() {
+    var st = $('styleState'); if (!st) return;
+    var p = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+    if (p.style_dna) {
+      st.style.display = '';
+      $('styleSummary').textContent = p.style_summary || '';
+      $('styleTraits').innerHTML = (Array.isArray(p.style_traits) ? p.style_traits : []).map(function (t) {
+        return '<span class="ob-chip good">' + esc(t) + '</span>';
+      }).join('');
+      var b = $('styleBtn'); if (b) b.textContent = '🔄 Оновити стиль (встав нові пости)';
+    } else {
+      st.style.display = 'none';
+    }
+  }
+  window.octoStyleRefresh = refresh;
+
+  window.octoStyleRun = function () {
+    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
+    var posts = ($('stylePosts') || {}).value || '';
+    var s = $('styleStatus');
+    if (posts.trim().length < 80) {
+      s.className = 'ob-status ob-err'; s.textContent = 'Встав хоча б 2-3 пости, щоб було з чого зняти стиль.';
+      return;
+    }
+    var btn = $('styleBtn'); btn.disabled = true;
+    s.className = 'ob-status ob-busy';
+    s.innerHTML = '<span class="ob-spin"></span> Octo читає твої пости і вивчає, як ти пишеш…';
+    fetch('/api/marketing/style', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': devId() },
+      body: JSON.stringify({ posts: posts, profile: (window.octoBiz && window.octoBiz.get()) || {} }),
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        var st = d.style || {};
+        // style_dna йде в профіль → profileToContext друкує його в кожну
+        // генерацію → стратегія, матеріали, план і чат пишуть голосом автора.
+        window.octoBiz.merge({
+          style_dna: st.style_dna || '',
+          style_summary: st.summary || '',
+          style_traits: Array.isArray(st.traits) ? st.traits : [],
+        });
+        s.className = 'ob-status'; s.textContent = '';
+        $('stylePosts').value = '';
+        refresh();
+        if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
+      })
+      .catch(function (e) {
+        s.className = 'ob-status ob-err';
+        s.textContent = '⚠️ ' + (/Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message);
+      })
+      .finally(function () { btn.disabled = false; });
+  };
+
+  document.addEventListener('DOMContentLoaded', refresh);
+  // Профіль міг догідруватись із хмари після завантаження — освіжаємо при вході.
+  var _prevShow = window.showScreen;
+  if (typeof _prevShow === 'function') {
+    window.showScreen = function (id, nav) { _prevShow(id, nav); if (id === 'profile') { try { refresh(); } catch (e) {} } };
+  }
 })();
 </script>
 </body>
