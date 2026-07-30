@@ -33,7 +33,7 @@ self.addEventListener('fetch', e => {
 
 // ── Push notification received ────────────────────────────────────────────────
 self.addEventListener('push', e => {
-  let data = { title: '🐙 OctoMind', body: 'Є нові нагадування!', url: '/' };
+  let data = { title: '🐙 OctoMind', body: 'Є нові нагадування!', url: '/app' };
   try { data = { ...data, ...e.data.json() }; } catch {}
 
   e.waitUntil(
@@ -42,7 +42,7 @@ self.addEventListener('push', e => {
       icon:    data.icon  || '/icons/icon.svg',
       badge:   data.badge || '/icons/icon.svg',
       tag:     data.tag   || 'octomind',
-      data:    { url: data.url || '/?screen=calendar' },
+      data:    { url: data.url || '/app?screen=calendar' },
       vibrate: [200, 100, 200],
       actions: [
         { action: 'open',    title: '📅 Відкрити' },

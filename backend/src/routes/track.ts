@@ -14,6 +14,9 @@ export const trackRouter = Router();
 // The funnel vocabulary. Adding an event = add it here and fire octoTrack('...').
 const EVENTS = new Set([
   'app_open',
+  // Лендінг: без цих двох воронка реклами сліпа — не видно, скільки людей
+  // побачили сторінку і яка кнопка веде в застосунок.
+  'view_landing', 'click_cta',
   'signup', 'login',
   'onboarding_done',
   'import_success', 'import_fail',

@@ -216,7 +216,7 @@ export async function fireScheduledReminders(): Promise<void> {
         body,
         icon:  '/icons/icon.svg',
         badge: '/icons/icon.svg',
-        url:   '/?screen=calendar',
+        url:   '/app?screen=calendar',
         tag:   `reminder-${r.id}`,
       }));
       console.log(`[Push] Fired reminder ${r.id}: ${typeName} at ${r.displayTime}`);
@@ -265,7 +265,7 @@ pushRouter.post('/test', async (_req: Request, res: Response) => {
     body:  'Push-сповіщення працюють! Твої нагадування активовані.',
     icon:  '/icons/icon.svg',
     badge: '/icons/icon.svg',
-    url:   '/?screen=calendar',
+    url:   '/app?screen=calendar',
   });
   res.json(result);
 });

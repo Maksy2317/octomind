@@ -303,8 +303,16 @@ function sendHtml(res: express.Response, file: string): void {
     res.sendFile(path.join(frontendDir, file));
   }
 }
-app.get('/landing', (_req, res) => sendHtml(res, 'landing.html'));
+// Корінь — лендінг. Людина з реклами мусить спершу зрозуміти, що це і навіщо;
+// раніше вона падала одразу в інтерфейс застосунку й не розуміла нічого.
+// Застосунок живе на /app (лендінг туди й посилається).
+app.get(['/', '/landing'], (_req, res) => sendHtml(res, 'landing.html'));
 app.get('/app', (_req, res) => sendHtml(res, 'web-demo.html'));
+
+// Юридичні сторінки на СТАБІЛЬНИХ адресах: рекламний кабінет Meta вимагає
+// робочий URL політики конфіденційності, платіжний провайдер — оферту.
+// Раніше ці шляхи лягали на SPA-фолбек і віддавали сам застосунок.
+app.get(['/privacy', '/terms', '/legal', '/offer'], (_req, res) => sendHtml(res, 'legal.html'));
 
 app.use(express.static(frontendDir, {
   setHeaders(res, filePath) {

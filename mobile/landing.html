@@ -19,6 +19,30 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
 
+<!-- ════════════════════════════════════════════════════════════════════════
+     META PIXEL — вставити ПЕРЕД запуском реклами у Facebook / Instagram.
+
+     Навіщо: без пікселя Meta не бачить, хто дійшов до застосунку, і не може
+     оптимізувати показ. Ти платитимеш за покази без сигналу про конверсії —
+     це найдорожча помилка на старті рекламної кампанії.
+
+     Як увімкнути:
+       1. business.facebook.com → Events Manager → Create Pixel → скопіювати ID.
+       2. Розкомментувати блок нижче і замінити ЦИФРИ на свій Pixel ID.
+       3. Все інше вже готове: функція track() на цій сторінці сама
+          передасть події у fbq, щойно він з'явиться.
+     ════════════════════════════════════════════════════════════════════════
+<script>
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', 'ВСТАВ_СВІЙ_PIXEL_ID');
+  fbq('track', 'PageView');
+</script>
+-->
+
 <style>
   *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
 
@@ -746,6 +770,10 @@
     <nav>
       <a href="#pricing">Тарифи</a>
       <a href="#faq">FAQ</a>
+      <!-- Meta вимагає робочий URL політики для рекламного кабінету, платіжний
+           провайдер — оферту. Тому посилання саме тут, у підвалі кожної сторінки. -->
+      <a href="/privacy">Конфіденційність</a>
+      <a href="/terms">Умови</a>
       <a href="/app" data-cta="signup" data-go="app">Увійти</a>
     </nav>
   </div>
@@ -765,11 +793,27 @@
   // Buffered into window.dataLayer so a real analytics tag (GA4 / Meta Pixel)
   // can be dropped in later without touching any of the markup.
   window.dataLayer = window.dataLayer || [];
+  // Події, які приймає наш власний бекенд (whitelist у routes/track.ts).
+  // Решта живе лише в dataLayer — на майбутнє під GA4/Pixel.
+  var OWN_EVENTS = { view_landing: 1, click_cta: 1 };
+
   function track(event, props) {
     var payload = Object.assign({ event: event, ts: Date.now() }, props || {});
     window.dataLayer.push(payload);
     if (window.gtag) window.gtag('event', event, props || {});
     if (window.fbq) window.fbq('trackCustom', event, props || {});
+    // Власна аналітика. Без неї воронка реклами сліпа: dataLayer чекав на
+    // GA4/Pixel, яких ще немає, тож усі показники лендінгу просто зникали.
+    // keepalive — щоб подія доїхала, навіть коли клік уже веде на /app.
+    if (OWN_EVENTS[event]) {
+      try {
+        fetch('/api/track', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: event, props: props || {} }),
+        }).catch(function () {});
+      } catch (e) { /* аналітика ніколи не ламає сторінку */ }
+    }
   }
 
   var utm = new URLSearchParams(location.search);
