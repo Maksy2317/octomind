@@ -1,3 +1,6 @@
+// ПЕРШИЙ рядок не випадково: Sentry має пропатчити http/express до того, як їх
+// завантажать імпорти нижче, інакше в звітах не буде контексту запиту.
+import { setupExpressErrorHandler, captureError } from './instrument';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -23,6 +26,7 @@ import { trackRouter } from './routes/track';
 import { ensureBucket } from './services/storage';
 import { errorHandler } from './middleware/errorHandler';
 import { cleanupOldFiles } from './services/cleanup';
+import { prepare as prepareHtml, warmUp as warmUpHtml } from './services/htmlCache';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -203,7 +207,7 @@ try {
 
 // ── Per-post scheduled reminders (every minute) ──────────────────────────────
 cron.schedule('* * * * *', async () => {
-  try { await fireScheduledReminders(); } catch (e) { console.error('[CRON] fireScheduledReminders failed:', e); }
+  try { await fireScheduledReminders(); } catch (e) { captureError(e, 'CRON fireScheduledReminders'); }
 }, { timezone: 'UTC' });
 
 // ── Daily reminder push (08:00 Kyiv time = 05:00 UTC) ────────────────────────
@@ -223,7 +227,7 @@ cron.schedule('0 5 * * *', async () => {
     });
     console.log(`[CRON] Push result:`, result);
   } catch (e) {
-    console.error('[CRON] Push failed:', e);
+    captureError(e, 'CRON daily push');
   }
 }, { timezone: 'UTC' });
 
@@ -237,7 +241,7 @@ cron.schedule('0 5 * * 1', async () => {
     console.log(`[CRON] Weekly digest: candidates=${r.candidates} sent=${r.sent} skipped=${r.skipped}` +
       (r.errors.length ? ` errors=${r.errors.slice(0, 3).join(' | ')}` : ''));
   } catch (e) {
-    console.error('[CRON] Weekly digest failed:', (e as Error).message);
+    captureError(e, 'CRON weekly digest');
   }
 }, { timezone: 'UTC' });
 
@@ -248,7 +252,7 @@ function runCleanup() {
     cleanupOldFiles([uploadDirEarly, outputDir], FILE_MAX_AGE_MS);
   } catch (e) {
     // cleanupOldFiles already swallows per-file errors; this is a last-resort guard.
-    console.error('[CRON] Cleanup sweep failed:', e);
+    captureError(e, 'CRON cleanup sweep');
   }
 }
 // Run hourly; also once at startup.
@@ -290,15 +294,19 @@ function sendHtml(res: express.Response, file: string): void {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   try {
     const full = path.join(frontendDir, file);
-    const etag = `"${BUILD_SHA}-${Math.floor(fs.statSync(full).mtimeMs)}"`;
-    res.setHeader('ETag', etag);
     const req = res.req;
+    const { body, encoding, etag } = prepareHtml(full, BUILD_SHA, req?.headers['accept-encoding'] as string | undefined);
+    // Обов'язково: без Vary проміжний кеш може віддати brotli клієнту, який його
+    // не приймає, і сторінка перетвориться на бінарне сміття.
+    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('ETag', etag);
     if (req && req.headers['if-none-match'] === etag) {
       res.status(304).end();
       return;
     }
-    const html = fs.readFileSync(full, 'utf8');
-    res.send(html.replace(/__BUILD_SHA__/g, BUILD_SHA));
+    if (encoding !== 'identity') res.setHeader('Content-Encoding', encoding);
+    res.setHeader('Content-Length', String(body.length));
+    res.end(body);
   } catch {
     res.sendFile(path.join(frontendDir, file));
   }
@@ -326,10 +334,15 @@ app.use(express.static(frontendDir, {
 // Everything else — including `/` — is the app shell, stamped with its build.
 app.get('*', (_req, res) => sendHtml(res, 'web-demo.html'));
 
+// Реєструє помилку й пропускає її далі — відповідь користувачу лишається за
+// errorHandler, тому порядок саме такий.
+setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`AI Marketer Backend running on http://0.0.0.0:${PORT}`);
+  // Стискаємо оболонки наперед — після listen, щоб не затримувати старт.
+  warmUpHtml(frontendDir, ['web-demo.html', 'landing.html', 'legal.html'], BUILD_SHA);
   console.log(`AI Provider: ${process.env.AI_PROVIDER || 'mock'}`);
   // Load persisted push subscriptions from Supabase
   await loadSubscriptionsFromDB();

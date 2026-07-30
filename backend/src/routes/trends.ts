@@ -8,10 +8,15 @@ import { optionalIdentity } from '../middleware/identity';
 import { meter } from '../middleware/quota';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
-import { getTrendFeed, getProfileVideos, isTrendsConfigured, isInstagramEnabled, kvGet, kvSet } from '../services/trends';
+import { getTrendFeed, getProfileVideos, isTrendsConfigured, isInstagramEnabled, isSourceCoolingDown, sourceOut, kvGet, kvSet } from '../services/trends';
 import { analyzeViralVideo, generateTrendQueries, auditOwnPage, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
 
 export const trendsRouter = Router();
+
+// Авто-розбір тягне ролики через Apify, а розбір за скрінами — ні. Тож коли
+// джерело лежить, це не тупик: одразу ведемо людину в робочий шлях.
+const AUDIT_OUT_MESSAGE = 'Авто-розбір за ніком зараз недоступний — оновлюємо джерело даних. '
+  + 'Скористайся «розбором за скрінами» нижче: Octo розбере пости так само точно. 👇';
 
 trendsRouter.use(optionalIdentity);
 
@@ -32,7 +37,11 @@ async function resolveCtx(req: Request): Promise<{ ctx: string; profileId: strin
 // them all in one actor run. Falls back to the raw word if the AI step fails.
 trendsRouter.post('/feed', meter('trend_feed'), async (req: Request, res: Response, next: NextFunction) => {
   if (!isTrendsConfigured()) {
-    res.status(503).json({ error: 'Стрічка трендів не налаштована (APIFY_TOKEN відсутній)' });
+    // Назовні — те саме, що й при вичерпаних кредитах: для користувача це один
+    // і той самий факт («зараз не працює»), а причина — рядок у логах для нас.
+    console.error('[Trends] APIFY_TOKEN відсутній — стрічка трендів вимкнена');
+    const off = sourceOut();
+    res.status(503).json({ error: off.message, code: off.code, retryable: false });
     return;
   }
   const query = typeof req.body?.query === 'string' ? req.body.query.trim().slice(0, 120) : '';
@@ -85,12 +94,16 @@ trendsRouter.post('/feed', meter('trend_feed'), async (req: Request, res: Respon
 // The user's OWN page: scrape latest videos with real metrics → honest AI
 // breakdown (what works for THEM, what flops, what to make next).
 trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Response, next: NextFunction) => {
-  if (!isTrendsConfigured()) {
-    res.status(503).json({ error: 'Аналіз сторінки не налаштований (APIFY_TOKEN відсутній)' });
+  // Тут у людини є повноцінна альтернатива — розбір за скрінами просто нижче на
+  // екрані. Тому кажемо не лише «не працює», а й куди йти замість цього.
+  if (!isTrendsConfigured() || isSourceCoolingDown()) {
+    if (!isTrendsConfigured()) console.error('[Trends] APIFY_TOKEN відсутній — авто-розбір сторінки вимкнений');
+    res.status(503).json({ error: AUDIT_OUT_MESSAGE, code: 'trends_source_out', retryable: false });
     return;
   }
   if (!isMarketingConfigured()) {
-    res.status(503).json({ error: 'AI не налаштований (ANTHROPIC_API_KEY відсутній)' });
+    console.error('[Trends] AI-провайдер не налаштований (GOOGLE_API_KEY / ANTHROPIC_API_KEY)');
+    res.status(503).json({ error: 'Octo зараз не може думати — AI тимчасово недоступний. Спробуй за кілька хвилин.', retryable: true });
     return;
   }
   const handle = typeof req.body?.handle === 'string' ? req.body.handle.trim().slice(0, 120) : '';
@@ -135,6 +148,12 @@ trendsRouter.post('/page-audit', meter('analysis'), async (req: Request, res: Re
     }
     res.json({ audit, author: page.author, videos: page.videos, insights, fromCache: page.fromCache });
   } catch (err) {
+    // Кредити могли скінчитись саме на цьому запиті — тоді загальний текст
+    // «оновлюємо джерело» не підказує вихід, а він тут є.
+    if ((err as { code?: string }).code === 'trends_source_out') {
+      res.status(503).json({ error: AUDIT_OUT_MESSAGE, code: 'trends_source_out', retryable: false });
+      return;
+    }
     next(err);
   }
 });

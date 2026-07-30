@@ -35,6 +35,71 @@ export function isTrendsConfigured(): boolean {
   return Boolean(APIFY_TOKEN);
 }
 
+// ── Чесні збої джерела даних ─────────────────────────────────────────────────
+// Apify відповідає сирим JSON у тілі: {"error":{"type":"monthly-usage-hard-
+// limit-exceeded",...}}. Раніше цей рядок ішов прямо в throw і доїжджав до
+// користувача як «Apify 403: {"error":…}» — людина бачила наш внутрішній збій
+// замість зрозумілого речення. Тепер кожен збій класифікується ТУТ: назовні йде
+// статус, код і людський текст, а сире тіло лишається в логах.
+export interface SourceFailure extends Error {
+  status: number;
+  code: 'trends_source_out' | 'trends_source_down' | 'trends_busy';
+  expose: true;      // errorHandler віддає це повідомлення як є
+  retryable: boolean;
+}
+
+function failure(status: number, code: SourceFailure['code'], message: string, retryable: boolean): SourceFailure {
+  const e = new Error(message) as SourceFailure;
+  e.status = status;
+  e.code = code;
+  e.expose = true;
+  e.retryable = retryable;
+  return e;
+}
+
+// Коли кредити скінчились, кожен наступний запит все одно чекав ~150 с таймауту
+// актора, щоб отримати те саме 403. Запобіжник: пів години відповідаємо одразу —
+// користувач не сидить над спінером заради гарантованого провалу, і його квота
+// на цю дію не списується (meter рахує лише 2xx).
+const OUT_COOLDOWN_MS = 30 * 60_000;
+let sourceOutUntil = 0;
+
+export function sourceOut(): SourceFailure {
+  return failure(503, 'trends_source_out',
+    'Свіжа добірка роликів зараз недоступна — оновлюємо джерело даних. Заглянь трохи пізніше, все повернеться.', false);
+}
+
+/** Знаємо, що джерело мертве — не витрачаємо 150 с на гарантований провал. */
+export function isSourceCoolingDown(): boolean {
+  return Date.now() < sourceOutUntil;
+}
+
+/** Розкласти збій Apify на щось, що можна показати людині. */
+function apifyFailure(status: number, body: string): SourceFailure {
+  const raw = body.slice(0, 300);
+  // Кредити / ліміт акаунта: це НАШ рахунок, а не помилка користувача. Тому не
+  // пропонуємо «спробуй ще раз» — повторний клік нічого не змінить.
+  if (status === 402 || /hard.?limit|usage.*exceed|monthly|not enough|insufficient|credit|payment|feature-disabled/i.test(raw)) {
+    sourceOutUntil = Date.now() + OUT_COOLDOWN_MS;
+    console.error(`[Trends] ДЖЕРЕЛО ВИЧЕРПАНО (Apify ${status}) — треба поповнити кредити:`, raw);
+    return sourceOut();
+  }
+  if (status === 401 || status === 403) {
+    sourceOutUntil = Date.now() + OUT_COOLDOWN_MS;
+    console.error(`[Trends] Apify відмовив у доступі (${status}) — перевір APIFY_TOKEN:`, raw);
+    return sourceOut();
+  }
+  if (status === 429) {
+    console.warn('[Trends] Apify 429 (rate limit):', raw);
+    return failure(429, 'trends_busy', 'Джерело даних зараз перевантажене. Спробуй за хвилину.', true);
+  }
+  // 404 тут = не знайдено АКТОРА (немає профілю → 200 з порожнім списком), тобто
+  // наша помилка конфігурації, а не чужий нік. Не радимо «перевір нік».
+  console.error(`[Trends] Apify ${status}:`, raw);
+  return failure(502, 'trends_source_down',
+    'Не вдалось дотягнутись до TikTok. Спробуй ще раз за пару хвилин.', true);
+}
+
 export interface TrendVideo {
   id: string;
   platform: 'tiktok' | 'instagram';
@@ -160,6 +225,13 @@ export async function getProfileVideos(handle: string, force = false): Promise<{
     }
   }
 
+  // Джерело в даунтаймі — краще старий кеш або одразу чесна відмова.
+  if (isSourceCoolingDown()) {
+    const stale = readCache(key) as any;
+    if (stale) return { videos: stale.videos, author: stale.author ?? null, fetchedAt: stale.fetchedAt, fromCache: true };
+    throw sourceOut();
+  }
+
   const input = { profiles: [clean], resultsPerPage: 20, profileSorting: 'latest' };
   const res = await fetch(
     `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
@@ -169,7 +241,7 @@ export async function getProfileVideos(handle: string, force = false): Promise<{
     const body = await res.text().catch(() => '');
     const stale = readCache(key) as any;
     if (stale) return { videos: stale.videos, author: stale.author ?? null, fetchedAt: stale.fetchedAt, fromCache: true };
-    throw new Error(`Apify ${res.status}: ${body.slice(0, 200)}`);
+    throw apifyFailure(res.status, body);
   }
   const items = (await res.json()) as Array<Record<string, any>>;
   const videos = (Array.isArray(items) ? items : [])
@@ -267,6 +339,14 @@ export async function getTrendFeed(
     }
   }
 
+  // Джерело в даунтаймі — віддаємо навіть протермінований кеш, а якщо його немає,
+  // чесно відмовляємо одразу, замість 150 с очікування того самого 403.
+  if (isSourceCoolingDown()) {
+    const stale = readCache(key);
+    if (stale) return { videos: stale.videos, fetchedAt: stale.fetchedAt, fromCache: true };
+    throw sourceOut();
+  }
+
   const perQuery = Math.max(10, Math.ceil(RESULTS_PER_QUERY / list.length));
   const actor = platform === 'instagram' ? IG_ACTOR : (USE_APIDOJO ? APIDOJO_ACTOR : ACTOR);
   const input = platform === 'instagram'
@@ -304,7 +384,7 @@ export async function getTrendFeed(
       console.warn(`[Trends] Apify ${res.status}, serving stale cache:`, body.slice(0, 150));
       return { videos: stale.videos, fetchedAt: stale.fetchedAt, fromCache: true };
     }
-    throw new Error(`Apify ${res.status}: ${body.slice(0, 200)}`);
+    throw apifyFailure(res.status, body);
   }
   const items = (await res.json()) as Array<Record<string, any>>;
   const seen = new Set<string>();

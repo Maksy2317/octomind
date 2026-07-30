@@ -252,6 +252,16 @@
     .om-grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 20px; }
     .om-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
     @media (max-width: 800px) { .om-grid-2, .om-grid-3 { grid-template-columns: 1fr; } }
+    /* Вітальна картка Огляду: маскот 170 px лежить absolute праворуч, а текст
+       обходив його жорстким margin-right:175px. На 375 px це залишало тексту
+       110 px — заголовок ламався по одному слову в рядок. Маскот меншає й
+       з'їжджає в куток, текст забирає майже всю ширину.
+       !important тому, що обидва розміри стоять інлайн у розмітці. */
+    @media (max-width: 560px) {
+      .dash-hero-octo { width: 104px !important; height: 104px !important;
+        right: -8px !important; bottom: -14px !important; opacity: .92; }
+      .dash-hero-body { margin-right: 88px !important; }
+    }
     /* Швидкі дії: 4 в ряд на десктопі, стрічка-свайп на телефоні — щоб вони
        не з'їдали пів-екрана заввишки й не тіснили головну дію. */
     .om-qa-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
@@ -1450,6 +1460,33 @@
     .ob-input:focus { border-color: var(--accent); }
     textarea.ob-input { resize: vertical; min-height: 88px; }
 
+    /* ── Статусні рядки ─────────────────────────────────────────────────────
+       Та сама історія, що з .ob-input: .ob-status стоїть у 86 місцях, .ob-err у
+       21, .ob-ok у 5, .ob-busy у 11 — і жодного правила не існувало. Наслідки:
+       статус ішов основним 16px текстом (важчий за сам контент поруч), помилка
+       НЕ була червоною, успіх НЕ був зеленим, а .ob-spin у 20 місцях малював
+       рівно ніщо — людина бачила текст «зачекай» без жодного руху. */
+    .ob-status {
+      font: 600 13px 'Manrope', system-ui, sans-serif; line-height: 1.5;
+      color: var(--text3); margin-top: 10px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .ob-status:empty { display: none; margin-top: 0; }
+    .ob-err { color: #FF8A80; }
+    /* Світлий блідо-червоний на білому не читається — темнимо (--green свій
+       світлий варіант має вже в body.light-mode). */
+    body.light-mode .ob-err { color: #C62828; }
+    .ob-ok  { color: var(--green); }
+    .ob-busy { color: var(--text3); }
+    /* Спінер: 13px під розмір рядка, колір успадковує від статусу. */
+    .ob-spin {
+      width: 13px; height: 13px; flex: none; border-radius: 50%;
+      border: 2px solid currentColor; border-top-color: transparent;
+      animation: ob-spin-rot .7s linear infinite;
+    }
+    @keyframes ob-spin-rot { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .ob-spin { animation-duration: 2.4s; } }
+
     /* ── CAPTION AI ── */
     .cap-label {
       font-size: 13px; font-weight: 700; color: var(--text3);
@@ -2247,8 +2284,6 @@
     body.light-mode .cal-type-chip { background: var(--surface2); border-color: var(--border); }
     body.light-mode .cal-post-item { background: var(--surface2); }
   </style>
-  <!-- JSZip for carousel ZIP download -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -3748,40 +3783,7 @@
 
   const cards = { 1: 'q1', 2: 'q1r', 3: 'q2r', 4: 'q3r' };
 
-  function selectQ(q, answer, el) {
-    quiz['a' + q] = answer;
-    document.querySelectorAll('#' + (cards[q] || '') + ' .quiz-option').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
 
-    // Update progress dots
-    document.querySelectorAll('.quiz-progress-dot').forEach((d, i) => {
-      d.className = 'quiz-progress-dot' + (i < q ? ' done' : i === q ? ' active' : '');
-    });
-
-    setTimeout(() => {
-      // Show next card
-      document.querySelectorAll('.quiz-card').forEach(c => c.classList.remove('active'));
-      if (q < 4) {
-        const nextKeys = { 1: 'q1r', 2: 'q2r', 3: 'q3r' };
-        document.getElementById(nextKeys[q]).classList.add('active');
-      } else {
-        // Show final
-        document.querySelectorAll('.quiz-card').forEach(c => c.classList.remove('active'));
-        document.getElementById('qr1').textContent = 'Сфера: ' + quiz.a1;
-        document.getElementById('qr2').textContent = 'Цель: ' + quiz.a2;
-        document.getElementById('qr3').textContent = 'Проблема: ' + quiz.a3;
-        document.getElementById('qr4').textContent = 'Платформа: ' + quiz.a4;
-        document.getElementById('qfinal').classList.add('active');
-      }
-    }, 300);
-  }
-
-  function enterApp() {
-    localStorage.setItem('octo_quiz_done', '1');
-    document.getElementById('quizWrap').style.display = 'none';
-    document.getElementById('appWrap').style.display = 'block';
-    renderProfile();
-  }
 
   function goToApp() {
     document.getElementById('authOverlay').style.display = 'none';
@@ -3821,30 +3823,6 @@
   const calcVals = { marketer: 2000, video: 800, copy: 500, design: 400 };
   const OCTO_PRICE = 12;
 
-  function calcSavings(slider, key) {
-    const val = parseInt(slider.value);
-    calcVals[key] = val;
-    const labels = { marketer: 'v_marketer', video: 'v_video', copy: 'v_copy', design: 'v_design' };
-    document.getElementById(labels[key]).textContent = '$' + val.toLocaleString('ru');
-
-    const total = Object.values(calcVals).reduce((a, b) => a + b, 0);
-    const saving = total - OCTO_PRICE;
-    const pct = Math.round((saving / total) * 100);
-    const savingYear = saving * 12;
-
-    document.getElementById('totalWithout').textContent = '$' + total.toLocaleString('uk') + ' / міс';
-    document.getElementById('savingMonth').textContent = '$' + Math.round(saving).toLocaleString('uk') + ' / міс';
-
-    // Year label with emoji based on amount
-    let emoji = saving > 5000 ? '🏠' : saving > 3000 ? '✈️' : saving > 1000 ? '🚗' : '☕';
-    document.getElementById('savingYear').textContent = '= $' + Math.round(savingYear).toLocaleString('uk') + ' на рік ' + emoji;
-    document.getElementById('savingPct').textContent = pct + '%';
-
-    // Animate mascot
-    const mascot = document.getElementById('calcMascot');
-    mascot.style.transform = 'scale(1.2) rotate(-5deg)';
-    setTimeout(() => mascot.style.transform = 'scale(1) rotate(0deg)', 300);
-  }
 
   // App screens
   const screenTitleKeys = {
@@ -5084,16 +5062,6 @@
   }
 
   // Analyzer
-  function analyzeProfile() {
-    const url = document.getElementById('profileUrl').value;
-    if (!url) { alert('Встав посилання на профіль'); return; }
-    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
-    const name = url.split('/').filter(Boolean).pop() || 'username';
-    document.getElementById('profileName').textContent = '@' + name;
-    document.getElementById('analysisResult').style.display = 'block';
-    document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth' });
-    if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
-  }
 
   // ── VIDEO CREATOR — Real API ─────────────────────────────────────────────────
   const fmtN = { stories:'Instagram Stories', reels:'Instagram Reels', tiktok:'TikTok' };
@@ -5189,51 +5157,8 @@
   const vS = { fmt: null, tmplId: null, file: null, videoId: null, frameBase64: null, customOverlay: null, textInputs: {}, isStructured: false, currentTemplate: null };
 
   // Drag-and-drop support
-  function vDrop(e) {
-    e.preventDefault();
-    document.getElementById('vDropzone').classList.remove('drag');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
-      document.getElementById('vf').files; // can't set directly
-      vSetFile(file);
-    }
-  }
 
-  function vSetFile(file) {
-    vS.file = file;
-    const mb = (file.size / 1024 / 1024).toFixed(1);
-    document.getElementById('vfInfo').style.display = 'flex';
-    document.getElementById('vfName').textContent = file.name;
-    document.getElementById('vfSize').textContent = mb + ' MB · ' + file.type.split('/')[1].toUpperCase();
-    document.getElementById('vb1').disabled = false;
 
-    // Extract thumbnail preview + base64 frame for AI analysis
-    const video = document.createElement('video');
-    video.src = URL.createObjectURL(file);
-    video.muted = true;
-    video.currentTime = 1.0;
-    video.addEventListener('seeked', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = Math.round(320 * video.videoHeight / Math.max(video.videoWidth, 1));
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      vS.frameBase64 = dataUrl.split(',')[1];
-      // Show thumbnail
-      const tw = document.getElementById('vfThumbWrap');
-      tw.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-      URL.revokeObjectURL(video.src);
-    }, { once: true });
-    video.addEventListener('error', () => { vS.frameBase64 = null; }, { once: true });
-    video.load();
-  }
-
-  function vFileOk(e) {
-    const f = e.target.files[0];
-    if (!f) return;
-    vSetFile(f);
-  }
 
   function vs(n) {
     for (let i = 1; i <= 4; i++) {
@@ -5243,190 +5168,20 @@
     }
   }
 
-  function vFmt(fmt, el) {
-    vS.fmt = fmt;
-    document.querySelectorAll('.fc').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-    document.getElementById('vb2').disabled = false;
-  }
 
   // ── Structured templates cache ────────────────────────────────────────────
   let vStructuredTemplates = null;
 
-  async function vLoadStructuredTemplates() {
-    if (vStructuredTemplates) return vStructuredTemplates;
-    try {
-      const r = await fetch('/api/video/structured-templates');
-      const d = await r.json();
-      vStructuredTemplates = d.templates || [];
-    } catch {
-      vStructuredTemplates = [];
-    }
-    return vStructuredTemplates;
-  }
 
-  async function vAI() {
-    if (!vS.fmt) return;
-    // Show step 3 with loading state
-    vs(3);
-    // Hide text panel while loading
-    document.getElementById('vTextPanel').style.display = 'none';
-    document.getElementById('vSlotInputs').innerHTML = '';
-    vS.isStructured = false;
-    vS.currentTemplate = null;
-    vS.textInputs = {};
-
-    const tgrid = document.getElementById('vtg');
-    tgrid.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text3);">
-      <div style="font-size:36px;margin-bottom:12px;">🐙</div>
-      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Octo аналізує відео...</div>
-      <div style="font-size:12px;color:var(--text4);">Claude Vision читає кадр</div>
-      <div class="loading" style="margin-top:16px;justify-content:center;"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-    </div>`;
-    document.getElementById('vb3').disabled = true;
-    document.getElementById('vAnalysisBadge').style.display = 'none';
-
-    // Always load structured templates first
-    const structuredTemplates = await vLoadStructuredTemplates();
-
-    try {
-      const res = await fetch('/api/video/analyze-frame', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame: vS.frameBase64 || '', format: vS.fmt, templateId: structuredTemplates[0]?.id || '' })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      const { analysis, textSuggestions } = data;
-
-      // Show AI analysis summary
-      const badge = document.getElementById('vAnalysisBadge');
-      const energyEmoji = analysis.energy === 'high' ? '🔥' : analysis.energy === 'medium' ? '⚡' : '🌿';
-      badge.style.display = 'flex';
-      document.getElementById('vAnalysisText').innerHTML =
-        `Octo проаналізував: <strong>${energyEmoji} ${analysis.mood || ''}</strong> · енергія: <strong>${analysis.energy || ''}</strong> · теги: ${(analysis.tags || []).slice(0,4).join(', ')}`;
-
-      // Render structured templates
-      if (structuredTemplates.length > 0) {
-        vS.tmplId = structuredTemplates[0].id;
-        vS.isStructured = true;
-        vS.currentTemplate = structuredTemplates[0];
-        tgrid.innerHTML = structuredTemplates.map((t, i) => vStructuredTmplCard(t, i === 0)).join('');
-        // Show text inputs for first template, pre-filled with AI suggestions if available
-        vShowTextInputs(structuredTemplates[0], textSuggestions || {});
-        document.getElementById('vb3').disabled = false;
-      } else {
-        tgrid.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">Шаблони недоступні</div>`;
-      }
-    } catch (err) {
-      // Fallback: show structured templates without AI analysis badge
-      if (structuredTemplates.length > 0) {
-        vS.tmplId = structuredTemplates[0].id;
-        vS.isStructured = true;
-        vS.currentTemplate = structuredTemplates[0];
-        tgrid.innerHTML = structuredTemplates.map((t, i) => vStructuredTmplCard(t, i === 0)).join('');
-        vShowTextInputs(structuredTemplates[0], {});
-        document.getElementById('vb3').disabled = false;
-      } else {
-        tgrid.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3);">
-          <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
-          <div style="font-size:13px;">Не вдалося завантажити шаблони</div>
-        </div>`;
-      }
-    }
-  }
 
   // ── Render a structured template card ────────────────────────────────────
-  function vStructuredTmplCard(t, isSelected) {
-    const slotsHtml = t.slots.map(s =>
-      `<div style="font-size:10px; color:var(--text2);">✓ ${s.label}</div>`
-    ).join('');
-    const platformsBadge = t.platforms.join(' · ').toUpperCase();
-    return `<div class="tc ${isSelected ? 'selected' : ''}" onclick="vSelectStructured('${t.id}',this)" data-id="${t.id}" style="cursor:pointer;">
-      <div style="padding:16px 14px 12px; display:flex; flex-direction:column; gap:6px;">
-        <div style="font-size:28px;">${t.emoji}</div>
-        <div style="font-size:13px; font-weight:800; color:var(--text);">${t.name}</div>
-        <div style="font-size:10px; color:var(--text3);">${t.description}</div>
-        <div style="margin-top:8px; display:flex; flex-direction:column; gap:3px;">${slotsHtml}</div>
-      </div>
-      <div style="padding:8px 14px 12px; border-top:1px solid var(--border);">
-        <span style="font-size:9px; font-weight:700; background:rgba(108,99,255,0.15); color:var(--accent2); padding:2px 8px; border-radius:5px;">${platformsBadge}</span>
-      </div>
-    </div>`;
-  }
 
   // ── Select a structured template ─────────────────────────────────────────
-  function vSelectStructured(id, el) {
-    document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-    vS.tmplId = id;
-    vS.isStructured = true;
-    // Find the template object
-    const tmpl = (vStructuredTemplates || []).find(t => t.id === id);
-    vS.currentTemplate = tmpl || null;
-    vS.textInputs = {};
-    document.getElementById('vb3').disabled = false;
-    if (tmpl) {
-      vShowTextInputs(tmpl, {});
-    }
-  }
 
   // ── Show text input fields for a structured template ──────────────────────
-  function vShowTextInputs(template, suggestions) {
-    const panel = document.getElementById('vTextPanel');
-    const container = document.getElementById('vSlotInputs');
-    panel.style.display = 'block';
 
-    const aiFillWrap = document.getElementById('vAiFillWrap');
-    if (aiFillWrap) aiFillWrap.style.display = (vS.frameBase64 ? 'block' : 'none');
-    // Show preview button only when we have an uploaded video to preview
-    const previewBtn = document.getElementById('vStep3PreviewBtn');
-    if (previewBtn) previewBtn.style.display = vS.uploadFilename ? 'inline-flex' : 'none';
-
-    container.innerHTML = template.slots.map(slot => {
-      const suggested = suggestions[slot.id] || '';
-      return `<div style="margin-bottom:12px;">
-        <label style="font-size:11px; font-weight:700; color:var(--text2); display:block; margin-bottom:4px;">
-          📝 ${slot.label}
-          <span style="font-weight:400; color:var(--text3);"> — ${slot.description}</span>
-        </label>
-        <input type="text" id="slot_${slot.id}" maxlength="${slot.maxChars}"
-          placeholder="${slot.defaultText}"
-          value="${suggested.replace(/"/g, '&quot;')}"
-          style="width:100%; background:var(--surface3); border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; color:var(--text); font-size:13px; outline:none; box-sizing:border-box;"
-          oninput="vOnSlotInput()">
-      </div>`;
-    }).join('');
-  }
-
-  function vOnSlotInput() {
-    // collect current values but don't disable button
-  }
 
   // ── AI fill slots ─────────────────────────────────────────────────────────
-  async function vAiFillSlots() {
-    if (!vS.currentTemplate || !vS.frameBase64) return;
-    const btn = document.getElementById('vAiFillBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '🐙 Генерую...'; }
-    try {
-      const res = await fetch('/api/video/analyze-frame', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame: vS.frameBase64, format: vS.fmt, templateId: vS.currentTemplate.id })
-      });
-      const data = await res.json();
-      if (data.textSuggestions) {
-        vS.currentTemplate.slots.forEach(slot => {
-          const el = document.getElementById('slot_' + slot.id);
-          if (el && data.textSuggestions[slot.id]) {
-            el.value = data.textSuggestions[slot.id];
-          }
-        });
-      }
-    } catch {}
-    if (btn) { btn.disabled = false; btn.textContent = '🐙 Заповнити через AI'; }
-  }
 
   // ── THEME TOGGLE ──────────────────────────────────────────────────────────
   function toggleTheme() {
@@ -5448,385 +5203,22 @@
   })();
 
   // ── CUSTOM TEMPLATE ───────────────────────────────────────────────────────
-  function vCustomTmplLoad(input) {
-    const file = input.files[0];
-    if (!file) return;
-    input.value = '';
-    const reader = new FileReader();
-    reader.onload = e => {
-      const dataUrl = e.target.result;
-      const base64 = dataUrl.split(',')[1];
-      vS.customOverlay = base64;
-      vS.tmplId = 'custom';
-      // Update the custom card to show preview
-      const inner = document.getElementById('vCustomTmplInner');
-      if (inner) {
-        inner.innerHTML = `
-          <img src="${dataUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:4px;">
-          <span style="font-size:10px;font-weight:700;color:var(--accent);">✅ Шаблон завантажено</span>
-          <span style="font-size:9px;color:var(--text4);">${file.name}</span>`;
-      }
-      // Mark card selected, deselect others
-      document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
-      document.getElementById('vCustomTmplCard').classList.add('selected');
-      document.getElementById('vb3').disabled = false;
-      // Hide structured text panel
-      vS.isStructured = false;
-      vS.currentTemplate = null;
-      document.getElementById('vTextPanel').style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-  }
 
-  function vTmplCard(t, isAI, showTags) {
-    const v = tplVisual[t.id] || {
-      bg:'linear-gradient(180deg,#1a1a2e,#6C63FF)', dark:true, platform:'TIKTOK',
-      user:'@creator', caption:'Your content here 🚀',
-      tags:'#fyp #viral', fig:'rgba(255,255,255,0.2)', figb:'rgba(255,255,255,0.3)',
-      iconBg:'rgba(255,255,255,0.2)', botBg:'linear-gradient(to top,rgba(0,0,0,0.8) 60%,transparent)',
-    };
-    const matchPct = isAI ? null : Math.floor(68 + Math.random() * 27);
-    // Muted sound bars at 3 random heights
-    const bars = [5,9,6].map(h => `<div class="tc-sbar" style="height:${h}px;"></div>`).join('');
-    return `<div class="tc ${isAI ? 'selected' : ''}" onclick="vTmpl('${t.id}',this)" data-id="${t.id}">
-      ${isAI ? '<div class="ai-badge">🐙 Octo Pick</div>' : ''}
-      ${!isAI && matchPct ? `<div class="tc-match-badge">${matchPct}%</div>` : ''}
-      <div class="tc-preview">
-        <!-- Color grade background -->
-        <div class="tc-bg" style="background:${v.bg};"></div>
 
-        <!-- Person silhouette -->
-        <div class="tc-figure">
-          <div class="tc-figure-head" style="background:${v.fig};border-color:${v.figb};"></div>
-          <div class="tc-figure-body" style="background:${v.fig};"></div>
-        </div>
 
-        <!-- Right sidebar: like / comment / share -->
-        <div class="tc-side">
-          <div class="tc-sicon">
-            <div class="tc-sicon-circle" style="background:${v.iconBg};">❤</div>
-            <div class="tc-sicon-num">42K</div>
-          </div>
-          <div class="tc-sicon">
-            <div class="tc-sicon-circle" style="background:${v.iconBg};">💬</div>
-            <div class="tc-sicon-num">1.2K</div>
-          </div>
-          <div class="tc-sicon">
-            <div class="tc-sicon-circle" style="background:${v.iconBg};">↗</div>
-            <div class="tc-sicon-num">8.5K</div>
-          </div>
-        </div>
 
-        <!-- Bottom caption + username -->
-        <div class="tc-bot" style="background:${v.botBg};">
-          <div class="tc-user">${v.user}</div>
-          <div class="tc-cap">${v.caption}</div>
-          <div class="tc-hashtags">${v.tags}</div>
-        </div>
-
-        <!-- Platform badge -->
-        <div class="tc-plat">${v.platform}</div>
-
-        <!-- Sound wave (bottom-right) -->
-        <div class="tc-sound">${bars}</div>
-      </div>
-      <div class="tc-meta-row">
-        <div class="tc-name">${t.name}</div>
-        <div class="tc-desc">${t.description}</div>
-      </div>
-    </div>`;
-  }
-
-  function vTmpl(id, el) {
-    document.querySelectorAll('.tc').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-    vS.tmplId = id;
-    // Legacy color-filter template selected: hide text panel
-    vS.isStructured = false;
-    vS.currentTemplate = null;
-    document.getElementById('vTextPanel').style.display = 'none';
-    document.getElementById('vb3').disabled = false;
-  }
-
-  async function vProcess() {
-    if (!vS.file || !vS.fmt || !vS.tmplId) return;
-    if (typeof octoCanUse !== 'undefined' && !octoCanUse('video')) return;
-    vs(4);
-    const processing = document.getElementById('vProcessing');
-    const done = document.getElementById('vDone');
-    const errDiv = document.getElementById('vError');
-    processing.style.display = 'block';
-    done.style.display = 'none';
-    errDiv.style.display = 'none';
-
-    // Animate progress bar
-    const bar = document.getElementById('vProgressBar');
-    const lbl = document.getElementById('vProgressLabel');
-    let pct = 5;
-    const ticker = setInterval(() => {
-      pct = Math.min(pct + (pct < 30 ? 8 : pct < 70 ? 3 : 1), 90);
-      bar.style.width = pct + '%';
-      lbl.textContent = pct + '%';
-    }, 1200);
-
-    try {
-      // 1. Upload video
-      lbl.textContent = 'Завантаження відео...';
-      const formData = new FormData();
-      formData.append('video', vS.file);
-      const uploadRes = await fetch('/api/video/upload', { method: 'POST', body: formData });
-      const uploadData = await uploadRes.json();
-      if (uploadData.error) throw new Error(uploadData.error);
-      vS.videoId = uploadData.videoId;
-      vS.uploadFilename = uploadData.filename; // keep original for clean preview
-
-      // 2. Process with template
-      lbl.textContent = 'Застосовуємо шаблон FFmpeg...';
-      bar.style.width = '55%';
-
-      let processBody;
-      if (vS.isStructured && vS.currentTemplate) {
-        // Collect text inputs for all slots
-        const textInputs = {};
-        vS.currentTemplate.slots.forEach(slot => {
-          const el = document.getElementById('slot_' + slot.id);
-          textInputs[slot.id] = (el && el.value.trim()) || slot.defaultText;
-        });
-        vS.textInputs = textInputs;
-        processBody = JSON.stringify({
-          videoId: vS.videoId,
-          templateId: vS.tmplId,
-          format: vS.fmt,
-          textInputs,
-          structured: true
-        });
-      } else {
-        processBody = JSON.stringify({
-          videoId: vS.videoId,
-          templateId: vS.tmplId,
-          format: vS.fmt,
-          customOverlay: vS.customOverlay || undefined
-        });
-      }
-
-      const processRes = await fetch('/api/video/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: processBody
-      });
-      const processData = await processRes.json();
-      if (processData.error) throw new Error(processData.error);
-
-      clearInterval(ticker);
-      bar.style.width = '100%';
-      lbl.textContent = '100% — Готово!';
-
-      const tmplDisplayName = (vS.currentTemplate ? vS.currentTemplate.name : vS.tmplId.replace(/-/g,' '));
-      const tmplEmoji = vS.currentTemplate ? vS.currentTemplate.emoji + ' ' : '🎨 ';
-
-      setTimeout(() => {
-        processing.style.display = 'none';
-        done.style.display = 'block';
-        // Download link → rendered video (with baked-in text)
-        const freshUrl = processData.downloadUrl + '?v=' + Date.now();
-        vS.lastRenderedUrl = freshUrl;
-        document.getElementById('vDownloadLink').href = freshUrl;
-        if (typeof octoUseFeature !== 'undefined') octoUseFeature('video');
-        document.getElementById('vrd').textContent = tmplDisplayName + ' · ' + (fmtN[vS.fmt] || vS.fmt);
-        document.getElementById('vDoneInfo').innerHTML =
-          `📐 <strong>Формат:</strong> ${fmtN[vS.fmt] || vS.fmt} · 1080×1920 (9:16)<br>` +
-          `${tmplEmoji}<strong>Шаблон:</strong> ${tmplDisplayName}<br>` +
-          `🎬 <strong>Кодек:</strong> H.264 · AAC · faststart<br>` +
-          `✅ Файл готовий до публікації в Instagram / TikTok`;
-        // Preview video → ORIGINAL upload (no baked-in text) so the HTML overlay
-        // is the only visible text — colour / font changes show cleanly.
-        const previewVideo = document.getElementById('vPreviewVideo');
-        if (previewVideo) {
-          const origUrl = vS.uploadFilename ? '/uploads/' + vS.uploadFilename : freshUrl;
-          previewVideo.src = origUrl;
-          previewVideo.load();
-        }
-        // Build post-render slot editor + live overlay for structured templates
-        const slotEditorWrap = document.getElementById('vSlotEditor');
-        if (vS.isStructured && vS.currentTemplate && slotEditorWrap) {
-          vS.slotOverrides = {};
-          vBuildSlotEditor();
-          slotEditorWrap.style.display = 'block';
-          // Build overlay after a brief tick so the video element has rendered dimensions
-          setTimeout(vBuildVideoOverlay, 120);
-        }
-      }, 600);
-
-    } catch (err) {
-      clearInterval(ticker);
-      processing.style.display = 'none';
-      errDiv.style.display = 'block';
-      document.getElementById('vErrorMsg').textContent = err.message || 'Невідома помилка';
-    }
-  }
-
-  function vReset() {
-    vS.fmt = null; vS.tmplId = null; vS.file = null; vS.videoId = null; vS.frameBase64 = null;
-    vS.customOverlay = null; vS.textInputs = {}; vS.isStructured = false; vS.currentTemplate = null;
-    vS.slotOverrides = {}; vS.uploadFilename = null; vS.lastRenderedUrl = null; vS.activeSlotOverride = null;
-    const slotEditorWrap = document.getElementById('vSlotEditor');
-    if (slotEditorWrap) slotEditorWrap.style.display = 'none';
-    const oldOv = document.getElementById('vVideoOverlay');
-    if (oldOv) oldOv.remove();
-    document.getElementById('vfInfo').style.display = 'none';
-    document.getElementById('vfThumbWrap').innerHTML = '';
-    document.getElementById('vb1').disabled = true;
-    document.getElementById('vf').value = '';
-    document.getElementById('vTextPanel').style.display = 'none';
-    document.getElementById('vSlotInputs').innerHTML = '';
-    // Clear inline preview
-    const pv = document.getElementById('vPreviewVideo');
-    if (pv) pv.src = '';
-    vs(1);
-  }
 
   /** Go back to step 3 (text inputs) without losing the uploaded video — lets user tweak text and re-render */
-  function vRework() {
-    const pv = document.getElementById('vPreviewVideo');
-    if (pv) pv.src = '';
-    document.getElementById('vDone').style.display = 'none';
-    document.getElementById('vProcessing').style.display = 'none';
-    vs(3);
-  }
 
   // ── Post-render slot editor ─────────────────────────────────────────────────
 
   /** Build (or rebuild) the slot editor chips in the Done panel */
-  function vBuildSlotEditor() {
-    const tabBar = document.getElementById('vSlotTabBar');
-    if (!tabBar || !vS.currentTemplate) return;
-    if (!vS.slotOverrides) vS.slotOverrides = {};
-
-    const STYLE_EMOJI = { hook:'🎯', point:'💡', label:'🏷️', cta:'👆' };
-
-    tabBar.innerHTML = '';
-    vS.currentTemplate.slots.forEach((slot, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'slot-tab' + (i === 0 ? ' s-active' : '');
-      btn.id = 'stab_' + slot.id;
-      // Short tab label: emoji + first word of label
-      btn.textContent = (STYLE_EMOJI[slot.style] || '📝') + ' ' + slot.label.split(' ')[0];
-      btn.title = slot.label;
-      btn.onclick = () => vActivateSlotTab(slot.id);
-      tabBar.appendChild(btn);
-    });
-
-    // Activate first slot
-    if (vS.currentTemplate.slots.length) {
-      vActivateSlotTab(vS.currentTemplate.slots[0].id);
-    }
-  }
 
   /** Save current tab's textarea value, then switch to the given slot */
-  function vActivateSlotTab(slotId) {
-    // Persist current active tab's text before switching
-    const prevTab = document.querySelector('.slot-tab.s-active');
-    if (prevTab) {
-      const prevId = prevTab.id.replace('stab_', '');
-      const prevTa = document.getElementById('set_' + prevId);
-      if (prevTa) {
-        if (!vS.slotOverrides[prevId]) vS.slotOverrides[prevId] = {};
-        vS.slotOverrides[prevId].text = prevTa.value;
-      }
-    }
 
-    // Update tab highlights
-    document.querySelectorAll('.slot-tab').forEach(t => t.classList.remove('s-active'));
-    const activeTab = document.getElementById('stab_' + slotId);
-    if (activeTab) activeTab.classList.add('s-active');
 
-    // Render editor for this slot
-    const slot = vS.currentTemplate?.slots.find(s => s.id === slotId);
-    if (!slot) return;
-
-    const COLORS = ['white','yellow','red','orange','blue','green','cyan','pink'];
-    const FONTS  = [
-      { id:'default',   label:'Arial' },
-      { id:'condensed', label:'Impact' },
-      { id:'ubuntu',    label:'Rounded' },
-      { id:'mono',      label:'Mono' },
-    ];
-    const curText  = (vS.slotOverrides[slotId]?.text != null)
-      ? vS.slotOverrides[slotId].text
-      : (vS.textInputs[slotId] || slot.defaultText || '');
-    const curColor = vS.slotOverrides[slotId]?.color || 'white';
-    const curFont  = vS.slotOverrides[slotId]?.font  || 'default';
-
-    const editor = document.getElementById('vSlotActiveEditor');
-    if (!editor) return;
-    editor.innerHTML = `
-      <div style="font-size:11px;color:var(--text4);font-weight:600;margin-bottom:6px;">${slot.label}</div>
-      <textarea class="slot-edit-textarea" id="set_${slotId}" rows="3"
-        placeholder="${(slot.defaultText || '').replace(/"/g,'&quot;')}"
-        oninput="vUpdateOverlayText('${slotId}',this.value)">${curText}</textarea>
-      <div class="color-palette" style="margin-top:4px;">
-        <span class="color-palette-label">Колір:</span>
-        ${COLORS.map(c =>
-          `<div class="cpick cpick-${c}${curColor===c?' cp-sel':''}"
-            onclick="vSetSlotColor('${slotId}','${c}')" title="${c}"></div>`
-        ).join('')}
-      </div>
-      <div class="font-palette">
-        <span class="font-palette-label">Шрифт:</span>
-        ${FONTS.map(f =>
-          `<button class="fpick fpick-${f.id}${curFont===f.id?' fp-sel':''}"
-            onclick="vSetSlotFont('${slotId}','${f.id}')">${f.label}</button>`
-        ).join('')}
-      </div>`;
-
-    // Lock overlay to this slot while user edits (cleared when video plays again)
-    vS.activeSlotOverride = slotId;
-    // Immediately show this slot's element, hide others (no full rebuild needed)
-    if (vS.currentTemplate) {
-      vS.currentTemplate.slots.forEach(s => {
-        const el = document.getElementById('vov_' + s.id);
-        if (el) el.style.display = s.id === slotId ? '' : 'none';
-      });
-    }
-  }
-
-  function vSetSlotColor(slotId, color) {
-    if (!vS.slotOverrides) vS.slotOverrides = {};
-    if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
-    vS.slotOverrides[slotId].color = color;
-    // Update swatch ring UI
-    const editor = document.getElementById('vSlotActiveEditor');
-    if (editor) {
-      editor.querySelectorAll('.cpick').forEach(el => el.classList.remove('cp-sel'));
-      const picked = editor.querySelector('.cpick-' + color);
-      if (picked) picked.classList.add('cp-sel');
-    }
-    // Direct DOM update — overlay element is always in DOM (all slots pre-built)
-    const ovEl = document.getElementById('vov_' + slotId);
-    if (ovEl) ovEl.style.color = vOvColorHex(color);
-  }
-
-  function vSetSlotFont(slotId, fontId) {
-    if (!vS.slotOverrides) vS.slotOverrides = {};
-    if (!vS.slotOverrides[slotId]) vS.slotOverrides[slotId] = {};
-    vS.slotOverrides[slotId].font = fontId;
-    // Update font picker selection ring
-    const editor = document.getElementById('vSlotActiveEditor');
-    if (editor) {
-      editor.querySelectorAll('.fpick').forEach(el => el.classList.remove('fp-sel'));
-      const picked = editor.querySelector('.fpick-' + fontId);
-      if (picked) picked.classList.add('fp-sel');
-    }
-    // Direct DOM update
-    const ovEl = document.getElementById('vov_' + slotId);
-    if (ovEl) ovEl.style.fontFamily = vOvFontCss(fontId);
-  }
 
   /** Instant text update in video overlay while typing */
-  function vUpdateOverlayText(slotId, text) {
-    const el = document.getElementById('vov_' + slotId);
-    if (el) el.textContent = text || '';
-  }
 
   const vOvColorHex = c => ({
     white:'#FFFFFF', yellow:'#FFE600', red:'#FF3B30', orange:'#FF9500',
@@ -5981,42 +5373,6 @@
    * mode = 'step3'  → read text from DOM inputs (slot_XXX)
    * mode = 'done'   → read text from vS.textInputs + slotOverrides
    */
-  function vOpenLivePreview(mode) {
-    if (!vS.currentTemplate || !vS.uploadFilename) return;
-    const modal = document.getElementById('vLivePreviewModal');
-    if (!modal) return;
-
-    // Collect text for each slot
-    const texts = {};
-    vS.currentTemplate.slots.forEach(slot => {
-      if (mode === 'step3') {
-        const inp = document.getElementById('slot_' + slot.id);
-        texts[slot.id] = (inp ? inp.value.trim() : '') || slot.defaultText || '';
-      } else {
-        const ovr = vS.slotOverrides?.[slot.id];
-        texts[slot.id] = (ovr?.text != null ? ovr.text : vS.textInputs[slot.id]) || slot.defaultText || '';
-      }
-    });
-
-    // Point to the original (no-baked-text) video
-    const vid = document.getElementById('vLivePreviewVid');
-    vid.src = '/uploads/' + vS.uploadFilename;
-    vid.currentTime = 0;
-
-    // Show modal
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-
-    const tryBuild = () => {
-      if (vid.readyState >= 1) {
-        vBuildLivePreviewOverlay(texts, mode);
-      } else {
-        vid.addEventListener('loadedmetadata', () => vBuildLivePreviewOverlay(texts, mode), { once: true });
-      }
-    };
-    // Small delay so the modal/video have rendered dimensions
-    setTimeout(tryBuild, 80);
-  }
 
   /** Close the preview modal and stop the video. */
   function vCloseLivePreview() {
@@ -6125,115 +5481,12 @@
   }
 
   /** Re-render the video with updated text + color overrides (skips re-upload) */
-  async function vRerender() {
-    if (!vS.isStructured || !vS.currentTemplate || !vS.videoId) return;
-    if (!vS.slotOverrides) vS.slotOverrides = {};
-
-    // Save the currently-visible textarea (only active tab is in DOM)
-    const activeTa = document.querySelector('#vSlotActiveEditor textarea');
-    if (activeTa) {
-      const activeSlotId = activeTa.id.replace('set_', '');
-      if (!vS.slotOverrides[activeSlotId]) vS.slotOverrides[activeSlotId] = {};
-      vS.slotOverrides[activeSlotId].text = activeTa.value;
-    }
-
-    // Build updatedTexts from overrides + originals
-    const updatedTexts = Object.assign({}, vS.textInputs);
-    vS.currentTemplate.slots.forEach(slot => {
-      if (vS.slotOverrides[slot.id]?.text != null) {
-        updatedTexts[slot.id] = vS.slotOverrides[slot.id].text || slot.defaultText || '';
-      }
-    });
-    vS.textInputs = updatedTexts;
-
-    // Switch to processing view
-    document.getElementById('vDone').style.display = 'none';
-    const processing = document.getElementById('vProcessing');
-    const done       = document.getElementById('vDone');
-    const errDiv     = document.getElementById('vError');
-    processing.style.display = 'block';
-    errDiv.style.display = 'none';
-
-    const bar = document.getElementById('vProgressBar');
-    const lbl = document.getElementById('vProgressLabel');
-    bar.style.width = '10%';
-    lbl.textContent = 'Перерендеримо з новими параметрами...';
-
-    let pct = 10;
-    const ticker = setInterval(() => {
-      pct = Math.min(pct + (pct < 55 ? 7 : 2), 88);
-      bar.style.width = pct + '%';
-      lbl.textContent = pct + '%';
-    }, 1000);
-
-    // Build slotStyleOverrides — color + font (text is in textInputs)
-    const styleOverrides = {};
-    Object.keys(vS.slotOverrides).forEach(sid => {
-      const ovr = vS.slotOverrides[sid];
-      if (ovr.color || ovr.font) {
-        styleOverrides[sid] = {};
-        if (ovr.color) styleOverrides[sid].color = ovr.color;
-        if (ovr.font && ovr.font !== 'default') styleOverrides[sid].font = ovr.font;
-      }
-    });
-
-    try {
-      const res = await fetch('/api/video/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId:           vS.videoId,
-          templateId:        vS.tmplId,
-          format:            vS.fmt,
-          textInputs:        updatedTexts,
-          structured:        true,
-          slotStyleOverrides: styleOverrides
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      clearInterval(ticker);
-      bar.style.width = '100%';
-      lbl.textContent = '100% — Готово!';
-
-      setTimeout(() => {
-        processing.style.display = 'none';
-        done.style.display = 'block';
-        const freshUrl = data.downloadUrl + '?v=' + Date.now();
-        vS.lastRenderedUrl = freshUrl;
-        document.getElementById('vDownloadLink').href = freshUrl;
-        // Preview stays on the ORIGINAL video (no baked text) — overlay is the only text
-        const pv = document.getElementById('vPreviewVideo');
-        if (pv) {
-          const origUrl = vS.uploadFilename ? '/uploads/' + vS.uploadFilename : freshUrl;
-          if (pv.src !== origUrl) { pv.src = origUrl; pv.load(); }
-        }
-        // Rebuild editor + live overlay with current values
-        vBuildSlotEditor();
-        document.getElementById('vSlotEditor').style.display = 'block';
-        setTimeout(vBuildVideoOverlay, 120);
-      }, 500);
-
-    } catch (err) {
-      clearInterval(ticker);
-      processing.style.display = 'none';
-      errDiv.style.display = 'block';
-      document.getElementById('vErrorMsg').textContent = err.message || 'Помилка перерендерингу';
-    }
-  }
 
   // =============================================
   // 📝 AUTO-SUBTITLES
   // =============================================
 
   // Mode switcher
-  function vSwitchMode(mode) {
-    document.getElementById('vModeCreatorWrap').style.display = mode === 'creator' ? '' : 'none';
-    document.getElementById('vModeSubsWrap').style.display    = mode === 'subs'    ? '' : 'none';
-    document.getElementById('vModeCreator').className = 'vstep' + (mode === 'creator' ? ' active' : '');
-    document.getElementById('vModeSubs').className    = 'vstep' + (mode === 'subs'    ? ' active' : '');
-  }
 
   const ssState = {
     file: null, videoId: null, language: 'auto',
@@ -6296,137 +5549,14 @@
     },
   ];
 
-  function ssSelectTemplate(idx) {
-    ssState.selectedTemplate = idx;
-    const tmpl = SS_TEMPLATES[idx];
-    // Preserve the user's font choice across template switches
-    const prevFont = ssState.style?.fontName || 'default';
-    // Deep-copy style so mutations don't bleed into the template definition
-    ssState.style = Object.assign({}, tmpl.style);
-    ssState.style.fontName = prevFont;
-    ssState.wordByWord = tmpl.wordByWord;
-    ssState._styleCustomised = false;
-
-    // Update card active states
-    for (let i = 0; i < SS_TEMPLATES.length; i++) {
-      const card = document.getElementById('ssTmpl' + i);
-      if (card) card.classList.toggle('active', i === idx);
-    }
-    // Update description line
-    const descEl = document.getElementById('ssTmplDesc');
-    if (descEl) descEl.innerHTML = tmpl.desc;
-
-    ssSyncUI();
-  }
 
   // Toggle the advanced custom settings panel open/closed
-  function ssToggleCustom() {
-    const panel = document.getElementById('ss2Custom');
-    const btn   = document.getElementById('ssCustomToggleBtn');
-    const isOpen = panel && panel.style.display !== 'none';
-    if (panel) panel.style.display = isOpen ? 'none' : '';
-    if (btn)   btn.textContent = isOpen ? '⚙️ Змінити стиль вручну ▾' : '⚙️ Змінити стиль вручну ▴';
-  }
 
   // Sync all UI buttons/toggles from ssState
-  function ssSyncUI() {
-    const { fontSize, fontColor, position, background, uppercase } = ssState.style;
 
-    // Size buttons
-    const szMap = { 72: 'ssSzS', 96: 'ssSzM', 120: 'ssSzL' };
-    ['ssSzS','ssSzM','ssSzL'].forEach(id => {
-      const b = document.getElementById(id); if (b) b.classList.remove('active');
-    });
-    const szBtn = document.getElementById(szMap[fontSize]);
-    if (szBtn) szBtn.classList.add('active');
 
-    // Color swatches
-    document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '3px solid transparent');
-    const blackSwatch = document.getElementById('ssClrBlack');
-    if (blackSwatch) blackSwatch.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.2)';
-    const clrMap = { white:'ssClrWhite', yellow:'ssClrYellow', red:'ssClrRed', black:'ssClrBlack' };
-    const activeSwatch = document.getElementById(clrMap[fontColor]);
-    if (activeSwatch) activeSwatch.style.border = '3px solid var(--accent)';
 
-    // Mode buttons
-    ['ssModeSegs','ssModeWords'].forEach(id => {
-      const b = document.getElementById(id); if (b) b.classList.remove('active');
-    });
-    const modeBtn = document.getElementById(ssState.wordByWord ? 'ssModeWords' : 'ssModeSegs');
-    if (modeBtn) modeBtn.classList.add('active');
 
-    // Position buttons
-    const posMap = { top:'ssPosTop', bottom:'ssPosBottom', center:'ssPosCenter' };
-    ['ssPosTop','ssPosBottom','ssPosCenter'].forEach(id => {
-      const b = document.getElementById(id); if (b) b.classList.remove('active');
-    });
-    const posBtn = document.getElementById(posMap[position]);
-    if (posBtn) posBtn.classList.add('active');
-
-    // Background toggle + visual track colour
-    const bgToggle = document.getElementById('ssBgToggle');
-    const bgTrack  = document.getElementById('ssBgTrack');
-    if (bgToggle) bgToggle.checked = background;
-    if (bgTrack)  bgTrack.style.background = background ? '#4CAF50' : '#555';
-
-    // Uppercase toggle + visual track colour
-    const upperToggle = document.getElementById('ssUpperToggle');
-    const upperTrack  = document.getElementById('ssUpperTrack');
-    if (upperToggle) upperToggle.checked = !!uppercase;
-    if (upperTrack)  upperTrack.style.background = uppercase ? '#4CAF50' : '#555';
-
-    // Thumb positions — shift right when checked
-    const bgThumb    = document.getElementById('ssBgThumb');
-    const upperThumb = document.getElementById('ssUpperThumb');
-    if (bgThumb)    bgThumb.style.left    = background ? '21px' : '3px';
-    if (upperThumb) upperThumb.style.left = uppercase  ? '21px' : '3px';
-
-    // Font picker buttons
-    const fontId = ssState.style.fontName || 'default';
-    ['ssFontDefault','ssFontCondensed','ssFontRounded','ssFontMono'].forEach(id => {
-      const b = document.getElementById(id); if (b) b.classList.remove('fp-sel');
-    });
-    const fontBtnMap = { default:'ssFontDefault', condensed:'ssFontCondensed', rounded:'ssFontRounded', mono:'ssFontMono' };
-    const activeFontBtn = document.getElementById(fontBtnMap[fontId]);
-    if (activeFontBtn) activeFontBtn.classList.add('fp-sel');
-
-    ssUpdatePreview();
-  }
-
-  function ssFontPick(fontId, btn) {
-    ssState._styleCustomised = true;
-    ssState.style.fontName = fontId;
-    // Update button highlight
-    document.querySelectorAll('#ssFontDefault,#ssFontCondensed,#ssFontRounded,#ssFontMono').forEach(b => b.classList.remove('fp-sel'));
-    btn.classList.add('fp-sel');
-    ssUpdatePreview();
-  }
-
-  function ssStep(n) {
-    [1,2,3,4].forEach(i => {
-      document.getElementById('ss' + i).style.display = i === n ? '' : 'none';
-      const el = document.getElementById('ssn' + i);
-      el.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
-    });
-    if (n === 2) {
-      // Apply selected template (syncs cards + desc + state)
-      ssSelectTemplate(ssState.selectedTemplate ?? 0);
-      // Always close the custom panel
-      const panel = document.getElementById('ss2Custom');
-      const btn   = document.getElementById('ssCustomToggleBtn');
-      if (panel) panel.style.display = 'none';
-      if (btn)   btn.textContent = '⚙️ Змінити стиль вручну ▾';
-    }
-  }
-
-  function ssDrop(e) {
-    e.preventDefault();
-    document.getElementById('ssDropzone').classList.remove('drag');
-    const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith('video/')) ssLoadFile(f);
-  }
-
-  function ssFileOk(e) { const f = e.target.files[0]; if (f) ssLoadFile(f); }
 
   function ssLoadFile(f) {
     ssState.file = f;
@@ -6468,54 +5598,11 @@
   }
 
   // ── Active button helpers ────────────────────────────────────────────────
-  function ssSetActive(groupIds, activeId) {
-    groupIds.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.toggle('active', id === activeId);
-    });
-  }
 
-  function ssMode(mode, el) {
-    ssState._styleCustomised = true;
-    ssState.wordByWord = (mode === 'words');
-    ['ssModeSegs','ssModeWords'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
-    el.classList.add('active');
-    ssUpdatePreview();
-  }
 
-  function ssLang(lang, el) {
-    ssState.language = lang;
-    const ids = ['ssLangAuto','ssLangUk','ssLangRu','ssLangEn','ssLangDe','ssLangFr'];
-    ids.forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
-    el.classList.add('active');
-  }
 
-  function ssSz(sz, el) {
-    ssState._styleCustomised = true;
-    ssState.style.fontSize = sz;
-    ['ssSzS','ssSzM','ssSzL'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
-    el.classList.add('active');
-    ssUpdatePreview();
-  }
 
-  function ssClr(clr, el) {
-    ssState._styleCustomised = true;
-    ssState.style.fontColor = clr;
-    document.querySelectorAll('.ss-clr').forEach(c => c.style.border = '3px solid transparent');
-    el.style.border = '3px solid var(--accent)';
-    // Fix border for black swatch (needs inner shadow to stay visible)
-    const blackSwatch = document.getElementById('ssClrBlack');
-    if (blackSwatch && clr !== 'black') blackSwatch.style.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.2)';
-    ssUpdatePreview();
-  }
 
-  function ssPos(pos, el) {
-    ssState._styleCustomised = true;
-    ssState.style.position = pos;
-    ['ssPosTop','ssPosBottom','ssPosCenter'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('active'); });
-    el.classList.add('active');
-    ssUpdatePreview();
-  }
 
   // ── Update template card backgrounds with video first frame ────────────
   function ssUpdateTmplCards() {
@@ -6611,89 +5698,9 @@
     if (thumb) thumb.style.left = hasBg ? '21px' : '3px';
   }
 
-  function ssSetGenPhase(phase) {
-    const icon  = document.getElementById('ssGenIcon');
-    const title = document.getElementById('ssGenTitle');
-    const sub   = document.getElementById('ssGenSub');
-    if (phase === 'upload') {
-      if (icon)  icon.textContent  = '📤';
-      if (title) title.textContent = 'Завантажуємо відео...';
-      if (sub)   sub.textContent   = 'Підготовка аудіо для аналізу';
-    } else {
-      if (icon)  icon.textContent  = '🎙️';
-      if (title) title.textContent = 'Розпізнаємо мову...';
-      if (sub)   sub.textContent   = 'OpenAI Whisper аналізує аудіо';
-    }
-  }
 
-  async function ssGenerate() {
-    // If the custom panel is open, sync its bg toggle back into state
-    const bgToggleEl = document.getElementById('ssBgToggle');
-    if (bgToggleEl && document.getElementById('ss2Custom').style.display !== 'none') {
-      ssState.style.background = bgToggleEl.checked;
-    }
-
-    // ── Re-style shortcut ──────────────────────────────────────────────────
-    // If we already have segments from a previous transcription (user came back
-    // from the done screen to change style), skip upload + transcription and go
-    // straight to the segment review step.
-    if (ssState.videoId && ssState.segments.length) {
-      ssRenderSegments(null);   // re-render with the current mode hints
-      ssStep(3);
-      document.getElementById('ssGenerating').style.display = 'none';
-      document.getElementById('ssSegments').style.display = '';
-      return;
-    }
-
-    ssStep(3);
-    document.getElementById('ssGenerating').style.display = '';
-    document.getElementById('ssSegments').style.display = 'none';
-
-    try {
-      // Phase 1: upload video
-      ssSetGenPhase('upload');
-      const fd = new FormData();
-      fd.append('video', ssState.file);
-      const upRes = await fetch('/api/video/upload', { method: 'POST', body: fd });
-      if (!upRes.ok) throw new Error('Помилка завантаження відео');
-      const upData = await upRes.json();
-      ssState.videoId = upData.videoId;
-
-      // Phase 2: transcribe
-      ssSetGenPhase('transcribe');
-      const genRes = await fetch('/api/subtitles/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoId: ssState.videoId, language: ssState.language }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({}));
-        throw new Error(err.error || 'Помилка генерації субтитрів');
-      }
-      const genData = await genRes.json();
-      ssState.segments = genData.segments;
-      ssState.words = genData.words || [];
-
-      // Show segments
-      ssRenderSegments(genData.detectedLanguage);
-    } catch(e) {
-      document.getElementById('ssGenerating').style.display = 'none';
-      document.getElementById('ssSegments').style.display = '';
-      const modeTag = document.getElementById('ssModeTag');
-      if (modeTag) modeTag.textContent = '';
-      document.getElementById('ssSegList').innerHTML =
-        `<div class="fb bad"><span>❌</span><span>${e.message}</span></div>`;
-      document.getElementById('ssDetLang').textContent = '';
-    }
-  }
 
   // Return to settings to change style, keeping the transcription result
-  function ssRestyle() {
-    const btn = document.getElementById('ssGenerateBtn');
-    if (btn) btn.textContent = '🔥 Перезаписати з новими налаштуваннями →';
-    ssStep(2);
-    ssUpdatePreview();
-  }
 
   function ssRenderSegments(detectedLang) {
     document.getElementById('ssGenerating').style.display = 'none';
@@ -6760,111 +5767,9 @@
 
   // Show segments panel without re-triggering the generate spinner
   // (used by the "Edit" button after a burn error)
-  function ssShowSegments() {
-    ssStep(3);
-    document.getElementById('ssGenerating').style.display = 'none';
-    document.getElementById('ssSegments').style.display = '';
-  }
 
-  function ssCollectEdits() {
-    return ssState.segments.map((seg, i) => ({
-      start: seg.start,
-      end: seg.end,
-      text: (document.getElementById('ss_seg_' + i)?.value ?? seg.text).trim(),
-    })).filter(s => s.text);
-  }
 
-  async function ssBurn() {
-    const segments = ssCollectEdits();
-    if (!segments.length) return;
 
-    ssStep(4);
-    document.getElementById('ssBurning').style.display = '';
-    document.getElementById('ssDone').style.display = 'none';
-    document.getElementById('ssBurnError').style.display = 'none';
-
-    try {
-      const res = await fetch('/api/subtitles/burn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId: ssState.videoId,
-          segments,
-          words: ssState.words,
-          wordByWord: ssState.wordByWord,
-          style: ssState.style,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Помилка рендеру');
-      }
-      const data = await res.json();
-
-      document.getElementById('ssBurning').style.display = 'none';
-      document.getElementById('ssDone').style.display = '';
-      // Cache-bust: each burn appends ?v=timestamp so browser always loads the
-      // freshly rendered file instead of the cached version from a previous burn.
-      const freshUrl = data.downloadUrl + '?v=' + Date.now();
-      document.getElementById('ssDownloadLink').href = freshUrl;
-      // Show in-browser video preview so user can check result before downloading
-      const doneVideo = document.getElementById('ssDoneVideo');
-      if (doneVideo) {
-        doneVideo.src = freshUrl;
-        doneVideo.load();
-      }
-    } catch(e) {
-      document.getElementById('ssBurning').style.display = 'none';
-      document.getElementById('ssBurnError').style.display = '';
-      document.getElementById('ssBurnErrorMsg').textContent = e.message;
-    }
-  }
-
-  function ssReset() {
-    // Reset all state
-    ssState.file = null;
-    ssState.videoId = null;
-    ssState.segments = [];
-    ssState.words = [];
-    ssState.wordByWord = true;   // Bold Top default is karaoke word-by-word
-    ssState.frameBase64 = null;
-
-    // Reset file info
-    document.getElementById('ssFileInfo').style.display = 'none';
-    document.getElementById('ssFile').value = '';
-    document.getElementById('ssb1').disabled = true;
-
-    // Reset preview
-    const frame = document.getElementById('ssPreviewFrame');
-    if (frame) frame.style.backgroundImage = '';
-    const ph = document.getElementById('ssPreviewPlaceholder');
-    if (ph) ph.style.display = '';
-
-    // Clear template card backgrounds
-    ssUpdateTmplCards();
-
-    // Reset style to first template defaults
-    ssState.selectedTemplate = 0;
-    ssState._styleCustomised = false;
-    ssState.style = Object.assign({}, SS_TEMPLATES[0].style);
-    ssState.wordByWord = SS_TEMPLATES[0].wordByWord;
-
-    // Reset step-3 panels so next generate starts fresh
-    const genPanel = document.getElementById('ssGenerating');
-    const segPanel = document.getElementById('ssSegments');
-    if (genPanel) { genPanel.style.display = ''; ssSetGenPhase('upload'); }
-    if (segPanel) segPanel.style.display = 'none';
-
-    // Reset generate button label (might have been changed by ssRestyle)
-    const genBtn = document.getElementById('ssGenerateBtn');
-    if (genBtn) genBtn.textContent = '🐙 Генерувати субтитри →';
-
-    // Stop and clear the done-screen video to free memory
-    const doneVideo = document.getElementById('ssDoneVideo');
-    if (doneVideo) { doneVideo.pause(); doneVideo.src = ''; }
-
-    ssStep(1);
-  }
 
   // =============================================
   // 🖼️ CAROUSEL BUILDER — AI photo analysis + Canvas
@@ -6919,19 +5824,6 @@
     }
   }
 
-  function carSlotFile(idx, input) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      carPhotos[idx] = e.target.result;
-      input.value = '';
-      carSave();
-      carRenderSlots();
-      carUpdateBuildBtn();
-    };
-    reader.readAsDataURL(file);
-  }
 
   function carDelPhoto(idx, e) {
     e.stopPropagation();
@@ -6955,12 +5847,6 @@
   }
 
   // ── Lang / Theme / Extras ────────────────────────────────────────────────────
-  function carSetLang(lang, btn) {
-    carLang = lang;
-    carSave();
-    document.querySelectorAll('#carLangBtnUk,#carLangBtnRu,#carLangBtnEn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-  }
 
   function carSetTheme(id) {
     carThemeId = id;
@@ -6983,173 +5869,20 @@
   }
 
   // ── Build (AI-powered) ───────────────────────────────────────────────────────
-  async function carBuild() {
-    const photos = carPhotos.filter(Boolean);
-    if (photos.length < 2) return;
-
-    const progCard = document.getElementById('carProgCard');
-    const progSub  = document.getElementById('carProgSub');
-    const progBar  = document.getElementById('carProgBar');
-    const progTime = document.getElementById('carProgTime');
-    document.getElementById('carRes').style.display = 'none';
-    progCard.style.display = 'block';
-    progSub.textContent = `Аналізую ${photos.length} фото разом…`;
-    progBar.style.width = '10%';
-    progTime.textContent = '~5 сек';
-
-    try {
-      const stylePrompt = (document.getElementById('carStylePromptInput')?.value || '').trim();
-      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-
-      // Step 1: AI photo analysis
-      const resp = await fetch(`${BACKEND}/api/carousel/analyze-photos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photos, stylePrompt, language: carLang }),
-      });
-      if (!resp.ok) throw new Error(`API error ${resp.status}`);
-      const analysis = await resp.json();
-      const captions = analysis.captions || photos.map((_, i) => `Фото ${i + 1}`);
-
-      progBar.style.width = '45%';
-      progSub.textContent = 'Генерую слайди…';
-      progTime.textContent = '';
-
-      // Step 2: load original photos as Image objects
-      carBgImages = photos.map(src => {
-        const img = new Image();
-        img.src = src;
-        return img;
-      });
-      carCaptionTexts = [...captions];
-      carAnalysisData = analysis;
-
-      progBar.style.width = '85%';
-      progSub.textContent = 'Рендерю Canvas…';
-
-      // Step 3: render 1080×1080 canvases using shared crRenderPhotoSlide
-      const theme = (typeof CR_THEMES !== 'undefined')
-        ? (CR_THEMES[carThemeId] || CR_THEMES.dark)
-        : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
-      carCanvases = carBgImages.map((img, i) =>
-        crRenderPhotoSlide(img, carCaptionTexts[i], analysis.overallCaption, i, photos.length, theme, analysis.hashtags, carFontStyle)
-      );
-
-      progBar.style.width = '100%';
-      progCard.style.display = 'none';
-
-      // Thumbnail row
-      carRebuildThumbs(theme);
-
-      const resInfo = document.getElementById('carResInfo');
-      if (resInfo) resInfo.textContent = `${photos.length} слайдів · "${analysis.theme}"`;
-
-      // Editable captions
-      carRebuildCaptionEditor(theme);
-
-      document.getElementById('carRes').style.display = 'block';
-      document.getElementById('carRes').scrollIntoView({ behavior: 'smooth' });
-    } catch (err) {
-      progCard.style.display = 'none';
-      alert('Помилка: ' + (err.message || err));
-    }
-  }
 
   // ── Rebuild thumbnails row ───────────────────────────────────────────────────
-  function carRebuildThumbs(theme) {
-    const t = theme || (CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { accent: '#7C5CFC' });
-    const prev = document.getElementById('carSlidesPrev');
-    if (!prev) return;
-    prev.innerHTML = '';
-    carCanvases.forEach((cv, i) => {
-      const wrap = document.createElement('div');
-      wrap.style.cssText = `flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;border:2px solid ${t.accent};cursor:pointer;position:relative;`;
-      wrap.title = 'Натисни для перегляду';
-      wrap.onclick = () => carOpenLightbox(i);
-      const thumb = document.createElement('canvas');
-      thumb.width = 90; thumb.height = 90;
-      thumb.getContext('2d').drawImage(cv, 0, 0, 90, 90);
-      const hint = document.createElement('div');
-      hint.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:4px;padding:1px 4px;pointer-events:none;';
-      hint.textContent = '🔍';
-      wrap.appendChild(thumb);
-      wrap.appendChild(hint);
-      prev.appendChild(wrap);
-    });
-  }
 
   // ── Update single thumbnail ───────────────────────────────────────────────────
-  function carUpdateThumb(i) {
-    const prev = document.getElementById('carSlidesPrev');
-    if (!prev) return;
-    const thumbs = prev.querySelectorAll('canvas');
-    if (thumbs[i]) thumbs[i].getContext('2d').drawImage(carCanvases[i], 0, 0, 90, 90);
-  }
 
   // ── Rebuild editable caption list ─────────────────────────────────────────────
-  function carRebuildCaptionEditor(theme) {
-    const t = theme || (CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { accent: '#7C5CFC' });
-    const capDiv = document.getElementById('carCaptions');
-    if (!capDiv) return;
-    capDiv.innerHTML = carCaptionTexts.map((c, i) => `
-      <div style="background:var(--surface2);border-radius:8px;padding:10px;border-left:3px solid ${t.accent};">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <strong style="color:${t.accent};font-size:12px;">Слайд ${i + 1}</strong>
-          <button onclick="carRerenderSlide(${i})" style="background:${t.accent};color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;">✅ Оновити</button>
-        </div>
-        <textarea id="carCapText_${i}" rows="2"
-          style="width:100%;background:var(--surface3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px;font-size:12px;resize:none;box-sizing:border-box;outline:none;font-family:inherit;line-height:1.5;"
-        >${c}</textarea>
-      </div>`).join('') +
-      (carAnalysisData.hashtags
-        ? `<div style="margin-top:4px;color:var(--text3);font-size:11px;padding:4px 0;">${carAnalysisData.hashtags}</div>`
-        : '');
-  }
 
   // ── Re-render single slide after text edit ─────────────────────────────────────
-  function carRerenderSlide(i) {
-    const textEl = document.getElementById('carCapText_' + i);
-    if (!textEl || !carBgImages[i]) return;
-    carCaptionTexts[i] = textEl.value;
-    const theme = CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
-    carCanvases[i] = crRenderPhotoSlide(carBgImages[i], carCaptionTexts[i], carAnalysisData.overallCaption, i, carBgImages.length, theme, carAnalysisData.hashtags, carFontStyle);
-    carUpdateThumb(i);
-    // Refresh lightbox if it's showing this slide
-    const lb = document.getElementById('carLightbox');
-    if (lb && lb.style.display === 'flex' && carLbIndex === i) carLbRender();
-    // Visual feedback: flash button green
-    const btn = textEl.parentElement.querySelector('button');
-    if (btn) { const orig = btn.textContent; btn.textContent = '✔ Готово!'; setTimeout(() => { btn.textContent = orig; }, 1200); }
-  }
 
   // ── Font switcher — re-renders ALL slides ──────────────────────────────────────
-  function carSetFont(f) {
-    carFontStyle = f;
-    // Update picker button states
-    ['modern','classic','impact','thin'].forEach(key => {
-      const btn = document.getElementById('carFont_' + key);
-      if (btn) btn.classList.toggle('active', key === f);
-    });
-    if (!carBgImages.length) return;
-    const theme = CR_THEMES ? (CR_THEMES[carThemeId] || CR_THEMES.dark) : { bg1:'#0D0D1A', bg2:'#1a0d30', accent:'#7C5CFC', text:'#FFFFFF', sub:'#9B8EC4' };
-    carCanvases = carBgImages.map((img, i) =>
-      crRenderPhotoSlide(img, carCaptionTexts[i], carAnalysisData.overallCaption, i, carBgImages.length, theme, carAnalysisData.hashtags, f)
-    );
-    carRebuildThumbs(theme);
-    // Refresh lightbox if open
-    const lb = document.getElementById('carLightbox');
-    if (lb && lb.style.display === 'flex') carLbRender();
-  }
 
   // ── Slide lightbox ──────────────────────────────────────────────────────────
   let carLbIndex = 0;
 
-  function carOpenLightbox(idx) {
-    carLbIndex = idx;
-    carLbRender();
-    const lb = document.getElementById('carLightbox');
-    lb.style.display = 'flex';
-  }
 
   function carCloseLightbox() {
     document.getElementById('carLightbox').style.display = 'none';
@@ -7174,30 +5907,7 @@
     a.click();
   }
 
-  async function carDownloadZip() {
-    if (!carCanvases.length) { alert('Спочатку створи карусель!'); return; }
-    if (typeof octoCanUse !== 'undefined' && !octoCanUse('carousel')) return;
-    if (typeof JSZip === 'undefined') { alert('JSZip не завантажено. Перевір підключення.'); return; }
-    const btn = document.getElementById('carDlBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Пакую…'; }
-    const zip = new JSZip();
-    for (let i = 0; i < carCanvases.length; i++) {
-      const blob = await new Promise(r => carCanvases[i].toBlob(r, 'image/png'));
-      zip.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
-    }
-    const content = await zip.generateAsync({ type: 'blob' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(content);
-    a.download = 'octo_carousel.zip';
-    a.click();
-    if (typeof octoUseFeature !== 'undefined') octoUseFeature('carousel');
-    if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
-  }
 
-  function sStyle(el) {
-    document.querySelectorAll('.sopt').forEach(s => s.classList.remove('selected'));
-    el.classList.add('selected');
-  }
 
   // =============================================
   // 📸 PHOTO EDITOR — TikTok templates via Canvas
@@ -7250,127 +5960,12 @@
   let photoImg = null;
   let photoTmplId = 'tiktok-glow';
 
-  function photoLoad(input) {
-    const file = input.files[0];
-    if (!file) return;
-    input.value = '';
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        photoImg = img;
-        document.getElementById('photoStep1').style.display = 'none';
-        document.getElementById('photoStep2').style.display = 'block';
-        photoRenderAll();
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
 
-  function photoRenderAll() {
-    if (!photoImg) return;
-    // Draw original
-    photoDrawTo(document.getElementById('photoBefore'), photoImg, null, true);
-    // Draw with selected template
-    const tmpl = PHOTO_TEMPLATES.find(t => t.id === photoTmplId) || PHOTO_TEMPLATES[0];
-    photoDrawTo(document.getElementById('photoAfter'), photoImg, tmpl, true);
-    document.getElementById('photoAfterLabel').textContent = tmpl.name;
-    // Render template selector thumbnails
-    photoRenderGrid();
-  }
 
-  function photoRenderGrid() {
-    const grid = document.getElementById('photoTmplGrid');
-    if (!grid) return;
-    grid.innerHTML = PHOTO_TEMPLATES.map(t => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 300; canvas.height = 300;
-      photoDrawTo(canvas, photoImg, t, false);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-      return `<div class="photo-tmpl ${t.id === photoTmplId ? 'selected' : ''}" onclick="photoSelectTmpl('${t.id}')">
-        <div class="photo-tmpl-prev"><img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;"></div>
-        <div class="photo-tmpl-label">${t.name}</div>
-      </div>`;
-    }).join('');
-  }
 
-  function photoDrawTo(canvas, img, tmpl, large) {
-    const size = large ? 1080 : 300;
-    canvas.width = size; canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    // Cover-crop image to square
-    const s = Math.min(img.width, img.height);
-    const sx = (img.width - s) / 2;
-    const sy = (img.height - s) / 2;
-    if (tmpl) ctx.filter = tmpl.filter;
-    ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
-    ctx.filter = 'none';
-    if (tmpl?.overlay) {
-      const { r, g, b, a } = tmpl.overlay;
-      ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-      ctx.fillRect(0, 0, size, size);
-    }
-    if (tmpl?.vignette) {
-      const grad = ctx.createRadialGradient(size/2, size/2, size*0.35, size/2, size/2, size*0.75);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, 'rgba(0,0,0,0.45)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, size, size);
-    }
-  }
 
-  function photoSelectTmpl(id) {
-    photoTmplId = id;
-    const tmpl = PHOTO_TEMPLATES.find(t => t.id === id) || PHOTO_TEMPLATES[0];
-    photoDrawTo(document.getElementById('photoAfter'), photoImg, tmpl, true);
-    document.getElementById('photoAfterLabel').textContent = tmpl.name;
-    document.querySelectorAll('.photo-tmpl').forEach(el => el.classList.remove('selected'));
-    document.querySelectorAll('.photo-tmpl').forEach(el => {
-      if (el.getAttribute('onclick')?.includes(id)) el.classList.add('selected');
-    });
-  }
 
-  function photoDownload() {
-    if (!photoImg) return;
-    const canvas = document.createElement('canvas');
-    const tmpl = PHOTO_TEMPLATES.find(t => t.id === photoTmplId) || PHOTO_TEMPLATES[0];
-    // Full resolution export (max 1080px)
-    const maxSize = Math.min(Math.min(photoImg.width, photoImg.height), 1080);
-    canvas.width = maxSize; canvas.height = maxSize;
-    photoDrawTo(canvas, photoImg, tmpl, false);
-    // Override with full res
-    canvas.width = maxSize; canvas.height = maxSize;
-    const ctx = canvas.getContext('2d');
-    const s = Math.min(photoImg.width, photoImg.height);
-    const sx = (photoImg.width - s) / 2;
-    const sy = (photoImg.height - s) / 2;
-    ctx.filter = tmpl.filter;
-    ctx.drawImage(photoImg, sx, sy, s, s, 0, 0, maxSize, maxSize);
-    ctx.filter = 'none';
-    if (tmpl.overlay) {
-      const { r, g, b, a } = tmpl.overlay;
-      ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-      ctx.fillRect(0, 0, maxSize, maxSize);
-    }
-    if (tmpl.vignette) {
-      const grad = ctx.createRadialGradient(maxSize/2, maxSize/2, maxSize*0.35, maxSize/2, maxSize/2, maxSize*0.75);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, 'rgba(0,0,0,0.45)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, maxSize, maxSize);
-    }
-    const a = document.createElement('a');
-    a.download = `octo_${tmpl.id}.jpg`;
-    a.href = canvas.toDataURL('image/jpeg', 0.93);
-    a.click();
-  }
 
-  function photoReset() {
-    photoImg = null;
-    document.getElementById('photoStep1').style.display = 'block';
-    document.getElementById('photoStep2').style.display = 'none';
-  }
 
   // ── Photo tab switcher ────────────────────────────────────────────────────
   function photoSwitchTab(tab) {
@@ -7391,32 +5986,7 @@
   let photoAiOrigDataUrl = null;
   let photoAiResultDataUrl = null;
 
-  function photoAiLoad(input) {
-    const file = input.files[0];
-    if (!file) return;
-    input.value = '';
-    const reader = new FileReader();
-    reader.onload = e => {
-      photoAiOrigDataUrl = e.target.result;
-      document.getElementById('photoAiBefore').src = photoAiOrigDataUrl;
-      document.getElementById('photoAiStep1').style.display = 'none';
-      document.getElementById('photoAiStep2').style.display = 'block';
-      document.getElementById('photoAiStep3').style.display = 'none';
-      document.getElementById('photoAiStep4').style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-  }
 
-  function photoAiPreset(text, btn) {
-    document.getElementById('photoAiPrompt').value = text;
-    // Highlight the selected chip, deactivate others
-    document.querySelectorAll('#photoAiChips .pa-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    // Clear chip highlight when user edits the textarea manually
-    document.getElementById('photoAiPrompt').oninput = function () {
-      document.querySelectorAll('#photoAiChips .pa-chip').forEach(b => b.classList.remove('active'));
-    };
-  }
 
   /**
    * Cover-crops image to SIZE×SIZE square (same crop OpenAI does internally).
@@ -7472,54 +6042,6 @@
    * Priority: remove.bg API (server) → BodyPix (client) → null (rectangular fallback).
    * Returns Float32Array[1024*1024] with person probability 0..1 per pixel.
    */
-  async function photoAiRunSeg(imageDataUrl) {
-    // ── 1st: remove.bg API — professional quality, ~1-2 sec ─────────────────
-    try {
-      const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-      const resp = await fetch(`${BACKEND}/api/carousel/segmask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageDataUrl }),
-      });
-      if (resp.ok) {
-        const { maskB64 } = await resp.json();
-        if (maskB64) {
-          const mask = await _extractAlphaMask(maskB64);
-          if (mask) return mask;
-        }
-      }
-    } catch (_) { /* fall through */ }
-
-    // ── 2nd: BodyPix (client-side, no API key needed) ────────────────────────
-    const net = await photoAiGetSeg();
-    if (!net) return null;
-
-    const img = await new Promise(resolve => {
-      const i = new Image();
-      i.onload  = () => resolve(i);
-      i.onerror = () => resolve(null);
-      i.src = imageDataUrl;
-    });
-    if (!img) return null;
-
-    try {
-      const seg = await net.segmentPerson(img, {
-        flipHorizontal: false,
-        internalResolution: 'full',  // highest quality (was 'medium')
-        segmentationThreshold: 0.5,  // more inclusive → catches edges better (was 0.65)
-      });
-      const S = 1024;
-      const mask = new Float32Array(S * S);
-      let personCount = 0;
-      for (let i = 0; i < S * S; i++) {
-        mask[i] = seg.data[i] || 0;
-        if (mask[i] > 0.5) personCount++;
-      }
-      const frac = personCount / (S * S);
-      if (frac < 0.03 || frac > 0.97) return null;
-      return mask;
-    } catch (e) { return null; }
-  }
 
   /**
    * Detect ALL people in the image including small/blurry background spectators.
@@ -7529,37 +6051,6 @@
    * Returns a Float32Array where 1 = any person pixel, 0 = background.
    * Used together with the main segMask (player only) to build a spectator-only mask.
    */
-  async function photoAiRunAllPeopleSeg(imageDataUrl) {
-    const net = await photoAiGetSeg();
-    if (!net) return null;
-
-    const img = await new Promise(resolve => {
-      const i = new Image();
-      i.onload  = () => resolve(i);
-      i.onerror = () => resolve(null);
-      i.src = imageDataUrl;
-    });
-    if (!img) return null;
-
-    try {
-      // segmentMultiPerson detects EACH person separately → catches background people
-      // threshold 0.15: background spectators score 0.2–0.4, so we catch them
-      const segs = await net.segmentMultiPerson(img, {
-        flipHorizontal: false,
-        internalResolution: 'medium',
-        segmentationThreshold: 0.15,
-        maxDetections: 20,
-      });
-      const S = 1024;
-      const mask = new Float32Array(S * S);
-      for (const seg of segs) {
-        for (let i = 0; i < S * S; i++) {
-          if (seg.data[i] > 0) mask[i] = 1.0;
-        }
-      }
-      return mask;
-    } catch (e) { return null; }
-  }
 
   /**
    * Build a Stability AI Erase mask that covers ONLY background spectators.
@@ -7587,89 +6078,17 @@
    * center safe zone that covers the typical foreground athlete position, so
    * the player is never accidentally included even when seg fails.
    */
-  async function photoAiCreateSpectatorOnlyMask(allPeopleMask, playerMask, S) {
-    // Dilate player mask 50px → protects player edges + slight uncertainty buffer
-    const dilatedPlayer = playerMask
-      ? await _dilateSegMask(playerMask, S, 50)
-      : null;
-
-    // Fallback safe zone (pixels): centre of image, ~50% wide, ~90% tall
-    // Used when playerMask is null so the main subject is still protected.
-    const fallbackCX = Math.round(S * 0.50);
-    const fallbackCY = Math.round(S * 0.55);
-    const fallbackHW = Math.round(S * 0.30); // ±30% from centre
-    const fallbackHH = Math.round(S * 0.46); // ±46% from centre
-
-    const d = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const idx = i * 4;
-      const isAnyPerson = allPeopleMask && allPeopleMask[i] > 0.5;
-
-      // Layer 1: direct player pixel (low threshold to catch all player pixels)
-      const isDirectPlayer = playerMask && playerMask[i] > 0.20;
-
-      // Layer 2: dilated player halo (protects edges + nearby false-positives)
-      const isDilatedPlayer = dilatedPlayer && dilatedPlayer[i] > 0.5;
-
-      // Layer 3: fallback centre safe zone when segmentation is unavailable
-      let isFallbackSafe = false;
-      if (!playerMask) {
-        const px = i % S, py = Math.floor(i / S);
-        isFallbackSafe = (
-          px >= (fallbackCX - fallbackHW) && px <= (fallbackCX + fallbackHW) &&
-          py >= (fallbackCY - fallbackHH) && py <= (fallbackCY + fallbackHH)
-        );
-      }
-
-      const isProtected = isDirectPlayer || isDilatedPlayer || isFallbackSafe;
-      const v = (isAnyPerson && !isProtected) ? 255 : 0;
-      d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
-    }
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
-    return cv.toDataURL('image/png');
-  }
 
   /**
    * Extract person mask from a remove.bg result PNG.
    * remove.bg returns PNG with alpha=255 where person is, alpha=0 where background.
    * We read the alpha channel → Float32Array[1024*1024] mask.
    */
-  async function _extractAlphaMask(maskDataUrl) {
-    const S = 1024;
-    const img = await new Promise(resolve => {
-      const i = new Image();
-      i.onload  = () => resolve(i);
-      i.onerror = () => resolve(null);
-      i.src = maskDataUrl;
-    });
-    if (!img) return null;
-
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    cv.getContext('2d').drawImage(img, 0, 0, S, S);
-    const d = cv.getContext('2d').getImageData(0, 0, S, S).data;
-
-    const mask = new Float32Array(S * S);
-    let personCount = 0;
-    for (let i = 0; i < S * S; i++) {
-      mask[i] = d[i * 4 + 3] / 255; // alpha channel: 1=person, 0=background
-      if (mask[i] > 0.5) personCount++;
-    }
-    const frac = personCount / (S * S);
-    if (frac < 0.03 || frac > 0.97) return null;
-    return mask;
-  }
 
   /**
    * Smoothstep(x) — smooth transition 0→1 for x in [0,1].
    * Used for anti-aliased person/background blending at mask edges.
    */
-  function _smoothstep(x) {
-    const t = Math.max(0, Math.min(1, x));
-    return t * t * (3 - 2 * t);
-  }
 
   /**
    * Spatial dilation of a Float32Array segMask using canvas Gaussian blur.
@@ -7678,36 +6097,6 @@
    *
    * Returns a new Float32Array where dilated pixels are 1.0.
    */
-  function _dilateSegMask(segMask, S, dilPx) {
-    return new Promise(resolve => {
-      // Draw person=white, background=black
-      const srcCv = document.createElement('canvas');
-      srcCv.width = S; srcCv.height = S;
-      const dd = new Uint8ClampedArray(S * S * 4);
-      for (let i = 0; i < S * S; i++) {
-        const v = segMask[i] > 0.30 ? 255 : 0;
-        dd[i*4] = v; dd[i*4+1] = v; dd[i*4+2] = v; dd[i*4+3] = 255;
-      }
-      srcCv.getContext('2d').putImageData(new ImageData(dd, S, S), 0, 0);
-
-      // Blur simulates dilation: white bleeds outward by ~dilPx pixels
-      // CSS blur(r) ≈ Gaussian σ = r/3. At 6% threshold, dilation ≈ 1.56σ ≈ 0.52r
-      const dilCv = document.createElement('canvas');
-      dilCv.width = S; dilCv.height = S;
-      const dilCtx = dilCv.getContext('2d');
-      dilCtx.filter = `blur(${dilPx * 2}px)`; // ×2 so ~dilPx effective radius at 6% threshold
-      dilCtx.drawImage(srcCv, 0, 0);
-      dilCtx.filter = 'none';
-
-      const blurred = dilCtx.getImageData(0, 0, S, S).data;
-      const result = new Float32Array(S * S);
-      for (let i = 0; i < S * S; i++) {
-        // threshold 6% → dilated zone extends ~dilPx pixels from person edge
-        result[i] = blurred[i * 4] > 15 ? 1.0 : 0.0;
-      }
-      resolve(result);
-    });
-  }
 
   /**
    * Create the API mask to send to OpenAI images.edit:
@@ -7723,68 +6112,7 @@
    * Opaque (alpha=255) = background → protected.
    * Used for skin/face retouching where the AI must touch the PERSON, not background.
    */
-  async function photoAiCreatePlayerExposedMask(segMask) {
-    const S = 1024;
-    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-    if (!segMask) return null;
-    const d = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const p = _smoothstep((segMask[i] - 0.05) / 0.20);
-      d[i*4+3] = Math.round((1 - p) * 255); // player → transparent, bg → opaque
-    }
-    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
-    return cv.toDataURL('image/png');
-  }
 
-  async function photoAiCreateMask(dataUrl, segMask) {
-    const S = 1024;
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-
-    if (segMask) {
-      // ── Pixel-perfect mask (no dilation) ──────────────────────────────────
-      // opaque (alpha=255) = player body only → protected
-      // transparent (alpha=0) = background (people, ball, field) → AI edits here
-      // Low threshold (0.05) captures fine hair strands without overdilating.
-      const d = new Uint8ClampedArray(S * S * 4);
-      for (let i = 0; i < S * S; i++) {
-        const idx = i * 4;
-        const p = _smoothstep((segMask[i] - 0.05) / 0.20);
-        d[idx]   = 0;
-        d[idx+1] = 0;
-        d[idx+2] = 0;
-        d[idx+3] = Math.round(p * 255); // opaque=protect, transparent=edit
-      }
-      cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
-      return cv.toDataURL('image/png');
-    }
-
-    // ── Fallback: rectangular strip (center protected, edges editable) ──────
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const ctx = cv.getContext('2d');
-        ctx.fillStyle = 'rgba(0,0,0,1)';
-        ctx.fillRect(0, 0, S, S);
-        ctx.globalCompositeOperation = 'destination-out';
-        const lgCut = ctx.createLinearGradient(0, 0, S * 0.22, 0);
-        lgCut.addColorStop(0, 'rgba(0,0,0,1)'); lgCut.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = lgCut; ctx.fillRect(0, 0, S * 0.22, S);
-        const rgCut = ctx.createLinearGradient(S * 0.78, 0, S, 0);
-        rgCut.addColorStop(0, 'rgba(0,0,0,0)'); rgCut.addColorStop(1, 'rgba(0,0,0,1)');
-        ctx.fillStyle = rgCut; ctx.fillRect(S * 0.78, 0, S * 0.22, S);
-        const tgCut = ctx.createLinearGradient(0, 0, 0, S * 0.18);
-        tgCut.addColorStop(0, 'rgba(0,0,0,1)'); tgCut.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = tgCut; ctx.fillRect(0, 0, S, S * 0.18);
-        const bgCut = ctx.createLinearGradient(0, S * 0.85, 0, S);
-        bgCut.addColorStop(0, 'rgba(0,0,0,0)'); bgCut.addColorStop(1, 'rgba(0,0,0,1)');
-        ctx.fillStyle = bgCut; ctx.fillRect(0, S * 0.85, S, S * 0.15);
-        ctx.globalCompositeOperation = 'source-over';
-        resolve(cv.toDataURL('image/png'));
-      };
-      img.src = dataUrl;
-    });
-  }
 
   /**
    * Pixel-level composite: merge AI result (background) + original (person only).
@@ -7881,231 +6209,38 @@
    * No API call — runs entirely in the browser.
    * blurPx = Gaussian blur radius in pixels (default 28).
    */
-  async function photoAiBlurBg(orig1024DataUrl, segMask, blurPx) {
-    blurPx = blurPx || 55; // strong bokeh-style blur
-    const S = 1024;
-
-    const img = await new Promise(resolve => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.src = orig1024DataUrl;
-    });
-
-    // ── Original pixels ──────────────────────────────────────────────────────
-    const origCv = document.createElement('canvas');
-    origCv.width = S; origCv.height = S;
-    origCv.getContext('2d').drawImage(img, 0, 0, S, S);
-    const origPx = origCv.getContext('2d').getImageData(0, 0, S, S).data;
-
-    // ── Blurred pixels (oversized canvas to avoid edge cutoff) ───────────────
-    const PAD = blurPx * 3; // generous padding so blur doesn't cut off at edges
-    const blurCv = document.createElement('canvas');
-    blurCv.width = S + PAD * 2;
-    blurCv.height = S + PAD * 2;
-    const blurCtx = blurCv.getContext('2d');
-    // Fill padding with edge pixels by drawing the image stretched to fill
-    blurCtx.drawImage(img, 0, 0, blurCv.width, blurCv.height);
-    // Draw the real image centred on top of the stretched version
-    blurCtx.filter = `blur(${blurPx}px)`;
-    blurCtx.drawImage(img, PAD, PAD, S, S);
-    blurCtx.filter = 'none';
-    const blurPx2 = blurCtx.getImageData(PAD, PAD, S, S).data;
-
-    // ── Composite: person=sharp, background=blurred ───────────────────────────
-    const finalCv = document.createElement('canvas');
-    finalCv.width = S; finalCv.height = S;
-    const finalCtx = finalCv.getContext('2d');
-
-    if (segMask) {
-      // 1. Draw blurred image as base
-      finalCtx.putImageData(new ImageData(blurPx2, S, S), 0, 0);
-
-      // 2. Stamp sharp person using remove.bg alpha directly (no dilation)
-      const personCv = document.createElement('canvas');
-      personCv.width = S; personCv.height = S;
-      const pCtx = personCv.getContext('2d');
-      pCtx.putImageData(new ImageData(origPx, S, S), 0, 0);
-
-      // Write segMask directly into alpha channel
-      const personData = pCtx.getImageData(0, 0, S, S);
-      const d = personData.data;
-      for (let i = 0; i < S * S; i++) {
-        d[i * 4 + 3] = Math.round(segMask[i] * 255);
-      }
-      pCtx.putImageData(personData, 0, 0);
-
-      // 3. Paint sharp person over blurred background
-      finalCtx.drawImage(personCv, 0, 0, S, S);
-    } else {
-      // Fallback: rectangular zone sharp, rest blurred
-      const out = new Uint8ClampedArray(S * S * 4);
-      const LF0 = S * 0.15, LF1 = S * 0.22;
-      const RF0 = S * 0.78, RF1 = S * 0.85;
-      const TF0 = S * 0.08, TF1 = S * 0.15;
-      const BF0 = S * 0.85, BF1 = S * 0.92;
-      for (let y = 0; y < S; y++) {
-        for (let x = 0; x < S; x++) {
-          const i = (y * S + x) * 4;
-          let wx = 1, wy = 1;
-          if      (x < LF0) wx = 0; else if (x < LF1) wx = (x - LF0) / (LF1 - LF0);
-          else if (x > RF1) wx = 0; else if (x > RF0) wx = 1 - (x - RF0) / (RF1 - RF0);
-          if      (y < TF0) wy = 0; else if (y < TF1) wy = (y - TF0) / (TF1 - TF0);
-          else if (y > BF1) wy = 0; else if (y > BF0) wy = 1 - (y - BF0) / (BF1 - BF0);
-          const w = wx * wy;
-          out[i]   = origPx[i]   * w + blurPx2[i]   * (1 - w);
-          out[i+1] = origPx[i+1] * w + blurPx2[i+1] * (1 - w);
-          out[i+2] = origPx[i+2] * w + blurPx2[i+2] * (1 - w);
-          out[i+3] = 255;
-        }
-      }
-      finalCtx.putImageData(new ImageData(out, S, S), 0, 0);
-    }
-
-    return finalCv.toDataURL('image/jpeg', 0.93);
-  }
 
   /** Detect if the prompt is a "blur background" request (no AI API call needed). */
-  function _isBlurPrompt(prompt) {
-    const p = prompt.toLowerCase();
-    return /розм|blur|боке|bokeh|depth.of.field|дефок|dof/.test(p);
-  }
 
   /**
    * Detect contrast / saturation / brightness / color-tone / cinematic adjustments.
    * These are pure pixel operations — no AI needed, done client-side.
    */
-  function _isFilterPrompt(prompt) {
-    return /контраст|насиченість|насич|яскравість|різкість|sharpen|saturat|contrast|brightness|vibranc|вібранс|теплий тон|warm|холодний тон|cold|тон|tone|filter|фільтр|vivid|чіткіш|color.?grad|colour.?grad|hdr|підвищ|підкрут|збільш.*(колір|насич|яскрав|контраст)|кіно|cinematic|film|кінематограф|moody|dramatic.*light|lut/i.test(prompt);
-  }
 
   /**
    * Detect skin / face retouching intent.
    * These prompts must EXPOSE the player (not protect!) so AI can edit the skin.
    */
-  function _isSkinRetouchPrompt(prompt) {
-    return /прищ|шкір|недол.*шкір|blemish|acne|skin\s*(retouch|fix|clean|clear)|retouch|ретуш|зморшк|розгладь|обличч|pimple|шрам|scar/i.test(prompt);
-  }
 
   /**
    * Apply client-side photo adjustments: contrast, saturation, brightness, warmth.
    * Parses the prompt to determine what to boost.
    */
-  async function photoAiApplyFilter(dataUrl, prompt) {
-    const S = 1024;
-    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-    const img = await new Promise(r => {
-      const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = dataUrl;
-    });
-    if (!img) return dataUrl;
-    ctx.drawImage(img, 0, 0, S, S);
-    const id = ctx.getImageData(0, 0, S, S);
-    const d = id.data;
-    const p = prompt.toLowerCase();
-
-    const doCinematic = /кіно|cinematic|film|кінематограф|moody|dramatic.*light|lut/.test(p);
-    const doContrast  = !doCinematic && /контраст|contrast|hdr/.test(p);
-    const doSat       = !doCinematic && /насиченість|насич|saturat|vibranc|вібранс|vivid|color/.test(p);
-    const doBright    = /яскравість|яскрав|brightness|bright/.test(p);
-    const doWarm      = /теплий|warm|золот|golden/.test(p);
-    const doCold      = /холодний|cold|прохолод/.test(p);
-    const doSharpen   = /різкість|чіткість|sharpen/.test(p);
-    // Intensity: "сильно / дуже / more" → stronger boost
-    const k = /сильн|дуже|more|strong|high|більш/.test(p) ? 1.6 : 1.3;
-
-    const clamp = v => Math.max(0, Math.min(255, v));
-
-    for (let i = 0; i < d.length; i += 4) {
-      let r = d[i], g = d[i+1], b = d[i+2];
-
-      if (doCinematic) {
-        // Step 1: contrast S-curve
-        r = (r - 128) * 1.38 + 128;
-        g = (g - 128) * 1.38 + 128;
-        b = (b - 128) * 1.38 + 128;
-        // Step 2: slight desaturation (film look)
-        const gr = 0.299 * r + 0.587 * g + 0.114 * b;
-        r = gr + (r - gr) * 0.88; g = gr + (g - gr) * 0.88; b = gr + (b - gr) * 0.88;
-        // Step 3: warm mid-tone tint (orange-teal grade)
-        r += 10; g += 2; b -= 8;
-        // Step 4: crush blacks (cinematic deep shadows)
-        const br = (r + g + b) / 3;
-        if (br < 55) { r *= 0.78; g *= 0.78; b *= 0.78; }
-      }
-      if (doContrast) {
-        r = (r - 128) * k + 128;
-        g = (g - 128) * k + 128;
-        b = (b - 128) * k + 128;
-      }
-      if (doSat) {
-        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-        r = gray + (r - gray) * k;
-        g = gray + (g - gray) * k;
-        b = gray + (b - gray) * k;
-      }
-      if (doBright) { const f = k > 1.4 ? 30 : 20; r += f; g += f; b += f; }
-      if (doWarm)   { r += 18; g += 6; b -= 14; }
-      if (doCold)   { r -= 14; g -= 4; b += 18; }
-
-      d[i] = clamp(r); d[i+1] = clamp(g); d[i+2] = clamp(b);
-    }
-
-    // Vignette for cinematic look (dark corners)
-    if (doCinematic) {
-      const origPx = new Uint8ClampedArray(d);
-      const cx = S / 2, cy = S / 2, maxR = Math.sqrt(cx*cx + cy*cy);
-      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-        const idx = (y * S + x) * 4;
-        const dist = Math.sqrt((x-cx)**2 + (y-cy)**2) / maxR;
-        const vig = dist > 0.55 ? 1 - (dist - 0.55) / 0.45 * 0.55 : 1;
-        d[idx]   = clamp(d[idx]   * vig);
-        d[idx+1] = clamp(d[idx+1] * vig);
-        d[idx+2] = clamp(d[idx+2] * vig);
-      }
-    }
-
-    // Simple unsharp mask (sharpen)
-    if (doSharpen) {
-      const src = new Uint8ClampedArray(d);
-      const w = S;
-      for (let y = 1; y < S-1; y++) {
-        for (let x = 1; x < w-1; x++) {
-          const idx = (y * w + x) * 4;
-          for (let c = 0; c < 3; c++) {
-            const blur = (src[idx-4+c] + src[idx+4+c] + src[(idx-w*4)+c] + src[(idx+w*4)+c]) / 4;
-            d[idx+c] = clamp(src[idx+c] + (src[idx+c] - blur) * 0.8);
-          }
-        }
-      }
-    }
-
-    ctx.putImageData(id, 0, 0);
-    return cv.toDataURL('image/png');
-  }
 
   /**
    * Detect "remove background people / objects" intent.
    * → routes to Stability AI inpainting (dedicated removal model, not generative).
    */
-  function _isRemovePeoplePrompt(prompt) {
-    return /прибер|видал|удал|видалити.*люд|людей.*фон|фон.*люд|remove.*people|people.*back/i.test(prompt);
-  }
 
   /**
    * Detect "change / replace background" intent.
    * → routes to gpt-image-1 (generative — creates a brand new background).
    */
-  function _isReplaceBackgroundPrompt(prompt) {
-    return /зміни.*фон|замін.*фон|новий.*фон|інший.*фон|стадіон|ліс|місто|replace.*back|change.*back|new.*back|background.*stadium|city|forest/i.test(prompt);
-  }
 
   /**
    * Detect "sky / clouds / sunset / sunrise" intent.
    * → uses a sky-only mask so only the sky region is edited.
    */
-  function _isSkyPrompt(prompt) {
-    return /небо|хмар|sky|cloud|sunset|sunrise|захід\s*сонц|схід\s*сонц|зорі|stars|зоряне/i.test(prompt);
-  }
 
   /**
    * Build a sky-only mask for gpt-image-1:
@@ -8122,54 +6257,8 @@
    */
   // Detect sky horizon Y coordinate from image pixels.
   // Scans top-down: stops at first row where <35% of pixels look like sky.
-  async function photoAiDetectSkyHorizon(dataUrl) {
-    const S = 1024;
-    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-    const img = await new Promise(resolve => {
-      const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = dataUrl;
-    });
-    if (!img) return Math.round(S * 0.30);
-    ctx.drawImage(img, 0, 0, S, S);
-    const px = ctx.getImageData(0, 0, S, S).data;
-    function _isSkyPx(r, g, b) {
-      // Exclude: grass green, skin tones, dark pixels
-      if (g > r * 1.08 && g > b * 1.05 && g > 60) return false; // green
-      if (r > 150 && r > b + 50 && g > b + 10 && g < r + 30) return false; // skin/warm
-      const br = (r + g + b) / 3;
-      if (br < 80) return false; // too dark
-      const mx = Math.max(r,g,b), mn = Math.min(r,g,b), sat = mx > 0 ? (mx-mn)/mx : 0;
-      if (br > 150 && sat < 0.30) return true;  // white/gray overcast sky
-      if (b > r + 20 && br > 90) return true;   // blue sky
-      if (r > 190 && g < 130 && b < 100) return true; // deep orange/red sunset
-      return false;
-    }
-    let horizonY = Math.round(S * 0.30); // conservative default
-    for (let y = 3; y < Math.round(S * 0.65); y++) {
-      let skyCount = 0;
-      for (let x = 0; x < S; x++) {
-        const b = (y * S + x) * 4;
-        if (_isSkyPx(px[b], px[b+1], px[b+2])) skyCount++;
-      }
-      if (skyCount / S < 0.35) { horizonY = y; break; }
-    }
-    return horizonY;
-  }
 
   // Build gpt-image-1 alpha mask: transparent (alpha=0) = sky editable, opaque = protected.
-  async function photoAiCreateSkyMask(dataUrl, segMask) {
-    const S = 1024;
-    const horizonY = await photoAiDetectSkyHorizon(dataUrl);
-    const out = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const y = Math.floor(i / S);
-      const isPlayer = segMask && segMask[i] > 0.15;
-      out[i*4+3] = (y < horizonY && !isPlayer) ? 0 : 255;
-    }
-    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-    cv.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-    return { maskDataUrl: cv.toDataURL('image/png'), horizonY };
-  }
 
   /**
    * Composite sky from AI result with original ground/player.
@@ -8177,44 +6266,6 @@
    * gpt-image-1 tends to recompose the whole scene even with a mask,
    * so we take its sky and discard everything else.
    */
-  async function photoAiSkyComposite(aiDataUrl, origDataUrl, horizonY, segMask) {
-    const S = 1024;
-    const loadImg = url => new Promise(resolve => {
-      const im = new Image(); im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = url;
-    });
-    const [aiImg, origImg] = await Promise.all([loadImg(aiDataUrl), loadImg(origDataUrl)]);
-    if (!aiImg || !origImg) return aiDataUrl;
-
-    const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-
-    ctx.drawImage(aiImg, 0, 0, S, S);
-    const aiPx = ctx.getImageData(0, 0, S, S).data;
-    ctx.clearRect(0, 0, S, S);
-    ctx.drawImage(origImg, 0, 0, S, S);
-    const origPx = ctx.getImageData(0, 0, S, S).data;
-
-    const out = new Uint8ClampedArray(S * S * 4);
-    const feather = 40; // wider feather = more natural sky-to-ground transition
-    for (let i = 0; i < S * S; i++) {
-      const y = Math.floor(i / S);
-      const isPlayer = segMask && segMask[i] > 0.15;
-      let t; // 1 = use AI sky, 0 = use original
-      if (isPlayer || y > horizonY + feather) {
-        t = 0;
-      } else if (y < horizonY - feather) {
-        t = 1;
-      } else {
-        t = 1 - (y - (horizonY - feather)) / (feather * 2);
-      }
-      out[i*4]   = aiPx[i*4]   * t + origPx[i*4]   * (1-t) | 0;
-      out[i*4+1] = aiPx[i*4+1] * t + origPx[i*4+1] * (1-t) | 0;
-      out[i*4+2] = aiPx[i*4+2] * t + origPx[i*4+2] * (1-t) | 0;
-      out[i*4+3] = 255;
-    }
-    ctx.putImageData(new ImageData(out, S, S), 0, 0);
-    return cv.toDataURL('image/png');
-  }
 
   /**
    * Create a PRECISE Stability AI inpaint mask from GPT-4o bounding boxes.
@@ -8226,45 +6277,6 @@
    * @param {number} S      canvas size (1024)
    * @param {Float32Array} segMask  player mask — ensure player zone stays black too
    */
-  function photoAiCreatePrecisePeopleMask(people, S, segMask) {
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-
-    // Start all black = preserve everything
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, S, S);
-
-    // Paint each detected background person WHITE — large ellipse covers whole group
-    // PAD=130px: generous margin so lying/crouching people and edge cases are fully covered
-    // even when GPT-4o bounding boxes underestimate the actual person extent.
-    const PAD = 130;
-    ctx.fillStyle = '#fff';
-    for (const p of people) {
-      const cx = (p.cx / 100) * S;
-      const cy = (p.cy / 100) * S;
-      const rw = ((p.w  / 100) * S) / 2 + PAD;
-      const rh = ((p.h  / 100) * S) / 2 + PAD;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // NO blur — keep mask crisp so AI doesn't touch fence/grass outside person area
-    const raw = ctx.getImageData(0, 0, S, S).data;
-    const finalData = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const idx = i * 4;
-      // Keep player zone BLACK even if it falls inside a people ellipse
-      const isPlayer = segMask && segMask[i] > 0.3;
-      const v = (!isPlayer && raw[idx] > 128) ? 255 : 0;
-      finalData[idx] = v; finalData[idx+1] = v; finalData[idx+2] = v; finalData[idx+3] = 255;
-    }
-    const finalCv = document.createElement('canvas');
-    finalCv.width = S; finalCv.height = S;
-    finalCv.getContext('2d').putImageData(new ImageData(finalData, S, S), 0, 0);
-    return finalCv.toDataURL('image/png');
-  }
 
   /**
    * Create a FULL-BACKGROUND Stability AI mask (fallback when no people detected).
@@ -8287,69 +6299,7 @@
    * @param {number} S               - Canvas size (1024)
    * @param {Object|null} playerBbox - {cx,cy,w,h} in % — GPT-4o player bbox
    */
-  function photoAiCreateBgSpectatorMask(segMask, S, playerBbox) {
-    // Player "safe zone" in pixels — guaranteed BLACK in mask so Stability never touches player.
-    // PAD=80: generous so extended arms/hair/feet stay protected.
-    const PAD = 80;
-    let hasBbox = false;
-    let pxL = 0, pxR = 0, pxT = 0, pxB = 0;
-    if (playerBbox && playerBbox.cx != null) {
-      const pcx = (playerBbox.cx / 100) * S;
-      const pcy = (playerBbox.cy / 100) * S;
-      const phw = ((playerBbox.w  / 100) * S) / 2 + PAD;
-      const phh = ((playerBbox.h  / 100) * S) / 2 + PAD;
-      pxL = Math.max(0, pcx - phw);
-      pxR = Math.min(S - 1, pcx + phw);
-      pxT = Math.max(0, pcy - phh);
-      pxB = Math.min(S - 1, pcy + phh);
-      hasBbox = true;
-    }
 
-    const d = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const idx = i * 4;
-      const px = i % S;
-      const py = Math.floor(i / S);
-      const isPerson = segMask ? segMask[i] > 0.3 : false;
-
-      let v = 0; // default: preserve (BLACK)
-      if (isPerson) {
-        if (hasBbox) {
-          // Player bbox approach: white if person pixel is OUTSIDE player safe zone
-          const inPlayerZone = px >= pxL && px <= pxR && py >= pxT && py <= pxB;
-          v = inPlayerZone ? 0 : 255;
-        } else {
-          // No player bbox (GPT-4o failed) — SAFE FALLBACK:
-          // Keep ALL person pixels BLACK (preserve). This means spectators stay too,
-          // but at least the player face is NEVER erased. Better than erasing the player.
-          v = 0;
-        }
-      } else {
-        // Non-person background pixel → always BLACK (preserve fence/grass)
-        v = 0;
-      }
-      d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
-    }
-
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
-    return cv.toDataURL('image/png');
-  }
-
-  function photoAiCreateStabilityMask(segMask, S) {
-    const d = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const idx = i * 4;
-      const p = 1 - _smoothstep((segMask[i] - 0.05) / 0.20);
-      const v = Math.round(p * 255);
-      d[idx] = v; d[idx+1] = v; d[idx+2] = v; d[idx+3] = 255;
-    }
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    cv.getContext('2d').putImageData(new ImageData(d, S, S), 0, 0);
-    return cv.toDataURL('image/png');
-  }
 
   /**
    * Returns a version of the image where the main player zone is replaced
@@ -8361,50 +6311,6 @@
    * background people. After the API call we stamp the original player back
    * on top — clean compositing with natural grass edge, no white halo.
    */
-  async function photoAiHidePlayer(orig1024DataUrl, segMask) {
-    const S = 1024;
-    const img = await new Promise(r => {
-      const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = orig1024DataUrl;
-    });
-    if (!img || !segMask) return orig1024DataUrl;
-
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-    ctx.drawImage(img, 0, 0, S, S);
-    const origPx = ctx.getImageData(0, 0, S, S).data;
-
-    // ── Compute average background colour (sampled from non-player pixels) ───
-    // This is the fill colour we paint over the player zone.
-    // A uniform flat colour looks nothing like a person to gpt-image-1 and
-    // the model fills it seamlessly with matching texture (grass, field, etc.)
-    let rS=0, gS=0, bS=0, n=0;
-    for (let i = 0; i < S * S; i += 6) {
-      if (segMask[i] < 0.05) { rS += origPx[i*4]; gS += origPx[i*4+1]; bS += origPx[i*4+2]; n++; }
-    }
-    const fillR = n ? Math.round(rS/n) : 80;
-    const fillG = n ? Math.round(gS/n) : 130;
-    const fillB = n ? Math.round(bS/n) : 60;
-
-    // ── Paint player zone with the flat background colour ────────────────────
-    const out = new Uint8ClampedArray(S * S * 4);
-    for (let i = 0; i < S * S; i++) {
-      const idx = i * 4;
-      const m = segMask[i]; // 1 = player, 0 = background
-      out[idx]   = Math.round(origPx[idx]   * (1 - m) + fillR * m);
-      out[idx+1] = Math.round(origPx[idx+1] * (1 - m) + fillG * m);
-      out[idx+2] = Math.round(origPx[idx+2] * (1 - m) + fillB * m);
-      out[idx+3] = 255;
-    }
-
-    // Hard boundary — no blur. gpt-image-1 handles sharp inpainting edges
-    // perfectly, and blurring creates a colour-mixed zone that leaks into
-    // the compositing and produces a blurry silhouette around the player.
-    const filled = document.createElement('canvas');
-    filled.width = S; filled.height = S;
-    filled.getContext('2d').putImageData(new ImageData(out, S, S), 0, 0);
-    return filled.toDataURL('image/jpeg', 0.93);
-  }
 
   // Store the 1024×1024 crop so we can composite without re-loading
   let photoAiOrig1024 = null;
@@ -8414,388 +6320,16 @@
    * Shows the #photoAiPlayerQ panel, waits for a button click, then hides it.
    * Returns true = "yes, transform player too", false = "no, keep original".
    */
-  function _photoAiAskEditPlayer() {
-    return new Promise(resolve => {
-      const q   = document.getElementById('photoAiPlayerQ');
-      const btn = document.getElementById('photoAiBtn');
-      btn.style.display = 'none';
-      q.style.display   = 'block';
 
-      function onYes() { cleanup(); resolve(true);  }
-      function onNo()  { cleanup(); resolve(false); }
-      function cleanup() {
-        q.style.display   = 'none';
-        btn.style.display = '';
-        document.getElementById('photoAiPlayerYes').removeEventListener('click', onYes);
-        document.getElementById('photoAiPlayerNo' ).removeEventListener('click', onNo);
-      }
-      document.getElementById('photoAiPlayerYes').addEventListener('click', onYes);
-      document.getElementById('photoAiPlayerNo' ).addEventListener('click', onNo);
-    });
-  }
-
-  async function photoAiGenerate() {
-    const prompt = document.getElementById('photoAiPrompt').value.trim();
-    if (!prompt) { alert('Напиши що змінити!'); return; }
-    if (!photoAiOrigDataUrl) return;
-
-    const removePeople  = _isRemovePeoplePrompt(prompt);
-    const isBlur        = _isBlurPrompt(prompt);
-    const isSky         = _isSkyPrompt(prompt);
-    const isFilter      = _isFilterPrompt(prompt);  // includes cinematic
-    const isSkinRetouch = _isSkinRetouchPrompt(prompt);
-
-    // No dialog needed — routing is smart:
-    // skin → expose player; background → protect player; filters → canvas.
-    // (Dialog was confusing users and led to bad results regardless of answer.)
-
-    // Show progress
-    document.getElementById('photoAiStep2').style.display = 'none';
-    document.getElementById('photoAiStep3').style.display = 'block';
-    const bar = document.getElementById('photoAiProgBar');
-    const txt = document.getElementById('photoAiProgText');
-    txt.textContent = 'Підготовка…';
-    bar.style.width = '4%';
-
-    // ── Use the SAME square 1024px crop for everything ─────────────────────
-    photoAiOrig1024 = await photoAiResize1024(photoAiOrigDataUrl);
-    document.getElementById('photoAiBefore').src = photoAiOrig1024;
-
-    try {
-      // ── Step 1: Run MediaPipe segmentation (pixel-perfect person mask) ───
-      txt.textContent = 'Визначаю людину…';
-      bar.style.width = '12%';
-      const segMask = await photoAiRunSeg(photoAiOrig1024);
-      bar.style.width = '30%';
-
-      // ── Step 2: Choose path based on prompt type ─────────────────────────
-      if (isBlur) {
-        // ── CLIENT-SIDE BLUR PATH ─────────────────────────────────────────
-        txt.textContent = 'Розмиваю фон…';
-        bar.style.width = '55%';
-        photoAiResultDataUrl = await photoAiBlurBg(photoAiOrig1024, segMask);
-        bar.style.width = '100%';
-      } else if (isFilter) {
-        // ── CLIENT-SIDE FILTER PATH — contrast / saturation / brightness ──
-        // gpt-image-1 can't do "increase contrast" — it regenerates the whole
-        // scene. Canvas pixel manipulation is faster, cheaper, and correct.
-        txt.textContent = 'Застосовую фільтр…';
-        bar.style.width = '60%';
-        photoAiResultDataUrl = await photoAiApplyFilter(photoAiOrig1024, prompt);
-        bar.style.width = '100%';
-      } else {
-        // ── AI EDIT PATH ─────────────────────────────────────────────────
-        bar.style.width = '40%';
-        txt.textContent = segMask ? '🎯 Сегментація готова…' : 'Підготовка…';
-
-        // Animate while waiting for API
-        let pct = 42;
-        let tick = setInterval(() => {
-          pct = Math.min(pct + (pct < 70 ? 2 : 0.5), 90);
-          bar.style.width = pct + '%';
-          txt.textContent = pct < 55 ? '~20 секунд' : pct < 75 ? '~10 секунд' : 'Майже готово…';
-        }, 700);
-
-        try {
-          const BACKEND = (window.BACKEND_URL || '').replace(/\/$/, '');
-          const replaceBackground  = _isReplaceBackgroundPrompt(prompt);
-
-          // ── SMART ROUTING ─────────────────────────────────────────────────
-          // Different tasks need different AI tools:
-          //
-          //  1. "Прибрати людей"  → Stability AI inpainting
-          //     Dedicated removal model — doesn't generate new content, just fills
-          //     the exact spot where people stood. Preserves fence/field perfectly.
-          //
-          //  2. "Змінити фон на стадіон / ліс / місто"  → gpt-image-1 generative
-          //     Needs to CREATE a new background — generative model is right here.
-          //     Player protected by mask.
-          //
-          //  3. "Освітлення / стиль / ефекти"  → gpt-image-1 + player mask
-          //     Style changes on the background while keeping player pixel-perfect.
-          //
-          //  4. "Розмити фон"  → client-side (already handled above, no API needed)
-
-          let resp;
-          let _skyHorizonY = null; // set in sky path, used in result composite
-
-          if (removePeople) {
-            // ── 2-PHASE PEOPLE REMOVAL ─────────────────────────────────────
-            //
-            // Phase 1 — BodyPix dual-threshold (client-side, no API key):
-            //   segmentMultiPerson @ 0.15 catches standing/prominent spectators.
-            //   Dilated playerMask (25px) ensures player edges never get erased.
-            //
-            // Phase 2 — GPT-4o + Stability Erase (server-side, 2-pass):
-            //   GPT-4o Vision SEES sitting, crouching, partial, behind-fence people
-            //   that BodyPix misses. 2 passes catch anyone missed in the first scan.
-            //
-            // Running both gives comprehensive coverage for all photo types.
-            // Each phase feeds the next: Phase 2 runs on Phase 1 output.
-            //
-            // Self-contained: sets photoAiResultDataUrl directly, no resp needed.
-
-            txt.textContent = '🔍 Шукаю людей…';
-            let currentImage = photoAiOrig1024;
-
-            // ── Phase 1: BodyPix → standing spectators ─────────────────────
-            try {
-              const allPeopleMask = await photoAiRunAllPeopleSeg(photoAiOrig1024);
-              if (allPeopleMask) {
-                txt.textContent = '🎯 Крок 1/2: стоячі глядачі…';
-                bar.style.width = '50%';
-                const spectatorMask = await photoAiCreateSpectatorOnlyMask(allPeopleMask, segMask, 1024);
-                const r1 = await fetch(`${BACKEND}/api/carousel/inpaint`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ image: photoAiOrig1024, mask: spectatorMask }),
-                });
-                if (r1.ok) {
-                  const d1 = await r1.json();
-                  if (d1.b64) currentImage = `data:image/png;base64,${d1.b64}`;
-                }
-              }
-            } catch (_) { /* Phase 1 failure → still try Phase 2 */ }
-
-            // ── Phase 2: GPT-4o server-side → sitting/partial/remaining ───
-            try {
-              txt.textContent = '🎯 Крок 2/2: сидячі та решта…';
-              bar.style.width = '75%';
-              const r2 = await fetch(`${BACKEND}/api/carousel/remove-people`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: currentImage }),
-              });
-              if (r2.ok) {
-                const d2 = await r2.json();
-                if (d2.b64) currentImage = `data:image/png;base64,${d2.b64}`;
-              }
-            } catch (_) { /* Phase 2 failure → use Phase 1 result */ }
-
-            // ── Done ───────────────────────────────────────────────────────
-            clearInterval(tick); tick = null;
-            bar.style.width = '100%';
-            txt.textContent = '✅ Готово';
-            photoAiResultDataUrl = currentImage;
-
-          } else {
-            // ── PATH 2: gpt-image-1 ───────────────────────────────────────────
-            const reqBody = { image: photoAiOrig1024, prompt };
-
-            if (isSkinRetouch && segMask) {
-              // SKIN RETOUCH: expose the player (transparent = edit skin),
-              // protect the background (opaque). AI edits only the person's skin.
-              reqBody.mask = await photoAiCreatePlayerExposedMask(segMask);
-            } else if (isSky) {
-              // SKY REPLACE — mask derived from player position, not sky colour.
-              //
-              // OLD bug: colour-based horizon stopped at row ~5-10 (trees immediately
-              // below the tiny sky sliver) → only 5px masked → no visible change.
-              //
-              // NEW fix: horizon = topmost player pixel (BodyPix segMask).
-              //   • Everything above the player's head = transparent (AI fills this).
-              //   • Player itself + everything below = opaque (protected).
-              //   Sending a proper-sized mask forces gpt-image-1 to actually
-              //   replace that region with dramatic sky.
-              //   Client-side photoAiSkyComposite then blends the result.
-              const S = 1024;
-              let horizonY;
-              if (segMask) {
-                // Find topmost player pixel → horizon = player head Y
-                let topY = Math.round(S * 0.50); // safe fallback
-                for (let idx = 0; idx < S * S; idx++) {
-                  if (segMask[idx] > 0.15) { topY = Math.floor(idx / S); break; }
-                }
-                horizonY = Math.max(topY, Math.round(S * 0.22)); // min 22% sky zone
-                horizonY = Math.min(horizonY, Math.round(S * 0.62)); // max 62%
-              } else {
-                horizonY = Math.round(S * 0.38); // no segmask: top 38%
-              }
-              _skyHorizonY = horizonY;
-              // Build mask: transparent (alpha=0) above horizon = AI edits here
-              const skyMaskData = new Uint8ClampedArray(S * S * 4);
-              for (let i = 0; i < S * S; i++) {
-                const y = Math.floor(i / S);
-                const isPlayerPx = segMask && segMask[i] > 0.15;
-                skyMaskData[i*4+3] = (y < horizonY && !isPlayerPx) ? 0 : 255;
-              }
-              const skyMaskCv = document.createElement('canvas');
-              skyMaskCv.width = S; skyMaskCv.height = S;
-              skyMaskCv.getContext('2d').putImageData(new ImageData(skyMaskData, S, S), 0, 0);
-              reqBody.mask = skyMaskCv.toDataURL('image/png');
-            } else if (segMask) {
-              // GENERIC BACKGROUND EDIT: protect player, AI edits background.
-              // Send WITHOUT mask — AI generates a clean background, then we
-              // composite the original player back client-side (pixel-perfect).
-              // This avoids gpt-image-1 recomposing the scene due to large mask area.
-              // (No reqBody.mask = no mask sent)
-            }
-
-            resp = await fetch(`${BACKEND}/api/carousel/enhance`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(reqBody),
-            });
-          }
-          // ── Handle response ───────────────────────────────────────────────
-          if (resp) {
-            clearInterval(tick); tick = null;
-            if (!resp.ok) {
-              let errMsg = `Помилка сервера ${resp.status}`;
-              let retryable = resp.status === 503 || resp.status === 502 || resp.status === 429;
-              try {
-                const errBody = await resp.json();
-                if (errBody.error) errMsg = errBody.error;
-                if (errBody.retryable) retryable = true;
-              } catch (_) {}
-              if (retryable) {
-                // Show retry UI instead of hard alert
-                document.getElementById('photoAiStep3').style.display = 'none';
-                document.getElementById('photoAiStep2').style.display = 'block';
-                const retryBanner = document.createElement('div');
-                retryBanner.style.cssText = 'background:#ff6b3522;border:1.5px solid #ff6b35;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#ff9a6c;display:flex;align-items:center;gap:10px;';
-                retryBanner.innerHTML = `<span style="font-size:18px;">⚠️</span><div><b>AI сервіс тимчасово перевантажений</b><br>Зачекай 10–20 секунд і спробуй ще раз.</div>`;
-                const step2 = document.getElementById('photoAiStep2');
-                step2.insertBefore(retryBanner, step2.firstChild);
-                setTimeout(() => retryBanner.remove(), 8000);
-                return;
-              }
-              throw new Error(errMsg);
-            }
-            const data = await resp.json();
-
-            if (!data.b64) {
-              // No background people found, or SAM-2 couldn't produce masks
-              photoAiResultDataUrl = photoAiOrig1024;
-              bar.style.width = '100%';
-              const noOp = 'Людей на фоні не знайдено';
-              txt.textContent = noOp;
-            } else {
-              bar.style.width = '95%';
-              const aiResult = `data:image/png;base64,${data.b64}`;
-
-              if (removePeople) {
-                // Stability AI handled removal — result is final.
-                txt.textContent = '✅ Готово';
-                photoAiResultDataUrl = aiResult;
-              } else if (isSkinRetouch) {
-                // AI edited only the player's skin (player-exposed mask).
-                // Result is final — no composite needed.
-                txt.textContent = '✅ Готово';
-                photoAiResultDataUrl = aiResult;
-              } else if (isSky) {
-                // Take AI sky pixels only; paste original ground + player client-side.
-                txt.textContent = 'Накладаю небо…';
-                const hy = _skyHorizonY ?? Math.round(1024 * 0.30);
-                photoAiResultDataUrl = await photoAiSkyComposite(aiResult, photoAiOrig1024, hy, segMask);
-              } else {
-                // Generic background edit: AI generated a stylized background.
-                // Composite original player back on top — pixel-perfect preservation.
-                txt.textContent = 'Зберігаю гравця…';
-                photoAiResultDataUrl = await photoAiComposite(aiResult, photoAiOrig1024, segMask);
-              }
-              bar.style.width = '100%';
-            }
-          }
-        } finally {
-          if (tick) { clearInterval(tick); tick = null; }
-        }
-      }
-
-      // Show result
-      document.getElementById('photoAiBeforeSmall').src = photoAiOrig1024;
-      document.getElementById('photoAiAfterSmall').src  = photoAiResultDataUrl;
-      document.getElementById('photoAiAfterImg').src    = photoAiResultDataUrl;
-      document.getElementById('photoAiStep3').style.display = 'none';
-      document.getElementById('photoAiStep4').style.display = 'block';
-      // Show sky colour picker only when this was a sky edit
-      document.getElementById('skyColorPicker').style.display = isSky ? 'block' : 'none';
-      // Reset active state on sky chips
-      document.querySelectorAll('.sky-chip').forEach(b => b.classList.remove('sky-active'));
-    } catch (err) {
-      document.getElementById('photoAiStep3').style.display = 'none';
-      document.getElementById('photoAiStep4').style.display = 'none';
-      document.getElementById('photoAiStep2').style.display = 'block';
-      const msg = (err && err.message) ? err.message : String(err);
-      // Don't double-show retryable errors (already handled with inline banner)
-      if (msg.indexOf('тимчасово') === -1) {
-        alert('Помилка: ' + msg);
-      }
-    }
-  }
 
   // Quick sky colour change — sets prompt + re-runs generation from original photo
-  function photoAiQuickSky(skyPrompt, btn) {
-    // Highlight active chip
-    document.querySelectorAll('.sky-chip').forEach(b => b.classList.remove('sky-active'));
-    if (btn) btn.classList.add('sky-active');
-    // Set prompt and run
-    document.getElementById('photoAiPrompt').value = skyPrompt;
-    // Jump back to processing (hide step4, show step3 briefly via generate)
-    document.getElementById('photoAiStep4').style.display = 'none';
-    document.getElementById('photoAiStep3').style.display = 'block';
-    photoAiGenerate();
-  }
 
-  function photoAiAgain() {
-    document.getElementById('photoAiStep4').style.display = 'none';
-    document.getElementById('photoAiStep2').style.display = 'block';
-  }
 
-  function photoAiReset() {
-    photoAiOrigDataUrl = null;
-    photoAiResultDataUrl = null;
-    document.getElementById('photoAiPrompt').value = '';
-    document.getElementById('photoAiStep4').style.display = 'none';
-    document.getElementById('photoAiStep3').style.display = 'none';
-    document.getElementById('photoAiStep2').style.display = 'none';
-    document.getElementById('photoAiStep1').style.display = 'block';
-  }
 
-  function photoAiDownload() {
-    if (!photoAiResultDataUrl) return;
-    const a = document.createElement('a');
-    a.href = photoAiResultDataUrl;
-    a.download = 'octo_ai_edit.png';
-    a.click();
-  }
 
   // ── Generic image fullscreen lightbox ──────────────────────────────────────
-  function photoShowFullscreen(src, label) {
-    const lb = document.createElement('div');
-    lb.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;';
-    lb.onclick = e => { if (e.target === lb || e.target === img) lb.remove(); };
-    const topBar = document.createElement('div');
-    topBar.style.cssText = 'position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;';
-    topBar.innerHTML = `<span style="color:#fff;font-size:13px;font-weight:700;">${label || ''}</span>`;
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '×';
-    closeBtn.style.cssText = 'background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer;line-height:1;';
-    closeBtn.onclick = () => lb.remove();
-    topBar.appendChild(closeBtn);
-    const dlBtn = document.createElement('button');
-    dlBtn.textContent = '💾 Скачати';
-    dlBtn.style.cssText = 'background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;margin-right:8px;';
-    dlBtn.onclick = () => { const a = document.createElement('a'); a.href = src; a.download = 'octo_photo.jpg'; a.click(); };
-    topBar.insertBefore(dlBtn, closeBtn);
-    const img = document.createElement('img');
-    img.src = src;
-    img.style.cssText = 'max-width:92vw;max-height:84vh;border-radius:10px;object-fit:contain;';
-    lb.appendChild(topBar);
-    lb.appendChild(img);
-    document.body.appendChild(lb);
-  }
 
-  function photoFilterFullscreen() {
-    const cv = document.getElementById('photoAfter');
-    if (!cv) return;
-    photoShowFullscreen(cv.toDataURL('image/jpeg', 0.95), '🎨 Результат фільтра');
-  }
 
-  function photoAiFullscreen() {
-    if (!photoAiResultDataUrl) return;
-    photoShowFullscreen(photoAiResultDataUrl, '🤖 AI редагування');
-  }
 
   // =============================================
   // 🐙 ЖИВОЙ МАСКОТ — следит за мышкой
@@ -9298,57 +6832,9 @@
   // than a month grid. The grid stays one tap away via the view toggle.
   let calYear, calMonth, calSelectedDate = null, calListMode = true;
 
-  function calInit() {
-    const now = new Date();
-    if (!calYear)  calYear  = now.getFullYear();
-    if (!calMonth) calMonth = now.getMonth();
-    // Show profile hint if no profile configured
-    const hint = document.getElementById('calProfileHint');
-    if (hint) {
-      const hasProfile = (typeof getWsProfile !== 'undefined') && !!getWsProfile(getActiveWsId());
-      hint.style.display = hasProfile ? 'none' : '';
-    }
-    // Sync the view to calListMode (HTML defaults to grid visible).
-    const gv = document.getElementById('calGridView');
-    const lv = document.getElementById('calListView');
-    const tb = document.getElementById('calViewToggleBtn');
-    if (gv) gv.style.display = calListMode ? 'none' : '';
-    if (lv) lv.style.display = calListMode ? '' : 'none';
-    if (tb) tb.textContent = calListMode ? '📅' : '📋';
-    calRender();
-    if (calListMode) calRenderList();
-  }
 
-  function calNav(dir) {
-    calMonth += dir;
-    if (calMonth > 11) { calMonth = 0;  calYear++; }
-    if (calMonth < 0)  { calMonth = 11; calYear--; }
-    calSelectedDate = null;
-    document.getElementById('calEditor').style.display = 'none';
-    calRender();
-  }
 
-  function calToggleView() {
-    calListMode = !calListMode;
-    const btn = document.getElementById('calViewToggleBtn');
-    document.getElementById('calGridView').style.display  = calListMode ? 'none' : '';
-    document.getElementById('calListView').style.display  = calListMode ? '' : 'none';
-    if (btn) btn.textContent = calListMode ? '📅' : '📋';
-    if (calListMode) calRenderList();
-  }
 
-  function calClearMonth() {
-    const lang = currentLang || 'uk';
-    const months = CAL_MONTHS[lang] || CAL_MONTHS.uk;
-    if (!confirm('Очистити всі публікації за ' + months[calMonth] + ' ' + calYear + '?')) return;
-    const data = calLoad();
-    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-    for (let d = 1; d <= daysInMonth; d++) delete data[calKey(calYear, calMonth, d)];
-    calSave(data);
-    document.getElementById('calEditor').style.display = 'none';
-    calSelectedDate = null;
-    calRender();
-  }
 
   function calRender() {
     const lang   = currentLang || 'uk';
@@ -9852,40 +7338,8 @@
     }, 100);
   }
 
-  function calTypeChip(el) {
-    document.querySelectorAll('#calTypeChips .cal-type-chip').forEach(c => {
-      c.classList.remove('selected');
-      c.style.background = '';
-      c.style.borderColor = '';
-    });
-    el.classList.add('selected');
-    el.style.background   = el.dataset.color;
-    el.style.borderColor  = el.dataset.color;
-    calSmartTimeUpdate(el.dataset.type);
-  }
 
-  function calTimeChip(el) {
-    document.querySelectorAll('#calTimeChips .cal-type-chip').forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
-  }
 
-  function calAddPost() {
-    if (!calSelectedDate) return;
-    const type = document.querySelector('#calTypeChips .cal-type-chip.selected')?.dataset.type || 'post';
-    const time = document.querySelector('#calTimeChips .cal-type-chip.selected')?.dataset.time || '';
-    const note = document.getElementById('calPostNote').value.trim();
-
-    const data = calLoad();
-    if (!data[calSelectedDate]) data[calSelectedDate] = [];
-    // Sort by time when inserting
-    data[calSelectedDate].push({ type, note, time });
-    data[calSelectedDate].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-    calSave(data);
-
-    document.getElementById('calPostNote').value = '';
-    calRenderDayPosts(calSelectedDate);
-    calRender();
-  }
 
   function calDeletePost(key, idx) {
     const data = calLoad();
@@ -10205,62 +7659,16 @@
     if (genBtn) genBtn.disabled = count < 2;
   }
 
-  function crHandleFiles(files) {
-    const remaining = CR_MAX_PHOTOS - crState.photos.length;
-    const toLoad = Array.from(files).slice(0, remaining);
-    let loaded = 0;
-    toLoad.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const dataUrl = e.target.result;
-        const img = new Image();
-        img.onload = () => {
-          crState.photos.push({ file, dataUrl, img });
-          loaded++;
-          if (loaded === toLoad.length) crRefreshGrid();
-        };
-        img.src = dataUrl;
-      };
-      reader.readAsDataURL(file);
-    });
-  }
 
   function crRemovePhoto(idx) {
     crState.photos.splice(idx, 1);
     crRefreshGrid();
   }
 
-  function crClearPhotos() {
-    crState.photos = [];
-    crRefreshGrid();
-  }
 
   // ── UI helpers ──────────────────────────────────────────────────────────────
-  function crStep(n) {
-    [1, 2, 3].forEach(i => {
-      const el = document.getElementById('cr' + i);
-      if (el) el.style.display = i === n ? '' : 'none';
-      const lbl = document.getElementById('crn' + i);
-      if (lbl) lbl.className = 'vstep' + (i === n ? ' active' : i < n ? ' done' : '');
-    });
-    if (n === 1) crInitGrid();
-  }
 
-  function crSetLang(lang, btn) {
-    crState.language = lang;
-    ['crLangUk','crLangRu','crLangEn'].forEach(id => {
-      const b = document.getElementById(id); if (b) b.classList.remove('active');
-    });
-    if (btn) btn.classList.add('active');
-  }
 
-  function crSetTheme(themeId, el) {
-    crState.theme = themeId;
-    document.querySelectorAll('.cr-theme-swatch').forEach(s => {
-      s.style.borderColor = 'transparent';
-    });
-    if (el) el.style.borderColor = 'var(--accent)';
-  }
 
   function crUpdatePremiumUI() {
     const wrap = document.getElementById('crPremiumToggleWrap');
@@ -10287,236 +7695,15 @@
   }
 
   // ── Generation ──────────────────────────────────────────────────────────────
-  async function crGenerate() {
-    if (crState.photos.length < 2) { alert('Додай мінімум 2 фото!'); return; }
-    const stylePrompt = document.getElementById('crStylePrompt')?.value.trim() || '';
-    const dalleToggle = document.getElementById('crDalleToggle');
-    crState.dalleEnabled = octoIsPremium() && dalleToggle?.checked;
 
-    crStep(2);
-    const bar   = document.getElementById('crGenBar');
-    const icon  = document.getElementById('crGenIcon');
-    const title = document.getElementById('crGenTitle');
-    const sub   = document.getElementById('crGenSub');
-    const prog  = document.getElementById('crGenProgress');
-
-    bar.style.width = '15%';
-    icon.textContent = '👁'; title.textContent = 'GPT-4 аналізує фото...';
-    sub.textContent = `Передивляється ${crState.photos.length} фото разом`; prog.textContent = '';
-
-    try {
-      // 1. Analyze photos with GPT-4 Vision
-      const photos64 = crState.photos.map(p => p.dataUrl);
-      const analysisRes = await fetch('/api/carousel/analyze-photos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photos: photos64, stylePrompt, language: crState.language }),
-      });
-      if (!analysisRes.ok) throw new Error('Помилка аналізу фото');
-      const analysis = await analysisRes.json();
-      crState.captions = analysis.captions || crState.photos.map((_, i) => `Фото ${i + 1}`);
-
-      bar.style.width = '45%';
-
-      // 2. Premium DALL-E restyle
-      const bgImages = crState.photos.map(p => p.img); // default: use original
-      if (crState.dalleEnabled) {
-        icon.textContent = '🎨'; title.textContent = 'DALL-E перемальовує фото...';
-        for (let i = 0; i < crState.photos.length; i++) {
-          sub.textContent = `Рестайл фото ${i + 1} з ${crState.photos.length}...`;
-          prog.textContent = `~${(crState.photos.length - i - 1) * 8} сек`;
-          bar.style.width = (45 + Math.round((i / crState.photos.length) * 40)) + '%';
-          try {
-            const dr = await fetch('/api/carousel/dalle', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                description: `${analysis.theme} style, ${crState.captions[i]}`,
-                theme: crState.theme
-              }),
-            });
-            if (dr.ok) {
-              const { b64 } = await dr.json();
-              if (b64) bgImages[i] = await crLoadBase64Image(b64);
-            }
-          } catch {}
-        }
-      }
-
-      bar.style.width = '88%';
-      icon.textContent = '🖼'; title.textContent = 'Рендеримо слайди...';
-      sub.textContent = ''; prog.textContent = '';
-
-      // 3. Render canvases
-      const theme = CR_THEMES[crState.theme];
-      crState.canvases = crState.photos.map((_, i) =>
-        crRenderPhotoSlide(bgImages[i], crState.captions[i], analysis.overallCaption, i, crState.photos.length, theme, analysis.hashtags, carFontStyle)
-      );
-
-      bar.style.width = '100%';
-      crBuildPreview();
-      crStep(3);
-      const info = document.getElementById('crDoneInfo');
-      if (info) info.textContent = `${crState.photos.length} слайдів · "${analysis.theme}"${crState.dalleEnabled ? ' · AI рестайл' : ''}`;
-
-    } catch(e) {
-      crStep(1);
-      crInitGrid();
-      alert('Помилка: ' + e.message);
-    }
-  }
-
-  function crLoadBase64Image(b64) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = b64.startsWith('data:') ? b64 : 'data:image/png;base64,' + b64;
-    });
-  }
 
   // ── Canvas: render one photo slide ─────────────────────────────────────────
-  function crRenderPhotoSlide(photo, caption, overallCaption, index, total, theme, hashtags, fontStyle) {
-    const SIZE = 1080;
-    const canvas = document.createElement('canvas');
-    canvas.width = SIZE; canvas.height = SIZE;
-    const ctx = canvas.getContext('2d');
-
-    // ── 1. Photo (cover-crop to square) ───────────────────────────────────────
-    if (photo && (photo.naturalWidth || photo.width)) {
-      const pw = photo.naturalWidth || photo.width;
-      const ph = photo.naturalHeight || photo.height;
-      const scale = Math.max(SIZE / pw, SIZE / ph);
-      const w = pw * scale, h = ph * scale;
-      ctx.drawImage(photo, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
-    } else {
-      const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-      bg.addColorStop(0, theme.bg1); bg.addColorStop(1, theme.bg2);
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, SIZE, SIZE);
-    }
-
-    // ── 2. Vignette (darkens edges all around) ────────────────────────────────
-    const vign = ctx.createRadialGradient(SIZE/2, SIZE/2, SIZE*0.28, SIZE/2, SIZE/2, SIZE*0.82);
-    vign.addColorStop(0, 'rgba(0,0,0,0)');
-    vign.addColorStop(1, 'rgba(0,0,0,0.60)');
-    ctx.fillStyle = vign; ctx.fillRect(0, 0, SIZE, SIZE);
-
-    // ── 3. Bottom gradient (for text readability) ─────────────────────────────
-    const bot = ctx.createLinearGradient(0, SIZE * 0.42, 0, SIZE);
-    bot.addColorStop(0, 'rgba(0,0,0,0)');
-    bot.addColorStop(0.5, 'rgba(0,0,0,0.55)');
-    bot.addColorStop(1,   'rgba(0,0,0,0.90)');
-    ctx.fillStyle = bot; ctx.fillRect(0, 0, SIZE, SIZE);
-
-    // ── 4. Accent bar — left vertical ─────────────────────────────────────────
-    ctx.fillStyle = theme.accent;
-    ctx.fillRect(0, SIZE * 0.52, 7, SIZE * 0.48);
-
-    // ── 5. Slide counter — top-right pill ─────────────────────────────────────
-    const numTxt = `${index + 1} / ${total}`;
-    ctx.save();
-    ctx.font = `600 ${SIZE * 0.026}px Arial, sans-serif`;
-    const numW = ctx.measureText(numTxt).width;
-    const pH = SIZE * 0.052, pW = numW + SIZE * 0.052, pR = pH / 2;
-    const pX = SIZE - pW - SIZE * 0.046, pY = SIZE * 0.038;
-    ctx.fillStyle = 'rgba(0,0,0,0.42)';
-    ctx.beginPath();
-    ctx.roundRect(pX, pY, pW, pH, pR);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.textAlign = 'center';
-    ctx.fillText(numTxt, pX + pW / 2, pY + pH * 0.685);
-    ctx.restore();
-
-    // ── 6. Caption text ───────────────────────────────────────────────────────
-    const _fontDefs = {
-      modern:  { font: `800 ${SIZE * 0.056}px Arial, sans-serif`,                  lh: SIZE * 0.068 },
-      classic: { font: `bold ${SIZE * 0.054}px Georgia, 'Times New Roman', serif`, lh: SIZE * 0.068 },
-      impact:  { font: `normal ${SIZE * 0.065}px Impact, 'Arial Narrow', sans-serif`, lh: SIZE * 0.074 },
-      thin:    { font: `300 italic ${SIZE * 0.058}px Arial, sans-serif`,            lh: SIZE * 0.070 },
-    };
-    const _fd = _fontDefs[fontStyle] || _fontDefs.modern;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.9)';
-    ctx.shadowBlur   = 24;
-    ctx.shadowOffsetY = 3;
-    ctx.textAlign = 'left';
-    ctx.font = _fd.font;
-    ctx.fillStyle = '#FFFFFF';
-    crWrapText(ctx, caption || '', SIZE * 0.058, SIZE - SIZE * 0.19, SIZE * 0.86, _fd.lh);
-    ctx.restore();
-
-    // ── 7. Progress dots (bottom-center) — no hashtags on slide ──────────────
-    const dotR = 10, dotGap = 28, dotY = SIZE - 38;
-    const startX = SIZE / 2 - ((total - 1) * dotGap) / 2;
-    for (let i = 0; i < total; i++) {
-      ctx.beginPath();
-      ctx.arc(startX + i * dotGap, dotY, i === index ? dotR : dotR * 0.48, 0, Math.PI * 2);
-      ctx.fillStyle = i === index ? theme.accent : 'rgba(255,255,255,0.30)';
-      ctx.fill();
-    }
-
-    return canvas;
-  }
 
   /** Word-wrap: draws text left-aligned from (x, startY), returns line count. */
-  function crWrapText(ctx, text, x, startY, maxWidth, lineHeight) {
-    if (!text) return 0;
-    const words = text.split(' ');
-    const lines = [];
-    let line = '';
-    for (const word of words) {
-      const test = line ? line + ' ' + word : word;
-      if (ctx.measureText(test).width > maxWidth && line) {
-        lines.push(line); line = word;
-      } else { line = test; }
-    }
-    if (line) lines.push(line);
-    lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight));
-    return lines.length;
-  }
 
   // ── Preview grid ────────────────────────────────────────────────────────────
-  function crBuildPreview() {
-    const grid = document.getElementById('crPreviewGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    crState.canvases.forEach((canvas, i) => {
-      const wrap = document.createElement('div');
-      const thumb = document.createElement('div');
-      thumb.className = 'cr-slide-thumb';
-      const preview = document.createElement('canvas');
-      const PS = 270;
-      preview.width = PS; preview.height = PS;
-      preview.getContext('2d').drawImage(canvas, 0, 0, 1080, 1080, 0, 0, PS, PS);
-      thumb.appendChild(preview);
-      const label = document.createElement('div');
-      label.className = 'cr-slide-label';
-      label.textContent = `Слайд ${i + 1}`;
-      wrap.appendChild(thumb);
-      wrap.appendChild(label);
-      grid.appendChild(wrap);
-    });
-  }
 
   // ── ZIP Download ────────────────────────────────────────────────────────────
-  async function crDownloadZip() {
-    if (!crState.canvases.length) return;
-    const btn = document.getElementById('crDownloadBtn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Пакуємо...'; }
-    try {
-      const zip = new JSZip();
-      for (let i = 0; i < crState.canvases.length; i++) {
-        const blob = await new Promise(resolve => crState.canvases[i].toBlob(resolve, 'image/png'));
-        zip.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
-      }
-      const url = URL.createObjectURL(await zip.generateAsync({ type: 'blob' }));
-      Object.assign(document.createElement('a'), { href: url, download: 'carousel.zip' }).click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '📦 ZIP'; }
-    }
-  }
 
   // Init grid + premium UI when carousel tab is opened
   document.addEventListener('DOMContentLoaded', () => {
@@ -13789,21 +10976,6 @@
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function makeImage(label, btn) {
-    if (btn) { btn.disabled = true; btn.textContent = '…'; }
-    var st = $('ocMatStatus');
-    if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Малюю зображення (до 30 сек)…'; }
-    return api('/api/marketing/image', { profile: bizProfile(), strategy: curStrategy, label: label }).then(function (r) {
-      if (st) { st.className = 'ob-status'; st.textContent = ''; }
-      renderMaterialCard(label, '🎨', r.material);
-      try { if (window.octoCampaignAddMaterial) window.octoCampaignAddMaterial('image', label, r.material); } catch (e) {}
-      if (btn) { btn.textContent = '✓'; btn.classList.remove('btn-primary'); btn.style.opacity = '.6'; }
-    }).catch(function (e) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Створити'; }
-      if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + e.message; }
-      throw e;
-    });
-  }
 
   function makeMaterial(type, label, btn) {
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -15317,7 +12489,7 @@
       '<div style="position:relative;padding:24px 28px;border-radius:22px;background:linear-gradient(140deg,rgba(139,123,255,.2),rgba(56,189,248,.07));border:1px solid rgba(139,123,255,.3);overflow:hidden;margin-bottom:20px;">'
       + '<img src="assets/new/A15.png" class="dash-hero-octo" style="position:absolute;right:18px;bottom:-26px;width:170px;height:170px;object-fit:contain;filter:drop-shadow(0 14px 24px rgba(20,10,50,.55));animation:omFloat 5.5s ease-in-out infinite;">'
       + '<div class="dash-hero-body" style="max-width:640px;margin-right:175px;">'
-      + '<div style="font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#b5a8ff;margin-bottom:8px;">Налаштування акаунта · ' + done + ' з 5</div>'
+      + '<div style="font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#b5a8ff;margin-bottom:8px;">Налаштування акаунта · ' + done + '/5</div>'
       + '<div style="font-size:22px;line-height:1.25;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;">' + heroTitle + '</div>'
       + '<div style="font-size:14px;line-height:1.5;font-weight:500;color:#b9b9dd;margin-bottom:16px;">' + heroSub + '</div>'
       + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
@@ -16730,7 +13902,14 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
       body: JSON.stringify({ query: q, intent: curIntent, platform: curPlatform, profile: bizProfile(), force: force === true && isPro() }),
-    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        // Тягнемо d.code далі — саме за кодом вирішуємо, це аварія чи планова
+        // пауза джерела. Розбирати текст помилки регулярками ненадійно.
+        if (!r.ok) { var er = new Error(d.error || ('HTTP ' + r.status)); er.code = d.code; throw er; }
+        return d;
+      });
+    })
       .then(function (d) {
         all = d.videos || [];
         lastQuery = q + ':' + curIntent;
@@ -16773,10 +13952,23 @@
       .catch(function (e) {
         if (btn) btn.disabled = false;
         if (fEl) fEl.innerHTML = '';
-        var msg = /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.'
-          : (/hard limit|usage.*exceeded|platform-feature-disabled/i.test(e.message)
-            ? 'Ліміт збору роликів на цей місяць вичерпано — свіжа добірка з’явиться з оновленням кредитів.'
-            : e.message);
+        // Пауза джерела — це не аварія користувача: показуємо спокійну картку
+        // замість червоного ⚠️ і не вдаємо, що повторний клік щось змінить.
+        // Регулярка лишається другим шаром — на випадок старої версії з кешу SW.
+        var out = e.code === 'trends_source_out'
+          || /hard.?limit|usage.*exceed|platform-feature-disabled|Apify/i.test(e.message || '');
+        if (out) {
+          status(null, '');
+          if (fEl) {
+            fEl.innerHTML = '<div class="card" style="text-align:center;padding:22px;">'
+              + '<div style="font-size:15px;font-weight:800;margin-bottom:6px;">Стрічка на технічній паузі</div>'
+              + '<div style="font-size:13px;color:var(--text3);line-height:1.5;">'
+              + esc(e.message || 'Оновлюємо джерело даних — свіжі ролики повернуться найближчим часом.')
+              + '</div></div>';
+          }
+          return;
+        }
+        var msg = /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером.' : e.message;
         status('err', '⚠️ ' + msg);
       });
   };
@@ -16879,7 +14071,12 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
       body: JSON.stringify({ handle: handle, profile: bizProfile() }),
-    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        if (!r.ok) { var er = new Error(d.error || ('HTTP ' + r.status)); er.code = d.code; throw er; }
+        return d;
+      });
+    })
       .then(function (d) {
         if (btn) btn.disabled = false;
         if (st) { st.className = 'ob-status'; st.textContent = ''; }
@@ -16909,9 +14106,15 @@
         if (btn) btn.disabled = false;
         if (paBox) paBox.innerHTML = '';
         var m = e.message || '';
+        // Сервер уже прислав готовий текст із підказкою про розбір за скрінами —
+        // не переписуємо його, лише прибираємо ⚠️: тупика немає, є інший шлях.
+        if (e.code === 'trends_source_out') {
+          if (st) { st.className = 'ob-status'; st.textContent = m; }
+          return;
+        }
         var friendly;
         if (/Failed to fetch|NetworkError/i.test(m)) friendly = 'Немає зв’язку з сервером.';
-        else if (/Apify|usage.*limit|hard limit|403|quota|monthly/i.test(m)) friendly = 'Авто-аналіз TikTok зараз тимчасово недоступний. Скористайся «розбором за скрінами» нижче — Octo розбере пости так само точно. 👇';
+        else if (/Apify|usage.*limit|hard.?limit|quota|monthly/i.test(m)) friendly = 'Авто-аналіз TikTok зараз тимчасово недоступний. Скористайся «розбором за скрінами» нижче — Octo розбере пости так само точно. 👇';
         else friendly = m;
         if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + friendly; }
       });
@@ -17434,7 +14637,6 @@
   // like it was made for last week. The plan is always "your next 7 days".
   function weekDates() { var now = new Date(); now.setHours(0, 0, 0, 0); var out = []; for (var i = 0; i < 7; i++) { var d = new Date(now); d.setDate(now.getDate() + i); out.push(d); } return out; }
   var DOW = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота', 'Неділя'];
-  function dowName(isoStr) { var p = isoStr.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[2]); return DOW[(d.getDay() + 6) % 7]; }
 
   // Банк із 5 зашитих тем на категорію + шаблонний підпис жив тут і видавав себе
   // за AI-план: барбершоп і рієлтор отримували ОДНАКОВІ рядки. Саме тому екран
@@ -17575,8 +14777,6 @@
 
 
   // ── Rendering ─────────────────────────────────────────────────────────────────
-  function statusPill(id) { var s = byId(STATUSES, id); return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;background:' + s.color + '22;color:' + s.color + ';"><span style="width:6px;height:6px;border-radius:50%;background:' + s.color + ';"></span>' + s.label + '</span>'; }
-  function platBadge(id) { var p = byId(PLATFORMS, id); return '<span style="font-size:11px;font-weight:700;color:' + p.color + ';">' + p.emoji + ' ' + p.label + '</span>'; }
 
   function summaryCards() {
     var list = load();

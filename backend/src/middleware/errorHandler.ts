@@ -20,6 +20,19 @@ export function errorHandler(
 
   const rawStatus = (err as any).status || (err as any).statusCode || 500;
 
+  // Помилки, які САМІ знають, що сказати людині (SourceFailure у trends.ts):
+  // віддаємо їх текст як є. Без цієї гілки загальний 5xx-обробник нижче підмінив
+  // би чесне «оновлюємо джерело даних» на «AI сервіс недоступний, спробуй за
+  // 20 секунд» — неправду одразу в двох місцях: це не AI, і повтор не допоможе.
+  if ((err as any).expose) {
+    res.status(rawStatus).json({
+      error: err.message,
+      code: (err as any).code,
+      retryable: (err as any).retryable === true,
+    });
+    return;
+  }
+
   // Normalise upstream 5xx (OpenAI 502/503/529) → 503 with a retry message
   // so the frontend can show a helpful prompt instead of a raw server error.
   if (rawStatus >= 500 && rawStatus !== 500) {
