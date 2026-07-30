@@ -3499,13 +3499,17 @@
               <div class="pplan">Free</div>
               <div class="pprice">$0 <span>/ міс</span></div>
               <div class="pdesc">Щоб спробувати й зробити першу кампанію</div>
+              <!-- Ці рядки мусять ТОЧНО дзеркалити LIMITS у services/quota.ts.
+                   Раніше екран обіцяв «1 розбір сторінки на день» і подавав
+                   контент-план та Команду Octo як Pro-фічі, тоді як код давав
+                   їх безкоштовно з кредиту кампанії. Тепер збігається. -->
               <ul class="pfeatures">
                 <li><span>✅</span> <span>1 кампанія (стратегія + матеріали)</span></li>
-                <li><span>✅</span> <span>3 AI-зображення на місяць</span></li>
-                <li><span>✅</span> <span>Реклама товару — 1 пак</span></li>
-                <li><span>✅</span> <span>Тренди — 3 ролики на день</span></li>
-                <li><span>✅</span> <span>Ask Octo — 10 запитів</span></li>
-                <li><span>✅</span> <span>1 розбір сторінки на день</span></li>
+                <li><span>✅</span> <span>2 контент-плани на тиждень зйомок</span></li>
+                <li><span>✅</span> <span>5 покращень постів + «Мій стиль»</span></li>
+                <li><span>✅</span> <span>3 фахівці Команди Octo</span></li>
+                <li><span>✅</span> <span>3 AI-зображення · Ask Octo — 10 запитів</span></li>
+                <li><span>✅</span> <span>Тренди — 3 на день · 1 розбір сторінки</span></li>
               </ul>
               <button class="btn btn-secondary btn-full" data-i18n="btn_current">Поточний план</button>
             </div>
@@ -3516,11 +3520,11 @@
               <div class="pdesc">Для активного просування бізнесу</div>
               <ul class="pfeatures">
                 <li><span>✅</span> <span>До 10 кампаній на місяць</span></li>
+                <li><span>✅</span> <span>Контент-план щотижня (30 на місяць)</span></li>
+                <li><span>✅</span> <span>Команда Octo й покращення постів — без ліміту</span></li>
                 <li><span>✅</span> <span>~30 AI-зображень + реклама товару</span></li>
-                <li><span>✅</span> <span>Тренди повністю + AI-розбір</span></li>
-                <li><span>✅</span> <span>Ask Octo — без ліміту</span></li>
-                <li><span>✅</span> <span>Команда Octo, контент-план, розбір сторінки</span></li>
-                <li><span>✅</span> <span>Дослідження ринку (web-пошук)</span></li>
+                <li><span>✅</span> <span>Тренди повністю · 20 розборів сторінки</span></li>
+                <li><span>✅</span> <span>Ask Octo без ліміту · дослідження ринку</span></li>
               </ul>
               <button class="btn btn-primary btn-full" id="payBtnPro" onclick="octoOpenCheckout('pro')">Оформити Pro →</button>
             </div>
@@ -12115,10 +12119,14 @@
   // Every metered endpoint returns 402 { code:'quota_exceeded', feature, limit,
   // used, plan } when the DB-backed limit is hit. We intercept ALL fetch calls
   // once and surface a clean upgrade sheet, regardless of which api() made them.
+  // Мусить покривати ВСІ фічі з services/quota.ts — інакше шит писав би
+  // безлике «Ця функція» замість назви (саме так і було для нових фіч).
   var QUOTA_LABELS = {
     campaign: 'Кампанії', image: 'AI-зображення', chat: 'Запити до Octo',
     trend_feed: 'Перегляди трендів', analysis: 'Розбір сторінки',
     research: 'Дослідження ринку', brand: 'Бренд-стиль',
+    content_plan: 'Контент-плани', post_tools: 'Покращення постів',
+    skill: 'Фахівці Команди Octo',
   };
   var _quotaSheetShown = 0;
   window.octoQuotaSheet = function (d) {
@@ -12132,7 +12140,7 @@
       + '<div style="font-size:13.5px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">' + fn + ': ' + (d.used != null ? d.used : d.limit) + ' з ' + d.limit + ' ' + per + '</div>'
       + '<div style="background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05));border:1px solid rgba(139,123,255,.3);border-radius:16px;padding:16px;margin-bottom:20px;">'
       + '<div style="font-size:12px;font-weight:800;color:#c9bcff;margin-bottom:6px;">⚡ Pro — $12 / міс</div>'
-      + '<div style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.7;">10 кампаній · ~30 AI-зображень · тренди повністю · Ask Octo без ліміту · бренд і план</div></div>'
+      + '<div style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.7;">10 кампаній · контент-план щотижня · Команда Octo й покращення постів без ліміту · ~30 AI-зображень · тренди повністю</div></div>'
       + '<button onclick="_octoSheetClose(); showScreen(\'pricing\',null);" style="width:100%;padding:15px;background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;margin-bottom:10px;">Відкрити Pro →</button>'
       + '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;">Закрити</button>'
       + '</div>');

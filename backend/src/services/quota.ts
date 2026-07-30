@@ -15,29 +15,50 @@ import { Plan } from './db/models';
 import { isLive } from './payments/wayforpay';
 
 export type Feature =
-  | 'campaign' | 'image' | 'chat' | 'trend_feed' | 'analysis' | 'research' | 'brand' | 'skill';
+  | 'campaign' | 'content_plan' | 'post_tools' | 'image' | 'chat'
+  | 'trend_feed' | 'analysis' | 'research' | 'brand' | 'skill';
 
 type Period = 'day' | 'month';
 type Rule = { n: number; per: Period } | null; // null = unlimited
 
-// Limits mirror the Тарифи screen. `null` = unlimited for that plan.
+// Ліміти дзеркалять екран «Тарифи». `null` = без ліміту на цьому тарифі.
+//
+// Принцип: ЩЕДРО на текст, ЖОРСТКО на дороге. Текстова генерація на Gemini
+// Flash коштує копійки, а от Apify-розбір сторінки $0.03-0.12, зображення
+// (Stability) $0.03, дослідження з web-пошуком $0.07. Тому саме ці три
+// стримують безкоштовний тариф, а не «аха-моменти».
+//
+// Раніше тут було чотири дефекти, через які вмикати енфорсмент було шкідливо:
+//  1. Контент-план ділив кредит із кампанією (free 1/міс), тож безкоштовний
+//     користувач мав ОДИН на вибір — або кампанія, або план. Для трафіку з
+//     реклами це вбивало тріал: людина не доходила до головного циклу.
+//  2. `analysis` був інвертований: free 1/ДЕНЬ (~30/міс) проти pro 10/міс —
+//     платник отримував утричі МЕНШЕ за безкоштовного.
+//  3. Той самий `analysis` накривав і дорогий Apify-розбір, і копійчані
+//     «покращити пост» та «мій стиль», тож дешеве було затиснуте як дороге.
+//  4. Через це ж free-розбір сторінки 1/день = до $3.60/міс на КОЖНОГО
+//     безкоштовного користувача. Тепер найгірший випадок Free ≈ $0.50/міс.
 const LIMITS: Record<Feature, Record<Plan, Rule>> = {
   // ціль → стратегія → матеріали (одна кампанія = один зачот)
-  campaign:   { free: { n: 1,  per: 'month' }, pro: { n: 10, per: 'month' }, business: { n: 30,  per: 'month' } },
+  campaign:    { free: { n: 1,  per: 'month' }, pro: { n: 10, per: 'month' }, business: { n: 30,  per: 'month' } },
+  // тижневий план знімальних брифів — окремий лічильник, НЕ кредит кампанії
+  content_plan:{ free: { n: 2,  per: 'month' }, pro: { n: 30, per: 'month' }, business: null },
+  // «покращити пост» + «мій стиль»: чиста текстова генерація, майже безкоштовна
+  post_tools:  { free: { n: 5,  per: 'month' }, pro: null,                    business: null },
   // будь-яка AI-генерація зображення (реклама товару / банер)
-  image:      { free: { n: 3,  per: 'month' }, pro: { n: 30, per: 'month' }, business: { n: 100, per: 'month' } },
+  image:       { free: { n: 3,  per: 'month' }, pro: { n: 30, per: 'month' }, business: { n: 100, per: 'month' } },
   // Ask Octo
-  chat:       { free: { n: 10, per: 'month' }, pro: null,                    business: null },
-  // стрічка трендів (кожен запит = скрейп, дорого)
-  trend_feed: { free: { n: 3,  per: 'day'   }, pro: null,                    business: null },
-  // розбір своєї сторінки (@нік → Apify)
-  analysis:   { free: { n: 1,  per: 'day'   }, pro: { n: 10, per: 'month' }, business: null },
+  chat:        { free: { n: 10, per: 'month' }, pro: null,                    business: null },
+  // стрічка трендів (скрейп, але кеш спільний на всіх користувачів per ніша)
+  trend_feed:  { free: { n: 3,  per: 'day'   }, pro: null,                    business: null },
+  // розбір своєї сторінки (@нік → Apify) — найдорожча дія на юзера
+  analysis:    { free: { n: 1,  per: 'month' }, pro: { n: 20, per: 'month' }, business: null },
   // дослідження ринку (web-search)
-  research:   { free: { n: 1,  per: 'month' }, pro: { n: 20, per: 'month' }, business: null },
+  research:    { free: { n: 1,  per: 'month' }, pro: { n: 20, per: 'month' }, business: null },
   // бренд-кіт
-  brand:      { free: { n: 1,  per: 'month' }, pro: null,                    business: null },
+  brand:       { free: { n: 1,  per: 'month' }, pro: null,                    business: null },
   // «Команда Octo» — один скіл-фахівець (легка текстова генерація)
-  skill:      { free: { n: 10, per: 'month' }, pro: null,                    business: null },
+  skill:       { free: { n: 3,  per: 'month' }, pro: null,                    business: null },
 };
 
 function periodStartIso(per: Period): string {

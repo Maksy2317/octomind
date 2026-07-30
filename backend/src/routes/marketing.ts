@@ -122,7 +122,7 @@ marketingRouter.post('/offer', async (req: Request, res: Response, next: NextFun
 const ALLOWED_MEDIA = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 // POST /api/marketing/improve-post — analyse ONE of the user's posts and return
 // an honest read + a stronger rewrite. Caption required; a screenshot optional.
-marketingRouter.post('/improve-post', meter('analysis'), async (req: Request, res: Response, next: NextFunction) => {
+marketingRouter.post('/improve-post', meter('post_tools'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   const caption = typeof req.body?.caption === 'string' ? req.body.caption.slice(0, 2000) : '';
   const platform = typeof req.body?.platform === 'string' ? req.body.platform.slice(0, 40) : '';
@@ -151,7 +151,7 @@ marketingRouter.post('/improve-post', meter('analysis'), async (req: Request, re
 // POST /api/marketing/style — extract a writing-style fingerprint from the
 // user's own pasted posts. Body: { posts: string, profile? }. The client saves
 // the returned style_dna into the profile, so EVERY later generation mimics it.
-marketingRouter.post('/style', meter('analysis'), async (req: Request, res: Response, next: NextFunction) => {
+marketingRouter.post('/style', meter('post_tools'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   const posts = typeof req.body?.posts === 'string' ? req.body.posts.slice(0, 6000) : '';
   // Один пост — не стиль, а випадковість. Просимо хоча б два.
@@ -174,7 +174,7 @@ marketingRouter.post('/style', meter('analysis'), async (req: Request, res: Resp
 
 // POST /api/marketing/content-plan — a 7-day plan of SHOOTING BRIEFS.
 // Body: { goal?, platforms?: string[], tempo?: {reels,posts,stories}, profile? }
-marketingRouter.post('/content-plan', meter('campaign'), async (req: Request, res: Response, next: NextFunction) => {
+marketingRouter.post('/content-plan', meter('content_plan'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   const goal = typeof req.body?.goal === 'string' ? req.body.goal.slice(0, 120) : '';
   const platforms = Array.isArray(req.body?.platforms)
