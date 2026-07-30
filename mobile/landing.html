@@ -12,8 +12,19 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="OctoMind — AI-маркетолог для малого бізнесу">
 <meta property="og:description" content="Фото товару → рекламні концепції й тексти за 2 хвилини. Без SMM-фахівця. Українською.">
-<meta property="og:image" content="/icons/icon-512.png">
+<!-- og:image мусить бути АБСОЛЮТНИМ URL: за відносним шляхом Meta і Facebook
+     не підтягують картинку, і превʼю посилання в оголошенні лишається порожнім.
+     Розмір теж указуємо явно — інакше скрейпер іноді пропускає зображення.
+     TODO перед рекламою: намалювати банер 1200×630. Зараз тут квадратна
+     іконка 512×512 — вона працює, але в широкому превʼю обрізається. -->
+<meta property="og:image" content="https://octomind.win/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:url" content="https://octomind.win/">
+<meta property="og:site_name" content="OctoMind">
+<meta property="og:locale" content="uk_UA">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://octomind.win/">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

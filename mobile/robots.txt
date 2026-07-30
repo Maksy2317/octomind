@@ -1,0 +1,21 @@
+# OctoMind — robots.txt
+#
+# Раніше цього файлу не існувало, і будь-який шлях лягав на SPA-фолбек:
+# /robots.txt віддавав ~1 МБ HTML із Content-Type: text/html. Краулери Google
+# і Meta на цьому спотикаються, а Meta обходить лендінг при першому запуску
+# рекламної кампанії — битий robots.txt буває причиною відхилення оголошення.
+
+User-agent: *
+Allow: /$
+Allow: /landing
+Allow: /privacy
+Allow: /terms
+Allow: /offer
+Allow: /legal
+
+# Застосунок індексувати немає сенсу: він за авторизацією, важить ~1 МБ
+# і не несе користі в пошуку. Лендінг — несе.
+Disallow: /app
+Disallow: /api/
+
+Sitemap: https://octomind.win/sitemap.xml
