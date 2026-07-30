@@ -1,7 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import multer from 'multer';
-import { uploadPlanMedia, MEDIA_EXT, isStorageConfigured } from '../services/storage';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { requireIdentity } from '../middleware/identity';
+import { uploadPlanMedia, deleteByPublicUrl, MEDIA_EXT, isStorageConfigured } from '../services/storage';
 
 export const calendarRouter = Router();
 
@@ -37,8 +39,21 @@ function mediaUpload(req: Request, res: Response, next: NextFunction): void {
   });
 }
 
+// Окремий вузький ліміт саме на завантаження. Загальні AI-ліміти (150/год на IP)
+// для файлів завеликі: 150 × 100 МБ = 15 ГБ, а на Supabase Free всього 1 ГБ.
+// Ключ по IP: device-id клієнт вигадує сам, тож ним ліміт не обійти.
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.MEDIA_UPLOAD_MAX_PER_HOUR) || 24,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => 'up:' + ipKeyGenerator(req.ip || ''),
+  message: { error: 'Завантажень за годину досить. Спробуй трохи пізніше.' },
+});
+
 // POST /api/calendar/media — віддає { url, kind }
-calendarRouter.post('/media', mediaUpload, async (req: Request, res: Response) => {
+// requireIdentity: анонімне завантаження у власне сховище — це відкритий гаманець.
+calendarRouter.post('/media', uploadLimiter, requireIdentity, mediaUpload, async (req: Request, res: Response) => {
   if (!isStorageConfigured()) {
     res.status(503).json({ error: 'Сховище не налаштоване' });
     return;
@@ -47,6 +62,15 @@ calendarRouter.post('/media', mediaUpload, async (req: Request, res: Response) =
   const url = await uploadPlanMedia(req.file.buffer, req.file.mimetype);
   if (!url) { res.status(502).json({ error: 'Не вдалося зберегти файл' }); return; }
   res.json({ url, kind: req.file.mimetype.startsWith('video/') ? 'video' : 'image' });
+});
+
+// DELETE /api/calendar/media — прибрати відчеплений файл зі сховища.
+// Викликається, коли користувач знімає медіа з картки або ставить інше.
+calendarRouter.delete('/media', requireIdentity, async (req: Request, res: Response) => {
+  const url = typeof req.body?.url === 'string' ? req.body.url : '';
+  const removed = await deleteByPublicUrl(url);
+  // 200 навіть якщо не знайшли: для UI важливо лише, що картка вже без медіа.
+  res.json({ removed });
 });
 
 type CalendarPostType = 'tiktok' | 'reels' | 'stories' | 'carousel' | 'post';

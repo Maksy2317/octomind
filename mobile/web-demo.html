@@ -18179,7 +18179,19 @@
       };
       inp.click();
     },
-    clearMedia: function (id) { upd(id, { media: null, mediaKind: null }); render(); },
+    clearMedia: function (id) {
+      var p = get(id); var old = p && p.media;
+      upd(id, { media: null, mediaKind: null }); render();
+      // Прибираємо файл і зі сховища, інакше він лежав би там назавжди.
+      // Best-effort: UI уже без медіа, невдале видалення не має нічого ламати.
+      if (old && old.indexOf('http') === 0) {
+        fetch('/api/calendar/media', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'x-device-id': devId() },
+          body: JSON.stringify({ url: old }),
+        }).catch(function () {});
+      }
+    },
 
     // Не встиг сьогодні — перекинув на завтра одним тапом.
     moveDay: function (id, delta) {

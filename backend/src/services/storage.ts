@@ -53,6 +53,7 @@ export async function uploadBuffer(
   ext: string,
   contentType: string,
   prefix = 'gen',
+  cacheSeconds = 31536000,
 ): Promise<string | null> {
   if (!isStorageConfigured()) return null;
   try {
@@ -61,7 +62,7 @@ export async function uploadBuffer(
     const objectPath = `${prefix}/${randomUUID()}.${ext}`;
     const res = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${objectPath}`, {
       method: 'POST',
-      headers: authHeaders({ 'Content-Type': contentType, 'cache-control': '31536000', 'x-upsert': 'true' }),
+      headers: authHeaders({ 'Content-Type': contentType, 'cache-control': String(cacheSeconds), 'x-upsert': 'true' }),
       body: new Uint8Array(buf),
     });
     if (!res.ok) {
@@ -90,10 +91,40 @@ export async function uploadImage(buf: Buffer, ext: string, mime?: string): Prom
 export async function uploadPlanMedia(buf: Buffer, mime: string): Promise<string | null> {
   const ext = MEDIA_EXT[mime];
   if (!ext) return null;
-  return uploadBuffer(buf, ext, mime, 'plan');
+  // Годинний кеш, а не рік: це медіа користувач замінює й видаляє, і при
+  // річному кеші CDN ще довго віддавав би вже видалений файл.
+  return uploadBuffer(buf, ext, mime, 'plan', 3600);
 }
 
 export const MEDIA_EXT: Record<string, string> = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
   'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
 };
+
+/**
+ * Delete a previously uploaded object by its public URL.
+ *
+ * Без цього відчеплене від картки відео лежало у сховищі назавжди — на Free
+ * тарифі це 1 ГБ, який заповнюється швидше, ніж здається. Приймаємо саме URL,
+ * бо клієнт іншого й не знає. Fail-open: не вийшло — не ламаємо UX.
+ */
+export async function deleteByPublicUrl(url: string): Promise<boolean> {
+  if (!isStorageConfigured() || !url) return false;
+  const marker = `/storage/v1/object/public/${BUCKET}/`;
+  const at = url.indexOf(marker);
+  if (at < 0) return false;                       // чужий/сторонній URL — не наше діло
+  const objectPath = url.slice(at + marker.length).split('?')[0];
+  // Дозволяємо лише наші префікси — щоб підробленим URL не можна було
+  // попросити видалити щось інше з бакета.
+  if (!/^(plan|gen)\/[A-Za-z0-9._-]+$/.test(objectPath)) return false;
+  try {
+    const res = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${objectPath}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[Storage] delete error', (err as Error).message?.slice(0, 120));
+    return false;
+  }
+}

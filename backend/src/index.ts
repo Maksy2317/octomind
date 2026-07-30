@@ -138,7 +138,10 @@ const aiIpLimiter = rateLimit({
   keyGenerator: (req) => 'aip:' + ipKeyGenerator(req.ip || ''),
   message: { error: 'Забагато AI-запитів з цієї адреси. Спробуй пізніше.' },
 });
-for (const p of ['/api/marketing', '/api/ads', '/api/chat', '/api/trends']) {
+// /api/calendar теж тут: там живе завантаження медіа, яке коштує сховища.
+// Без нього шлях мав лише загальний ліміт 300/15хв × 100 МБ = до 30 ГБ
+// у Storage за чверть години, і то від анонімного клієнта.
+for (const p of ['/api/marketing', '/api/ads', '/api/chat', '/api/trends', '/api/calendar']) {
   app.use(p, aiIpLimiter, aiIdLimiter);
 }
 
