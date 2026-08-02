@@ -15,11 +15,15 @@
 <!-- og:image мусить бути АБСОЛЮТНИМ URL: за відносним шляхом Meta і Facebook
      не підтягують картинку, і превʼю посилання в оголошенні лишається порожнім.
      Розмір теж указуємо явно — інакше скрейпер іноді пропускає зображення.
-     TODO перед рекламою: намалювати банер 1200×630. Зараз тут квадратна
-     іконка 512×512 — вона працює, але в широкому превʼю обрізається. -->
-<meta property="og:image" content="https://octomind.win/icons/icon-512.png">
-<meta property="og:image:width" content="512">
-<meta property="og:image:height" content="512">
+     1200×630 (співвідношення 1.91:1) — саме те, що Meta показує широким превʼю.
+     Раніше тут стояла квадратна іконка 512×512: вона працює, але у стрічці
+     обрізається в маленький тамбнейл, а це прямо той формат, який побачить
+     людина з реклами. -->
+<meta property="og:image" content="https://octomind.win/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OctoMind — SMM-фахівець у тебе в телефоні">
+<meta name="twitter:image" content="https://octomind.win/og-image.png">
 <meta property="og:url" content="https://octomind.win/">
 <meta property="og:site_name" content="OctoMind">
 <meta property="og:locale" content="uk_UA">

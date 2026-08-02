@@ -51,9 +51,15 @@ trendsRouter.post('/feed', meter('trend_feed'), async (req: Request, res: Respon
   }
   const platform: 'tiktok' | 'instagram' = req.body?.platform === 'instagram' ? 'instagram' : 'tiktok';
   if (platform === 'instagram' && !isInstagramEnabled()) {
-    // Built against the documented actor schema but not yet verified on live
-    // data (credits). Flip TRENDS_IG_ENABLED=1 after the August field check.
-    res.status(503).json({ error: 'Instagram-джерело вже готове й увімкнеться на початку серпня 🚀 Поки що обери TikTok.' });
+    // Зібрано за документованою схемою актора, але на живих даних ще не звірено
+    // (кредити). Вмикати TRENDS_IG_ENABLED=1 ПІСЛЯ звірки полів.
+    // Дату навмисно не називаємо: обіцянка «на початку серпня» вже протермінувалась
+    // і перетворилась на неправду в інтерфейсі. Краще без дати, ніж прострочена.
+    res.status(503).json({
+      error: 'Instagram-джерело ще готуємо — щойно запрацює, зʼявиться тут. Поки що обери TikTok.',
+      code: 'ig_not_ready',
+      retryable: false,
+    });
     return;
   }
   try {
