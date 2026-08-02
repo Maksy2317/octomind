@@ -71,7 +71,12 @@ app.use(helmet({
       'object-src': ["'none'"],
       // jsdelivr: TF.js/BodyPix are lazy-loaded from there on first photo-cutout
       // use (the eager tags this rule used to silently block are gone).
-      'script-src': ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      // connect.facebook.net — Meta Pixel. Без нього браузер БЛОКУЄ скрипт
+      // пікселя, а Meta не отримує жодної конверсії: гроші за покази йдуть,
+      // сигналу для оптимізації немає, і зрозуміти чому — важко (в консолі
+      // лише сухий рядок про CSP). Рівно так само тут колись мовчки блокувався
+      // jszip з cdnjs.
+      'script-src': ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net', 'https://connect.facebook.net'],
       'script-src-attr': ["'unsafe-inline'"],
       'style-src': ["'self'", 'https:', "'unsafe-inline'"],
       'connect-src': ["'self'", 'https:'],

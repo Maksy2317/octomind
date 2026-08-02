@@ -41,22 +41,30 @@
      оптимізувати показ. Ти платитимеш за покази без сигналу про конверсії —
      це найдорожча помилка на старті рекламної кампанії.
 
-     Як увімкнути:
+     Як увімкнути — ОДИН рядок:
        1. business.facebook.com → Events Manager → Create Pixel → скопіювати ID.
-       2. Розкомментувати блок нижче і замінити ЦИФРИ на свій Pixel ID.
-       3. Все інше вже готове: функція track() на цій сторінці сама
-          передасть події у fbq, щойно він з'явиться.
-     ════════════════════════════════════════════════════════════════════════
+       2. Вписати його нижче в META_PIXEL_ID. Все.
+          Нічого розкоментовувати не треба: поки поле порожнє, скрипт Meta
+          навіть не вантажиться. Раніше тут треба було знімати HTML-коментар
+          вручну — легко було лишити в проді рядок «ВСТАВ_СВІЙ_PIXEL_ID»
+          і думати, що піксель працює.
+       3. Решта вже готова: функція track() на цій сторінці сама передасть
+          події у fbq, а CSP на сервері вже пропускає connect.facebook.net.
+     ════════════════════════════════════════════════════════════════════════ -->
 <script>
-  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
-  document,'script','https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', 'ВСТАВ_СВІЙ_PIXEL_ID');
-  fbq('track', 'PageView');
+  // ↓↓↓ ЄДИНЕ, ЩО ТРЕБА ЗМІНИТИ ↓↓↓
+  var META_PIXEL_ID = '';        // напр. '1234567890123456'
+  // ↑↑↑ ────────────────────── ↑↑↑
+  if (META_PIXEL_ID && /^\d{6,}$/.test(META_PIXEL_ID)) {
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', META_PIXEL_ID);
+    fbq('track', 'PageView');
+  }
 </script>
--->
 
 <style>
   *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
