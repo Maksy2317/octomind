@@ -8,7 +8,10 @@ const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails('mailto:hello@octomind.app', VAPID_PUBLIC, VAPID_PRIVATE);
+  // Контакт для сервісів пушів (Google/Mozilla): за ним вони звертаються, якщо з
+  // нашими сповіщеннями проблема. Тут стояв hello@octomind.app — домен .app нам
+  // не належить, тобто адреса була мертва.
+  webpush.setVapidDetails('mailto:octomind.support@gmail.com', VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
 // ── Supabase (push_subscriptions table) ──────────────────────────────────────
