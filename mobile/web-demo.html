@@ -8598,12 +8598,23 @@
     if (isDone) {
       const d = _wizData;
       const lines = [];
-      if (d.brandName) lines.push('<b>Акаунт:</b> ' + d.brandName);
-      if (d.niche) lines.push('<b>Ніша:</b> ' + d.niche);
-      if (d.audience) lines.push('<b>Аудиторія:</b> ' + d.audience);
-      if (d.style && d.style.length) lines.push('<b>Стиль:</b> ' + d.style.join(', '));
-      if (d.platforms && d.platforms.length) lines.push('<b>Платформи:</b> ' + d.platforms.join(', '));
-      if (d.lang) lines.push('<b>Мова:</b> ' + d.lang);
+      // Ці значення прийшли з ЧУЖОГО сайту (імпорт профілю) або від AI, тож у
+      // HTML йдуть лише екранованими. Без цього достатньо було імпортувати
+      // сторінку з <script> у og:title, щоб чужий код виконався в сесії
+      // користувача — а там у localStorage лежить його токен Supabase.
+      // Своя реалізація, а не спільний esc(): той оголошений у 15 різних IIFE,
+      // і всі — НИЖЧЕ цього місця, тож тут його в області видимості немає.
+      const E = function (v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      };
+      if (d.brandName) lines.push('<b>Акаунт:</b> ' + E(d.brandName));
+      if (d.niche) lines.push('<b>Ніша:</b> ' + E(d.niche));
+      if (d.audience) lines.push('<b>Аудиторія:</b> ' + E(d.audience));
+      if (d.style && d.style.length) lines.push('<b>Стиль:</b> ' + E(d.style.join(', ')));
+      if (d.platforms && d.platforms.length) lines.push('<b>Платформи:</b> ' + E(d.platforms.join(', ')));
+      if (d.lang) lines.push('<b>Мова:</b> ' + E(d.lang));
       if (_wizTovResult) lines.push('<b>Tone of Voice:</b> <span style="color:#4ade80">✅ навчено</span>');
 
       body.innerHTML = '<div class="' + anim + '">'

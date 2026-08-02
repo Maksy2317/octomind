@@ -45,8 +45,12 @@ trackRouter.post('/', optionalIdentity, (req: Request, res: Response) => {
   res.status(204).end();
 
   if (!isDbConfigured()) return;
-  const deviceId =
-    req.deviceId || String(req.header('x-device-id') || '').slice(0, 128) || null;
+  // Беремо ПЕРЕВІРЕНИЙ id від identity-middleware; сирий заголовок — лише як
+  // запас, і то не будь-який: `auth_*` зарезервований під акаунтні рядки, тож
+  // інакше будь-хто міг би дописувати події від імені чужого акаунта й тихо
+  // спотворювати воронку, за якою ми судимо про рекламу.
+  const rawHeader = String(req.header('x-device-id') || '').slice(0, 128);
+  const deviceId = req.deviceId || (/^auth[_-]/i.test(rawHeader) ? null : rawHeader) || null;
   void insertOne('events', {
     event,
     user_id: req.userId ?? null,

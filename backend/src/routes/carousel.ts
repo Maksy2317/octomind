@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { safeFetch, SOCIAL_HOSTS } from '../services/safeFetch';
 import OpenAI, { toFile } from 'openai';
 import { deflateSync } from 'zlib';
 
@@ -1209,16 +1210,20 @@ carouselRouter.post('/fetch-post-caption', async (req: Request, res: Response, n
     }
 
     // Instagram (+ TikTok fallback): scrape og:description from page HTML
-    const htmlRes = await fetch(url, {
+    // Через safeFetch: раніше тут був fetch(url, { redirect: 'follow' }) з
+    // довільною адресою — сервер читав внутрішні адреси й віддавав їх вміст
+    // назад (перевірено живою атакою на 127.0.0.1). Сюди потрібні лише соцмережі,
+    // тому окрім блокування приватних адрес стоїть жорсткий список хостів.
+    const fetched = await safeFetch(url, {
+      allowHosts: SOCIAL_HOSTS,
       headers: {
         'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
         'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      redirect: 'follow',
     });
 
-    const html = await htmlRes.text();
+    const html = fetched.body.toString('utf8');
 
     const ogDesc = (
       html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']*)["']/i) ??

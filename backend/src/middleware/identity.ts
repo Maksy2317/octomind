@@ -27,6 +27,24 @@ declare global {
 
 const DEVICE_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
 
+// Акаунтні рядки живуть у ТОМУ САМОМУ полі `users.device_id`, лише з префіксом
+// `auth_<uid>` (див. resolveAuthUser). А `auth_` та `-` дозволені у DEVICE_ID_RE,
+// тому клієнт міг надіслати `x-device-id: auth_<чужий-uid>` БЕЗ ЖОДНОГО ТОКЕНА
+// й потрапити в акаунтний рядок жертви: читати й перезаписувати її профіль
+// бізнесу, бачити історію генерацій і успадкувати її платний тариф. Перевірено
+// живою атакою — профіль створювався і читався.
+//
+// Префікс тепер зарезервований: його може поставити лише сервер після перевірки
+// JWT. Не змінюємо сам ключ на щось на кшталт `auth:<uid>` (що було б
+// структурно надійніше) саме тому, що це осиротило б рядки всіх, хто вже
+// залогінений, разом із їхніми тарифами й профілями.
+const RESERVED_PREFIX_RE = /^auth[_-]/i;
+
+/** Чи можна довіряти цьому рядку як device-id, що прийшов від клієнта. */
+function validDeviceId(id: string): boolean {
+  return DEVICE_ID_RE.test(id) && !RESERVED_PREFIX_RE.test(id);
+}
+
 // ── Supabase JWT validation (cached) ─────────────────────────────────────────
 // One network round-trip per token per 10 minutes; everything else is a Map
 // hit. Fail-open to the device path: a Supabase hiccup must not lock the app.
@@ -96,7 +114,7 @@ export async function requireIdentity(req: Request, res: Response, next: NextFun
   }
 
   const deviceId = String(req.header('x-device-id') || '').trim();
-  if (!deviceId || !DEVICE_ID_RE.test(deviceId)) {
+  if (!deviceId || !validDeviceId(deviceId)) {
     res.status(400).json({ error: 'Missing or invalid x-device-id header' });
     return;
   }
@@ -127,7 +145,7 @@ export async function optionalIdentity(req: Request, _res: Response, next: NextF
   }
 
   const deviceId = String(req.header('x-device-id') || '').trim();
-  if (!deviceId || !DEVICE_ID_RE.test(deviceId)) return next();
+  if (!deviceId || !validDeviceId(deviceId)) return next();
 
   try {
     const user = await getOrCreateUserByDevice(deviceId);

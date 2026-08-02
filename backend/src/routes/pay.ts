@@ -6,7 +6,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { requireIdentity } from '../middleware/identity';
 import { setUserPlan } from '../services/db/repos';
 import { Plan } from '../services/db/models';
-import { buildPurchase, verifyCallback, callbackResponse, PLAN_PRICES, isLive } from '../services/payments/wayforpay';
+import { buildPurchase, verifyCallback, callbackResponse, amountMatchesPlan, PLAN_PRICES, isLive } from '../services/payments/wayforpay';
 
 export const payRouter = Router();
 
@@ -49,7 +49,14 @@ payRouter.post('/callback', async (req: Request, res: Response, next: NextFuncti
       const parts = String(body.orderReference).split('__');
       const userId = parts[0];
       const plan = parts[1] as Plan;
-      if (userId && (plan === 'pro' || plan === 'business')) {
+      // Тариф беремо з orderReference, але сума мусить збігатись із ціною цього
+      // тарифу. Підпис це вже покриває (він охоплює й amount, і orderReference),
+      // тож це другий рубіж — на випадок нашої ж помилки у формуванні замовлення.
+      if (userId && (plan === 'pro' || plan === 'business')
+          && !amountMatchesPlan(plan, body.amount, body.currency)) {
+        console.error('[Pay] сума не відповідає тарифу — тариф НЕ видано:',
+          plan, body.amount, body.currency);
+      } else if (userId && (plan === 'pro' || plan === 'business')) {
         try { await setUserPlan(userId, plan); } catch (e) {
           console.warn('[Pay] setUserPlan failed:', (e as Error).message?.slice(0, 120));
         }

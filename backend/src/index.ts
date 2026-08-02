@@ -9,9 +9,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
 import cron from 'node-cron';
-import { videoRouter } from './routes/video';
 import { chatRouter } from './routes/chat';
-import { subtitlesRouter } from './routes/subtitles';
 import { carouselRouter } from './routes/carousel';
 import { calendarRouter } from './routes/calendar';
 import { pushRouter, sendPushToAll, fireScheduledReminders, loadSubscriptionsFromDB } from './routes/push';
@@ -24,8 +22,12 @@ import { adminRouter } from './routes/admin';
 import { payRouter } from './routes/pay';
 import { trackRouter } from './routes/track';
 import { ensureBucket } from './services/storage';
+import { requireIdentity } from './middleware/identity';
 import { errorHandler } from './middleware/errorHandler';
 import { cleanupOldFiles } from './services/cleanup';
+// routes/video.ts і routes/subtitles.ts НАВМИСНО не імпортуються: фічі прибрані,
+// а імпорт сам собою підіймав multer і перевірку ffmpeg. Файли лишені на диску,
+// щоб відкат був простим; видалити можна після запуску.
 import { prepare as prepareHtml, warmUp as warmUpHtml } from './services/htmlCache';
 
 const app = express();
@@ -145,7 +147,7 @@ const aiIpLimiter = rateLimit({
 // /api/calendar теж тут: там живе завантаження медіа, яке коштує сховища.
 // Без нього шлях мав лише загальний ліміт 300/15хв × 100 МБ = до 30 ГБ
 // у Storage за чверть години, і то від анонімного клієнта.
-for (const p of ['/api/marketing', '/api/ads', '/api/chat', '/api/trends', '/api/calendar']) {
+for (const p of ['/api/marketing', '/api/ads', '/api/chat', '/api/trends', '/api/calendar', '/api/carousel']) {
   app.use(p, aiIpLimiter, aiIdLimiter);
 }
 
@@ -165,10 +167,26 @@ const uploadDir = process.env.UPLOAD_DIR
   : path.resolve(process.cwd(), 'uploads');
 app.use('/uploads', express.static(uploadDir));
 
-app.use('/api/video', videoRouter);
 app.use('/api/chat', chatRouter);
-app.use('/api/subtitles', subtitlesRouter);
-app.use('/api/carousel', carouselRouter);
+
+// ── Legacy-роутери: закриті, бо були відкритою касою ─────────────────────────
+// Video Creator, Subtitles і Carousel прибрані з інтерфейсу давно, але роутери
+// лишались змонтованими БЕЗ автентифікації і БЕЗ лічильника квоти, та ще й поза
+// AI-лімітером. А carousel ходить у Replicate і Stability — тобто будь-хто з
+// інтернету міг витрачати наші гроші, вантажити файли на диск і крутити ffmpeg.
+// Перевірено: усі три відповідали на запити без жодних заголовків.
+//
+// video і subtitles не монтуємо взагалі — у клієнті на них нема жодного виклику.
+// З carousel живий РІВНО один шлях: розбір підпису до поста (фіча «Мій стиль»).
+// Решту віддаємо як 404, щоб платні шляхи не існували для зовнішнього світу.
+const CAROUSEL_LIVE = new Set(['/fetch-post-caption']);
+app.use('/api/carousel', requireIdentity, (req, res, next) => {
+  if (!CAROUSEL_LIVE.has(req.path)) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  next();
+}, carouselRouter);
 app.use('/api/calendar', calendarRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/profile', profileRouter);

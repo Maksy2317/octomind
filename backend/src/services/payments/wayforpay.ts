@@ -70,8 +70,22 @@ export function buildPurchase(
   };
 }
 
-/** Verify the signature WayForPay sends on the service (webhook) callback. */
+/**
+ * Перевірити підпис, який WayForPay надсилає у вебхуці.
+ *
+ * КЛЮЧОВЕ: якщо справжнього секрету немає, ми НЕ перевіряємо нічого, а
+ * відмовляємо. Раніше SECRET падав на публічний тестовий ключ із документації
+ * WayForPay — тобто підпис міг порахувати будь-хто. Перевірено живою атакою:
+ * підроблений вебхук «Approved, amount=1 UAH, plan=business» пройшов, і в базі
+ * зʼявився тариф business. Достатньо було ввімкнути енфорсмент квот раніше, ніж
+ * прописати справжній секрет, — і платний доступ роздавався б безкоштовно.
+ */
 export function verifyCallback(body: Record<string, unknown>): boolean {
+  if (!isLive()) {
+    console.error('[Pay] вебхук відкинуто: WAYFORPAY_MERCHANT_ACCOUNT/SECRET не задані — '
+      + 'перевіряти підпис тестовим ключем із документації не можна');
+    return false;
+  }
   const expected = hmacMd5([
     String(body.merchantAccount ?? ''),
     String(body.orderReference ?? ''),
@@ -82,7 +96,22 @@ export function verifyCallback(body: Record<string, unknown>): boolean {
     String(body.transactionStatus ?? ''),
     String(body.reasonCode ?? ''),
   ]);
-  return expected === String(body.merchantSignature ?? '');
+  const got = String(body.merchantSignature ?? '');
+  // Порівняння без залежності від часу: різниця в мілісекундах теоретично
+  // дозволяє підбирати підпис побайтово.
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(got, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+/** Чи відповідає сплачена сума тарифу з orderReference. */
+export function amountMatchesPlan(plan: 'pro' | 'business', amount: unknown, currency: unknown): boolean {
+  const p = PLAN_PRICES[plan];
+  if (!p) return false;
+  if (String(currency || '').toUpperCase() !== String(p.currency).toUpperCase()) return false;
+  // Порівнюємо в копійках: WayForPay може прислати '299' або '299.00'.
+  return Math.round(Number(amount) * 100) === Math.round(Number(p.amount) * 100);
 }
 
 /** The JSON WayForPay expects back from the callback to acknowledge receipt. */

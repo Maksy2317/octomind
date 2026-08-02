@@ -43,7 +43,31 @@ export function errorHandler(
     return;
   }
 
+  // ЗАСЛІН: сире повідомлення від зовнішнього API не має права дійти до людини.
+  // Реальний випадок, зловлений на прогоні: Gemini впав на MAX_TOKENS, пішов
+  // фолбек на Anthropic, а там нульовий баланс — і користувач отримав англійський
+  // текст «Your credit balance is too low… go to Plans & Billing», тобто наші
+  // платіжні проблеми. Гілка «обидва провайдери впали» це покриває, але шляхи з
+  // явно закріпленим провайдером (напр. дослідження) її обходять. Замість гонитви
+  // за кожним шляхом фільтруємо на виході — і нові шляхи вже захищені за
+  // замовчуванням.
+  const raw = err.message || '';
+  const looksUpstream = /^\s*\d{3}\s*[{[]/.test(raw)          // «400 {"type":"error"…»
+    || /"type"\s*:\s*"(error|invalid_request_error)"/i.test(raw)
+    || /credit balance|Plans & Billing|billing|quota exceeded|api[_ -]?key|unauthorized|permission_denied/i.test(raw)
+    || /RESOURCE_EXHAUSTED|MAX_TOKENS|SAFETY|candidates\[0\]/i.test(raw);
+
+  if (looksUpstream) {
+    // Причина лишається в логах цілою — саме там вона й потрібна нам.
+    console.error('[Error] сире повідомлення провайдера приховане від користувача:', raw.slice(0, 400));
+    res.status(503).json({
+      error: 'Octo зараз не може згенерувати відповідь. Спробуй ще раз за хвилину.',
+      retryable: true,
+    });
+    return;
+  }
+
   res.status(rawStatus).json({
-    error: err.message || 'Internal server error',
+    error: raw || 'Internal server error',
   });
 }

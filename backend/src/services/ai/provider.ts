@@ -198,7 +198,10 @@ export async function geminiGrounded(system: string, user: string): Promise<{ te
     system_instruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
     tools: [{ google_search: {} }],
-    generationConfig: { maxOutputTokens: 3072, temperature: 0.6 },
+    // 3072 не вистачало: модель обривалась на MAX_TOKENS і повертала ПОРОЖНЄ,
+    // через що дослідження падало й ішло на фолбек. Розгорнутий бриф із
+    // цитатами джерел просто не влазив у цю стелю.
+    generationConfig: { maxOutputTokens: 8192, temperature: 0.6 },
   };
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
@@ -284,6 +287,13 @@ export async function llmCall(
       (busy as Error & { status: number }).status = 503;
       throw busy;
     }
-    throw e;
+    // Сюди доходять шляхи з ЯВНО закріпленим провайдером (напр. дослідження
+    // жорстко на gemini) — фолбека для них немає за задумом. Але сирий текст
+    // провайдера все одно не має права піти назовні: саме так користувач одного
+    // разу побачив англійське «credit balance is too low… Plans & Billing».
+    console.error(`[AI] ${primary} failed (без фолбека): ${(e as Error).message?.slice(0, 200)}`);
+    const failed = new Error('Octo зараз не може згенерувати відповідь. Спробуй ще раз за хвилину.');
+    (failed as Error & { status: number }).status = 503;
+    throw failed;
   }
 }
