@@ -64,7 +64,11 @@ app.use(helmet({
       'default-src': ["'self'"],
       'base-uri': ["'self'"],
       'font-src': ["'self'", 'https:', 'data:'],
-      'form-action': ["'self'", 'https://secure.wayforpay.com'],
+      // www.facebook.com — Meta Pixel шле частину подій НЕ картинкою, а POST-ом
+      // форми (великі payload-и). Без цього хосту браузер їх ріже, і в консолі
+      // лишається лише сухий рядок про CSP: реклама крутиться, частина
+      // конверсій не доходить, зрозуміти чому — важко.
+      'form-action': ["'self'", 'https://secure.wayforpay.com', 'https://www.facebook.com'],
       'frame-ancestors': ["'self'"],
       'img-src': ["'self'", 'data:', 'blob:', 'https:'],
       'media-src': ["'self'", 'blob:', 'data:'],
@@ -81,7 +85,10 @@ app.use(helmet({
       'style-src': ["'self'", 'https:', "'unsafe-inline'"],
       'connect-src': ["'self'", 'https:'],
       // Trend feed embeds the official TikTok/Instagram players (iframes).
-      'frame-src': ["'self'", 'https://www.tiktok.com', 'https://www.instagram.com'],
+      // www.facebook.com — прихований iframe пікселя для звірки cookie: без
+      // нього гіршає зіставлення відвідувача з користувачем Meta, тобто
+      // атрибуція реклами, за яку ми платимо.
+      'frame-src': ["'self'", 'https://www.tiktok.com', 'https://www.instagram.com', 'https://www.facebook.com'],
     },
   },
 }));
