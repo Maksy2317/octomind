@@ -189,8 +189,62 @@ function parseJsonLoose<T>(text: string): T {
     const repaired = slice
       .replace(/[\u0000-\u001F]+/g, ' ')
       .replace(/,(\s*[}\]])/g, '$1');
-    return unwrapJson<T>(JSON.parse(repaired));
+    try {
+      return unwrapJson<T>(JSON.parse(repaired));
+    } catch {
+      // ОСТАННІЙ РУБІЖ: рятуємо ОБІРВАНИЙ JSON.
+      // Модель інколи впирається в стелю токенів посеред масиву — і вся
+      // відповідь летить у смітник із «AI повернув невалідний формат», хоча
+      // 12 із 13 брифів уже написані. Для користувача це різниця між робочим
+      // планом і порожнім екраном. Відрізаємо недописаний хвіст і закриваємо
+      // дужки: краще 12 готових брифів, ніж помилка.
+      const salvaged = salvageTruncatedJson(candidate);
+      if (salvaged) return unwrapJson<T>(JSON.parse(salvaged));
+      throw new Error('AI did not return JSON');
+    }
   }
+}
+
+/**
+ * Обрізати обірваний JSON до останнього ЗАВЕРШЕНОГО елемента й закрити дужки.
+ * Повертає null, якщо рятувати нічого (немає жодного цілого елемента).
+ */
+function salvageTruncatedJson(raw: string): string | null {
+  const start = raw.search(/[{[]/);
+  if (start === -1) return null;
+  const text = raw.slice(start);
+
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  let lastSafe = -1;            // індекс ПІСЛЯ останнього цілого елемента
+  let safeStack: string[] = []; // стан дужок САМЕ в цій точці
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\' && inStr) { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{' || c === '[') { stack.push(c); continue; }
+    if (c === '}' || c === ']') {
+      stack.pop();
+      // Безпечно різати ЛИШЕ тут — на межі завершеного вкладеного елемента.
+      // Позначати кінець будь-якого рядка не можна: обрив після КЛЮЧА дає
+      // «{"idea":}», що вже не JSON. Перевірено — саме так воно й ламалось.
+      if (stack.length) { lastSafe = i + 1; safeStack = stack.slice(); }
+      continue;
+    }
+  }
+  if (!stack.length) return null;           // не обірваний — рятувати нічого
+  if (lastSafe <= 0) return null;
+
+  let out = text.slice(0, lastSafe).replace(/,\s*$/, '');
+  // Закриваємо дужки за станом У ТОЧЦІ РОЗРІЗУ, а не в кінці рядка: після неї
+  // модель встигла відкрити ще один обʼєкт, і закриття «за фінальним стеком»
+  // дописувало зайву дужку — результат знову не парсився.
+  for (let i = safeStack.length - 1; i >= 0; i--) out += safeStack[i] === '{' ? '}' : ']';
+  return out;
 }
 
 const textOf = (res: Anthropic.Message): string =>
@@ -213,7 +267,11 @@ async function parseWithRetry<T>(make: () => Promise<string>): Promise<T> {
 }
 
 /** One structured call to the active LLM provider → parsed JSON object. */
-async function jsonCall<T>(system: string, user: string, maxTokens = 4096, provider?: Provider): Promise<T> {
+// 4096 було замало найдовшим відповідям (повна стратегія з матеріалами,
+// багатослівні скіли): модель обривалась на MAX_TOKENS, летіла на фолбек і
+// поверталась 503. Стеля — це ВЕРХНЯ МЕЖА, а не витрата: платимо лише за
+// фактично згенеровані токени, тож підняти її нічого не коштує.
+async function jsonCall<T>(system: string, user: string, maxTokens = 6000, provider?: Provider): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
   return parseWithRetry<T>(async () => {
     const res = await llmCall(system, user, { maxTokens, provider });
@@ -595,7 +653,14 @@ function untrustedBlock(text: string): string {
 // that never claimed either — a trust-killer the moment the owner reads it.
 const FACTS_RULE =
   'ФАКТИ: НЕ вигадуй цифр, років досвіду, кількості клієнтів/угод/підписників, регалій, нагород чи цитат-відгуків. ' +
-  'Конкретні цифри й досягнення бери ЛИШЕ з профілю чи стратегії; якщо їх там немає — пиши переконливо без цифр.';
+  'Конкретні цифри й досягнення бери ЛИШЕ з профілю чи стратегії; якщо їх там немає — пиши переконливо без цифр. ' +
+  // Правило саме собі суперечило: скіл про ЦІНИ без жодного числа марний, тож
+  // модель обирала корисність і вигадувала «299 грн», «середня по ринку 500».
+  // Тепер конфлікт знято чесно: число можна, але лише як явно позначений
+  // приклад — і ніколи як факт про цей бізнес чи як ринкову статистику.
+  'ВИНЯТОК: якщо задача ПРЯМО про ціни, пакети чи бюджет — числа давати можна, ' +
+  'але ОБОВʼЯЗКОВО як приклад-заготовку зі словом «приклад» або «підстав свою», ' +
+  'і НІКОЛИ не подавай їх як реальну ціну цього бізнесу чи як «середню по ринку».';
 
 function htmlToText(html: string): string {
   return html
@@ -1138,7 +1203,10 @@ export function runSkill(skillId: string, profileCtx: string, userInput: string)
       ? `Задача / контекст від клієнта:\n${untrustedBlock(userInput.slice(0, 1500))}\n\n`
       : '') +
     `Застосуй скіл «${def.label}» і поверни план + готові матеріали під цей бізнес.`;
-  return jsonCall<SkillResult>(system, user, 2600);
+  // 2600 не вистачало найбагатослівнішим скілам (council — це кілька
+  // експертних поглядів поспіль): модель обривалась на MAX_TOKENS, летіла
+  // на мертвий фолбек і поверталась 503.
+  return jsonCall<SkillResult>(system, user, 4200);
 }
 
 export function auditContent(profileCtx: string, images: AuditImage[]): Promise<ContentAudit> {

@@ -238,7 +238,7 @@ export async function llmCall(
 ): Promise<LlmResult> {
   const primary = opts.provider || defaultProvider();
   const images = opts.images || [];
-  const maxTokens = opts.maxTokens || 4096;
+  const maxTokens = opts.maxTokens || 6000;   // див. коментар у jsonCall
   const run = (p: Provider) => (p === 'gemini' ? geminiJson : anthropicJson)(system, user, images, maxTokens);
 
   const t0 = Date.now();
