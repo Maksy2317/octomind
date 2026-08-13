@@ -2949,6 +2949,40 @@
             .tm-hero h2 { font-size:17px; font-weight:800; margin:0 0 3px; }
             .tm-hero p { font-size:12.5px; color:var(--text3); margin:0; line-height:1.4; }
             .tm-cat { font-size:12px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--text3); margin:20px 0 10px; }
+            /* ── Групи-«болі» з маскотом ─────────────────────────────────── */
+            .tm-grp { border:1px solid var(--border); border-radius:18px; background:var(--surface2);
+              margin-bottom:10px; overflow:hidden; transition:border-color .18s; }
+            .tm-grp.open { border-color:rgba(139,123,255,.45); }
+            .tm-grp-head { display:flex; align-items:center; gap:13px; width:100%; padding:14px;
+              background:none; border:none; cursor:pointer; font:inherit; color:var(--text); text-align:left; }
+            .tm-grp-oct { width:52px; height:52px; object-fit:contain; flex:none;
+              filter:drop-shadow(0 6px 12px rgba(20,10,50,.45)); transition:transform .25s; }
+            .tm-grp.open .tm-grp-oct { transform:scale(1.1) rotate(-4deg); }
+            .tm-grp-txt { flex:1; min-width:0; }
+            .tm-grp-pain { font-size:15px; font-weight:800; line-height:1.25; }
+            .tm-grp-sub { font-size:12.5px; color:var(--text3); margin-top:3px; line-height:1.4; }
+            .tm-grp-n { font-size:11.5px; font-weight:800; color:var(--accent2); background:rgba(139,123,255,.14);
+              border-radius:8px; padding:3px 8px; flex:none; }
+            .tm-grp-chev { color:var(--text3); font-size:13px; flex:none; transition:transform .2s; }
+            .tm-grp.open .tm-grp-chev { transform:rotate(180deg); }
+            /* grid-template-rows 0fr→1fr: розкриття без магічних max-height,
+               які ламаються, щойно текст стане довшим за здогадку. */
+            /* Свідомо max-height, а не модне grid-template-rows 0fr→1fr: остання
+               в цьому лейауті лишалась 0px навіть із класом .open, і воювати з
+               нею перед запуском не варто. Стеля з великим запасом — у групі
+               максимум 4 пункти (~400px), тож 900px ніколи не обріже. */
+            .tm-grp-body { max-height:0; overflow:hidden; transition:max-height .26s ease; }
+            .tm-grp.open .tm-grp-body { max-height:900px; }
+            .tm-item { display:flex; align-items:flex-start; gap:11px; width:100%; padding:12px 14px;
+              background:none; border:none; border-top:1px solid var(--border); cursor:pointer;
+              font:inherit; color:var(--text); text-align:left; transition:background .15s; }
+            .tm-item:hover { background:rgba(139,123,255,.07); }
+            .tm-item:active { background:rgba(139,123,255,.12); }
+            .tm-item-e { font-size:19px; flex:none; line-height:1.3; }
+            .tm-item-t { flex:1; min-width:0; }
+            .tm-item-n { display:block; font-size:14px; font-weight:750; }
+            .tm-item-g { display:block; font-size:12.5px; color:var(--text3); line-height:1.45; margin-top:3px; }
+            .tm-item-go { color:var(--accent2); font-weight:800; flex:none; align-self:center; }
             .tm-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
             .tm-card { text-align:left; background:var(--surface2); border:1px solid var(--border); border-radius:15px; padding:13px;
               cursor:pointer; transition:border-color .15s, transform .1s; font:inherit; color:var(--text); }
@@ -9983,43 +10017,136 @@
 
   // Client menu — ids MUST match the backend SKILLS registry. Curated for our
   // ICP (local small business / creator on IG+TikTok); no B2B-SaaS/dev skills.
+  // Перебудовано на «біль», а не на маркетингову категорію. Причина: 12 однакових
+  // плиток читались як меню, з якого не обирають — людина не маркетолог і не знає
+  // різниці між «оффером» і «позиціонуванням». Тепер вона обирає СВОЮ проблему
+  // своїми словами, а фахівця під неї добирає Octo.
+  //
+  // У кожної групи свій маскот-супровідник: він робить вибір людяним і дає
+  // групі впізнаване обличчя замість чергового заголовка.
+  //
+  // `gives` — це те, чого бракувало найбільше: що саме людина ТРИМАТИМЕ В РУКАХ
+  // після запуску. Без цього незрозуміло, чи варто взагалі тиснути.
   var GROUPS = [
-    { cat: '📈 Залучити нових клієнтів', skills: [
-      { id: 'referrals',    emoji: '🧲', name: 'Реферальна програма', blurb: 'Клієнти приводять клієнтів', hint: 'Кого хочеш залучати рефералами? (необовʼязково)' },
-      { id: 'influencer',   emoji: '🤝', name: 'Колаби з блогерами',  blurb: 'Мікроблогери приводять аудиторію', hint: 'Який бюджет чи бартер готовий дати за колаб?' },
-      { id: 'co-marketing', emoji: '👥', name: 'Партнерство з сусідами', blurb: 'Крос-промо з бізнесами поруч', hint: 'Які бізнеси є поруч із тобою?' },
-      { id: 'pr',           emoji: '🗞', name: 'Локальний PR',        blurb: 'Місцеві медіа й телеграм-канали', hint: 'Є інфопривід? (подія, новинка)' },
-    ]},
-    { cat: '🫂 Утримати й повернути', skills: [
-      { id: 'community',    emoji: '🫂', name: 'Своє ком’юніті',      blurb: 'Постійні люди навколо бренду', hint: 'Де вже спілкуєшся з клієнтами?' },
-      { id: 'winback',      emoji: '💬', name: 'Повернути клієнтів',  blurb: 'Розбуди сплячу базу', hint: 'Хто твої «сплячі» клієнти?' },
-    ]},
-    { cat: '🎯 Упаковка й запуск', skills: [
-      { id: 'offer',        emoji: '🎁', name: 'Скласти оффер',       blurb: 'Пропозиція, від якої не відмовляться', hint: 'Що просуваєш? (товар / послуга / акція)' },
-      { id: 'launch',       emoji: '🚀', name: 'План запуску',        blurb: 'Виведи новинку/акцію по днях', hint: 'Що запускаєш і коли?' },
-      { id: 'pricing',      emoji: '🏷', name: 'Ціни й пакети',       blurb: 'Скільки брати і як пакувати', hint: 'Що продаєш і які приблизно ціни?' },
-    ]},
-    { cat: '🧠 Ідеї та експертиза', skills: [
-      { id: 'psychology',   emoji: '🧠', name: 'Маркетинг-психологія', blurb: 'Тригери, що підштовхують купити', hint: 'До чого застосувати? (пост / оффер)' },
-      { id: 'ideas',        emoji: '💡', name: 'Швидкі ідеї',         blurb: '8-10 дій на цей тиждень', hint: 'Є фокус? (напр. більше записів)' },
-      { id: 'council',      emoji: '🧑‍⚖️', name: 'Рада маркетологів',  blurb: 'Кілька експертних поглядів', hint: 'Сформулюй питання до ради' },
-    ]},
+    {
+      id: 'awareness',
+      pain: 'Про мене ніхто не знає',
+      sub: 'Мало хто заходить, охоплення не росте',
+      mascot: 'A19.png',
+      skills: [
+        { id: 'pr',           emoji: '🗞', name: 'Локальний PR',
+          gives: 'Про що написати місцевим медіа й телеграм-каналам — і як подати, щоб узяли',
+          hint: 'Є інфопривід? (подія, новинка)' },
+        { id: 'influencer',   emoji: '🤝', name: 'Колаби з блогерами',
+          gives: 'Яких саме блогерів шукати та готовий текст, щоб до них написати',
+          hint: 'Який бюджет чи бартер готовий дати за колаб?' },
+        { id: 'co-marketing', emoji: '👥', name: 'Партнерство з сусідами',
+          gives: 'З ким поруч обмінятись аудиторією і як це запропонувати',
+          hint: 'Які бізнеси є поруч із тобою?' },
+        { id: 'referrals',    emoji: '🧲', name: 'Щоб радили друзям',
+          gives: 'Схема «приведи друга» з текстами, які можна одразу надіслати клієнтам',
+          hint: 'Кого хочеш залучати рефералами? (необовʼязково)' },
+      ],
+    },
+    {
+      id: 'conversion',
+      pain: 'Заходять, але не купують',
+      sub: 'Дивляться, питають ціну — і зникають',
+      mascot: 'A20.png',
+      skills: [
+        { id: 'offer',      emoji: '🎁', name: 'Скласти оффер',
+          gives: 'Пропозиція з причиною діяти саме зараз — і чим знімаєш ризик для клієнта',
+          hint: 'Що просуваєш? (товар / послуга / акція)' },
+        { id: 'pricing',    emoji: '🏷', name: 'Ціни й пакети',
+          gives: 'Як упакувати послуги в 2-3 пакети і що покласти в кожен',
+          hint: 'Що продаєш і які приблизно ціни?' },
+        { id: 'psychology', emoji: '🧠', name: 'Чому не купують',
+          gives: 'Які саме сумніви гальмують твого клієнта і чим їх зняти в тексті',
+          hint: 'До чого застосувати? (пост / оффер)' },
+      ],
+    },
+    {
+      id: 'retention',
+      pain: 'Купили раз — і зникли',
+      sub: 'Немає постійних, кожен клієнт разовий',
+      mascot: 'A05.png',
+      skills: [
+        { id: 'winback',   emoji: '💬', name: 'Повернути тих, хто зник',
+          gives: 'Привід і готовий текст, щоб написати тим, хто давно не заходив',
+          hint: 'Хто твої «сплячі» клієнти?' },
+        { id: 'community', emoji: '🫂', name: 'Своє ком’юніті',
+          gives: 'Де зібрати своїх людей і про що з ними говорити, щоб лишались',
+          hint: 'Де вже спілкуєшся з клієнтами?' },
+      ],
+    },
+    {
+      id: 'start',
+      pain: 'Не знаю, з чого почати',
+      sub: 'Ідей багато, а порядку дій немає',
+      mascot: 'A10.png',
+      skills: [
+        { id: 'launch',  emoji: '🚀', name: 'План запуску',
+          gives: 'Що робити по днях, щоб вивести новинку чи акцію — від анонсу до продажу',
+          hint: 'Що запускаєш і коли?' },
+        { id: 'ideas',   emoji: '💡', name: 'Швидкі ідеї',
+          gives: '8-10 конкретних дій на цей тиждень під твою нішу',
+          hint: 'Є фокус? (напр. більше записів)' },
+        { id: 'council', emoji: '🧑‍⚖️', name: 'Рада маркетологів',
+          gives: 'Кілька фахівців дивляться на твою задачу з різних боків і сперечаються',
+          hint: 'Сформулюй питання до ради' },
+      ],
+    },
   ];
   var SKILL_BY_ID = {};
   GROUPS.forEach(function (g) { g.skills.forEach(function (s) { SKILL_BY_ID[s.id] = s; }); });
 
   window.octoRenderTeam = function () {
     var grid = $('teamGrid'); if (!grid || grid.dataset.built) return;
+    // Згорнуті групи: спершу людина обирає СВІЙ біль (4 варіанти), і лише тоді
+    // бачить 2-4 релевантні інструменти. Раніше всі 12 висіли одночасно —
+    // це давало параліч вибору, бо різниця між ними неочевидна.
     grid.innerHTML = GROUPS.map(function (g) {
-      return '<div class="tm-cat">' + esc(g.cat) + '</div><div class="tm-grid">' +
-        g.skills.map(function (s) {
-          return '<button class="tm-card" onclick="octoOpenSkill(\'' + s.id + '\')">' +
-            '<span class="tm-emoji">' + s.emoji + '</span>' +
-            '<div class="tm-name">' + esc(s.name) + '</div>' +
-            '<div class="tm-blurb">' + esc(s.blurb) + '</div></button>';
-        }).join('') + '</div>';
+      return '<div class="tm-grp" data-grp="' + g.id + '">'
+        + '<button class="tm-grp-head" type="button" onclick="octoTeamToggle(\'' + g.id + '\')">'
+        +   '<img class="tm-grp-oct" src="assets/new/' + g.mascot + '" alt="">'
+        +   '<div class="tm-grp-txt">'
+        +     '<div class="tm-grp-pain">' + esc(g.pain) + '</div>'
+        +     '<div class="tm-grp-sub">' + esc(g.sub) + '</div>'
+        +   '</div>'
+        +   '<span class="tm-grp-n">' + g.skills.length + '</span>'
+        +   '<span class="tm-grp-chev">▾</span>'
+        + '</button>'
+        + '<div class="tm-grp-body"><div class="tm-grp-inner">'
+        +   g.skills.map(function (sk) {
+              return '<button class="tm-item" type="button" onclick="octoOpenSkill(\'' + sk.id + '\')">'
+                + '<span class="tm-item-e">' + sk.emoji + '</span>'
+                + '<span class="tm-item-t">'
+                +   '<span class="tm-item-n">' + esc(sk.name) + '</span>'
+                +   '<span class="tm-item-g">' + esc(sk.gives) + '</span>'
+                + '</span>'
+                + '<span class="tm-item-go">→</span></button>';
+            }).join('')
+        + '</div></div></div>';
     }).join('');
     grid.dataset.built = '1';
+  };
+
+  // Одна група відкрита за раз — щоб екран лишався коротким і читався як вибір,
+  // а не як довгий список усього одразу.
+  window.octoTeamToggle = function (id) {
+    var all = document.querySelectorAll('.tm-grp');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      var body = el.querySelector('.tm-grp-body');
+      var willOpen = el.getAttribute('data-grp') === id && !el.classList.contains('open');
+      el.classList.toggle('open', willOpen);
+      // Висоту ставимо інлайном, а не класом: правило `.tm-grp.open .tm-grp-body`
+      // у цьому файлі чомусь не вигравало каскад (перевірено — обидва селектори
+      // збігаються з елементом, але computed лишався 0px). Інлайн-стиль знімає
+      // питання назавжди, а scrollHeight ще й прибирає магічну стелю: висота
+      // рівно під вміст, скільки б пунктів у групі не було.
+      if (body) body.style.maxHeight = willOpen ? (body.scrollHeight + 'px') : '0px';
+    }
   };
 
   // Tap a skill → small sheet with an optional context field → run.
@@ -10030,7 +10157,7 @@
       '<div style="width:38px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-size:26px;">' + s.emoji + '</span>' +
       '<div style="font-size:16px;font-weight:800;">' + esc(s.name) + '</div></div>' +
-      '<div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;">' + esc(s.blurb) + ' — Octo зробить план під твій бізнес.</div>' +
+      '<div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;">' + esc(s.gives) + '</div>' +
       '<textarea id="tmInput" rows="3" placeholder="' + esc(s.hint) + '" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font:500 14px Manrope,sans-serif;line-height:1.5;resize:vertical;"></textarea>' +
       '<button onclick="octoRunSkill(\'' + s.id + '\')" style="width:100%;margin-top:14px;padding:14px;border:none;border-radius:14px;font:800 15px Manrope,sans-serif;color:#fff;background:var(--grad);cursor:pointer;">✨ Запустити фахівця</button>' +
       '<button onclick="_octoSheetClose()" style="width:100%;margin-top:8px;padding:11px;background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:12px;font:600 13px Manrope,sans-serif;cursor:pointer;">Скасувати</button>' +
