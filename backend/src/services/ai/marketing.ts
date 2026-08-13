@@ -660,7 +660,15 @@ const FACTS_RULE =
   // приклад — і ніколи як факт про цей бізнес чи як ринкову статистику.
   'ВИНЯТОК: якщо задача ПРЯМО про ціни, пакети чи бюджет — числа давати можна, ' +
   'але ОБОВʼЯЗКОВО як приклад-заготовку зі словом «приклад» або «підстав свою», ' +
-  'і НІКОЛИ не подавай їх як реальну ціну цього бізнесу чи як «середню по ринку».';
+  'і НІКОЛИ не подавай їх як реальну ціну цього бізнесу чи як «середню по ринку». ' +
+  // Виняток вище стосувався пояснень — але модель переносила приклади й у
+  // ГОТОВІ тексти: «преміальний набір за 200 грн» у пості, який власник
+  // копіює і публікує як є. У поясненні число ілюструє прийом, у copy-paste
+  // тексті воно стає обіцянкою клієнту, і ціна в ній чужа.
+  'ОКРЕМО про готові до публікації тексти (пости, повідомлення, скрипти): у них ' +
+  'ЗАБОРОНЕНО будь-яке число, якого немає в профілі. Замість суми залишай ' +
+  'підстановку в квадратних дужках — [ваша ціна], [сума знижки] — щоб власник ' +
+  'вписав своє. Пояснення можуть містити позначені приклади, готовий текст — ні.';
 
 function htmlToText(html: string): string {
   return html
@@ -1206,7 +1214,36 @@ export function runSkill(skillId: string, profileCtx: string, userInput: string)
   // 2600 не вистачало найбагатослівнішим скілам (council — це кілька
   // експертних поглядів поспіль): модель обривалась на MAX_TOKENS, летіла
   // на мертвий фолбек і поверталась 503.
-  return jsonCall<SkillResult>(system, user, 4200);
+  return jsonCall<SkillResult>(system, user, 4200).then(withActionSteps(skillId, profileCtx));
+}
+
+// Розбір без кроків — це стаття, а не робота маркетолога. Модель зрідка
+// повертає самі sections і мовчки губить action_steps (спіймано 13.08.2026 на
+// скілі «Своє комʼюніті»: три секції тексту, нуль кроків — при тому що в
+// сусідньому прогоні той самий скіл дав шість). Замість того щоб віддати таке
+// людині, добираємо кроки окремим дешевим запитом із уже готового розбору.
+function withActionSteps(skillId: string, profileCtx: string) {
+  return async (res: SkillResult): Promise<SkillResult> => {
+    if (Array.isArray(res?.action_steps) && res.action_steps.length) return res;
+    console.warn(`[Skill] ${skillId}: модель не дала action_steps — добираю окремим запитом`);
+    try {
+      const patch = await jsonCall<{ action_steps: string[] }>(
+        'Ти — маркетолог. З наведеного розбору дістань 3-6 конкретних кроків, які власник ' +
+        'реально зробить цього тижня. Кожен крок — одна дія, з чого почати і що на виході. ' +
+        'Жодних загальних фраз. ' + FACTS_RULE + ' ' + LANG_RULE +
+        ' Схема JSON: {"action_steps": string[]}.',
+        `Дані про бізнес:\n${profileCtx}\n\nРозбір:\n` +
+        JSON.stringify({ title: res?.title, summary: res?.summary, sections: res?.sections }),
+        900,
+      );
+      if (Array.isArray(patch?.action_steps) && patch.action_steps.length) {
+        return { ...res, action_steps: patch.action_steps.slice(0, 6) };
+      }
+    } catch (e) {
+      console.warn(`[Skill] ${skillId}: добір кроків не вдався:`, (e as Error).message?.slice(0, 120));
+    }
+    return res;
+  };
 }
 
 export function auditContent(profileCtx: string, images: AuditImage[]): Promise<ContentAudit> {
