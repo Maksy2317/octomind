@@ -64,6 +64,16 @@ function failure(status: number, code: SourceFailure['code'], message: string, r
 const OUT_COOLDOWN_MS = 30 * 60_000;
 let sourceOutUntil = 0;
 
+// Окремий запобіжник саме на дешевий актор: він може бути живим (HTTP 200), але
+// віддавати самі {noResults:true}. Це не збій акаунта, тому sourceOutUntil тут
+// не годиться — вимикати треба лише цього постачальника, а не всю стрічку.
+const APIDOJO_DUD_MS = 6 * 3_600_000;
+let apidojoDudUntil = 0;
+
+function isApidojoDud(): boolean {
+  return Date.now() < apidojoDudUntil;
+}
+
 export function sourceOut(): SourceFailure {
   return failure(503, 'trends_source_out',
     'Свіжа добірка роликів зараз недоступна — оновлюємо джерело даних. Заглянь трохи пізніше, все повернеться.', false);
@@ -319,6 +329,63 @@ function normalizeIG(v: Record<string, any>): TrendVideo | null {
   };
 }
 
+// ── Один крок скрейпу ────────────────────────────────────────────────────────
+// Кожен постачальник — свій актор, свій формат вводу і свій нормалізатор. Три
+// різні `USE_APIDOJO ? … : …` в одному тілі функції раніше легко розʼїжджались
+// між собою (актор один, а нормалізатор інший — і на виході тиша). Тепер вибір
+// робиться один раз, за назвою кроку.
+type ScrapeStep = 'apidojo' | 'clockworks' | 'instagram';
+
+function stepActor(step: ScrapeStep): string {
+  if (step === 'instagram') return IG_ACTOR;
+  return step === 'apidojo' ? APIDOJO_ACTOR : ACTOR;
+}
+
+function stepInput(step: ScrapeStep, list: string[], perQuery: number): Record<string, unknown> {
+  if (step === 'instagram') {
+    return {
+      hashtags: list.map((q) => q.replace(/^#/, '').replace(/\s+/g, '')),
+      resultsType: 'reels',
+      resultsLimit: perQuery,
+    };
+  }
+  if (step === 'apidojo') {
+    return { keywords: list, maxItems: perQuery * list.length, sortType: 'RELEVANCE' };
+  }
+  return {
+    searchQueries: list,
+    // Keep total volume (and cost) roughly constant however many queries run.
+    resultsPerPage: perQuery,
+    searchSection: '/video',
+    maxProfilesPerQuery: 1,
+  };
+}
+
+/** Один запуск актора → нормалізовані ролики. Порожній масив = актор не знайшов. */
+async function scrapeWith(step: ScrapeStep, list: string[], perQuery: number): Promise<TrendVideo[]> {
+  const res = await fetch(
+    `https://api.apify.com/v2/acts/${stepActor(step)}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(stepInput(step, list, perQuery)),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw apifyFailure(res.status, body);
+  }
+  const items = (await res.json()) as Array<Record<string, any>>;
+  const normalizer = step === 'instagram' ? normalizeIG : (step === 'apidojo' ? normalizeApidojo : normalize);
+  const seen = new Set<string>();
+  return (Array.isArray(items) ? items : [])
+    .map(normalizer)
+    .filter((v): v is TrendVideo => Boolean(v))
+    // several queries can surface the same video — dedup by id
+    .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
+    .sort((a, b) => b.views - a.views);
+}
+
 /**
  * Fetch the trend feed for one or more search queries (the scraper accepts
  * several natively — one run, one bill). Cached on disk per platform+query-set.
@@ -355,60 +422,52 @@ export async function getTrendFeed(
   }
 
   const perQuery = Math.max(10, Math.ceil(RESULTS_PER_QUERY / list.length));
-  const actor = platform === 'instagram' ? IG_ACTOR : (USE_APIDOJO ? APIDOJO_ACTOR : ACTOR);
-  const input = platform === 'instagram'
-    ? {
-      hashtags: list.map((q) => q.replace(/^#/, '').replace(/\s+/g, '')),
-      resultsType: 'reels',
-      resultsLimit: perQuery,
+
+  // Порядок спроб. apidojo у ~30 разів дешевший, але його пошук періодично
+  // повертає самі {noResults:true} — перевірено на живих даних 13.08.2026: нуль
+  // реальних роликів і українською, і англійською, у всіх режимах сортування,
+  // з location і без. Тому дешевий актор більше НЕ єдиний: якщо він порожній,
+  // одразу добираємо перевіреним clockworks. Людина отримує стрічку, а не
+  // чесну відмову через збій постачальника, про якого вона не знає.
+  const plan: ScrapeStep[] = platform === 'instagram'
+    ? ['instagram']
+    : (USE_APIDOJO && !isApidojoDud() ? ['apidojo', 'clockworks'] : ['clockworks']);
+
+  let videos: TrendVideo[] = [];
+  let lastErr: SourceFailure | null = null;
+  for (const step of plan) {
+    try {
+      videos = await scrapeWith(step, list, perQuery);
+    } catch (e) {
+      lastErr = e as SourceFailure;
+      videos = [];
+      // Вичерпані кредити / поганий токен — це рівень АКАУНТА, а не актора.
+      // Наступний актор упреться в те саме, тож не витрачаємо на нього час.
+      if (lastErr?.code === 'trends_source_out') break;
     }
-    : USE_APIDOJO
-      ? {
-        keywords: list,
-        maxItems: perQuery * list.length,
-        sortType: 'RELEVANCE',
-      }
-      : {
-        searchQueries: list,
-        // Keep total volume (and cost) roughly constant however many queries run.
-        resultsPerPage: perQuery,
-        searchSection: '/video',
-        maxProfilesPerQuery: 1,
-      };
-  const res = await fetch(
-    `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  );
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    // A stale cache beats a hard failure — serve it if we have one.
+    if (videos.length) break;
+    if (step === 'apidojo') {
+      // Дешевий актор зараз пустий — наступні 6 годин ідемо одразу в робочий,
+      // не палячи час користувача на гарантований нуль. Через 6 год спробуємо
+      // знову: коли він оживе, ціна сама повернеться до $0.30/1000.
+      apidojoDudUntil = Date.now() + APIDOJO_DUD_MS;
+      console.error('[Trends] apidojo віддав 0 роликів — перемикаюсь на clockworks на 6 год');
+    }
+  }
+
+  if (!videos.length) {
+    // Протермінований кеш кращий за відмову — краще вчорашня добірка, ніж порожній екран.
     const stale = readCache(key);
     if (stale) {
-      console.warn(`[Trends] Apify ${res.status}, serving stale cache:`, body.slice(0, 150));
+      console.warn('[Trends] живий скрейп не вдався — віддаю протермінований кеш');
       return { videos: stale.videos, fetchedAt: stale.fetchedAt, fromCache: true };
     }
-    throw apifyFailure(res.status, body);
-  }
-  const items = (await res.json()) as Array<Record<string, any>>;
-  const seen = new Set<string>();
-  const normalizer = platform === 'instagram' ? normalizeIG : (USE_APIDOJO ? normalizeApidojo : normalize);
-  const videos = (Array.isArray(items) ? items : [])
-    .map(normalizer)
-    .filter((v): v is TrendVideo => Boolean(v))
-    // several queries can surface the same video — dedup by id
-    .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
-    .sort((a, b) => b.views - a.views);
-  // Нуль роликів після ЖИВОГО скрейпу — це не «нічого не знайшлось», а збій:
-  // пошук TikTok по реальній ніші порожнім не буває. Найчастіша причина —
-  // вичерпані кредити (актор віддає 200 із порожнім датасетом, без помилки).
-  // Раніше цей нуль ішов у клієнт як успіх, і людина бачила порожній екран без
-  // жодного пояснення — саме це виглядало як «пошук не працює».
-  if (!videos.length) {
-    console.error('[Trends] скрейп повернув 0 роликів — найімовірніше вичерпані кредити актора');
+    if (lastErr) throw lastErr;
+    // Нуль роликів після ЖИВОГО скрейпу — це не «нічого не знайшлось», а збій:
+    // пошук TikTok по реальній ніші порожнім не буває. Раніше цей нуль ішов у
+    // клієнт як успіх, і людина бачила порожній екран без жодного пояснення —
+    // саме це виглядало як «пошук не працює».
+    console.error('[Trends] жоден актор не повернув роликів');
     throw failure(503, 'trends_source_down',
       'Не вдалось зібрати ролики. Джерело даних зараз не віддає результатів — спробуй трохи пізніше.', true);
   }
