@@ -135,12 +135,19 @@ function cachePath(key: string): string {
 function readCache(key: string): { fetchedAt: number; videos: TrendVideo[] } | null {
   try {
     const raw = JSON.parse(fs.readFileSync(cachePath(key), 'utf8'));
-    if (raw && Array.isArray(raw.videos)) return raw;
+    // ПОРОЖНІЙ кеш — це не дані, а слід невдалого скрейпу. Раніше він повертався
+    // як валідний хіт, і стрічка 12 годин мовчки показувала порожній екран:
+    // сервер віддавав HTTP 200 + videos:[] + fromCache:true, тобто «успіх, але
+    // нічого немає». Для користувача це виглядало як «пошук не працює».
+    if (raw && Array.isArray(raw.videos) && raw.videos.length > 0) return raw;
   } catch { /* miss */ }
   return null;
 }
 
 function writeCache(key: string, videos: TrendVideo[]): void {
+  // Не зберігаємо порожнечу: інакше один невдалий скрейп отруює кеш на 12 годин
+  // для ВСІХ, хто шукає ту саму нішу.
+  if (!videos.length) return;
   try {
     fs.writeFileSync(cachePath(key), JSON.stringify({ fetchedAt: Date.now(), videos }));
   } catch (e) {
@@ -395,6 +402,17 @@ export async function getTrendFeed(
     // several queries can surface the same video — dedup by id
     .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
     .sort((a, b) => b.views - a.views);
+  // Нуль роликів після ЖИВОГО скрейпу — це не «нічого не знайшлось», а збій:
+  // пошук TikTok по реальній ніші порожнім не буває. Найчастіша причина —
+  // вичерпані кредити (актор віддає 200 із порожнім датасетом, без помилки).
+  // Раніше цей нуль ішов у клієнт як успіх, і людина бачила порожній екран без
+  // жодного пояснення — саме це виглядало як «пошук не працює».
+  if (!videos.length) {
+    console.error('[Trends] скрейп повернув 0 роликів — найімовірніше вичерпані кредити актора');
+    throw failure(503, 'trends_source_down',
+      'Не вдалось зібрати ролики. Джерело даних зараз не віддає результатів — спробуй трохи пізніше.', true);
+  }
+
   writeCache(key, videos);
   return { videos, fetchedAt: Date.now(), fromCache: false };
 }

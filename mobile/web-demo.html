@@ -10103,11 +10103,27 @@
     res.appendChild(card);
     var sv = card.querySelector('.tm-save');
     if (sv) sv.onclick = function () {
+      // Раніше КОЖЕН пункт секції ставав окремим записом і тягнув за собою її
+      // назву — тому в «Моїх ідеях» виходило «Чіткий заклик» тричі поспіль,
+      // «✅ Крок» перед кожним рядком і «Показати повністю» біля кожного абзацу.
+      // Структура сплющувалась у кашу. Тепер одна секція = один блок, пункти
+      // всередині лишаються списком.
       var items = [];
       (r.sections || []).forEach(function (sec) {
-        (sec.items || []).forEach(function (it) { items.push({ label: sec.heading || '', text: it }); });
+        var bullets = (sec.items || []).filter(Boolean);
+        if (!bullets.length) return;
+        items.push({
+          label: sec.heading || '',
+          text: bullets.length === 1 ? String(bullets[0])
+            : bullets.map(function (b) { return '• ' + String(b); }).join('\n'),
+        });
       });
-      (r.action_steps || []).forEach(function (st) { items.push({ label: '✅ Крок', text: st }); });
+      if ((r.action_steps || []).length) {
+        items.push({
+          label: '✅ Що зробити цього тижня',
+          text: r.action_steps.map(function (st, i) { return (i + 1) + '. ' + String(st); }).join('\n'),
+        });
+      }
       window.octoSaveIdea('skill', (r.title || s.name),
         { title: (r.title || s.name), summary: r.summary || '', items: items, materials: r.materials }, sv);
     };
@@ -12034,8 +12050,12 @@
     // punch → details). Applies everywhere this body is used.
     function tblock(text) {
       var t = String(text == null ? '' : text);
-      if (t.length <= 240) return '<p>' + esc(t) + '</p>';
-      return '<p class="ob-vtext">' + esc(t) + '</p><button class="ob-more" type="button" onclick="octoMatExpand(this)">Показати повністю ▾</button>';
+      // pre-line: AI часто повертає текст із переносами (списки, кроки), а <p>
+      // за замовчуванням схлопує їх в один абзац — і акуратний список
+      // перетворювався на суцільну стіну.
+      var st = ' style="white-space:pre-line;"';
+      if (t.length <= 240) return '<p' + st + '>' + esc(t) + '</p>';
+      return '<p class="ob-vtext"' + st + '>' + esc(t) + '</p><button class="ob-more" type="button" onclick="octoMatExpand(this)">Показати повністю ▾</button>';
     }
     // Copy is THE action for a text material — you take it and post it. The
     // text is registered by id (too long/quote-riddled for an attribute).
@@ -14002,9 +14022,15 @@
     var el = $('tfFeed'); if (!el) return;
     var list = all.filter(passes);
     if (!list.length) {
+      // Порожній екран БЕЗ пояснення читався як «пошук зламався». Тепер обидва
+      // випадки говорять: або фільтри занадто вузькі, або джерело нічого не дало.
       el.innerHTML = all.length
         ? '<div class="card" style="text-align:center;color:var(--text4);padding:18px;">Під ці фільтри нічого не влучило — послаб їх.</div>'
-        : '';
+        : '<div class="card" style="text-align:center;padding:22px;">'
+          + '<div style="font-size:15px;font-weight:800;margin-bottom:6px;">Нічого не зібралось</div>'
+          + '<div style="font-size:13px;color:var(--text3);line-height:1.5;">'
+          + 'Джерело даних не віддало роликів за цим запитом. Спробуй інше слово або зазирни трохи пізніше.'
+          + '</div></div>';
       return;
     }
     var pro = isPro();
