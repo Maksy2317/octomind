@@ -118,10 +118,19 @@ export async function usageSnapshot(userId: string): Promise<{ plan: Plan; featu
 }
 
 export function quotaEnforced(): boolean {
-  // Only enforce plan limits once REAL billing is live — never block a user who
-  // can't yet pay. Sandbox / no WayForPay keys → everything is free.
-  // Override with QUOTA_ENFORCE=1 to force-on for testing.
-  if (process.env.QUOTA_ENFORCE === '1') return isDbConfigured();
+  // Ніколи не блокуємо людину, якій ніде заплатити. Поки бойових ключів
+  // WayForPay немає, `/api/pay/create` віддає ПУБЛІЧНИЙ тестовий мерчант із
+  // документації, а вебхук навмисно не верифікується (див. audit 30.07) — тобто
+  // «Відкрий Pro» веде в нікуди: гроші не приходять, тариф не вмикається.
+  //
+  // 13.08.2026 прод був саме в такому стані: QUOTA_ENFORCE=1 на Railway при
+  // live:false. Free-користувач упирався в стіну після 3 скілів і не мав як її
+  // пройти. Тому `1` більше НЕ обходить перевірку білінгу — він лише вмикає
+  // енфорсмент там, де продаж уже можливий.
   if (process.env.QUOTA_ENFORCE === '0') return false;
+  // Свідомий тестовий режим: блокувати НАВІТЬ без білінгу. Окреме слово, щоб
+  // це не можна було ввімкнути випадково, переплутавши з «1».
+  if (process.env.QUOTA_ENFORCE === 'force') return isDbConfigured();
+  if (process.env.QUOTA_ENFORCE === '1') return isDbConfigured() && isLive();
   return isDbConfigured() && isLive();
 }
