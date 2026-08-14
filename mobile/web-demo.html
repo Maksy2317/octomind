@@ -2992,6 +2992,47 @@
             .tm-name { font-size:13.5px; font-weight:750; margin-bottom:3px; }
             .tm-blurb { font-size:11.5px; color:var(--text3); line-height:1.35; }
             @media (max-width:360px){ .tm-grid { grid-template-columns:1fr; } }
+          
+            /* ── Шитик запуску фахівця ────────────────────────────────────
+               Було: голе поле з підказкою-питанням. Людина не розуміла ні що
+               писати, ні чи це обовʼязково, ні що буде на виході. Тепер видно
+               усі три речі, а готові варіанти можна просто клікнути.
+               Автофокус на полі свідомо прибраний: на телефоні він одразу
+               підіймає клавіатуру і закриває саме ті варіанти, які мають
+               підказати, що писати. */
+            .tm-sheet { background:var(--surface); border:1px solid var(--border);
+              border-radius:22px 22px 0 0; padding:20px 18px 26px; width:100%; max-width:560px;
+              box-sizing:border-box; }
+            .tm-sheet-grab { width:38px; height:4px; border-radius:2px; background:var(--border);
+              margin:0 auto 16px; }
+            .tm-sheet-head { display:flex; align-items:flex-start; gap:11px; }
+            .tm-sheet-e { font-size:26px; line-height:1; flex:none; }
+            .tm-sheet-n { font-size:16.5px; font-weight:800; line-height:1.25; }
+            .tm-sheet-g { font-size:12.5px; color:var(--text3); line-height:1.45; margin-top:3px; }
+            .tm-sheet-out { font-size:12px; color:var(--accent2); background:rgba(139,123,255,.1);
+              border:1px solid rgba(139,123,255,.2); border-radius:10px; padding:8px 11px;
+              margin:14px 0 16px; line-height:1.4; }
+            .tm-sheet-q { font-size:13.5px; font-weight:700; margin-bottom:9px;
+              display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+            .tm-sheet-opt { font-size:10.5px; font-weight:700; letter-spacing:.02em;
+              text-transform:uppercase; color:var(--text3); border:1px solid var(--border);
+              border-radius:6px; padding:2px 6px; }
+            .tm-ex-row { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px; }
+            .tm-ex { font:600 12px Manrope,sans-serif; color:var(--text2); cursor:pointer;
+              background:var(--surface2); border:1px solid var(--border); border-radius:999px;
+              padding:7px 12px; text-align:left; transition:border-color .15s, color .15s; }
+            .tm-ex:hover { border-color:rgba(139,123,255,.5); color:var(--text); }
+            .tm-sheet textarea { width:100%; box-sizing:border-box; background:var(--surface2);
+              border:1px solid var(--border); border-radius:12px; padding:12px 14px; color:var(--text);
+              font:500 14px Manrope,sans-serif; line-height:1.5; resize:vertical; }
+            .tm-sheet textarea:focus { outline:none; border-color:rgba(139,123,255,.55); }
+            .tm-sheet-go { width:100%; margin-top:14px; padding:14px; border:none; border-radius:14px;
+              font:800 15px Manrope,sans-serif; color:#fff; background:var(--grad); cursor:pointer; }
+            .tm-sheet-note { font-size:11.5px; color:var(--text3); text-align:center;
+              margin:9px 0 12px; line-height:1.4; }
+            .tm-sheet-x { width:100%; padding:11px; background:transparent; color:var(--text3);
+              border:1px solid var(--border); border-radius:12px;
+              font:600 13px Manrope,sans-serif; cursor:pointer; }
           </style>
           <div class="tm-hero">
             <img src="assets/new/A16.png" alt="Octo">
@@ -10149,21 +10190,72 @@
     }
   };
 
+  // ── Що питати в кожного фахівця ───────────────────────────────────────────
+  // Раніше в шитику було голе поле з підказкою-питанням («Є інфопривід?») — і
+  // людина не розуміла ні що туди писати, ні чи це обовʼязково. Тепер у кожного
+  // скіла є ЗРОЗУМІЛЕ питання і 3 готові відповіді, які можна просто клікнути.
+  // Варіанти навмисно нішенезалежні: скіли працюють і для кавʼярні, і для
+  // барбершопа, тож «привезли зерно з Ефіопії» тут збрехало б більшості.
+  var ASK = {
+    pr:            { q: 'Що у тебе зараз нового?',
+                     ex: ['Запустили новинку', 'Відкрили нову локацію', 'Робимо безкоштовний захід'] },
+    influencer:    { q: 'Що готовий дати блогеру?',
+                     ex: ['Бартер — свій товар чи послуга', 'Невеликий бюджет', 'Поки не знаю'] },
+    'co-marketing':{ q: 'Хто є поруч із тобою?',
+                     ex: ['Кілька бізнесів у тому ж будинку', 'Коворкінг поруч', 'Не знаю — підкажи, з кем варто'] },
+    referrals:     { q: 'Хто вже тебе радить?',
+                     ex: ['Постійні клієнти', 'Кілька людей, але рідко', 'Поки ніхто'] },
+    offer:         { q: 'Що саме просуваєш?',
+                     ex: ['Конкретну послугу', 'Новинку', 'Хочу заповнити пусті години'] },
+    pricing:       { q: 'Що хочеш змінити в цінах?',
+                     ex: ['Зібрати пакети замість окремих позицій', 'Підняти ціну і не втратити клієнтів', 'Підняти середній чек'] },
+    psychology:    { q: 'Де саме люди зупиняються?',
+                     ex: ['Питають ціну і зникають', 'Дивляться і йдуть', 'Пишуть у Direct і не відповідають'] },
+    winback:       { q: 'Хто перестав приходити?',
+                     ex: ['Були постійні — зникли', 'Купують один раз і все', 'Просто стало менше людей'] },
+    community:     { q: 'Де вже спілкуєшся з клієнтами?',
+                     ex: ['Тільки Stories', 'Є чат, але мертвий', 'Ніде — хочу почати'] },
+    launch:        { q: 'Що запускаєш і коли?',
+                     ex: ['Новий продукт наступного місяця', 'Другу точку', 'Ще не вирішив дату'] },
+    ideas:         { q: 'На що зробити фокус?',
+                     ex: ['Більше замовлень у будні', 'Розповісти про себе новим людям', 'Продати залишки'] },
+    council:       { q: 'Яке питання до ради?',
+                     ex: ['Підняти ціни чи ні?', 'Реклама чи контент?', 'Розширюватись зараз чи чекати?'] },
+  };
+
+  // Клік по готовому варіанту вписує його в поле. Передаємо ІНДЕКС, а не текст:
+  // текст із лапками/апострофами ламав би onclick-атрибут.
+  var _askEx = [];
+  window.octoSkillEx = function (i) {
+    var t = $('tmInput'); if (!t) return;
+    t.value = _askEx[i] || '';
+    t.focus();
+  };
+
   // Tap a skill → small sheet with an optional context field → run.
   window.octoOpenSkill = function (id) {
     var s = SKILL_BY_ID[id]; if (!s) return;
+    var a = ASK[id] || { q: 'Додай деталь про свій випадок', ex: [] };
+    _askEx = a.ex || [];
+    var chips = _askEx.map(function (t, i) {
+      return '<button type="button" class="tm-ex" onclick="octoSkillEx(' + i + ')">' + esc(t) + '</button>';
+    }).join('');
     window._octoSheet(
-      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:22px 22px 0 0;padding:22px 18px 30px;width:100%;max-width:600px;box-sizing:border-box;">' +
-      '<div style="width:38px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><span style="font-size:26px;">' + s.emoji + '</span>' +
-      '<div style="font-size:16px;font-weight:800;">' + esc(s.name) + '</div></div>' +
-      '<div style="font-size:12.5px;color:var(--text3);margin-bottom:14px;">' + esc(s.gives) + '</div>' +
-      '<textarea id="tmInput" rows="3" placeholder="' + esc(s.hint) + '" style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font:500 14px Manrope,sans-serif;line-height:1.5;resize:vertical;"></textarea>' +
-      '<button onclick="octoRunSkill(\'' + s.id + '\')" style="width:100%;margin-top:14px;padding:14px;border:none;border-radius:14px;font:800 15px Manrope,sans-serif;color:#fff;background:var(--grad);cursor:pointer;">✨ Запустити фахівця</button>' +
-      '<button onclick="_octoSheetClose()" style="width:100%;margin-top:8px;padding:11px;background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:12px;font:600 13px Manrope,sans-serif;cursor:pointer;">Скасувати</button>' +
+      '<div class="tm-sheet">' +
+      '<div class="tm-sheet-grab"></div>' +
+      '<div class="tm-sheet-head"><span class="tm-sheet-e">' + s.emoji + '</span>' +
+      '<div><div class="tm-sheet-n">' + esc(s.name) + '</div>' +
+      '<div class="tm-sheet-g">' + esc(s.gives) + '</div></div></div>' +
+      '<div class="tm-sheet-out">На виході: розбір, план на тиждень і готові тексти</div>' +
+      '<div class="tm-sheet-q">' + esc(a.q) +
+        '<span class="tm-sheet-opt">не обовʼязково</span></div>' +
+      (chips ? '<div class="tm-ex-row">' + chips + '</div>' : '') +
+      '<textarea id="tmInput" rows="3" placeholder="Обери варіант вище або напиши своє"></textarea>' +
+      '<button class="tm-sheet-go" onclick="octoRunSkill(\'' + s.id + '\')">✨ Запустити фахівця</button>' +
+      '<div class="tm-sheet-note">Можна запустити й порожнім — Octo візьме дані з профілю бізнесу</div>' +
+      '<button class="tm-sheet-x" onclick="_octoSheetClose()">Скасувати</button>' +
       '</div>'
     );
-    setTimeout(function () { var i = $('tmInput'); if (i) i.focus(); }, 60);
   };
 
   window.octoRunSkill = function (id) {
