@@ -282,7 +282,14 @@ async function jsonCall<T>(system: string, user: string, maxTokens = 6000, provi
 export interface AuditImage { media_type: string; data: string }
 
 /** Vision variant — same JSON discipline, with images attached to the user turn. */
-async function jsonCallVision<T>(system: string, user: string, images: AuditImage[], maxTokens = 2500, provider?: Provider): Promise<T> {
+// Стеля 2500 була успадкована від текстового jsonCall ДО того, як його
+// підняли до 6000 — vision-шлях лишився позаду. Наслідок ловився на живому
+// проді 14.08.2026: «Розбір контенту» падав з «AI повернув невалідний
+// формат» приблизно раз на чотири спроби. Довжина відповіді на тому самому
+// зображенні гуляє від 2288 до 3005 символів, тож частина запитів упиралась
+// у стелю посеред масиву fixes. Стеля — ВЕРХНЯ МЕЖА, а не витрата: платимо
+// лише за фактично згенеровані токени.
+async function jsonCallVision<T>(system: string, user: string, images: AuditImage[], maxTokens = 4200, provider?: Provider): Promise<T> {
   if (!isMarketingConfigured()) throw new Error('AI not configured');
   return parseWithRetry<T>(async () => {
     const res = await llmCall(system, user, { images, maxTokens, provider });
@@ -1094,8 +1101,8 @@ export function improvePost(
     `Оригінальний пост клієнта:\n${untrustedBlock(String(caption || '').slice(0, 2000))}\n\n` +
     'Оціни й перепиши сильніше.';
   return images.length
-    ? jsonCallVision<PostImprovement>(system, user, images, 2500)
-    : jsonCall<PostImprovement>(system, user, 2500);
+    ? jsonCallVision<PostImprovement>(system, user, images, 4200)
+    : jsonCall<PostImprovement>(system, user, 4200);
 }
 
 // ── «Команда Octo» — бібліотека маркетингових скілів ─────────────────────────
