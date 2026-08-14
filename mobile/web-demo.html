@@ -2896,8 +2896,13 @@
           .oc-step-pill.ok .n { background:rgba(139,123,255,.25); color:#fff; }
           .oc-known { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:2px; }
           .oc-known-t { width:100%; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--text4); margin-bottom:6px; }
-          .oc-known span.chip { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:600;
-            background:rgba(63,208,122,.1); border:1px solid rgba(63,208,122,.24); color:#7ddb9f; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+          /* Аудиторія й опис бувають довгі, а чіп був нерозривним рядком з
+             ellipsis, який на inline-flex не працює: текст просто обрізався об
+             край картки. Помічено на скриншоті для лендингу. Тепер переносимо. */
+          .oc-known span.chip { display:inline-flex; align-items:center; gap:5px;
+            padding:5px 10px; border-radius:999px; font-size:12px; font-weight:600;
+            background:rgba(63,208,122,.1); border:1px solid rgba(63,208,122,.24);
+            color:#7ddb9f; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
           .oc-more-btn { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin-top:12px; padding:10px 12px;
             border-radius:12px; border:1px dashed rgba(255,255,255,.16); background:none; color:var(--text2);
             font:700 13px 'Manrope',sans-serif; text-align:left; cursor:pointer; }
