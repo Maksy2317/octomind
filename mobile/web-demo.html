@@ -3237,6 +3237,19 @@
 
         <!-- ═══ ІДЕЯ З ТРЕНДУ (reference → original script) ═══ -->
         <div class="screen" id="trend">
+          <style>
+            .tr-ask { margin-top:14px; }
+            .tr-q { font-size:13px; font-weight:700; margin:12px 0 8px;
+              display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+            .tr-opt { font-size:10px; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+              color:var(--text4); border:1px solid var(--border); border-radius:6px; padding:2px 6px; }
+            .tr-chips { display:flex; flex-wrap:wrap; gap:7px; }
+            .tr-chip { font:600 12px Manrope,sans-serif; color:var(--text2); cursor:pointer;
+              background:var(--surface2); border:1px solid var(--border); border-radius:999px;
+              padding:8px 13px; transition:border-color .15s, background .15s, color .15s; }
+            .tr-chip:hover { border-color:rgba(139,123,255,.45); color:var(--text); }
+            .tr-chip.on { background:rgba(139,123,255,.16); border-color:#8B7BFF; color:#fff; }
+          </style>
           <div class="card">
             <div class="on-hero">
               <img src="assets/new/A18.png" alt="Octo" style="width:52px;height:52px;object-fit:contain;flex:none;">
@@ -3247,6 +3260,23 @@
             </div>
             <input id="trLink" class="ob-input" placeholder="Посилання на TikTok / Reels (необов'язково)" />
             <textarea id="trDesc" class="ob-input" rows="3" placeholder="Опиши, що в тому відео: формат, що показують, чому чіпляє. Або прикріпи скрін нижче."></textarea>
+            <!-- Два уточнення перед генерацією. Без них Octo мусить вгадувати,
+                 і найчастіше вгадує невдало: пише «ведучий говорить у камеру»
+                 власнику, який зніматись не буде взагалі. Обидва — опційні. -->
+            <div class="tr-ask">
+              <div class="tr-q">Що хочеш отримати цим роликом? <span class="tr-opt">не обовʼязково</span></div>
+              <div class="tr-chips" id="trGoal">
+                <button type="button" class="tr-chip" data-v="Мета ролика: щоб про мене дізнались нові люди" onclick="octoTrChip(this)">Щоб дізнались нові люди</button>
+                <button type="button" class="tr-chip" data-v="Мета ролика: щоб записались або купили" onclick="octoTrChip(this)">Щоб записались чи купили</button>
+                <button type="button" class="tr-chip" data-v="Мета ролика: показати послугу зсередини, зняти сумніви" onclick="octoTrChip(this)">Показати, як усе влаштовано</button>
+              </div>
+              <div class="tr-q">Що реально можеш зняти? <span class="tr-opt">не обовʼязково</span></div>
+              <div class="tr-chips" id="trShoot">
+                <button type="button" class="tr-chip" data-v="Знімальні можливості: готовий бути в кадрі й говорити" onclick="octoTrChip(this)">Я в кадрі, говорю</button>
+                <button type="button" class="tr-chip" data-v="Знімальні можливості: без обличчя — тільки руки, процес, деталі" onclick="octoTrChip(this)">Тільки руки й процес</button>
+                <button type="button" class="tr-chip" data-v="Знімальні можливості: тільки результат і товар, людей у кадрі немає" onclick="octoTrChip(this)">Тільки результат</button>
+              </div>
+            </div>
             <input type="file" id="trFiles" accept="image/*" multiple style="display:none" onchange="octoTrendFiles(event)">
             <div class="au-drop" style="margin-top:10px;" onclick="document.getElementById('trFiles').click()">
               <div class="ai" style="font-size:22px;">📷</div>
@@ -11955,9 +11985,29 @@
     Promise.all(files.map(fileToImage)).then(function (imgs) { trImages = trImages.concat(imgs).slice(0, 4); trThumbs(); }).catch(function () { status('trStatus', 'err', 'Не вдалося прочитати зображення.'); });
     ev.target.value = '';
   };
+  // Один вибір у групі: повторний клік знімає вибір — питання опційне,
+  // і людина має змогу передумати, а не лишитись із випадковою відповіддю.
+  window.octoTrChip = function (btn) {
+    var was = btn.classList.contains('on');
+    var row = btn.parentNode;
+    row.querySelectorAll('.tr-chip').forEach(function (b) { b.classList.remove('on'); });
+    if (!was) btn.classList.add('on');
+  };
+
+  function trAnswers() {
+    return ['trGoal', 'trShoot'].map(function (id) {
+      var on = document.querySelector('#' + id + ' .tr-chip.on');
+      return on ? on.getAttribute('data-v') : '';
+    }).filter(Boolean);
+  }
+
   window.octoTrendRun = function () {
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('chat')) return;
     var link = ($('trLink') || {}).value || '', desc = ($('trDesc') || {}).value || '';
+    // Відповіді йдуть тим самим полем опису — окремий контракт на бекенді
+    // заради двох рядків не потрібен.
+    var ans = trAnswers();
+    if (ans.length) desc = (desc.trim() ? desc.trim() + '\n\n' : '') + ans.join('\n');
     if (!link.trim() && !desc.trim() && !trImages.length) { status('trStatus', 'err', 'Кинь посилання, опис або скрін.'); return; }
     var btn = $('trBtn'); btn.disabled = true;
     $('trResult').innerHTML = '';
