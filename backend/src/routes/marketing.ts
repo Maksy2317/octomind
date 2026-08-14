@@ -538,7 +538,11 @@ marketingRouter.post('/brand', meter('brand'), async (req: Request, res: Respons
 // then an image model renders it. Saved under uploads/output/gen/ (survives
 // the 48h cleanup sweep, which skips subdirectories). Returns a served URL.
 // Body: { label?: string, strategy?: object, profile? }
-marketingRouter.post('/image', async (req: Request, res: Response, next: NextFunction) => {
+// Генерація зображення б'є в Stability/OpenAI за реальні гроші, а лічильника
+// не мала — при живому білінгу free-користувач малював би без обмежень.
+// `image` у LIMITS описаний рівно як «будь-яка AI-генерація зображення
+// (реклама товару / банер)».
+marketingRouter.post('/image', meter('image'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardConfigured(res)) return;
   if (!process.env.STABILITY_API_KEY && !process.env.OPENAI_API_KEY) {
     res.status(503).json({ error: 'Генерація зображень не налаштована (потрібен STABILITY_API_KEY або OPENAI_API_KEY)' });

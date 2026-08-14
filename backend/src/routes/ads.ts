@@ -99,7 +99,7 @@ adsRouter.post('/analyze', async (req: Request, res: Response, next: NextFunctio
 
 // POST /api/ads/cutout  — { image: {media_type,data} } → { url } (transparent PNG)
 // Stability remove-background keeps the ORIGINAL pixels — logo/label untouched.
-adsRouter.post('/cutout', async (req: Request, res: Response, next: NextFunction) => {
+adsRouter.post('/cutout', meter('image'), async (req: Request, res: Response, next: NextFunction) => {
   if (!process.env.STABILITY_API_KEY) {
     res.status(503).json({ error: 'Вирізання фону не налаштоване (STABILITY_API_KEY відсутній)' });
     return;
@@ -144,7 +144,7 @@ adsRouter.post('/concepts', async (req: Request, res: Response, next: NextFuncti
 
 // POST /api/ads/background — { product, concept, style, ratio, variant?, profile? }
 // Claude writes the empty-scene brief → Stability renders it → served URL.
-adsRouter.post('/background', async (req: Request, res: Response, next: NextFunction) => {
+adsRouter.post('/background', meter('image'), async (req: Request, res: Response, next: NextFunction) => {
   if (!guardAI(res)) return;
   if (!process.env.STABILITY_API_KEY) {
     res.status(503).json({ error: 'Генерація зображень не налаштована (STABILITY_API_KEY відсутній)' });
