@@ -2,7 +2,7 @@
 //
 // Product stance: OctoMind sells a marketing DECISION (what to advertise, to
 // whom, what offer, where), not just generated content. So every step leads
-// with reasoning ("почему"), and the generation is secondary.
+// with reasoning ("чому"), and the generation is secondary.
 //
 // Reuses the same Anthropic client pattern as routes/chat.ts. Model defaults to
 // Opus 4.8 (the audit flagged Haiku as wrong for this kind of reasoning);
@@ -336,12 +336,12 @@ export interface OfferStrategy {
   offer: {
     headline: string;              // сам оффер одной фразой
     details: string;               // что входит / условия
-    why: string;                   // ПОЧЕМУ этот оффер сработает для этого бизнеса
+    why: string;                   // ЧОМУ цей офер спрацює саме для цього бізнесу
   };
   strategy: {
     positioning: string;           // как позиционироваться
-    primary_channel: string;       // главная площадка + почему
-    funnel: string[];              // шаги воронки: как клиент придёт к покупке
+    primary_channel: string;       // головний майданчик + чому саме він
+    funnel: string[];              // кроки воронки: як людина дійде до покупки
     content_angles: string[];      // 3-5 углов/тем контента
     call_to_action: string;        // целевое действие
     why: string;                   // обоснование стратегии
@@ -1971,7 +1971,7 @@ export function editMaterial(
 export interface MarketingText {
   variants: Array<{
     angle: string;                 // угол: curiosity / utility / social proof / ...
-    text: string;                  // готовый текст поста/объявления
+    text: string;                  // готовий текст поста/оголошення
     caption: string;               // короткая подпись
     hashtags: string[];
   }>;
