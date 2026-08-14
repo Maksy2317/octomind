@@ -250,26 +250,21 @@
   .step h3{ margin:10px 0 8px; }
   .step p{ font-size:13.5px; line-height:1.6; color:var(--text3); font-weight:500; }
 
-  /* ── result mock ───────────────────────────────────────── */
-  .mock{
-    border-radius:22px; border:1px solid var(--border);
-    background:linear-gradient(180deg,var(--surface),#0d0d16);
-    overflow:hidden;
-  }
-  .mock-bar{ display:flex; align-items:center; gap:7px; padding:13px 16px; border-bottom:1px solid var(--border); background:rgba(255,255,255,.02); }
-  .mock-bar i{ width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.13); }
-  .mock-bar span{ margin-left:8px; font-size:12px; font-weight:700; color:var(--text4); }
-  .mock-body{ padding:22px; display:flex; flex-direction:column; gap:12px; }
-  .mock-row{ padding:15px 16px; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid var(--border); }
-  .mock-row .k{ font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--accent2); margin-bottom:6px; }
-  .mock-row .v{ font-size:14px; line-height:1.55; color:var(--text2); font-weight:600; }
-  .mock-saved{ display:flex; align-items:center; gap:9px; font-size:13px; font-weight:700; color:var(--green); padding-top:4px; }
-  .mock-saved svg{ width:16px; height:16px; }
 
-  .examples{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
-  @media (max-width:980px){ .examples{ grid-template-columns:1fr; } }
-  .ex-cap{ margin-top:14px; font-size:13.5px; font-weight:700; color:var(--text2); }
-  .ex-cap small{ display:block; font-size:12.5px; font-weight:500; color:var(--text4); margin-top:3px; }
+  /* Справжні знімки застосунку. Раніше тут були намальовані від руки макети:
+     правдоподібні, але вигадані — а обіцянка лендингу саме в тому, що це
+     реальний продукт. Пропорція 390x844 зашита в width/height, щоб верстка не
+     стрибала до завантаження картинок. */
+  .shots{ display:grid; grid-template-columns:repeat(3,1fr); gap:26px; }
+  .shots figure{ margin:0; }
+  .shot{ border-radius:26px; overflow:hidden; border:1px solid var(--border);
+    background:#0a0a12; box-shadow:0 24px 60px -30px rgba(0,0,0,.9); }
+  .shot img{ display:block; width:100%; height:auto; }
+  .shots figcaption{ margin-top:16px; font-size:13.5px; line-height:1.55;
+    font-weight:500; color:var(--text4); }
+  .shots figcaption b{ display:block; font-size:14.5px; font-weight:750;
+    color:var(--text2); margin-bottom:4px; }
+  @media (max-width:980px){ .shots{ grid-template-columns:1fr; gap:34px; } }
 
   /* ── audience ──────────────────────────────────────────── */
   .aud{ display:flex; flex-wrap:wrap; gap:11px; }
@@ -391,7 +386,7 @@
             Спробувати безкоштовно
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </button>
-          <a class="btn btn-ghost btn-lg" href="#examples">Подивитись приклад</a>
+          <a class="btn btn-ghost btn-lg" href="#examples">Подивитись екрани</a>
         </div>
         <p class="hero-note">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -526,86 +521,25 @@
   <section id="examples">
     <div class="wrap">
       <div class="sec-head reveal">
-        <p class="eyebrow">Приклади результатів</p>
-        <h2>Ось що ти отримуєш на виході</h2>
-        <p class="lead" style="margin-top:16px">Реальний формат відповіді OctoMind — не абстрактні обіцянки.</p>
+        <p class="eyebrow">Справжні екрани</p>
+        <h2>Ось як це виглядає в телефоні</h2>
+        <p class="lead" style="margin-top:16px">Не макети й не обіцянки — знімки застосунку з реальною кампанією
+          київського барбершопу.</p>
       </div>
 
-      <div class="examples reveal">
-        <div>
-          <div class="mock">
-            <div class="mock-bar"><i></i><i></i><i></i><span>Реклама товару</span></div>
-            <div class="mock-body">
-              <div class="mock-row">
-                <div class="k">Концепція 1</div>
-                <div class="v">«Ранковий ритуал» — свічка як частина спокійного ранку, а не декор.</div>
-              </div>
-              <div class="mock-row">
-                <div class="k">Текст</div>
-                <div class="v">Твої 20 хвилин тиші коштують дешевше, ніж здається. Соєва свічка з ароматом інжиру.</div>
-              </div>
-              <div class="mock-row">
-                <div class="k">CTA</div>
-                <div class="v">Забрати свою тишу →</div>
-              </div>
-              <div class="mock-saved">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                Збережено в «Мої ідеї»
-              </div>
-            </div>
-          </div>
-          <p class="ex-cap">Фото товару → реклама<small>Свічки ручної роботи, Instagram-магазин</small></p>
-        </div>
-
-        <div>
-          <div class="mock">
-            <div class="mock-bar"><i></i><i></i><i></i><span>Розбір сторінки</span></div>
-            <div class="mock-body">
-              <div class="mock-row">
-                <div class="k">Помилка 1</div>
-                <div class="v">У біо немає жодного слова про те, що ти продаєш і кому.</div>
-              </div>
-              <div class="mock-row">
-                <div class="k">Помилка 2</div>
-                <div class="v">Ціни ніде не видно — люди не пишуть у дірект, щоб її дізнатись.</div>
-              </div>
-              <div class="mock-row">
-                <div class="k">Дія на сьогодні</div>
-                <div class="v">Переписати біо за формулою: для кого · що · дія.</div>
-              </div>
-              <div class="mock-saved">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                7 дій у чек-листі
-              </div>
-            </div>
-          </div>
-          <p class="ex-cap">Сторінка → аудит<small>Косметолог, локальний бізнес</small></p>
-        </div>
-
-        <div>
-          <div class="mock">
-            <div class="mock-bar"><i></i><i></i><i></i><span>Кампанія на тиждень</span></div>
-            <div class="mock-body">
-              <div class="mock-row">
-                <div class="k">Офер</div>
-                <div class="v">Перша стрижка + догляд у подарунок для нових клієнтів району.</div>
-              </div>
-              <div class="mock-row">
-                <div class="k">День 1–2</div>
-                <div class="v">Reels «до/після» + сторіз з опитуванням про довжину.</div>
-              </div>
-              <div class="mock-row">
-                <div class="k">День 3–5</div>
-                <div class="v">Пост про майстра, гео-таргет на 2 км, відповіді на «скільки коштує».</div>
-              </div>
-              <div class="mock-saved">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                7-денний план готовий
-              </div>
-            </div>
-          </div>
-          <p class="ex-cap">Бізнес → кампанія<small>Барбершоп, локальний бізнес</small></p>
-        </div>
+      <div class="shots reveal">
+        <figure>
+          <div class="shot"><img src="/assets/shots/app-dashboard.jpg" alt="Екран «Огляд»: наступний крок і персональне звертання" width="390" height="844" loading="lazy" decoding="async"></div>
+          <figcaption><b>Octo пам’ятає твій бізнес</b>Він не питає щоразу, чим ти займаєшся — і сам каже, який крок наступний.</figcaption>
+        </figure>
+        <figure>
+          <div class="shot"><img src="/assets/shots/app-campaign.jpg" alt="Екран кампанії: офер, ключове повідомлення і заклик до дії" width="390" height="844" loading="lazy" decoding="async"></div>
+          <figcaption><b>Ціль → стратегія → матеріали</b>Ти кажеш «вівторок і четвер порожні». Octo дає офер, повідомлення й план дій.</figcaption>
+        </figure>
+        <figure>
+          <div class="shot"><img src="/assets/shots/app-team.jpg" alt="Екран «Команда Octo»: вибір фахівця за болем бізнесу" width="390" height="844" loading="lazy" decoding="async"></div>
+          <figcaption><b>Вибір за болем, не за термінами</b>«Заходять, але не купують» — і фахівець сам знає, що з цим робити.</figcaption>
+        </figure>
       </div>
     </div>
   </section>
