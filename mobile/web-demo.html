@@ -2804,6 +2804,18 @@
             .ai-mode.on { border-color:var(--accent); background:rgba(139,123,255,.14); color:var(--text); }
             .ai-chip2 { padding:8px 13px; border-radius:10px; border:1px solid var(--border); background:var(--surface2);
               color:var(--text3); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
+            /* «Покращити пост» просить ДВА обовʼязкові входи. Раніше скрін був
+               непомітною вторинною кнопкою внизу, тож люди слали лише текст — і
+               Octo оцінював пост, не бачачи його. Тепер обидва кроки пронумеровані
+               й позначені як обовʼязкові. */
+            .ip-lbl { font-size:12.5px; font-weight:800; color:var(--text2); margin:14px 0 7px;
+              display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+            .ip-req { font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+              color:#ffb4b4; background:rgba(255,120,120,.12); border:1px solid rgba(255,120,120,.25);
+              border-radius:6px; padding:2px 6px; }
+            .ip-why { font-size:11.5px; line-height:1.5; color:var(--text4); margin:-3px 0 9px; }
+            .ip-file { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+            .ip-fname { font-size:12px; color:var(--text4); }
             .ai-chip2.on { border-color:var(--accent); background:rgba(139,123,255,.14); color:var(--text); }
           </style>
           <!-- Choose what the AI analyses: one post you give it, or the whole page. -->
@@ -2822,7 +2834,8 @@
                   <div class="card-sub" style="margin:0;">Встав свій підпис (і за бажанням скрін) — Octo чесно оцінить і одразу перепише сильніше.</div>
                 </div>
               </div>
-              <textarea id="ipCaption" class="ob-input" rows="4" style="margin-top:12px;" placeholder="Встав сюди текст свого поста…"></textarea>
+              <div class="ip-lbl">1 · Текст поста <span class="ip-req">обовʼязково</span></div>
+              <textarea id="ipCaption" class="ob-input" rows="4" placeholder="Встав сюди текст свого поста…"></textarea>
               <div style="font-size:11.5px;color:var(--text4);margin:10px 0 6px;">Під яку мережу?</div>
               <div id="ipPlat" style="display:flex;gap:7px;flex-wrap:wrap;">
                 <button class="ai-chip2 on" data-p="Instagram Reels" onclick="octoImprovePlat(this)">Instagram Reels</button>
@@ -2831,9 +2844,12 @@
                 <button class="ai-chip2" data-p="TikTok" onclick="octoImprovePlat(this)">TikTok</button>
               </div>
               <input type="file" id="ipFile" accept="image/*" style="display:none" onchange="octoImproveFile(event)">
-              <div style="display:flex;gap:10px;align-items:center;margin-top:12px;">
-                <button class="btn btn-secondary" style="padding:9px 14px;font-size:13px;" onclick="document.getElementById('ipFile').click()">📷 Скрін поста</button>
-                <span id="ipThumbName" style="font-size:12px;color:var(--text4);"></span>
+              <div class="ip-lbl" style="margin-top:16px;">2 · Скрін поста <span class="ip-req">обовʼязково</span></div>
+              <div class="ip-why">Без картинки Octo оцінює лише слова — а працює чи ні пост вирішує саме перший кадр,
+                читабельність тексту на ньому й те, що видно в стрічці.</div>
+              <div class="ip-file">
+                <button class="btn btn-secondary" style="padding:9px 14px;font-size:13px;" onclick="document.getElementById('ipFile').click()">📷 Обрати скрін</button>
+                <span id="ipThumbName" class="ip-fname"></span>
               </div>
               <button class="btn btn-primary" id="ipBtn" style="width:100%;margin-top:14px;" onclick="octoImprovePost()">✨ Оцінити й покращити</button>
               <div class="ob-status" id="ipStatus"></div>
@@ -10022,7 +10038,12 @@
   window.octoImprovePost = function () {
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
     var caption = ($('ipCaption') || {}).value || '';
-    if (!caption.trim() && !improveImg) { var s0 = $('ipStatus'); if (s0) { s0.className = 'ob-status ob-err'; s0.textContent = 'Встав текст поста або додай скрін.'; } return; }
+    // Обидва обовʼязкові: без тексту немає що переписувати, без скріна Octo
+    // оцінює лише слова й не бачить, як пост виглядає у стрічці.
+    var s0 = $('ipStatus');
+    var miss = !caption.trim() ? 'Встав текст поста — без нього нема чого переписувати.'
+      : !improveImg ? 'Додай скрін поста — без картинки Octo не бачить, як він виглядає у стрічці.' : '';
+    if (miss) { if (s0) { s0.className = 'ob-status ob-err'; s0.textContent = miss; } return; }
     var btn = $('ipBtn'); if (btn) btn.disabled = true;
     var st = $('ipStatus'); if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo аналізує твій пост і переписує сильніше…'; }
     $('ipResult').innerHTML = '';
@@ -10827,9 +10848,31 @@
     el.innerHTML = (spin ? '<span class="ob-spin"></span> ' : '') + esc(msg);
   }
   // The "magic": paste a site/social → Octo reads it and autofills the profile.
+  // Посилання з мобільного Instagram тягне за собою хвіст трекерів
+  // (?utm_source=ig_web_button_share_sheet&igsh=…). Він нічого не додає, лише
+  // засмічує поле й лог. Ріжемо його для соцмереж; для звичайних сайтів
+  // параметри лишаємо — там вони бувають значущі.
+  function cleanSocialUrl(u) {
+    if (!/(^|\.)(instagram|tiktok|facebook)\.com/i.test(u)) return u;
+    return u.split('?')[0].split('#')[0].replace(/\/+$/, '');
+  }
+  // Нік із посилання на профіль: instagram.com/nick, tiktok.com/@nick.
+  function socialHandle(u) {
+    var m = String(u).match(/(?:instagram|tiktok)\.com\/@?([A-Za-z0-9._-]{2,40})/i);
+    if (!m) return '';
+    var h = m[1];
+    if (/^(p|reel|reels|explore|stories|tag|video|discover)$/i.test(h)) return '';
+    return h;
+  }
+  function socialNet(u) {
+    return /tiktok\.com/i.test(u) ? 'tiktok' : /instagram\.com/i.test(u) ? 'instagram' : '';
+  }
+
   window.octoImportRun = function () {
     var url = (($('onImportUrl') || {}).value || '').trim();
     if (!url) { importStatus('err', 'Встав посилання на сайт або соцмережу.'); return; }
+    url = cleanSocialUrl(url);
+    var inp = $('onImportUrl'); if (inp) inp.value = url;
     if (typeof octoCanUse !== 'undefined' && !octoCanUse('chat')) return;
     var btn = $('onImportBtn'); if (btn) btn.disabled = true;
     importStatus('busy', 'Octo читає ' + url + ' — 10-20 сек…', true);
@@ -10841,9 +10884,23 @@
       if (!keys.length) {
         // Instagram blocks bots; small accounts aren't indexed. Expected, not broken.
         try { window.octoTrack('import_fail'); } catch (e) {}
-        importStatus('warn', r.note || 'Не вдалося прочитати сторінку — пройди коротке опитування нижче.');
+        // Instagram і TikTok не дають ботам читати профілі — це не наша поломка
+        // і не полагодиться. Але лишати людину з порожніми руками теж не можна:
+        // з посилання видно нік і мережу, і це вже дві заповнені клітинки.
+        var handle = socialHandle(url), net = socialNet(url), msg = r.note || '';
+        if (handle) {
+          var patch = { platforms: net === 'tiktok' ? 'tiktok' : 'instagram' };
+          var cur0 = window.octoBiz.get() || {};
+          if (!cur0.business_name) patch.business_name = '@' + handle;
+          window.octoBiz.merge(patch);
+          msg = (net === 'tiktok' ? 'TikTok' : 'Instagram') + ' не дає читати профілі автоматично — це обмеження самої '
+            + 'мережі, не помилка. Я взяв твій нік @' + handle + ' і мережу. Лишилось найголовніше: '
+            + 'одним-двома реченнями скажи, що ти продаєш і кому.';
+        }
+        importStatus('warn', msg || 'Не вдалося прочитати сторінку — пройди коротке опитування нижче.');
         var qb = $('onQuizBtn');
         if (qb) { qb.classList.add('on-quiz-hi'); qb.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        try { if (typeof renderKnown === 'function') renderKnown(); } catch (e) {}
         return;
       }
       // A fresh import is AUTHORITATIVE for content fields: clear any stale

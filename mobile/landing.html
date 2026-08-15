@@ -203,7 +203,6 @@
     transition:transform .18s, border-color .18s, background .18s;
   }
   .scen-card:hover{ transform:translateY(-3px); border-color:var(--acc-line); background:rgba(255,255,255,.055); }
-  .scen-card.hot{ border-color:var(--acc-line); background:linear-gradient(155deg,rgba(139,123,255,.15),rgba(56,189,248,.04)); }
   .scen-ico{ width:44px; height:44px; border-radius:13px; display:grid; place-items:center; margin-bottom:16px; background:var(--acc-soft); color:var(--accent2); }
   .scen-ico svg{ width:22px; height:22px; }
   .scen-card h3{ margin-bottom:7px; }
@@ -214,11 +213,6 @@
     display:flex; align-items:center; gap:7px;
   }
   .scen-out::before{ content:'→'; opacity:.7; }
-  .tag-main{
-    float:right; font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-    color:var(--green); background:rgba(63,208,122,.12); border:1px solid rgba(63,208,122,.28);
-    padding:4px 9px; border-radius:999px;
-  }
 
   /* ── before / after ────────────────────────────────────── */
   .ba{ display:grid; grid-template-columns:1fr auto 1fr; gap:clamp(14px,2.5vw,28px); align-items:stretch; }
@@ -257,9 +251,17 @@
      стрибала до завантаження картинок. */
   .shots{ display:grid; grid-template-columns:repeat(3,1fr); gap:26px; }
   .shots figure{ margin:0; }
-  .shot{ border-radius:26px; overflow:hidden; border:1px solid var(--border);
-    background:#0a0a12; box-shadow:0 24px 60px -30px rgba(0,0,0,.9); }
+  /* Рамка телефона, а не просто висока картинка. Знімок навмисно обрізаний по
+     висоті й затухає донизу — так видно, що екран продовжується, і три колонки
+     стають однаковими незалежно від довжини вмісту. */
+  .shot{ position:relative; border-radius:30px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.09); background:#0a0a12;
+    padding:8px; box-shadow:0 30px 70px -34px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.03) inset; }
+  .shot-in{ position:relative; border-radius:23px; overflow:hidden; height:470px; }
   .shot img{ display:block; width:100%; height:auto; }
+  /* Затухання ховає різку лінію зрізу — без нього кадр виглядає обрубаним. */
+  .shot-in::after{ content:''; position:absolute; left:0; right:0; bottom:0; height:120px;
+    background:linear-gradient(180deg, rgba(10,10,18,0), rgba(10,10,18,.96)); pointer-events:none; }
   .shots figcaption{ margin-top:16px; font-size:13.5px; line-height:1.55;
     font-weight:500; color:var(--text4); }
   .shots figcaption b{ display:block; font-size:14.5px; font-weight:750;
@@ -270,7 +272,11 @@
   .proof{ display:grid; grid-template-columns:340px 1fr; gap:44px; align-items:center; margin-top:52px; }
   .proof-shot{ border-radius:26px; overflow:hidden; border:1px solid var(--border);
     background:#0a0a12; box-shadow:0 24px 60px -30px rgba(0,0,0,.9); }
+  .proof-shot{ padding:8px; }
+  .proof-shot .shot-in{ position:relative; border-radius:23px; overflow:hidden; height:540px; }
   .proof-shot img{ display:block; width:100%; height:auto; }
+  .proof-shot .shot-in::after{ content:''; position:absolute; left:0; right:0; bottom:0; height:110px;
+    background:linear-gradient(180deg, rgba(10,10,18,0), rgba(10,10,18,.96)); pointer-events:none; }
   .proof-tx h3{ font-size:26px; line-height:1.25; margin:10px 0 14px; }
   .proof-tx p{ font-size:15px; line-height:1.7; color:var(--text3); font-weight:500; }
   @media (max-width:980px){ .shots{ grid-template-columns:1fr; gap:34px; }
@@ -423,8 +429,7 @@
       </div>
 
       <div class="scen reveal">
-        <button class="scen-card hot" data-cta="product_ads" data-go="prodads">
-          <span class="tag-main">Головне</span>
+        <button class="scen-card" data-cta="product_ads" data-go="prodads">
           <div class="scen-ico">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 4 3 3-2 4 3"/></svg>
           </div>
@@ -540,15 +545,15 @@
 
       <div class="shots reveal">
         <figure>
-          <div class="shot"><img src="/assets/shots/app-dashboard.jpg" alt="Екран «Огляд»: наступний крок і персональне звертання" width="390" height="844" loading="lazy" decoding="async"></div>
+          <div class="shot"><div class="shot-in"><img src="/assets/shots/app-dashboard.jpg" alt="Екран «Огляд»: наступний крок і персональне звертання" width="390" height="844" loading="lazy" decoding="async"></div></div>
           <figcaption><b>Octo пам’ятає твій бізнес</b>Він не питає щоразу, чим ти займаєшся — і сам каже, який крок наступний.</figcaption>
         </figure>
         <figure>
-          <div class="shot"><img src="/assets/shots/app-campaign.jpg" alt="Екран кампанії: офер, ключове повідомлення і заклик до дії" width="390" height="844" loading="lazy" decoding="async"></div>
+          <div class="shot"><div class="shot-in"><img src="/assets/shots/app-campaign.jpg" alt="Екран кампанії: офер, ключове повідомлення і заклик до дії" width="390" height="844" loading="lazy" decoding="async"></div></div>
           <figcaption><b>Ціль → стратегія → матеріали</b>Ти кажеш «вівторок і четвер порожні». Octo дає офер, повідомлення й план дій.</figcaption>
         </figure>
         <figure>
-          <div class="shot"><img src="/assets/shots/app-team.jpg" alt="Екран «Команда Octo»: вибір фахівця за болем бізнесу" width="390" height="844" loading="lazy" decoding="async"></div>
+          <div class="shot"><div class="shot-in"><img src="/assets/shots/app-team.jpg" alt="Екран «Команда Octo»: вибір фахівця за болем бізнесу" width="390" height="844" loading="lazy" decoding="async"></div></div>
           <figcaption><b>Вибір за болем, не за термінами</b>«Заходять, але не купують» — і фахівець сам знає, що з цим робити.</figcaption>
         </figure>
       </div>
@@ -612,7 +617,7 @@
       </div>
 
       <div class="proof reveal">
-        <div class="proof-shot"><img src="/assets/shots/app-knows.jpg" alt="Екран кампанії: Octo перелічує, що вже знає про бізнес" width="390" height="844" loading="lazy" decoding="async"></div>
+        <div class="proof-shot"><div class="shot-in"><img src="/assets/shots/app-knows.jpg" alt="Екран кампанії: Octo перелічує, що вже знає про бізнес" width="390" height="844" loading="lazy" decoding="async"></div></div>
         <div class="proof-tx">
           <p class="eyebrow">Доказ, а не обіцянка</p>
           <h3>«Я вже знаю твій бізнес із профілю»</h3>

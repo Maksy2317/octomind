@@ -131,8 +131,15 @@ marketingRouter.post('/improve-post', meter('post_tools'), async (req: Request, 
     .filter((im: unknown): im is AuditImage =>
       !!im && typeof (im as AuditImage).data === 'string' && ALLOWED_MEDIA.has((im as AuditImage).media_type))
     .slice(0, 2);
-  if (!caption.trim() && !images.length) {
-    res.status(400).json({ error: 'Встав текст поста або додай скрін' });
+  // Обидва входи обовʼязкові — це не примха інтерфейсу, а умова корисності:
+  // без тексту нема чого переписувати, а без скріна модель оцінює лише слова
+  // й не бачить першого кадру, читабельності напису та вигляду в стрічці.
+  if (!caption.trim()) {
+    res.status(400).json({ error: 'Встав текст поста — без нього нема чого переписувати' });
+    return;
+  }
+  if (!images.length) {
+    res.status(400).json({ error: 'Додай скрін поста — без картинки Octo не бачить, як він виглядає у стрічці' });
     return;
   }
   try {
