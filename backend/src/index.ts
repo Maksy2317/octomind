@@ -361,8 +361,29 @@ app.use(express.static(frontendDir, {
     }
   },
 }));
-// Everything else — including `/` — is the app shell, stamped with its build.
-app.get('*', (_req, res) => sendHtml(res, 'web-demo.html'));
+// SPA-фолбек — лише для НАВІГАЦІЇ. Раніше він ловив геть усе, і це давало
+// два тихі наслідки:
+//   • биде посилання на картинку віддавало ~990 КБ HTML зі статусом 200 —
+//     браузер не покаже оболонку як зображення, а трафік уже спалено;
+//   • невідомий /api/* шлях повертав HTML, і клієнт падав на JSON.parse
+//     замість того щоб побачити чесну 404.
+// Заодно зникає пастка діагностики: «чи видалено файл?» доводилось перевіряти
+// за content-type, бо статус завжди був 200.
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  // Шлях із розширенням — це запит файлу. Віддаємо оболонку лише якщо клієнт
+  // явно просить сторінку (людина ввела адресу руками), інакше — 404.
+  const looksLikeFile = /\.[a-z0-9]{2,5}$/i.test(req.path);
+  const wantsHtml = (req.get('accept') || '').includes('text/html');
+  if (looksLikeFile && !wantsHtml) {
+    res.status(404).type('text/plain').send('Not found');
+    return;
+  }
+  sendHtml(res, 'web-demo.html');
+});
 
 // Реєструє помилку й пропускає її далі — відповідь користувачу лишається за
 // errorHandler, тому порядок саме такий.
