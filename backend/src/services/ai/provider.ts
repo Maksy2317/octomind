@@ -239,7 +239,7 @@ export async function llmCall(
   const primary = opts.provider || defaultProvider();
   const images = opts.images || [];
   const maxTokens = opts.maxTokens || 6000;   // див. коментар у jsonCall
-  const run = (p: Provider) => (p === 'gemini' ? geminiJson : anthropicJson)(system, user, images, maxTokens);
+  const run = (p: Provider, cap = maxTokens) => (p === 'gemini' ? geminiJson : anthropicJson)(system, user, images, cap);
 
   const t0 = Date.now();
   const done = (text: string, p: Provider): LlmResult =>
@@ -251,10 +251,23 @@ export async function llmCall(
   // і користувач бачив сирий JSON «credit balance is too low».
   const transient = (e: unknown) => /429|503|overloaded|high load|UNAVAILABLE|resource.?exhausted/i.test((e as Error).message || '');
 
+  // Обрив на стелі токенів — НЕ привід міняти провайдера. Довжина відповіді на
+  // тому самому запиті гуляє втричі (заміряно: 3489 → 10342 символи), тож
+  // повтор із більшою стелею має високі шанси, а перехід на Anthropic із
+  // порожнім балансом гарантує падіння. Саме через це «Вся сторінка» віддавала
+  // «AI сервіс недоступний» — з характерним подвійним часом відповіді.
+  const truncated = (e: unknown) => /MAX_TOKENS|truncated/i.test((e as Error).message || '');
+  const GEMINI_OUTPUT_CAP = 8192;
+
   try {
     try {
       return done(await run(primary), primary);
     } catch (e1) {
+      if (truncated(e1)) {
+        const wider = Math.min(GEMINI_OUTPUT_CAP, Math.round(maxTokens * 1.6));
+        console.warn(`[AI] ${primary} обірвався на ${maxTokens} токенах — повтор із ${wider}`);
+        return done(await run(primary, wider), primary);
+      }
       if (transient(e1)) {
         await new Promise((r) => setTimeout(r, 4000));
         return done(await run(primary), primary);
