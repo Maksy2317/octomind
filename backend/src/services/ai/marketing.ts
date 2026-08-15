@@ -561,7 +561,7 @@ export function adaptTrend(profileCtx: string, reference: string, images?: Audit
     'Зроби оригінальний сценарій ролика під цей бізнес за мотивами референсу (не копію).';
   return (images && images.length)
     ? jsonCallVision<TrendIdea>(system, user, images)
-    : jsonCall<TrendIdea>(system, user, 2500);
+    : jsonCall<TrendIdea>(system, user, 4200);
 }
 
 // ── Onboarding: extract a business profile from free conversation ─────────────
@@ -1002,7 +1002,7 @@ export function generateFirstResult(profileCtx: string, accountType?: string, go
     '"items": [{"title": string, "detail": string, "hook": string}], "kicker": string}. ' +
     'headline — коротко й тепло; kicker — один мотивуючий рядок про наступний крок.';
   const user = `Профіль клієнта:\n${profileCtx}\n\n${goalLine}Зроби перший корисний результат.`;
-  return jsonCall<FirstResult>(system, user, 2600);
+  return jsonCall<FirstResult>(system, user, 4200);
 }
 
 // ── Clarifying questions (spec §7: 3 personalised questions on weak fields) ───
@@ -1386,7 +1386,7 @@ export function generateMaterial(
   const user =
     `Бізнес:\n${profileCtx}\n\nСтратегія:\n${JSON.stringify(strategy)}\n\n` +
     `Зроби матеріал: ${label} (${type}).`;
-  return jsonCall<GeneratedMaterial>(system, user, 2500);
+  return jsonCall<GeneratedMaterial>(system, user, 4200);
 }
 
 // ── Own-page audit (real metrics, not screenshots) ────────────────────────────
@@ -1423,7 +1423,13 @@ export function auditOwnPage(
     `Бізнес:\n${profileCtx}\n\n` +
     (author ? `Сторінка: ${JSON.stringify(author)}\n\n` : '') +
     `Останні ролики (${videos.length}):\n${JSON.stringify(videos.slice(0, 15))}\n\nЗроби розбір.`;
-  return jsonCall<PageAudit>(system, user, 3500);
+  // 3500 не вистачало: схема просить summary + 4 сильні + 3 слабкі + 3 топ-ролики
+  // + 3 виправлення + 3 ідеї, і все українською. На проді контекст ще й довший
+  // (resolveCtx підтягує збережений профіль із бази), тож відповідь регулярно
+  // впиралась у стелю. Підпис збою — рівно подвійний час: 9 с при успіху проти
+  // 18-19 с при падінні, бо parseWithRetry робить другу спробу, а потім летить
+  // на Anthropic із нульовим балансом. Людина бачила «AI недоступний».
+  return jsonCall<PageAudit>(system, user, 6000);
 }
 
 // ── Trend search queries (the marketer decides WHAT to search) ────────────────
