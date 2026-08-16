@@ -2708,6 +2708,8 @@
             background:var(--grad,linear-gradient(135deg,#8B7BFF,#6C63FF)); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
           .cl-actions { margin:10px 0 0 37px; }
           .cl-skip { background:none; border:none; color:var(--text4); font-size:12.5px; cursor:pointer; padding:0; }
+            .cl-need { font-size:11.5px; line-height:1.5; color:var(--text4); margin-top:10px;
+              padding-top:9px; border-top:1px solid var(--border); }
           .cl-skip:hover { color:var(--text2); }
           .cl-ans { font-size:13.5px; color:#7ED08A; font-weight:600; margin-left:37px; }
           .cl-fin { width:100%; margin-top:6px; }
@@ -10708,14 +10710,14 @@
   // Static short quiz — a guided alternative to free-text / import at onboarding.
   var QUIZ_BUSINESS = [
     { field: 'niche', question: 'Яка твоя сфера?', options: ['Краса / б’юті', 'Кафе / їжа', 'Магазин / товари', 'Послуги', 'Експерт / курси', 'Нерухомість', 'Здоров’я'] },
-    { field: 'description', question: 'Що саме продаєш або пропонуєш?', options: [] },
+    { field: 'description', question: 'Що саме продаєш або пропонуєш?', options: [], required: true },
     { field: 'target_audience', question: 'Хто твій типовий клієнт?', options: ['Жінки 25-40', 'Чоловіки 25-45', 'Молодь 18-25', 'Сім’ї з дітьми', 'Бізнес / B2B'] },
     { field: 'geo', question: 'Де працюєш?', options: ['По всій Україні', 'Одне місто', 'Онлайн'] },
     { field: 'price_segment', question: 'Ціновий сегмент?', options: ['Бюджетний', 'Середній', 'Преміум'] },
   ];
   var QUIZ_BLOGGER = [
     { field: 'niche', question: 'Твоя тематика?', options: ['Б’юті', 'Лайфстайл', 'Геймінг', 'Тревел', 'Їжа / кулінарія', 'Фітнес', 'Освіта', 'Гумор'] },
-    { field: 'description', question: 'Про що твій контент?', options: [] },
+    { field: 'description', question: 'Про що твій контент?', options: [], required: true },
     { field: 'target_audience', question: 'Хто тебе дивиться?', options: ['Дівчата 18-30', 'Хлопці 18-30', 'Підлітки', 'Дорослі 30+', 'Змішана'] },
     { field: 'platforms', question: 'Головна платформа?', options: ['Instagram', 'TikTok', 'YouTube', 'Telegram'] },
     { field: 'monetization', question: 'Як хочеш заробляти?', options: ['Реклама брендів', 'Власний продукт', 'Донати / підписки'] },
@@ -10779,7 +10781,15 @@
         '<div class="cl-opts">' + opts + '</div>' +
         '<div class="cl-own-wrap"><input class="ob-input cl-own" id="clOwn' + i + '" placeholder="' + ph + '" onkeydown="if(event.key===\'Enter\')octoClarifyOwn(' + i + ')">' +
         '<button class="cl-own-go" title="Зберегти" onclick="octoClarifyOwn(' + i + ')">→</button></div>' +
-        '<div class="cl-actions"><button class="cl-skip" onclick="octoClarifySkip(' + i + ')">Пропустити це питання</button></div></div>';
+        // Одне питання тут несуче: без нього Octo не знає, ЩО просувати, і
+        // профіль не зараховується (octoBiz.isSet). Раніше його можна було
+        // пропустити нарівні з рештою — і людина, відповівши на всі питання з
+        // варіантами, поверталась на «Познайомити Octo». Коло замикалось саме
+        // на найімовірнішій поведінці: пропустити єдине, де треба друкувати.
+        (q.required
+          ? '<div class="cl-need">Без цього Octo не знатиме, що саме просувати — інші питання можна пропустити, це ні.</div>'
+          : '<div class="cl-actions"><button class="cl-skip" onclick="octoClarifySkip(' + i + ')">Пропустити це питання</button></div>') +
+        '</div>';
     }).join('');
     var head = _clarifyMode === 'quiz'
       ? { t: 'Коротке опитування', s: 'Кілька швидких питань — обери варіант або впиши своє. Будь-яке можна пропустити.' }
@@ -10815,7 +10825,18 @@
   }
   window.octoClarifyPick = function (i, btn) { applyClarify(i, btn.getAttribute('data-v')); };
   window.octoClarifyOwn = function (i) { var v = (($('clOwn' + i) || {}).value || '').trim(); if (v) applyClarify(i, v); };
-  window.octoClarifySkip = function (i) { markClarifyDone(i, null); };
+  // Захист на випадок, якщо кнопку «пропустити» відрендерять для несучого
+  // питання (або хтось смикне функцію напряму): мовчки пропустити його не
+  // можна — далі профіль не зарахується й людину викине назад в онбординг.
+  window.octoClarifySkip = function (i) {
+    var q = _clarifyQs[i];
+    if (q && q.required) {
+      var inp = $('clOwn' + i);
+      if (inp) { inp.focus(); inp.placeholder = 'Це питання потрібне — напиши хоча б кілька слів'; }
+      return;
+    }
+    markClarifyDone(i, null);
+  };
   window.octoClarifyFinish = function () {
     var box = $('onClarify'); if (box) box.style.display = 'none';
     renderProfile(null);   // refresh badges (answered fields are now ✓ підтверджено)
