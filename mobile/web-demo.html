@@ -2386,6 +2386,11 @@
       <div class="nav-item" data-screen="settings" onclick="showScreen('settings',this)">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3H9.8l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4.4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg></span> <span data-i18n="nav_settings_item">Налаштування</span>
       </div>
+      <!-- Написати нам. Досі адреса підтримки була ЛИШЕ в юридичному документі:
+           людина, у якої щось не працює, не мала куди звернутись і просто йшла. -->
+      <div class="nav-item" onclick="octoSupport()">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg></span> Підтримка
+      </div>
 
       <div class="sidebar-footer" style="border-top:none;padding-top:20px;">
         <div class="plan-box" id="sidebarPlanBox" style="position:relative;padding:14px;border-radius:16px;background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.06));border:1px solid rgba(139,123,255,.25);">
@@ -3018,6 +3023,24 @@
             .tm-sheet { background:var(--surface); border:1px solid var(--border);
               border-radius:22px 22px 0 0; padding:20px 18px 26px; width:100%; max-width:560px;
               box-sizing:border-box; }
+            /* Шитик підтримки — той самий візуальний тип, що й запуск фахівця. */
+            .sup-sheet { background:var(--surface); border:1px solid var(--border);
+              border-radius:22px 22px 0 0; padding:20px 18px 26px; width:100%; max-width:520px;
+              box-sizing:border-box; }
+            .sup-grab { width:38px; height:4px; border-radius:2px; background:var(--border);
+              margin:0 auto 16px; }
+            .sup-h { font-size:17px; font-weight:800; margin-bottom:7px; }
+            .sup-s { font-size:13px; line-height:1.55; color:var(--text3); margin-bottom:16px; }
+            .sup-go { display:block; text-align:center; text-decoration:none; padding:14px;
+              border-radius:14px; font:800 15px Manrope,sans-serif; color:#fff; background:var(--grad); }
+            .sup-mail { text-align:center; font:600 13.5px Manrope,sans-serif; color:var(--text2);
+              margin:14px 0 10px; user-select:all; }
+            .sup-copy { width:100%; padding:11px; background:var(--surface2); color:var(--text2);
+              border:1px solid var(--border); border-radius:12px;
+              font:600 13px Manrope,sans-serif; cursor:pointer; }
+            .sup-x { width:100%; margin-top:8px; padding:11px; background:transparent;
+              color:var(--text3); border:1px solid var(--border); border-radius:12px;
+              font:600 13px Manrope,sans-serif; cursor:pointer; }
             .tm-sheet-grab { width:38px; height:4px; border-radius:2px; background:var(--border);
               margin:0 auto 16px; }
             .tm-sheet-head { display:flex; align-items:flex-start; gap:11px; }
@@ -12212,6 +12235,63 @@
     if (d === 1) return one;
     if (d >= 2 && d <= 4) return few;
     return many;
+  };
+
+  // ── Підтримка ───────────────────────────────────────────────────────────────
+  // Лист одразу несе технічний слід (збірка, екран, ідентифікатор пристрою) —
+  // інакше половина листів це «нічого не працює», і починається листування
+  // заради з'ясування базового. Нічого особистого в тілі листа немає.
+  var SUPPORT_EMAIL = 'octomind.support@gmail.com';
+
+  function supportDiag() {
+    var build = (document.querySelector('meta[name="octo-build"]') || {}).content || '?';
+    // deviceId() і currentScreenId живуть у замиканнях і ззовні недоступні.
+    // Беремо те саме зі стану сторінки: активний екран — з розмітки, а
+    // ідентифікатор — із того ж робочого простору, що й у deviceId().
+    var dev = '';
+    try {
+      var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
+      dev = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+    } catch (e) {}
+    var act = document.querySelector('.screen.active');
+    return [
+      '',
+      '---',
+      'Не видаляй цей блок — він допомагає нам знайти проблему:',
+      'збірка: ' + build,
+      'екран: ' + ((act && act.id) || '—'),
+      'пристрій: ' + dev,
+      'браузер: ' + navigator.userAgent.slice(0, 120),
+      'дата: ' + new Date().toISOString(),
+    ].join('\n');
+  }
+
+  window.octoSupport = function () {
+    var subj = encodeURIComponent('OctoMind — потрібна допомога');
+    var body = encodeURIComponent('Опиши, що сталося:\n\n\n' + supportDiag());
+    window._octoSheet(
+      '<div class="sup-sheet">' +
+      '<div class="sup-grab"></div>' +
+      '<div class="sup-h">Написати нам</div>' +
+      '<div class="sup-s">Опиши, що сталося, і додай скрін — так розберемось швидше. ' +
+      'Відповідаємо українською, зазвичай того ж дня.</div>' +
+      '<a class="sup-go" href="mailto:' + SUPPORT_EMAIL + '?subject=' + subj + '&body=' + body + '">✉️ Відкрити пошту</a>' +
+      '<div class="sup-mail" id="supMail">' + SUPPORT_EMAIL + '</div>' +
+      '<button class="sup-copy" onclick="octoSupportCopy(this)">Скопіювати адресу</button>' +
+      '<button class="sup-x" onclick="_octoSheetClose()">Закрити</button>' +
+      '</div>'
+    );
+  };
+
+  // Поштовий клієнт налаштований не в усіх — тоді лишається просто скопіювати.
+  window.octoSupportCopy = function (btn) {
+    var done = function () { btn.textContent = '✓ Скопійовано'; btn.disabled = true; };
+    try {
+      navigator.clipboard.writeText(SUPPORT_EMAIL).then(done, function () {
+        var r = document.createRange(); r.selectNode(document.getElementById('supMail'));
+        var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done();
+      });
+    } catch (e) { done(); }
   };
 
   window.octoSaveIdea = function (type, title, output, btn) {
