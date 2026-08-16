@@ -48,7 +48,7 @@ profileRouter.post('/', async (req: Request, res: Response, next: NextFunction) 
   try {
     const input = sanitize(req.body);
     if (Object.keys(input).length === 0) {
-      return res.status(400).json({ error: 'No valid profile fields provided' });
+      return res.status(400).json({ error: 'Нема що зберігати — заповни хоча б одне поле профілю' });
     }
     const profile = await saveBusinessProfile(req.userId!, input);
     res.json({ profile });

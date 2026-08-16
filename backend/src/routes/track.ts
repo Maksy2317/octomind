@@ -32,7 +32,7 @@ let tableWarned = false;
 trackRouter.post('/', optionalIdentity, (req: Request, res: Response) => {
   const event = String(req.body?.event || '');
   if (!EVENTS.has(event)) {
-    res.status(400).json({ error: 'unknown event' });
+    res.status(400).json({ error: 'Невідома подія' });
     return;
   }
   let props: unknown = req.body?.props;

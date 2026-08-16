@@ -18,6 +18,15 @@ export function errorHandler(
     }
   }
 
+  // Кривий JSON у тілі. express.json() кидає SyntaxError, і його текст
+  // («Unexpected token '\', "\{\}" is not valid JSON») доходив до людини як
+  // є: англійська технічна абракадабра, та ще й з відлунням шматка запиту.
+  // Ловимо ДО загальних гілок, бо статус у нього 400 і він проскакував далі.
+  if (err instanceof SyntaxError && 'body' in (err as any)) {
+    res.status(400).json({ error: 'Не вдалося прочитати запит. Онови сторінку і спробуй ще раз.' });
+    return;
+  }
+
   const rawStatus = (err as any).status || (err as any).statusCode || 500;
 
   // Помилки, які САМІ знають, що сказати людині (SourceFailure у trends.ts):

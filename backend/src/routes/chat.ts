@@ -67,7 +67,7 @@ chatRouter.post('/', meter('chat'), async (req: Request, res: Response) => {
   const { messages, context } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'messages array required' });
+    return res.status(400).json({ error: 'Порожній запит до Octo — напиши повідомлення' });
   }
 
   const hasGemini = Boolean(process.env.GOOGLE_API_KEY);

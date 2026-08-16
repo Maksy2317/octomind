@@ -122,7 +122,7 @@ pushRouter.get('/vapid-public-key', (_req: Request, res: Response) => {
 pushRouter.post('/subscribe', async (req: Request, res: Response) => {
   const { subscription, userId } = req.body;
   if (!subscription || !subscription.endpoint) {
-    return res.status(400).json({ error: 'Invalid subscription' });
+    return res.status(400).json({ error: 'Не вдалося ввімкнути сповіщення — спробуй ще раз' });
   }
   const entry: PushSub = {
     subscription,
