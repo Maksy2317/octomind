@@ -152,7 +152,7 @@
           parts.push('Минулі кампанії користувача:\n' + camps.slice(0, 6).map(function (c) {
             var offer = (c && c.strategy && c.strategy.offer) ? ' — оффер: ' + String(c.strategy.offer).slice(0, 80) : '';
             var n = (c && c.materials && c.materials.length) || 0;
-            return '• «' + String((c && (c.name || c.goal)) || 'Кампанія').slice(0, 60) + '»' + offer + (n ? ' (' + n + ' матеріалів)' : '');
+            return '• «' + String((c && (c.name || c.goal)) || 'Кампанія').slice(0, 60) + '»' + offer + (n ? ' (' + n + ' ' + plural(n, 'матеріал', 'матеріали', 'матеріалів') + ')' : '');
           }).join('\n'));
         }
         return parts.join('\n\n').slice(0, 1600);
@@ -12202,6 +12202,18 @@
   // Save a standalone tool result (trend idea, content audit, trend video) into a
   // campaign so it isn't lost. Prefers the active campaign; otherwise a single
   // «Збережені ідеї» bucket. Returns the campaign id it landed in.
+  // Українська множина: 1 запис / 2-4 записи / 5+ записів. Раніше скрізь
+  // клеїлось число + «записів», і на головному екрані писало «1 записів».
+  // 11-14 — виняток: там завжди форма «записів».
+  window.plural = function (n, one, few, many) {
+    n = Math.abs(Number(n) || 0);
+    var t = n % 100, d = n % 10;
+    if (t >= 11 && t <= 14) return many;
+    if (d === 1) return one;
+    if (d >= 2 && d <= 4) return few;
+    return many;
+  };
+
   window.octoSaveIdea = function (type, title, output, btn) {
     var id = window.octoCampaigns.current;
     var c = id ? window.octoCampaigns.get(id) : null;
@@ -12356,7 +12368,7 @@
 
     el.className = 'cmp-list' + (cmpSelecting ? ' selecting' : '');
     el.innerHTML = '<div class="cmp-head">'
-      + '<div style="font-size:13px;color:var(--text4);font-weight:700;">' + all.length + ' записів</div>'
+      + '<div style="font-size:13px;color:var(--text4);font-weight:700;">' + all.length + ' ' + plural(all.length, 'запис', 'записи', 'записів') + '</div>'
       + '<button class="cmp-select-btn" onclick="' + (cmpSelecting ? 'cmpExitSelect()' : 'cmpEnterSelect()') + '">'
       + (cmpSelecting ? '✕ Готово' : '☑️ Обрати') + '</button></div>'
       + search + '<div id="cmpNoRes" style="display:none;color:var(--text4);font-size:13px;padding:14px 2px;">Нічого не знайдено.</div>' + cards;
@@ -12624,7 +12636,7 @@
       : '<div class="card" style="text-align:center;color:var(--text4);font-size:13px;padding:18px;">Матеріалів ще нема. Повернись у «Просування» → «Створити весь пакет».</div>';
     el.innerHTML = '<button class="oc-back" style="background:none;border:none;color:var(--text3);font:inherit;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px;" onclick="octoCampaignsBack()">← усі кампанії</button>'
       + '<div class="card"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🎯</div>'
-      + '<div style="flex:1;"><div class="card-title" style="margin:0;">' + esc(c.name) + '</div><div class="card-sub" style="margin:0;">створено ' + fmtDate(c.createdAt) + ' · ' + (c.materials ? c.materials.length : 0) + ' матеріалів</div></div>'
+      + '<div style="flex:1;"><div class="card-title" style="margin:0;">' + esc(c.name) + '</div><div class="card-sub" style="margin:0;">створено ' + fmtDate(c.createdAt) + ' · ' + (c.materials ? c.materials.length : 0) + ' ' + plural(c.materials ? c.materials.length : 0, 'матеріал', 'матеріали', 'матеріалів') + '</div></div>'
       + '<button class="btn btn-primary" style="padding:8px 14px;font-size:13px;" onclick="showScreen(\'campaign\',null)">➕ Ще матеріали</button></div>'
       + '<div style="display:flex;gap:8px;margin-top:12px;">'
       + ((c.materials && c.materials.length)
@@ -12835,7 +12847,7 @@
     if (!camps.length) return { icon: '🎯', text: 'Ринок вивчено — час діяти. Постав першу бізнес-ціль, і Octo збере стратегію та матеріали.', btn: 'Створити просування', screen: 'campaign' };
     var last = camps[0];
     if (!last.materials || !last.materials.length) return { icon: '📦', text: 'У кампанії «' + esc(last.name) + '» є стратегія, але ще нема матеріалів. Доробимо пакет?', btn: 'Догенерувати матеріали', screen: 'campaign' };
-    return { icon: '📅', text: 'Кампанія «' + esc(last.name) + '» готова (' + last.materials.length + ' матеріалів). Наступний крок — опублікувати і запланувати контент на тиждень.', btn: 'Контент-план', screen: 'calendar' };
+    return { icon: '📅', text: 'Кампанія «' + esc(last.name) + '» готова (' + last.materials.length + ' ' + plural(last.materials.length, 'матеріал', 'матеріали', 'матеріалів') + '). Наступний крок — опублікувати і запланувати контент на тиждень.', btn: 'Контент-план', screen: 'calendar' };
   }
 
   // The conductor: one unambiguous next action, placed on the cycle so the user
@@ -13841,7 +13853,7 @@
   function paSavedBlock() {
     var soft = 'width:100%;margin-top:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-weight:700;';
     var sub = PA.setName
-      ? 'Усе склалось у набір «' + esc(PA.setName) + '»' + (PA.setCount ? ' — там уже ' + PA.setCount + ' матеріалів' : '') + '. Додаси ще кадр з іншого фото — він потрапить сюди ж.'
+      ? 'Усе склалось у набір «' + esc(PA.setName) + '»' + (PA.setCount ? ' — там уже ' + PA.setCount + ' ' + plural(PA.setCount, 'матеріал', 'матеріали', 'матеріалів') : '') + '. Додаси ще кадр з іншого фото — він потрапить сюди ж.'
       : 'Готові креативи вже там — знайдеш будь-коли.';
     return '<div class="card" style="border-color:#4CAF5044;background:linear-gradient(135deg,rgba(76,175,80,.08),transparent);text-align:center;">'
       + '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">✅ Збережено в «Мої ідеї»</div>'
@@ -14518,7 +14530,7 @@
       + '<div style="width:58px;height:58px;border-radius:50%;background:conic-gradient(' + scoreColor(a.score) + ' ' + (a.score * 3.6) + 'deg, var(--surface3) 0);display:grid;place-items:center;flex:none;">'
       + '<div style="width:46px;height:46px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-weight:800;font-size:15px;color:' + scoreColor(a.score) + ';">' + a.score + '</div></div>'
       + '<div><div class="card-title" style="margin:0;">@' + esc(au.handle || '') + (au.name ? ' · ' + esc(au.name) : '') + '</div>'
-      + '<div style="font-size:12px;color:var(--text4);">' + fmt(au.followers || 0) + ' підписників · ' + fmt(au.total_likes || 0) + ' лайків · ' + (d.videos || []).length + ' роликів проаналізовано</div></div></div>'
+      + '<div style="font-size:12px;color:var(--text4);">' + fmt(au.followers || 0) + ' підписників · ' + fmt(au.total_likes || 0) + ' лайків · ' + (d.videos || []).length + ' ' + plural((d.videos || []).length, 'ролик', 'ролики', 'роликів') + ' проаналізовано</div></div></div>'
       + '<p style="font-size:13.5px;color:var(--text2);">' + esc(a.summary) + '</p>'
       + '<div style="font-weight:800;margin-top:12px;color:var(--green);">✅ Що працює</div><ul style="margin:6px 0 0 18px;padding:0;">' + (a.what_works || []).map(function (w) { return '<li style="margin-bottom:4px;font-size:13px;color:var(--text2);">' + esc(w) + '</li>'; }).join('') + '</ul>'
       + '<div style="font-weight:800;margin-top:12px;color:#FF8A80;">⚠️ Слабкі місця</div><ul style="margin:6px 0 0 18px;padding:0;">' + (a.weak_spots || []).map(function (w) { return '<li style="margin-bottom:4px;font-size:13px;color:var(--text2);">' + esc(w) + '</li>'; }).join('') + '</ul>'
