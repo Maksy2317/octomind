@@ -1353,6 +1353,16 @@
     }
     .tab.active { color: var(--accent2); }
     .tab-icon { width: 24px; height: 24px; flex: none; }
+
+    /* Світла тема. У застосунку 55 правил light-mode — і жодного для нижньої
+       панелі: вона єдина лишалась темною, поки все навколо ставало світлим.
+       Це головна навігація на телефоні, тож пропуск помітний найбільше. */
+    body.light-mode .tabbar {
+      background: rgba(255,255,255,.94);
+      border-top: 1px solid rgba(10,10,26,.10);
+    }
+    body.light-mode .tab { color: #6b6b85; }
+    body.light-mode .tab.active { color: var(--accent2); }
     .tab-icon svg { width: 100%; height: 100%; }
 
     .app-layout.is-wizard .tabbar,
