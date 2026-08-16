@@ -58,6 +58,24 @@ async function resolveContext(req: Request): Promise<{ ctx: string; profileId: s
   return { ctx: profileToContext(inline || null), profileId: null };
 }
 
+/**
+ * Генерація без профілю — це не «трохи гірший результат», а вигадка з нуля.
+ * Зловлено на аудиті: /offer із порожнім тілом видав «Збільшіть прибуток на
+ * 20%» (цифра нізвідки), а /image РЕАЛЬНО намалював картинку — тобто витратив
+ * гроші в Stability і кредит квоти на запит без жодних даних.
+ *
+ * profileToContext(null) повертає рівно '(профіль ще не заповнено)' — саме за
+ * цим і впізнаємо порожнечу, не вгадуючи за окремими полями.
+ */
+function requireProfile(res: Response, ctx: string): boolean {
+  if (ctx && !ctx.includes('(профіль ще не заповнено)')) return true;
+  res.status(400).json({
+    error: 'Спершу розкажи Octo про свій бізнес — без цього він вигадає замість тебе',
+    code: 'profile_required',
+  });
+  return false;
+}
+
 /** Persist a generation row when possible; never fail the request over it. */
 async function logGeneration(req: Request, data: {
   type: GenerationType;
@@ -105,6 +123,7 @@ marketingRouter.post('/offer', async (req: Request, res: Response, next: NextFun
   if (!guardConfigured(res)) return;
   try {
     const { ctx, profileId } = await resolveContext(req);
+    if (!requireProfile(res, ctx)) return;
     const analysis = req.body?.analysis as BusinessAnalysis | undefined;
     const offer = await generateOfferStrategy(ctx, analysis);
     await logGeneration(req, {
@@ -192,6 +211,7 @@ marketingRouter.post('/content-plan', meter('content_plan'), async (req: Request
   const tempo = { reels: num(t.reels, 3), posts: num(t.posts, 3), stories: num(t.stories, 1) };
   try {
     const { ctx, profileId } = await resolveContext(req);
+    if (!requireProfile(res, ctx)) return;
     const plan = await generateContentPlan(ctx, goal, platforms, tempo);
     await logGeneration(req, {
       type: 'content_plan', input: { context: ctx, goal, platforms, tempo },
@@ -510,6 +530,7 @@ marketingRouter.post('/brand', meter('brand'), async (req: Request, res: Respons
   if (!guardConfigured(res)) return;
   try {
     const { ctx, profileId } = await resolveContext(req);
+    if (!requireProfile(res, ctx)) return;
     const bodyColors = Array.isArray(req.body?.site_colors) ? req.body.site_colors : undefined;
     const profColors = Array.isArray((req.body?.profile as Record<string, unknown> | undefined)?.site_colors)
       ? (req.body.profile as Record<string, unknown>).site_colors as string[] : undefined;
@@ -557,6 +578,7 @@ marketingRouter.post('/image', meter('image'), async (req: Request, res: Respons
   }
   try {
     const { ctx, profileId } = await resolveContext(req);
+    if (!requireProfile(res, ctx)) return;
     const label = typeof req.body?.label === 'string' ? req.body.label.slice(0, 120) : 'Рекламне зображення';
     const strategy = req.body?.strategy ?? null;
 
