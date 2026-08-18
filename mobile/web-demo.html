@@ -3739,7 +3739,7 @@
             <div class="pcard popular">
               <div class="pop-badge">⭐ <span data-i18n="popular">Популярний</span></div>
               <div class="pplan">Pro</div>
-              <div class="pprice">$12 <span>/ міс</span></div>
+              <div class="pprice" id="pprPro">$12 <span>/ міс</span></div>
               <div class="pdesc">Для активного просування бізнесу</div>
               <ul class="pfeatures">
                 <li><span>✅</span> <span>До 10 кампаній на місяць</span></li>
@@ -3753,7 +3753,7 @@
             </div>
             <div class="pcard">
               <div class="pplan">Business</div>
-              <div class="pprice">$29 <span>/ міс</span></div>
+              <div class="pprice" id="pprBusiness">$29 <span>/ міс</span></div>
               <div class="pdesc">Максимум + відео-реклама</div>
               <ul class="pfeatures">
                 <li><span>✅</span> <span>Все з Pro, вищі ліміти</span></li>
@@ -8982,6 +8982,39 @@
     } catch (e) {}
   };
 
+  // Справжні ціни й стан білінгу — з сервера. Ендпоінт /api/pay/plans існував,
+  // але клієнт його не питав ЖОДНОГО разу: цифри були зашиті в розмітку, а
+  // PLAN_PRICES на сервері читаються з env (PRICE_PRO / PAY_CURRENCY). Тобто
+  // показане й списане могли розійтись будь-якої миті.
+  window.octoLoadPlans = function () {
+    fetch('/api/pay/plans')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.plans) return;
+        window.octoBilling = d;
+        var SYM = { USD: '$', EUR: '€', UAH: '₴' };
+        [['pro', 'pprPro', 'payBtnPro'], ['business', 'pprBusiness', 'payBtnBusiness']]
+          .forEach(function (row) {
+            var pl = d.plans[row[0]]; if (!pl) return;
+            var el = document.getElementById(row[1]);
+            if (el) {
+              var sym = SYM[pl.currency] || '';
+              el.innerHTML = (sym ? sym + pl.amount : pl.amount + ' ' + pl.currency)
+                + ' <span>/ міс</span>';
+            }
+            // Каси ще немає — не ведемо людину на сторінку оплати, яка нічого
+            // не зарахує. Кнопка стає чесною, а не зникає.
+            var btn = document.getElementById(row[2]);
+            if (btn && d.live === false) {
+              btn.textContent = 'Оплата вмикається — напиши нам';
+              btn.setAttribute('onclick', 'octoSupport()');
+            }
+          });
+      })
+      .catch(function () {});
+  };
+  document.addEventListener('DOMContentLoaded', function () { window.octoLoadPlans(); });
+
   // ── Checkout: create a WayForPay payment and redirect there ──────────────────
   window.octoOpenCheckout = function (plan) {
     plan = (plan === 'business') ? 'business' : 'pro';
@@ -8994,6 +9027,13 @@
     fetch('/api/pay/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': dev }, body: JSON.stringify({ plan: plan }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        // Сервер відмовляє, поки немає бойових ключів — показуємо ЙОГО текст,
+        // а не загальне «спробуй ще раз»: пробувати тут нема сенсу.
+        if (d && d.code === 'billing_not_live') {
+          if (btn) { btn.disabled = false; btn.textContent = old; }
+          alert(d.error);
+          throw new Error('billing_not_live');
+        }
         if (!d || !d.url || !d.fields) throw new Error('no form');
         var f = document.createElement('form'); f.method = 'POST'; f.action = d.url; f.acceptCharset = 'utf-8';
         Object.keys(d.fields).forEach(function (k) {

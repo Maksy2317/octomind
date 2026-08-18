@@ -17,6 +17,17 @@ payRouter.get('/plans', (_req: Request, res: Response) => {
 
 // POST /api/pay/create — returns the form the client auto-submits to WayForPay.
 payRouter.post('/create', requireIdentity, (req: Request, res: Response) => {
+  // Без бойових ключів WayForPay ця відповідь вела людину на ПУБЛІЧНИЙ
+  // тестовий мерчант із документації (`test_merch_n1`) — тобто на сторінку
+  // оплати, яка нічого нам не зарахує. Правило тримає код, а не дисципліна:
+  // щойно ключі зʼявляться в env, оплата вмикається сама.
+  if (!isLive()) {
+    res.status(503).json({
+      error: 'Оплата картками ще вмикається. Напиши нам — підключимо Pro вручну: octomind.support@gmail.com',
+      code: 'billing_not_live',
+    });
+    return;
+  }
   const plan: 'pro' | 'business' = req.body?.plan === 'business' ? 'business' : 'pro';
   const userId = req.userId as string;
   const orderReference = `${userId}__${plan}__${Date.now()}`;
