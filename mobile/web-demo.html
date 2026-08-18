@@ -164,10 +164,15 @@
         var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
         var dev = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
         while (dev.length < 8) dev += '0';
+        // Джерело переходу (?source=…) писалось у localStorage і не йшло
+        // НІКУДИ. Без нього воронку неможливо порізати за каналом.
+        var src = null;
+        try { src = localStorage.getItem('octo_source'); } catch (e) {}
+        var payload = src ? Object.assign({}, props || {}, { src: src }) : (props || undefined);
         fetch('/api/track', {
           method: 'POST', keepalive: true,
           headers: { 'Content-Type': 'application/json', 'x-device-id': dev.slice(0, 128) },
-          body: JSON.stringify({ event: event, props: props || undefined }),
+          body: JSON.stringify({ event: event, props: payload }),
         }).catch(function () {});
       } catch (e) {}
     };
@@ -3901,8 +3906,7 @@
                 <option value="Розважальний">Розважальний</option>
               </select>
             </div>
-            <div class="srow"><div class="sinfo"><h4>Octo обирає формат сам</h4><p>Сам вирішує Reels / Stories / карусель під ціль</p></div><div class="toggle on" id="setAutoFormat" onclick="this.classList.toggle('on')"></div></div>
-            <div class="srow"><div class="sinfo"><h4>Нагадування про пости</h4><p>Коли настав час публікувати</p></div><div class="toggle on" id="setPostReminders" onclick="this.classList.toggle('on')"></div></div>
+            <div class="srow"><div class="sinfo"><h4>Нагадування про пости</h4><p>Коли настав час публікувати</p></div><div class="toggle on" id="setPostReminders" onclick="octoTogglePostReminders(this)"></div></div>
           </div>
 
           <!-- PREMIUM TEST TOGGLE -->
@@ -5071,7 +5075,8 @@
   // Load chat history from localStorage (only text messages, no images)
   let chatHistory = (() => {
     try {
-      const saved = localStorage.getItem('octo_chat_history');
+      const ws = localStorage.getItem('octo_active_ws') || 'default';
+      const saved = localStorage.getItem('octo_chat_' + ws);
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   })();
@@ -7103,6 +7108,22 @@
   }
 
   async function calSyncReminders() {
+    // Головний вимикач. Порожній список тут не «нічого не робить», а знімає
+    // усі раніше заплановані пуші: ендпоінт ЗАМІНЮЄ список для підписки.
+    if (window.octoPostRemindersOn && !window.octoPostRemindersOn()) {
+      try {
+        if (!('serviceWorker' in navigator)) return;
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) return;
+        await fetch('/api/push/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint, reminders: [] }),
+        });
+      } catch (e) {}
+      return;
+    }
     // The planner owns /api/push/schedule now (the endpoint REPLACES the list
     // per subscription — two writers would fight). Delegate when it's loaded.
     if (window.octoPlannerSyncReminders) return window.octoPlannerSyncReminders();
@@ -7152,6 +7173,7 @@
   window.calSyncReminders = calSyncReminders;
 
   function calCheckReminders() {
+    if (window.octoPostRemindersOn && !window.octoPostRemindersOn()) return;
     const now = new Date();
     const key = calKey(now.getFullYear(), now.getMonth(), now.getDate());
     // Read through the facade → the planner (the legacy tree only keeps history).
@@ -7404,6 +7426,23 @@
   //  PREMIUM TEST MODE (localStorage flag)
   // ══════════════════════════════════════════════════════════════════════════
 
+  // Нагадування про пости. Раніше тумблер лише перефарбовував себе: стан
+  // писався у ключ, якого ніхто не читав, тож після перезавантаження він
+  // знову «увімкнено», а вимкнення не зупиняло жодного пуша.
+  window.octoPostRemindersOn = function () {
+    try { return localStorage.getItem('octo_post_reminders') !== '0'; } catch (e) { return true; }
+  };
+  window.octoTogglePostReminders = function (el) {
+    var on = !el.classList.contains('on');
+    el.classList.toggle('on', on);
+    try { localStorage.setItem('octo_post_reminders', on ? '1' : '0'); } catch (e) {}
+    try { if (window.calSyncReminders) window.calSyncReminders(); } catch (e) {}
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('setPostReminders');
+    if (el) el.classList.toggle('on', window.octoPostRemindersOn());
+  });
+
   function octoIsPremium() {
     return localStorage.getItem('octo_premium_test') === 'true';
   }
@@ -7462,8 +7501,7 @@
         tone: (document.getElementById('setTone') || {}).value || '',
       });
     }
-    try { localStorage.setItem('octo_post_reminders', document.getElementById('setPostReminders').classList.contains('on') ? '1' : '0'); } catch (e) {}
-    try { localStorage.setItem('octo_auto_format', document.getElementById('setAutoFormat').classList.contains('on') ? '1' : '0'); } catch (e) {}
+    // (тумблер нагадувань зберігається одразу при кліку — octoTogglePostReminders)
     if (btn) { var t = btn.textContent; btn.textContent = '✅ Збережено'; btn.disabled = true; setTimeout(function () { btn.textContent = t; btn.disabled = false; }, 1600); }
     try { if (window.renderProfileCard) window.renderProfileCard(); } catch (e) {}
     try { if (window.renderDashV2) window.renderDashV2(); } catch (e) {}
