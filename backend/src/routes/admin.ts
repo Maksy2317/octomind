@@ -54,9 +54,13 @@ adminRouter.post('/digest-run', async (req: Request, res: Response, next: NextFu
   }
 });
 
+// Повний шлях, а не з середини. Раніше воронка починалась з app_open, хоча
+// view_landing / click_cta / signup ми вже збираємо — тобто найцінніше
+// (скільки людей з лендингу дійшло до реєстрації) було невидиме.
 const FUNNEL_STEPS = [
-  'app_open', 'onboarding_done', 'strategy_created', 'material_created',
-  'package_done', 'plan_generated', 'post_published',
+  'view_landing', 'click_cta', 'app_open', 'signup', 'onboarding_done',
+  'strategy_created', 'material_created', 'package_done',
+  'plan_generated', 'post_published',
 ];
 adminRouter.get('/funnel', async (req: Request, res: Response, next: NextFunction) => {
   if (!authorized(req)) {

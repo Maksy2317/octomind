@@ -7585,6 +7585,104 @@
     }).join('');
     return '<div class="card" style="margin-top:14px;"><div class="ob-sec" style="margin-top:0;">' + title + '</div>' + rows + '</div>';
   }
+  // ── Воронка активації ──────────────────────────────────────────────────────
+  // Ендпоінт /api/admin/funnel існував із самого початку, але клієнт його не
+  // викликав ЖОДНОГО разу — порахована воронка нікому не показувалась.
+  var ADM_STEPS = {
+    view_landing:     'Побачив лендинг',
+    click_cta:        'Натиснув кнопку',
+    app_open:         'Відкрив застосунок',
+    signup:           'Зареєструвався',
+    onboarding_done:  'Пройшов знайомство',
+    strategy_created: 'Створив стратегію',
+    material_created: 'Зробив матеріал',
+    package_done:     'Пакет готовий',
+    plan_generated:   'Розклав по днях',
+    post_published:   'Опублікував',
+  };
+  function admEsc(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  window.octoAdminFunnel = function (days) {
+    var box = document.getElementById('admFunnel');
+    if (!box) return;
+    var key = '';
+    try { key = localStorage.getItem('octo_admin_key') || ''; } catch (e) {}
+    if (!key) return;
+    days = days || 14;
+    box.innerHTML = '<div class="card" style="margin-top:14px;color:var(--text3);font-size:13px;">Рахую воронку…</div>';
+    fetch(admApiBase() + '/api/admin/funnel?days=' + days, { headers: { 'x-admin-key': key } })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        var steps = (d.funnel || []);
+        var top = steps.length ? steps[0].unique : 0;
+        var html = '<div class="card" style="margin-top:14px;">';
+        html += '<div class="ob-sec" style="margin-top:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+             + 'Воронка активації'
+             + '<span style="margin-left:auto;display:flex;gap:6px;">'
+             + [7, 14, 30].map(function (n) {
+                 return '<button onclick="octoAdminFunnel(' + n + ')" style="border:1px solid var(--border);'
+                   + 'background:' + (n === days ? 'var(--surface2)' : 'transparent') + ';color:var(--text2);'
+                   + 'border-radius:6px;font-size:11.5px;padding:3px 9px;cursor:pointer;">' + n + ' дн</button>';
+               }).join('')
+             + '</span></div>';
+
+        if (!top) {
+          html += '<div style="font-size:13px;color:var(--text3);">За ' + days + ' дн подій ще немає. '
+               + 'Це нормально до запуску — воронка наповнюється, щойно підуть люди.</div>';
+        } else {
+          steps.forEach(function (st, i) {
+            var label = ADM_STEPS[st.step] || st.step;
+            var pct   = Math.round(st.unique / top * 100);
+            var prev  = i > 0 ? steps[i - 1].unique : null;
+            // Найцінніше в воронці — не сама цифра, а де саме люди відпадають.
+            var drop  = (prev && prev > 0)
+              ? Math.round((prev - st.unique) / prev * 100) : 0;
+            var dropTxt = (i > 0 && prev > 0)
+              ? (drop > 0 ? '<span style="color:#FF8A80;">−' + drop + '%</span>'
+                          : '<span style="color:var(--text4);">0%</span>')
+              : '<span style="color:var(--text4);">—</span>';
+            html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">'
+                 + '<div style="width:132px;font-size:12.5px;color:var(--text2);text-align:right;flex:none;">' + admEsc(label) + '</div>'
+                 + '<div style="flex:1;background:var(--surface2);border-radius:6px;height:20px;overflow:hidden;">'
+                 + '<div style="width:' + pct + '%;height:100%;background:var(--grad,#8B7BFF);"></div></div>'
+                 + '<div style="width:52px;font-size:12.5px;font-weight:700;flex:none;">' + st.unique + '</div>'
+                 + '<div style="width:46px;font-size:11.5px;flex:none;text-align:right;">' + dropTxt + '</div>'
+                 + '</div>';
+          });
+          html += '<div style="font-size:11.5px;color:var(--text4);margin-top:8px;">'
+               + 'Люди, не дії: один клієнт рахується раз на крок. Червоне — скільки відвалилось '
+               + 'відносно попереднього кроку. Узято ' + (d.sampled || 0) + ' подій за ' + (d.days || days) + ' дн.</div>';
+        }
+        html += '</div>';
+
+        // Решта подій — те, що поза воронкою (імпорт, дослідження, пейволл).
+        var ev = d.events || {};
+        var rest = Object.keys(ev).filter(function (k) { return !(k in ADM_STEPS); });
+        if (rest.length) {
+          html += '<div class="card" style="margin-top:14px;"><div class="ob-sec" style="margin-top:0;">Інші події</div>';
+          var maxV = Math.max.apply(null, rest.map(function (k) { return ev[k].unique || 0; })) || 1;
+          rest.sort(function (a, b) { return (ev[b].unique || 0) - (ev[a].unique || 0); }).forEach(function (k) {
+            var pc = Math.round((ev[k].unique || 0) / maxV * 100);
+            html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
+                 + '<div style="width:132px;font-size:12px;color:var(--text3);text-align:right;flex:none;">' + admEsc(k) + '</div>'
+                 + '<div style="flex:1;background:var(--surface2);border-radius:6px;height:16px;overflow:hidden;">'
+                 + '<div style="width:' + pc + '%;height:100%;background:rgba(139,123,255,.45);"></div></div>'
+                 + '<div style="width:52px;font-size:12px;font-weight:700;flex:none;">' + (ev[k].unique || 0) + '</div>'
+                 + '<div style="width:46px;font-size:11px;color:var(--text4);flex:none;text-align:right;">' + (ev[k].total || 0) + ' дій</div>'
+                 + '</div>';
+          });
+          html += '</div>';
+        }
+        box.innerHTML = html;
+      })
+      .catch(function (e) {
+        box.innerHTML = '<div class="card" style="margin-top:14px;color:#FF8A80;font-size:13px;">'
+          + 'Воронка не завантажилась: ' + admEsc(e.message || '') + '</div>';
+      });
+  };
+
   window.octoAdminLoad = function (fromInput) {
     var body = document.getElementById('admBody');
     var keyBox = document.getElementById('admKeyBox');
@@ -7619,7 +7717,9 @@
           admStat('Пристроїв заходило', d.devices != null ? d.devices : '—', 'вкл. гостей') + '</div>';
         html += admBars(act.by_feature, 'Що заходить — дії по фічах');
         html += admBars(d.generations_by_type, 'Генерації по типах');
+        html += '<div id="admFunnel"></div>';
         body.innerHTML = html;
+        window.octoAdminFunnel(14);
       })
       .catch(function (e) {
         if (/forbidden|403/i.test(e.message)) {
