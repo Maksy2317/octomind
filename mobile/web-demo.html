@@ -5666,98 +5666,10 @@
 
 
   // ── Update template card backgrounds with video first frame ────────────
-  function ssUpdateTmplCards() {
-    const previews = document.querySelectorAll('.ss-tmpl-preview');
-    previews.forEach(p => {
-      if (ssState.frameBase64) {
-        p.style.backgroundImage = `url(${ssState.frameBase64})`;
-      } else {
-        p.style.backgroundImage = '';
-      }
-    });
-  }
+  
 
   // ── Live preview updater ─────────────────────────────────────────────────
-  function ssUpdatePreview() {
-    const frame  = document.getElementById('ssPreviewFrame');
-    const text   = document.getElementById('ssPreviewText');
-    const ph     = document.getElementById('ssPreviewPlaceholder');
-    if (!frame || !text) return;
-
-    // Update template card backgrounds with video frame
-    ssUpdateTmplCards();
-
-    // Frame background
-    if (ssState.frameBase64) {
-      frame.style.backgroundImage = `url(${ssState.frameBase64})`;
-      if (ph) ph.style.display = 'none';
-    }
-
-    const { fontSize, fontColor, position, background, uppercase } = ssState.style;
-    const bg = document.getElementById('ssBgToggle');
-    const hasBg = bg ? bg.checked : background;
-
-    // Scale font proportionally: preview 140px wide / video 1080px wide ≈ 0.13
-    const scaledFont = Math.max(9, Math.round(fontSize * 0.13));
-    const fontFamilyMap = { default:'Arial,sans-serif', condensed:"Impact,'Arial Narrow',sans-serif", rounded:"'Ubuntu','Trebuchet MS',sans-serif", mono:"'Courier New',monospace" };
-    const previewFontFamily = fontFamilyMap[fontName] || fontFamilyMap.default;
-    const colorMap = { white: '#fff', yellow: '#FFE600', red: '#FF2D2D', black: '#111', cyan: '#00FFEA' };
-    const color = colorMap[fontColor] || '#fff';
-
-    // Preview text: show karaoke effect simulation if word-by-word + highlight
-    const hlColor = ssState.style.highlightColor;
-    const hlColorHex = { red: '#FF2D2D', yellow: '#FFE600', white: '#fff', cyan: '#00FFEA' }[hlColor] || null;
-    if (ssState.wordByWord && hlColorHex) {
-      const prev = uppercase ? 'ВІН' : 'він';
-      const curr = uppercase ? 'БУВ' : 'був';
-      text.innerHTML = `<span style="color:${color}">${prev} </span><span style="color:${hlColorHex}">${curr}</span>`;
-    } else {
-      const rawPreviewText = ssState.wordByWord ? (uppercase ? 'СЛОВО' : 'слово') : (uppercase ? 'ТЕКСТ СУБТИТРІВ' : 'Текст субтитрів');
-      text.textContent = rawPreviewText;
-    }
-
-    // Sync uppercase toggle visual
-    const upperTrack = document.getElementById('ssUpperTrack');
-    const upperThumb = document.getElementById('ssUpperThumb');
-    if (upperTrack) upperTrack.style.background = uppercase ? '#4CAF50' : '#555';
-    if (upperThumb) upperThumb.style.left = uppercase ? '21px' : '3px';
-
-    // Background: coloured box override (e.g. yellow for Reels) or dark semi-transparent
-    const bgColorCssMap = { yellow: '#FFE600', cyan: '#00FFEA' };
-    const bgColorCss = ssState.style.bgColor
-      ? (bgColorCssMap[ssState.style.bgColor] || 'rgba(0,0,0,0.65)')
-      : (hasBg ? 'rgba(0,0,0,0.65)' : 'transparent');
-
-    text.style.fontSize      = scaledFont + 'px';
-    text.style.color         = color;
-    text.style.background    = bgColorCss;
-    text.style.padding       = (hasBg || ssState.style.bgColor) ? '3px 7px' : '0';
-    text.style.borderRadius  = '4px';
-    text.style.fontWeight    = '900';
-    text.style.fontFamily    = previewFontFamily;
-    text.style.textTransform = uppercase ? 'uppercase' : 'none';
-    // Outline/stroke simulation — use outlineColor if set (neon = cyan stroke), else black
-    const outlineHex = { cyan: '#00FFEA', red: '#FF2D2D', yellow: '#FFE600', white: '#fff' }[ssState.style.outlineColor] || '#000';
-    text.style.textShadow    = (hasBg || ssState.style.bgColor) ? 'none'
-      : `-1px -1px 0 ${outlineHex}, 1px -1px 0 ${outlineHex}, -1px 1px 0 ${outlineHex}, 1px 1px 0 ${outlineHex},
-         -2px 0 0 ${outlineHex}, 2px 0 0 ${outlineHex}, 0 -2px 0 ${outlineHex}, 0 2px 0 ${outlineHex}`;
-
-    // Position — use % so it scales with the preview box
-    text.style.top = text.style.bottom = text.style.transform = '';
-    if (position === 'top') {
-      text.style.top = '8%'; text.style.bottom = 'auto';
-    } else if (position === 'center') {
-      text.style.top = '50%'; text.style.transform = 'translateY(-50%)';
-    } else {
-      text.style.bottom = '9%'; text.style.top = 'auto';
-    }
-
-    // Sync bg toggle thumb (manual toggle visual)
-    const track = document.getElementById('ssBgTrack');
-    const thumb = document.getElementById('ssBgThumb');
-    if (track) track.style.background = hasBg ? '#4CAF50' : '#555';
-    if (thumb) thumb.style.left = hasBg ? '21px' : '3px';
-  }
+  
 
 
 
@@ -10946,47 +10858,16 @@
 
   // Stable identity per workspace, so different companies keep separate business
   // profiles. Matches the backend's x-device-id regex ([A-Za-z0-9_-]{8,128}).
-  function brainDeviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  
 
   // Strip a leading emoji/symbol prefix the chip options carry (e.g. "🎯 Нерухомість").
   function deemoji(s) { return (s == null ? '' : String(s)).replace(/^[^\p{L}\p{N}]+/u, '').trim(); }
   function arr(a) { return Array.isArray(a) ? a.map(deemoji).filter(Boolean) : []; }
 
   // Map the site's per-workspace account profile → the backend business profile.
-  function brainProfile() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var p = (window.getWsProfile ? window.getWsProfile(ws) : null) || {};
-    var tov = (typeof getWsTov === 'function') ? getWsTov(ws) : null;
-    var out = {};
-    if (p.brandName) out.business_name = p.brandName;
-    if (p.niche) out.niche = deemoji(p.niche);
-    if (p.audience) out.target_audience = deemoji(p.audience);
-    var style = arr(p.style); if (style.length) out.tone = style.join(', ');
-    var desc = (document.getElementById('obDesc') || {}).value;
-    if (desc && desc.trim()) out.description = desc.trim();
-    var extra = {};
-    var plat = arr(p.platforms); if (plat.length) extra.platforms = plat;
-    if (p.lang) extra.lang = deemoji(p.lang);
-    if (tov && tov.analysis) extra.tone_of_voice = tov.analysis;
-    if (Object.keys(extra).length) out.extra = extra;
-    return out;
-  }
+  
 
-  async function brainApi(path, body) {
-    var res = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-device-id': brainDeviceId() },
-      body: JSON.stringify(body || {}),
-    });
-    var data = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-    return data;
-  }
+  
 
   function status(kind, msg) {
     var el = document.getElementById('obStatus');
@@ -10999,67 +10880,13 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
   function chips(a, cls) { return (a && a.length) ? '<div class="ob-chips">' + a.map(function (x) { return '<span class="ob-chip ' + (cls || '') + '">' + esc(x) + '</span>'; }).join('') + '</div>' : ''; }
   function sec(label, html) { return html ? '<div class="ob-sec">' + label + '</div>' + html : ''; }
-  function addCard(html) {
-    var wrap = document.getElementById('obResult');
-    var card = document.createElement('div');
-    card.className = 'card ob-res';
-    card.innerHTML = html;
-    wrap.appendChild(card);
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+  
 
-  function renderAnalysis(a) {
-    if (!a) return;
-    addCard(
-      '<div class="ob-rc-head"><div class="ob-ico">🔍</div><div><div class="card-title" style="margin:0;">Аналіз бізнесу</div><div class="card-sub" style="margin:0;">хто клієнт і де його шукати</div></div></div>' +
-      '<p style="color:var(--text2);font-size:14px;">' + esc(a.summary) + '</p>' +
-      sec('Сегменти аудиторії', chips(a.target_segments)) +
-      sec('Болі клієнтів', chips(a.pains, 'warn')) +
-      sec('Чим вирізнятися', chips(a.differentiators, 'good')) +
-      sec('Канали', chips(a.channels)) +
-      sec('Ризики', chips(a.risks, 'warn')) +
-      sec('Точки зростання', chips(a.opportunities, 'good')));
-  }
+  
 
-  function renderOffer(o) {
-    if (!o) return;
-    var f = o.offer, s = o.strategy;
-    addCard(
-      '<div class="ob-rc-head"><div class="ob-ico">🎯</div><div><div class="card-title" style="margin:0;">Офер і стратегія</div><div class="card-sub" style="margin:0;">що пропонувати і як просувати</div></div></div>' +
-      '<div class="ob-headline">' + esc(f.headline) + '</div>' +
-      '<p style="color:var(--text2);font-size:14px;">' + esc(f.details) + '</p>' +
-      '<div class="ob-why"><b>Чому спрацює:</b> ' + esc(f.why) + '</div>' +
-      sec('Позиціонування', '<div class="ob-kv">' + esc(s.positioning) + '</div>') +
-      sec('Головний канал', '<div class="ob-kv">' + esc(s.primary_channel) + '</div>') +
-      sec('Воронка', '<ul class="ob-funnel">' + (s.funnel || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>') +
-      sec('Кути контенту', chips(s.content_angles)) +
-      '<div class="ob-cta">🎬 <b>Цільова дія:</b> ' + esc(s.call_to_action) + '</div>' +
-      '<div class="ob-why"><b>Чому така стратегія:</b> ' + esc(s.why) + '</div>');
-  }
+  
 
-  function renderText(t) {
-    if (!t) return;
-    var variants = t.variants || [];
-    var vars = variants.map(function (v, i) {
-      return '<div class="ob-variant"><button class="ob-copy" data-copy="' + i + '">⧉ копіювати</button>' +
-        '<span class="ob-angle">' + esc(v.angle) + '</span><p>' + esc(v.text) + '</p>' +
-        (v.caption ? '<div class="ob-cap">' + esc(v.caption) + '</div>' : '') +
-        ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
-    }).join('');
-    addCard(
-      '<div class="ob-rc-head"><div class="ob-ico">✍️</div><div><div class="card-title" style="margin:0;">Готові тексти</div><div class="card-sub" style="margin:0;">3 варіанти з різними кутами</div></div></div>' +
-      vars + (t.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(t.cta) + '</div>' : ''));
-    // Wire copy buttons on the just-added card.
-    var cards = document.querySelectorAll('#obResult .ob-copy');
-    cards.forEach(function (btn) {
-      if (btn._wired) return; btn._wired = true;
-      btn.onclick = function () {
-        var v = variants[Number(btn.dataset.copy)]; if (!v) return;
-        var full = v.text + (v.caption ? '\n\n' + v.caption : '') + ((v.hashtags || []).length ? '\n' + v.hashtags.join(' ') : '');
-        navigator.clipboard.writeText(full).then(function () { btn.textContent = '✓ скопійовано'; setTimeout(function () { btn.textContent = '⧉ копіювати'; }, 1600); });
-      };
-    });
-  }
+  
 
   // Public entry point (called from the button's inline onclick).
   
@@ -12067,7 +11894,7 @@
     // Only show the strategy card when there's real strategy data — product-ad
     // campaigns have none, so an always-on card shows empty ЦІЛЬ/АУДИТОРІЯ labels.
     var hasStrategy = !!(s.goal || s.audience || s.problem || s.offer || (s.benefits && s.benefits.length));
-    function kv(label, val) { return val ? sec(label, '<div class="ob-kv">' + esc(val) + '</div>') : ''; }
+    
     var strategyCard = hasStrategy
       ? '<div class="card ob-res"><div class="ob-rc-head"><div class="ob-ico">🧭</div><div><div class="card-title" style="margin:0;">Стратегія просування</div><div class="card-sub" style="margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + esc(s.goal || c.goal || '') + '</div></div></div>'
         // Same pretty body as the Просування screen — one visual language.
