@@ -5049,6 +5049,20 @@
     sendMsg();
   }
 
+  // Екранування для чату. Глобальний esc() оголошений нижче по файлу й сюди
+  // не потрапляє, а рендер історії продубльований у двох IIFE — тому window.
+  // Текст моделі НЕ довірений: імпорт зараженого сайту може змусити її
+  // віддати <img onerror=...>, і воно виконається у сторінці.
+  window.chEsc = function (v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+  // Дозволяємо лише **жирний** і переноси — вже ПІСЛЯ екранування.
+  window.chMd = function (v) {
+    return window.chEsc(v).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  };
+
   function chatKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
   }
@@ -5069,9 +5083,9 @@
     if (!msgs) return;
     chatHistory.forEach(m => {
       if (m.role === 'user' && typeof m.content === 'string') {
-        msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Ти</div></div></div>`;
+        msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${window.chEsc(m.content)}</div><div class="msg-time">Ти</div></div></div>`;
       } else if (m.role === 'assistant' && typeof m.content === 'string') {
-        msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
+        msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${window.chMd(m.content)}</div><div class="msg-time">Octo</div></div></div>`;
       }
     });
     chatScrollBottom(msgs);
@@ -5162,7 +5176,7 @@
         { type: 'image', source: { type: 'base64', media_type: pendingImage.mediaType, data: pendingImage.base64 } },
         { type: 'text', text: text || 'Проаналізуй це фото з маркетингової точки зору.' }
       ];
-      bubbleHtml = `<img src="${pendingImage.previewUrl}" class="msg-img">${text ? `<span>${text}</span>` : '<span>Проанализируй это фото с маркетинговой точки зрения.</span>'}`;
+      bubbleHtml = `<img src="${pendingImage.previewUrl}" class="msg-img">${text ? `<span>${window.chEsc(text)}</span>` : '<span>Проаналізуй це фото з маркетингової точки зору.</span>'}`;
       clearImg();
     } else {
       userContent = text;
@@ -5214,7 +5228,7 @@
               bubble.innerHTML = '❌ Не вдалося отримати відповідь — спробуй ще раз';
               return;
             }
-            if (parsed.text) { fullText += parsed.text; bubble.innerHTML = fullText.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g, '<br>'); }
+            if (parsed.text) { fullText += parsed.text; bubble.innerHTML = window.chMd(fullText); }
           } catch {}
         }
         chatScrollBottom(msgs);
@@ -5225,11 +5239,11 @@
         const toSave = chatHistory.filter(m => typeof m.content === 'string').slice(-40);
         try { localStorage.setItem('octo_chat_' + getActiveWsId(), JSON.stringify(toSave)); } catch {}
       } else if (!fullText) {
-        bubble.innerHTML = '❌ Нет ответа от AI — попробуй ещё раз';
+        bubble.innerHTML = '❌ Немає відповіді від AI — спробуй ще раз';
       }
     } catch (e) {
       const b = document.getElementById('bubble-' + aiId);
-      if (b) b.innerHTML = '❌ Ошибка подключения';
+      if (b) b.innerHTML = '❌ Не вдалося зʼєднатися — перевір інтернет';
     }
     chatScrollBottom(msgs);
   }
@@ -6609,9 +6623,9 @@
       chatHistory.forEach(m => {
         if (typeof m.content !== 'string') return;
         if (m.role === 'user')
-          msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${m.content}</div><div class="msg-time">Ти</div></div></div>`;
+          msgs.innerHTML += `<div class="msg user"><div class="msg-avatar">👤</div><div><div class="msg-bubble">${window.chEsc(m.content)}</div><div class="msg-time">Ти</div></div></div>`;
         else
-          msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${m.content.replace(/\n/g,'<br>')}</div><div class="msg-time">Octo</div></div></div>`;
+          msgs.innerHTML += `<div class="msg ai"><div class="msg-avatar"><img src="assets/new/A14.png" style="width:100%;height:100%;object-fit:contain;border-radius:50%;"></div><div><div class="msg-bubble">${window.chMd(m.content)}</div><div class="msg-time">Octo</div></div></div>`;
       });
       chatScrollBottom(msgs);
     }
@@ -6714,14 +6728,21 @@
       var mail = user.email || 'Гість';
       emailEl.textContent = mail;
       if (avatarEl) avatarEl.textContent = (mail[0] || 'O').toUpperCase();
-      // Check subscription (stored locally for now)
-      const isPro = localStorage.getItem('octo_pro') === '1';
-      if (isPro) {
-        badgeEl.textContent = '⚡ Pro Plan';
+      // Тариф — лише з сервера (/api/usage). Раніше тут читався ключ
+      // `octo_pro`, якого НІХТО не записує, тож бейдж вічно казав «Free Plan»
+      // навіть після успішної оплати.
+      const srvPlan = (window.octoServerUsage || {}).plan || null;
+      if (srvPlan === 'pro' || srvPlan === 'business') {
+        badgeEl.textContent = srvPlan === 'business' ? '💎 Business' : '💎 Pro';
         badgeEl.style.background = 'rgba(139,123,255,.2)';
         badgeEl.style.color = 'var(--accent2)';
+      } else if (srvPlan === 'free') {
+        badgeEl.textContent = 'Безкоштовний план';
+        badgeEl.style.background = '';
+        badgeEl.style.color = '';
       } else {
-        badgeEl.textContent = 'Free Plan';
+        // Ще не знаємо — краще мовчати, ніж збрехати «Free».
+        badgeEl.textContent = '';
       }
     } else {
       emailEl.textContent = 'Гість (без акаунта)';
@@ -8900,9 +8921,13 @@
       fetch('/api/usage', { headers: { 'x-device-id': deviceId() } })
         .then(function (r) { return r.json(); })
         .then(function (d) {
-          if (!d || !d.enforced) return; // DB off → keep localStorage display
+          if (!d) return;
+          // Тариф читаємо ЗАВЖДИ, а не лише коли enforced. Ліміти вмикаються
+          // тільки з бойовими ключами WayForPay, тож на цій гілці людина, яка
+          // щойно заплатила, не бачила в інтерфейсі взагалі нічого — ні тут,
+          // ні в кабінеті. Від enforced залежить лише лічильник запитів.
           window.octoServerUsage = d;
-          var f = (d.features && d.features.chat) || null;
+          var f = (d.enforced && d.features && d.features.chat) || null;
           var label = document.getElementById('sidebarPlanLabel');
           var credits = document.getElementById('sidebarPlanCredits');
           var bar = document.getElementById('sidebarPlanBar');
@@ -8918,6 +8943,8 @@
             if (bar) { bar.style.width = Math.min(100, (f.used / f.limit) * 100) + '%'; bar.style.background = f.used >= f.limit ? '#FF6B6B' : 'var(--grad)'; }
             if (upBtn) upBtn.style.display = '';
           }
+          // Кабінет міг відмалюватись до відповіді сервера — освіжаємо бейдж.
+          try { if (window.renderProfile) window.renderProfile(); } catch (e) {}
         }).catch(function () {});
     } catch (e) {}
   };
