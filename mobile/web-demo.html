@@ -107,15 +107,44 @@
     // in bare try/catch everywhere, so hitting the cap lost the write SILENTLY —
     // the user kept working and their data was never saved. Now the failure is
     // caught, named, and surfaced once with a way out.
+    function octoIsQuotaError(e) {
+      return !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+                     || e.code === 22 || e.code === 1014);
+    }
     window.octoSafeStore = function (key, json) {
       try { localStorage.setItem(key, json); return true; }
       catch (e) {
-        var quota = e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
-        if (quota) window.octoStorageFull();
+        if (octoIsQuotaError(e)) window.octoStorageFull();
         else console.warn('[Store] write failed for', key, e && e.message);
         return false;
       }
     };
+    // octoSafeStore — помічник, який треба ПАМʼЯТАТИ викликати, і саме тому
+    // він прикрутився лише в 4 місцях із 52. Решта — кампанії, календар,
+    // нотатки, профіль — писались напряму в голому try/catch і при повному
+    // сховищі зникали мовчки. Тепер попередження ловиться на рівні самого
+    // сховища: будь-який запис, теперішній чи майбутній, накритий автоматично.
+    (function () {
+      try {
+        var proto = window.Storage && window.Storage.prototype;
+        if (!proto || proto.__octoGuarded) return;
+        var orig = proto.setItem;
+        proto.setItem = function (k, v) {
+          try {
+            return orig.call(this, k, v);
+          } catch (e) {
+            // Банер лише для localStorage; sessionStorage ділить прототип.
+            if (octoIsQuotaError(e) && this === window.localStorage) {
+              try { window.octoStorageFull(); } catch (_) {}
+            }
+            // Кидаємо далі: місцеві try/catch мають поводитись як раніше.
+            // Ми ЛИШЕ додаємо видимість, не міняємо потік виконання.
+            throw e;
+          }
+        };
+        proto.__octoGuarded = true;
+      } catch (e) { /* приватний режим — сховища може не бути взагалі */ }
+    })();
     window.octoStorageFull = function () {
       if (document.getElementById('octoStoreFull')) return;   // one banner at a time
       var b = document.createElement('div');
