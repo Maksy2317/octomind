@@ -876,7 +876,15 @@ export async function importProfileFromUrl(rawUrl: string, accountType?: string)
       text = htmlToText(html).slice(0, 9000);
       if (text.length > 180) { sourceType = 'website'; siteColors = extractSiteColors(html); }
     }
-  } catch { /* fall through to grounding */ }
+  } catch (e) {
+    // Заблокована адреса — це НЕ «не вдалось прочитати». Запасний шлях через
+    // Google-пошук на такому URL може лише вигадати: на 169.254.169.254 він
+    // знаходить публічні статті про метадані хостингу й будує з них «профіль
+    // бізнесу» про хмарні обчислення. Внутрішній вміст при цьому не тече
+    // (safeFetch його не пустив), але людині показується впевнена вигадка.
+    if ((e as { code?: string }).code === 'url_blocked') throw e;
+    /* решта збоїв — падаємо у grounding, там може бути індексована сторінка */
+  }
   // No CSS palette (social pages, or a site that keeps colours in external CSS)?
   // Read the REAL colours from the avatar / og-image — so a creator's Instagram
   // brand palette actually adapts instead of Octo inventing generic colours.
