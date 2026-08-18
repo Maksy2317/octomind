@@ -8922,7 +8922,14 @@
     const fn = FEATURE_LABELS[feature] || feature;
     // Match the Тарифи screen: Free · Pro $12 · Business $29.
     const nextPlan  = plan === 'free' ? 'pro' : 'business';
-    const nextLabel = plan === 'free' ? 'Pro — $12/міс' : 'Business — $29/міс';
+    const _b = (window.octoBilling && window.octoBilling.plans) || null;
+    const _p = _b && _b[nextPlan];
+    const _sym = { USD: '$', EUR: '€', UAH: '₴' }[(_p || {}).currency] || '';
+    // Ціну беремо з сервера, якщо він уже відповів: зашита в HTML цифра
+    // розходиться з тим, що реально спишеться (PLAN_PRICES читаються з env).
+    const nextLabel = _p
+      ? (nextPlan === 'pro' ? 'Pro' : 'Business') + ' — ' + (_sym ? _sym + _p.amount : _p.amount + ' ' + _p.currency) + '/міс'
+      : (plan === 'free' ? 'Pro — $12/міс' : 'Business — $29/міс');
     const nextFeats = {
       pro:      '📦 30 реклам товару · 🎯 10 кампаній · 💬 Ask Octo без лімітів · 🎨 бренд-стиль',
       business: '🏢 Кілька бізнес-профілів · вищі ліміти · пріоритетна генерація',
@@ -8957,6 +8964,13 @@
     content_plan: 'Контент-плани', post_tools: 'Покращення постів',
     skill: 'Фахівці Команди Octo',
   };
+  // Одне місце, де формується підпис Pro з цінами сервера.
+  function octoProLabel() {
+    var p = window.octoBilling && window.octoBilling.plans && window.octoBilling.plans.pro;
+    if (!p) return 'Pro — $12 / міс';
+    var sym = { USD: '$', EUR: '€', UAH: '₴' }[p.currency] || '';
+    return 'Pro — ' + (sym ? sym + p.amount : p.amount + ' ' + p.currency) + ' / міс';
+  }
   var _quotaSheetShown = 0;
   window.octoQuotaSheet = function (d) {
     // debounce: many parallel calls can 402 at once
@@ -8968,12 +8982,26 @@
       + '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Ліміт вичерпано</div>'
       + '<div style="font-size:13.5px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:20px;">' + fn + ': ' + (d.used != null ? d.used : d.limit) + ' з ' + d.limit + ' ' + per + '</div>'
       + '<div style="background:linear-gradient(150deg,rgba(139,123,255,.16),rgba(56,189,248,.05));border:1px solid rgba(139,123,255,.3);border-radius:16px;padding:16px;margin-bottom:20px;">'
-      + '<div style="font-size:12px;font-weight:800;color:#c9bcff;margin-bottom:6px;">⚡ Pro — $12 / міс</div>'
+      + '<div style="font-size:12px;font-weight:800;color:#c9bcff;margin-bottom:6px;">⚡ ' + octoProLabel() + '</div>'
       + '<div style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.7;">10 кампаній · контент-план щотижня · Команда Octo й покращення постів без ліміту · ~30 AI-зображень · тренди повністю</div></div>'
       + '<button onclick="_octoSheetClose(); showScreen(\'pricing\',null);" style="width:100%;padding:15px;background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;margin-bottom:10px;">Відкрити Pro →</button>'
       + '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;cursor:pointer;">Закрити</button>'
       + '</div>');
   };
+  var _sessSheetShown = 0;
+  window.octoSessionSheet = function () {
+    var now = Date.now(); if (now - _sessSheetShown < 3000) return; _sessSheetShown = now;
+    _octoSheet('<div style="background:linear-gradient(160deg,#16121f,#0d0b14);border-radius:24px 24px 0 0;padding:28px 22px 40px;width:100%;max-width:600px;border:1px solid rgba(139,123,255,.3);box-sizing:border-box;">'
+      + '<div style="font-size:40px;text-align:center;margin-bottom:8px;">🔑</div>'
+      + '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px;">Сесія завершилась</div>'
+      + '<div style="font-size:13.5px;color:rgba(255,255,255,.62);text-align:center;line-height:1.5;margin-bottom:20px;">'
+      + 'Увійди знову — інакше нове збережеться повз твій акаунт, а тариф не побачить сам себе. '
+      + 'Усе, що вже збережено, на місці.</div>'
+      + '<button onclick="_octoSheetClose(); showAuth();" style="width:100%;padding:15px;background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;">Увійти знову →</button>'
+      + '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;margin-top:8px;background:transparent;color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.14);border-radius:12px;cursor:pointer;">Пізніше</button>'
+      + '</div>');
+  };
+
   // ── Guest gate: browse freely, but any real action needs registration ────────
   window.octoIsGuest = function () {
     try { var u = JSON.parse(localStorage.getItem('octo_user') || 'null'); return !u || u.guest === true || u.token === 'guest'; }
@@ -9023,6 +9051,17 @@
         opts.headers = h;
       }
       return _fetch(url, opts).then(function (res) {
+        // Сесія протухла. Раніше сервер у цьому разі мовчки відкочувався на
+        // особу за device-id: людина лишалась «в акаунті», але ставала іншим
+        // рядком у базі — платний тариф зникав, а дані писались повз акаунт.
+        // Тепер сервер відмовляє, а ми чесно просимо перезайти.
+        if (res.status === 401) {
+          try {
+            res.clone().json().then(function (d) {
+              if (d && d.code === 'session_expired') window.octoSessionSheet();
+            }).catch(function () {});
+          } catch (e) {}
+        }
         if (res.status === 402) {
           try {
             res.clone().json().then(function (d) {

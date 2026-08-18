@@ -52,20 +52,31 @@ const AUTH_CACHE = new Map<string, { uid: string; until: number }>();
 const AUTH_TTL_MS = 10 * 60_000;
 const AUTH_CACHE_MAX = 5000;
 
-export async function resolveAuthUid(req: Request): Promise<string | null> {
+/**
+ * Наслідок перевірки токена. Розрізняти «недійсний» і «Supabase не відповів»
+ * критично: у першому випадку відкат на device-id мовчки підміняє людину
+ * іншою особою (інший рядок users → зникає платний тариф, профіль і генерації
+ * пишуться не туди), у другому — відкат рятує застосунок від чужого збою.
+ */
+export type AuthOutcome =
+  | { kind: 'anon' }         // токена немає взагалі — звичайний анонім
+  | { kind: 'valid'; uid: string }
+  | { kind: 'invalid' }      // токен є, але Supabase його відхилив
+  | { kind: 'unavailable' }; // токен є, але перевірити не змогли
+
+export async function resolveAuth(req: Request): Promise<AuthOutcome> {
   const h = String(req.header('authorization') || '');
-  if (!h.startsWith('Bearer ')) return null;
+  if (!h.startsWith('Bearer ')) return { kind: 'anon' };
   const token = h.slice(7).trim();
-  // Cheap pre-filter: a Supabase access token is a 3-part JWT.
-  if (!token || token === 'guest' || token.split('.').length !== 3) return null;
+  if (!token || token === 'guest' || token.split('.').length !== 3) return { kind: 'anon' };
 
   const now = Date.now();
   const hit = AUTH_CACHE.get(token);
-  if (hit && hit.until > now) return hit.uid;
+  if (hit && hit.until > now) return { kind: 'valid', uid: hit.uid };
 
   const base = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
-  if (!base || !key) return null;
+  if (!base || !key) return { kind: 'unavailable' };
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 5000);
@@ -74,27 +85,33 @@ export async function resolveAuthUid(req: Request): Promise<string | null> {
       signal: ctrl.signal,
     });
     clearTimeout(t);
-    if (!r.ok) return null;
+    // 401/403 — токен справді протух чи відкликаний. 5xx — це вже їхній збій.
+    if (r.status === 401 || r.status === 403) return { kind: 'invalid' };
+    if (!r.ok) return { kind: 'unavailable' };
     const data = (await r.json()) as { id?: string };
-    if (!data?.id) return null;
+    if (!data?.id) return { kind: 'invalid' };
     if (AUTH_CACHE.size >= AUTH_CACHE_MAX) AUTH_CACHE.clear();
     AUTH_CACHE.set(token, { uid: data.id, until: now + AUTH_TTL_MS });
-    return data.id;
+    return { kind: 'valid', uid: data.id };
   } catch {
-    return null;
+    return { kind: 'unavailable' };   // мережа/таймаут — не вина людини
   }
 }
 
-/** Resolve the strongest identity available: auth uid → users row, else null. */
-async function resolveAuthUser(req: Request): Promise<boolean> {
-  const uid = await resolveAuthUid(req);
-  if (!uid) return false;
-  const user = await getOrCreateUserByDevice('auth_' + uid);
-  req.userId = user.id;
-  req.authUid = uid;
-  req.deviceId = String(req.header('x-device-id') || '').trim() || undefined;
-  return true;
+/** Сумісна обгортка: uid або null. */
+export async function resolveAuthUid(req: Request): Promise<string | null> {
+  const out = await resolveAuth(req);
+  return out.kind === 'valid' ? out.uid : null;
 }
+
+/** 401 + код, за яким клієнт розуміє: треба перезайти, а не «спробуй ще раз». */
+function sessionExpired(res: Response): void {
+  res.status(401).json({
+    error: 'Сесія завершилась — увійди знову, щоб не втратити свої дані',
+    code: 'session_expired',
+  });
+}
+
 
 /**
  * Requires an identity: a valid Supabase JWT (preferred) or `x-device-id`.
@@ -106,12 +123,24 @@ export async function requireIdentity(req: Request, res: Response, next: NextFun
     return;
   }
 
+  let outcome: AuthOutcome;
   try {
-    // JWT first: the account identity, stable across devices and unspoofable.
-    if (await resolveAuthUser(req)) return next();
+    outcome = await resolveAuth(req);
+    if (outcome.kind === 'valid') {
+      const user = await getOrCreateUserByDevice('auth_' + outcome.uid);
+      req.userId = user.id;
+      req.authUid = outcome.uid;
+      req.deviceId = String(req.header('x-device-id') || '').trim() || undefined;
+      return next();
+    }
   } catch (err) {
     return next(err);
   }
+
+  // Токен був і виявився недійсним — НЕ відкочуємось на device-id. Інакше
+  // людина мовчки стає іншою особою: інший рядок users, зниклий платний
+  // тариф, дані пишуться повз її акаунт. Хай краще перезайде.
+  if (outcome.kind === 'invalid') { sessionExpired(res); return; }
 
   const deviceId = String(req.header('x-device-id') || '').trim();
   if (!deviceId || !validDeviceId(deviceId)) {
@@ -139,7 +168,17 @@ export async function optionalIdentity(req: Request, _res: Response, next: NextF
   if (!isDbConfigured()) return next();
 
   try {
-    if (await resolveAuthUser(req)) return next();
+    const outcome = await resolveAuth(req);
+    if (outcome.kind === 'valid') {
+      const user = await getOrCreateUserByDevice('auth_' + outcome.uid);
+      req.userId = user.id;
+      req.authUid = outcome.uid;
+      req.deviceId = String(req.header('x-device-id') || '').trim() || undefined;
+      return next();
+    }
+    // Тут теж не підміняємо особу непомітно: краще працювати без збереження,
+    // ніж записати дані людини в чужий (device-) рядок.
+    if (outcome.kind === 'invalid') return next();
   } catch (err) {
     console.warn('[Identity] auth resolve failed, falling back to device:', (err as Error).message?.slice(0, 200));
   }
