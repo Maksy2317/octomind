@@ -6667,7 +6667,6 @@
     // Load Tone of Voice for the new active workspace
     loadTovForCurrentWs();
     // Apply saved account profile (platform, lang, tone) to Caption AI chips
-    if (typeof applyWsProfileToCaption !== 'undefined') applyWsProfileToCaption();
     renderWorkspaces();
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
     if (typeof renderProfileCard !== 'undefined') renderProfileCard();
@@ -7352,18 +7351,21 @@
   };
 
   function calOpenCaption(type, note) {
-    // Jump to Caption AI with the post idea pre-filled
-    showScreen('campaign', null);   // caption screen merged into the campaign flow
-    setTimeout(() => {
-      const desc = document.getElementById('capDesc');
-      if (desc && note) { desc.value = note; desc.focus(); }
-      // Pre-select platform chip based on type
-      const platMap = { reels: 'reels', stories: 'stories', tiktok: 'tiktok', carousel: 'reels' };
-      const platVal = platMap[type];
-      if (platVal) {
-        const chip = document.querySelector(`#capPlatform [data-val="${platVal}"]`);
-        if (chip) capChip('capPlatform', chip);
-      }
+    // Окремий екран «Caption AI» видалено — підписи тепер пише Ask Octo.
+    // Кнопка ж досі вела в кампанію й клала нотатку в поля, яких у розмітці
+    // більше немає (#capDesc, #capPlatform), тож ідея поста просто губилась.
+    showScreen('advisor', null);
+    setTimeout(function () {
+      var input = document.getElementById('chatInput');
+      if (!input) return;
+      var LABEL = { reels: 'Reels', stories: 'Stories', tiktok: 'TikTok', post: 'посту' };
+      var what = LABEL[type] || 'посту';
+      // Не надсилаємо самі: запит коштує грошей, і людина має право
+      // дописати деталі перед відправкою.
+      input.value = 'Напиши підпис для ' + what + (note ? ': ' + note : '') + '.';
+      input.focus();
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+      input.dispatchEvent(new Event('input', { bubbles: true }));
     }, 100);
   }
 
@@ -8435,7 +8437,6 @@
   window.wizFinish = function() {
     _saveWsProfile(_wizWsId, _wizData);
     _closeWizard();
-    applyWsProfileToCaption();
     loadTovForCurrentWs();
     renderWorkspaces();
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
@@ -8450,53 +8451,6 @@
     setTimeout(function() { toast.remove(); }, 3500);
   };
 
-  window.applyWsProfileToCaption = function() {
-    const wsId = getActiveWsId();
-    const profile = _getWsProfileInternal(wsId);
-    if (!profile) return;
-
-    // Platform mapping
-    if (profile.platforms && profile.platforms.length) {
-      const platMap = { 'TikTok': 'tiktok', 'Reels': 'reels', 'Stories': 'stories', 'YouTube': 'youtube' };
-      const firstPlat = profile.platforms[0];
-      const platVal = Object.keys(platMap).reduce(function(found, k) {
-        return (!found && firstPlat.indexOf(k) >= 0) ? platMap[k] : found;
-      }, null);
-      if (platVal) {
-        const platChip = document.querySelector('#capPlatform [data-val="' + platVal + '"]');
-        if (platChip) capChip('capPlatform', platChip);
-      }
-    }
-
-    // Language
-    if (profile.lang) {
-      const langMap = { 'Українська': 'uk', 'Русский': 'uk', 'English': 'en' };
-      const langVal = Object.keys(langMap).reduce(function(f, k) {
-        return (!f && profile.lang.indexOf(k) >= 0) ? langMap[k] : f;
-      }, null);
-      if (langVal) {
-        const langChip = document.querySelector('#capLang [data-val="' + langVal + '"]');
-        if (langChip) capChip('capLang', langChip);
-      }
-    }
-
-    // Style → tone
-    if (profile.style && profile.style.length) {
-      const styleToTone = { 'Освітній': 'edu', 'Гумористичний': 'funny', 'Продаючий': 'sales', 'Мотиваційний': 'motivate' };
-      let matchedTone = null;
-      profile.style.forEach(function(s) {
-        if (!matchedTone) {
-          Object.keys(styleToTone).forEach(function(k) {
-            if (!matchedTone && s.indexOf(k) >= 0) matchedTone = styleToTone[k];
-          });
-        }
-      });
-      if (matchedTone) {
-        const toneChip = document.querySelector('#capTone [data-val="' + matchedTone + '"]');
-        if (toneChip) capChip('capTone', toneChip);
-      }
-    }
-  };
 })();
 
 // ── ACCOUNT PROFILE CARD (profile screen) ────────────────────────────────────
@@ -8665,7 +8619,6 @@
     }
     localStorage.setItem('octo_profile_' + wsId, JSON.stringify(profile));
     try { dbSync('profile_' + wsId, profile); } catch {}
-    if (typeof applyWsProfileToCaption !== 'undefined') applyWsProfileToCaption();
     renderProfileCard();
     if (typeof renderDashSetupBanner !== 'undefined') renderDashSetupBanner();
     renderWorkspaces();
