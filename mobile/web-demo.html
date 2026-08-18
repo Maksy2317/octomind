@@ -159,11 +159,21 @@
       } catch (e) { return ''; }
     };
 
+    // Єдина реалізація device-id. Шість копій логіки в різних IIFE — це і був
+    // корінь: у блоці з octoRefreshUsage жодної з них немає в області
+    // видимості, тож deviceId() кидав ReferenceError, а зовнішній try/catch
+    // його ковтав — і тариф не показувався НІКОЛИ й НІКОМУ.
+    window.octoDeviceId = function () {
+      var ws;
+      try { ws = localStorage.getItem('octo_active_ws') || 'default'; } catch (e) { ws = 'default'; }
+      var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+      while (id.length < 8) id += '0';
+      return id.slice(0, 128);
+    };
+
     window.octoTrack = function (event, props) {
       try {
-        var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-        var dev = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-        while (dev.length < 8) dev += '0';
+        var dev = window.octoDeviceId();
         // Джерело переходу (?source=…) писалось у localStorage і не йшло
         // НІКУДИ. Без нього воронку неможливо порізати за каналом.
         var src = null;
@@ -6554,19 +6564,35 @@
     localStorage.setItem('octo_workspaces', JSON.stringify(ws));
     try { dbSync('workspaces', ws); } catch {}
   }
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof getActiveWsId === 'function'` завжди були хибними.
+  window.getActiveWsId = getActiveWsId;   // (оголошення функції спливає, тож рядок валідний тут)
   function getActiveWsId() {
     return localStorage.getItem('octo_active_ws') || 'default';
   }
 
   // ── Tone of Voice per workspace ───────────────────────────────────────────
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof getWsTov === 'function'` завжди були хибними.
+  window.getWsTov = getWsTov;   // (оголошення функції спливає, тож рядок валідний тут)
   function getWsTov(wsId) {
     try { return JSON.parse(localStorage.getItem('octo_tov_' + wsId) || 'null'); } catch { return null; }
   }
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof saveWsTov === 'function'` завжди були хибними.
+  window.saveWsTov = saveWsTov;   // (оголошення функції спливає, тож рядок валідний тут)
   function saveWsTov(wsId, tov) {
     if (tov) localStorage.setItem('octo_tov_' + wsId, JSON.stringify(tov));
     else localStorage.removeItem('octo_tov_' + wsId);
     try { dbSync('tov_' + wsId, tov || null); } catch {}
   }
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof loadTovForCurrentWs === 'function'` завжди були хибними.
+  window.loadTovForCurrentWs = loadTovForCurrentWs;   // (оголошення функції спливає, тож рядок валідний тут)
   function loadTovForCurrentWs() {
     const wsId = getActiveWsId();
     const saved = getWsTov(wsId);
@@ -6601,6 +6627,10 @@
       }
     }
   }
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof _getWsName === 'function'` завжди були хибними.
+  window._getWsName = _getWsName;   // (оголошення функції спливає, тож рядок валідний тут)
   function _getWsName(wsId) {
     if (wsId === 'default') {
       const t = translations[currentLang] || translations['uk'];
@@ -6670,6 +6700,10 @@
     renderWorkspaces();
   }
 
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof renderWorkspaces === 'function'` завжди були хибними.
+  window.renderWorkspaces = renderWorkspaces;   // (оголошення функції спливає, тож рядок валідний тут)
   function renderWorkspaces() {
     const container = document.getElementById('wsList');
     if (!container) return;
@@ -7397,6 +7431,10 @@
   // ─────────────────────────────────────────────────────────────────────────
 
   function calKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof calLoad === 'function'` завжди були хибними.
+  window.calLoad = calLoad;   // (оголошення функції спливає, тож рядок валідний тут)
   function calLoad() {
     const wsId = (typeof getActiveWsId !== 'undefined') ? getActiveWsId() : 'default';
     try { return JSON.parse(localStorage.getItem('octo_calendar_' + wsId) || '{}'); } catch { return {}; }
@@ -7443,6 +7481,10 @@
     if (el) el.classList.toggle('on', window.octoPostRemindersOn());
   });
 
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof octoIsPremium === 'function'` завжди були хибними.
+  window.octoIsPremium = octoIsPremium;   // (оголошення функції спливає, тож рядок валідний тут)
   function octoIsPremium() {
     return localStorage.getItem('octo_premium_test') === 'true';
   }
@@ -8956,7 +8998,7 @@
       return;
     }
     try {
-      fetch('/api/usage', { headers: { 'x-device-id': deviceId() } })
+      fetch('/api/usage', { headers: { 'x-device-id': window.octoDeviceId() } })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!d) return;
@@ -9305,12 +9347,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var images = []; // { media_type, data(base64), thumb }
 
-  function deviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  // Делегат: єдина реалізація — window.octoDeviceId (найраніший блок).
+  function deviceId() { return window.octoDeviceId(); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
   function chips(a, cls) { return (a && a.length) ? '<div class="ob-chips">' + a.map(function (x) { return '<span class="ob-chip ' + (cls || '') + '">' + esc(x) + '</span>'; }).join('') + '</div>' : ''; }
   function bizProfile() {
@@ -9511,12 +9549,8 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
-  function deviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  // Делегат: єдина реалізація — window.octoDeviceId (найраніший блок).
+  function deviceId() { return window.octoDeviceId(); }
   function bizProfile() {
     try {
       if (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) {
@@ -10441,12 +10475,8 @@
   const $ = (id) => document.getElementById(id);
   let chosen = null;
 
-  function deviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  // Делегат: єдина реалізація — window.octoDeviceId (найраніший блок).
+  function deviceId() { return window.octoDeviceId(); }
   // Business profile is OctoMind's memory (built during onboarding). That's the
   // source of truth for campaigns. Fall back to the legacy account profile.
   function bizProfile() {
@@ -10548,6 +10578,10 @@
 
   // Show the profile Octo will send anyway — the step reads like a form only
   // because it never said what it already knows.
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof renderKnown === 'function'` завжди були хибними.
+  window.renderKnown = renderKnown;   // (оголошення функції спливає, тож рядок валідний тут)
   function renderKnown() {
     var el = $('ocKnown'); if (!el) return;
     var b = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
@@ -11115,12 +11149,8 @@
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  function deviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  // Делегат: єдина реалізація — window.octoDeviceId (найраніший блок).
+  function deviceId() { return window.octoDeviceId(); }
   function bizProfile() {
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get(), o = {};
@@ -11669,6 +11699,10 @@
     });
   };
 
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof renderList === 'function'` завжди були хибними.
+  window.renderList = renderList;   // (оголошення функції спливає, тож рядок валідний тут)
   function renderList() {
     var el = $('cmpList'); if (!el) return;
     var all = window.octoCampaigns.all();
@@ -13452,12 +13486,8 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
-  function deviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  // Делегат: єдина реалізація — window.octoDeviceId (найраніший блок).
+  function deviceId() { return window.octoDeviceId(); }
   function bizProfile() {
     var o = {};
     if (window.octoBiz && window.octoBiz.get()) {
@@ -13910,12 +13940,8 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
-  function deviceId() {
-    var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
-    return id.slice(0, 128);
-  }
+  // Делегат: єдина реалізація — window.octoDeviceId (найраніший блок).
+  function deviceId() { return window.octoDeviceId(); }
   function bizProfile() {
     var o = {};
     if (window.octoBiz && window.octoBiz.get()) {
@@ -15009,6 +15035,10 @@
     m.innerHTML = '<div style="width:100%;max-width:600px;max-height:92vh;overflow-y:auto;background:linear-gradient(160deg,#15121e,#0d0b14);border:1px solid rgba(139,123,255,.28);border-radius:24px 24px 0 0;padding:22px;">' + detailBody(p) + '</div>';
   }
 
+  // Експорт на window: оголошення живе всередині IIFE, тож сусідні
+  // <script>-блоки його не бачать — саме тому їхні перевірки
+  // `typeof octoToast === 'function'` завжди були хибними.
+  window.octoToast = toast;   // (оголошення функції спливає, тож рядок валідний тут)
   function toast(t) { var el = document.createElement('div'); el.style.cssText = 'position:fixed;bottom:var(--toast-bottom);left:50%;transform:translateX(-50%);background:var(--grad);color:#fff;font-weight:700;font-size:13.5px;padding:11px 22px;border-radius:14px;z-index:9999;box-shadow:0 6px 18px -8px rgba(108,99,255,.4);'; el.textContent = t; document.body.appendChild(el); setTimeout(function () { el.remove(); }, 2200); }
 
   window.octoPlanner = {
