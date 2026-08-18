@@ -13,6 +13,16 @@ usageRouter.use(optionalIdentity);
 
 usageRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Сесія протухла. Віддати тут «free» означало б збрехати платній людині
+    // просто тому, що її токен застарів — сайдбар показав би безкоштовний
+    // план. Кажемо правду; клієнт на цей код показує аркуш «увійди знову».
+    if (req.authInvalid) {
+      res.status(401).json({
+        error: 'Сесія завершилась — увійди знову, щоб не втратити свої дані',
+        code: 'session_expired',
+      });
+      return;
+    }
     if (!req.userId || !quotaEnforced()) {
       // Тариф віддаємо СПРАВЖНІЙ, навіть коли ліміти не enforce-яться: раніше
       // тут стояло хардкодом 'free', тож людина, яка вже заплатила, бачила себе

@@ -21,6 +21,9 @@ declare global {
       userId?: string;
       deviceId?: string;
       authUid?: string;
+      /** Токен був, і Supabase його відхилив. Читачі мусять сказати про це
+       *  людині, а не вдавати аноніма: інакше платний тариф «зникає». */
+      authInvalid?: boolean;
     }
   }
 }
@@ -178,7 +181,7 @@ export async function optionalIdentity(req: Request, _res: Response, next: NextF
     }
     // Тут теж не підміняємо особу непомітно: краще працювати без збереження,
     // ніж записати дані людини в чужий (device-) рядок.
-    if (outcome.kind === 'invalid') return next();
+    if (outcome.kind === 'invalid') { req.authInvalid = true; return next(); }
   } catch (err) {
     console.warn('[Identity] auth resolve failed, falling back to device:', (err as Error).message?.slice(0, 200));
   }
