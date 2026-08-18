@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import cron from 'node-cron';
 import { chatRouter } from './routes/chat';
-import { carouselRouter } from './routes/carousel';
+import { postCaptionRouter } from './routes/postCaption';
 import { calendarRouter } from './routes/calendar';
 import { pushRouter, sendPushToAll, fireScheduledReminders, loadSubscriptionsFromDB } from './routes/push';
 import { profileRouter } from './routes/profile';
@@ -189,16 +189,12 @@ app.use('/api/chat', chatRouter);
 // Перевірено: усі три відповідали на запити без жодних заголовків.
 //
 // video і subtitles не монтуємо взагалі — у клієнті на них нема жодного виклику.
-// З carousel живий РІВНО один шлях: розбір підпису до поста (фіча «Мій стиль»).
-// Решту віддаємо як 404, щоб платні шляхи не існували для зовнішнього світу.
-const CAROUSEL_LIVE = new Set(['/fetch-post-caption']);
-app.use('/api/carousel', requireIdentity, (req, res, next) => {
-  if (!CAROUSEL_LIVE.has(req.path)) {
-    res.status(404).json({ error: 'Not found' });
-    return;
-  }
-  next();
-}, carouselRouter);
+// Фіча «Мій стиль» тягне підпис із публічного поста. Це єдине, що лишилось від
+// каруселі: решту 11 маршрутів видалено разом із файлом, бо вартувати мертвий
+// код, який ходить у Replicate/Stability, гірше, ніж його не мати.
+// Шлях лишено тим самим (/api/carousel/fetch-post-caption), щоб не ламати
+// клієнтів, які вже в полі.
+app.use('/api/carousel', requireIdentity, postCaptionRouter);
 app.use('/api/calendar', calendarRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/profile', profileRouter);
