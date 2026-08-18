@@ -5563,82 +5563,7 @@
    * Build slot overlay elements inside the preview modal.
    * Mirrors vBuildVideoOverlay but targets #vLivePreviewVid / #vLivePreviewWrap.
    */
-  function vBuildLivePreviewOverlay(texts, mode) {
-    const video = document.getElementById('vLivePreviewVid');
-    const wrap  = document.getElementById('vLivePreviewWrap');
-    if (!video || !wrap || !vS.currentTemplate) return;
-
-    const old = document.getElementById('vLivePreviewOverlay');
-    if (old) old.remove();
-    video.removeEventListener('timeupdate', vOnLivePreviewTime);
-
-    const vW = video.offsetWidth;
-    if (!vW) { setTimeout(() => vBuildLivePreviewOverlay(texts, mode), 150); return; }
-    const vH = video.offsetHeight || Math.round(vW * 16 / 9);
-
-    const overlay = document.createElement('div');
-    overlay.id = 'vLivePreviewOverlay';
-    overlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;';
-    wrap.appendChild(overlay);
-
-    const fHook  = Math.max(vH * 0.0365, 10);
-    const fPoint = Math.max(vH * 0.0292, 9);
-    const fLabel = Math.max(vH * 0.0302, 9);
-
-    let pCount = 0;
-    vS.currentTemplate.slots.forEach(slot => {
-      const text    = (texts[slot.id] || '').trim();
-      const ovr     = vS.slotOverrides?.[slot.id] || {};
-      const color   = mode === 'done' ? (ovr.color || 'white') : 'white';
-      const fontId  = mode === 'done' ? (ovr.font  || 'default') : 'default';
-      const hex     = vOvColorHex(color);
-      const fontCss = vOvFontCss(fontId);
-
-      let pos = '', fs = fPoint, hasBg = false, maxW = '90%';
-      switch (slot.style) {
-        case 'hook':
-          pos = `top:4.7%;left:50%;transform:translateX(-50%);text-align:center;`;
-          fs = fHook; break;
-        case 'label':
-          pos = `top:4.2%;left:5.6%;text-align:left;`;
-          fs = fLabel; hasBg = true; maxW = '45%'; break;
-        case 'cta':
-          pos = `top:94.8%;left:50%;transform:translate(-50%,-100%);text-align:center;`;
-          hasBg = true; break;
-        case 'point': {
-          const ZONES = [
-            { yp:87.5, css:'left:50%;transform:translate(-50%,-100%);text-align:center;' },
-            { yp:83.3, css:'left:7.4%;transform:translateY(-50%);text-align:left;'       },
-            { yp:15.1, css:'left:50%;transform:translate(-50%,0);text-align:center;'     },
-            { yp:87.5, css:'left:92.6%;transform:translate(-100%,-100%);text-align:right;'},
-          ];
-          const z = ZONES[pCount % 4]; pCount++;
-          pos = `top:${z.yp}%;${z.css}`; break;
-        }
-        default: return;
-      }
-
-      const outline  = `text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 2px 6px rgba(0,0,0,.85)`;
-      const boxStyle = hasBg ? `background:rgba(0,0,0,.72);padding:2px 8px;border-radius:5px;` : '';
-
-      const el = document.createElement('div');
-      el.id = 'vlpov_' + slot.id;
-      el.style.cssText = `
-        position:absolute;${pos}display:none;
-        color:${hex};font-family:${fontCss};font-size:${fs}px;font-weight:bold;
-        line-height:1.25;word-break:break-word;max-width:${maxW};
-        ${hasBg ? boxStyle : outline}
-      `;
-      el.textContent = text;
-      overlay.appendChild(el);
-    });
-
-    video.addEventListener('timeupdate', vOnLivePreviewTime);
-    vSyncLivePreviewOverlay(video.currentTime);
-
-    // Auto-play
-    video.play().catch(() => {});
-  }
+  
 
   function vOnLivePreviewTime() { vSyncLivePreviewOverlay(this.currentTime); }
 
@@ -5731,44 +5656,7 @@
 
 
 
-  function ssLoadFile(f) {
-    ssState.file = f;
-    ssState.frameBase64 = null;
-    const mb = f.size / 1024 / 1024;
-    document.getElementById('ssFileName').textContent = f.name;
-    document.getElementById('ssFileSize').textContent =
-      mb.toFixed(1) + ' MB' + (mb > 200 ? ' ⚠️ Файл дуже великий — завантаження може бути повільним' : '');
-    document.getElementById('ssFileInfo').style.display = 'flex';
-    document.getElementById('ssb1').disabled = false;
-
-    // Capture first frame for live preview
-    // Correct sequence: set src → wait loadedmetadata → seek → wait seeked → draw
-    try {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.muted = true;
-      video.playsInline = true;
-
-      video.addEventListener('loadedmetadata', () => {
-        video.currentTime = Math.min(0.5, (video.duration || 1) * 0.1);
-      }, { once: true });
-
-      video.addEventListener('seeked', () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = 270; canvas.height = 480;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          ssState.frameBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          ssUpdatePreview(); // refresh preview immediately once frame is ready
-        } catch (e) { console.warn('[ssLoadFile] frame draw error:', e); }
-        finally { URL.revokeObjectURL(video.src); }
-      }, { once: true });
-
-      video.addEventListener('error', () => { URL.revokeObjectURL(video.src); }, { once: true });
-      video.src = URL.createObjectURL(f); // triggers loading
-    } catch (e) { console.warn('[ssLoadFile] setup error:', e); }
-  }
+  
 
   // ── Active button helpers ────────────────────────────────────────────────
 
@@ -6165,23 +6053,7 @@
    * Cover-crops image to SIZE×SIZE square (same crop OpenAI does internally).
    * Returns a data URL — used so we composite against the exact same crop AI sees.
    */
-  function photoAiResize1024(dataUrl, SIZE) {
-    SIZE = SIZE || 1024;
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const cv = document.createElement('canvas');
-        cv.width = SIZE; cv.height = SIZE;
-        const ctx = cv.getContext('2d');
-        const s = Math.min(img.width, img.height);
-        const sx = (img.width - s) / 2;
-        const sy = (img.height - s) / 2;
-        ctx.drawImage(img, sx, sy, s, s, 0, 0, SIZE, SIZE);
-        resolve(cv.toDataURL('image/png'));
-      };
-      img.src = dataUrl;
-    });
-  }
+  
 
   // ── TensorFlow.js BodyPix — pixel-perfect person segmentation ────────────
   // BodyPix is battle-tested, fully browser-native, no WASM warm-up issues.
@@ -7189,12 +7061,7 @@
     };
   };
 
-  window.pmSetFreq = function(key, btn) {
-    const keyMap = { stories:'storiesPerDay', tiktok:'tiktokPerWeek', reels:'reelsPerWeek', carousel:'carouselPerWeek', post:'postPerWeek', custom:'customPerWeek' };
-    window.calPlanConfig[keyMap[key]] = parseInt(btn.dataset.val, 10);
-    btn.closest('.pm-freq-chips').querySelectorAll('.pm-freq-chip').forEach(function(c) { c.classList.remove('sel'); });
-    btn.classList.add('sel');
-  };
+  
 
   window.pmSetFocus = function(btn) {
     window.calPlanConfig.focus = btn.dataset.val;
@@ -10510,11 +10377,7 @@
     });
   };
 
-  window.octoOnboardSend = function () {
-    var t = ($('onText') || {}).value; if (!t || !t.trim()) { status('err', 'Напиши кілька слів про бізнес.'); return; }
-    var b = $('onBtn'); b.disabled = true;
-    run(t.trim(), false).finally(function () { b.disabled = false; });
-  };
+  
   window.octoOnboardFollow = function () {
     var t = ($('onText2') || {}).value; if (!t || !t.trim()) return;
     run(t.trim(), true);
@@ -11199,36 +11062,7 @@
   }
 
   // Public entry point (called from the button's inline onclick).
-  window.octoRunBrain = async function () {
-    if (typeof octoCanUse !== 'undefined' && !octoCanUse('analyzer')) return;
-    var profile = brainProfile();
-    if (!profile.niche && !profile.description) {
-      status('err', 'Спочатку обери нішу в «Особистий кабінет → Профіль акаунту» або додай опис бізнесу вище.');
-      return;
-    }
-    var btn = document.getElementById('obRunBtn');
-    btn.disabled = true;
-    document.getElementById('obResult').innerHTML = '';
-    var brief = (document.getElementById('obBrief') || {}).value;
-    var body = { profile: profile };
-    if (brief && brief.trim()) body.brief = brief.trim();
-    try {
-      status('busy', 'Крок 1/3 — аналізую бізнес…');
-      var a = await brainApi('/api/marketing/analyze', body);
-      renderAnalysis(a.analysis);
-      status('busy', 'Крок 2/3 — формулюю офер і стратегію…');
-      var o = await brainApi('/api/marketing/offer', Object.assign({}, body, { analysis: a.analysis }));
-      renderOffer(o.offer);
-      status('busy', 'Крок 3/3 — пишу тексти…');
-      var t = await brainApi('/api/marketing/text', Object.assign({}, body, { offer: o.offer }));
-      renderText(t.text);
-      status('ok', 'Готово! Аналіз, офер і тексти вище.');
-      if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
-    } catch (e) {
-      status('err', /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає зв’язку з сервером — спробуй ще раз.' : e.message);
-    }
-    btn.disabled = false;
-  };
+  
 })();
 </script>
 
@@ -13637,12 +13471,7 @@
   };
 
   // Count scheduled (not yet published) upcoming posts — for badges.
-  window.octoScheduledCount = function () {
-    var list = (window.octoPlannerStore && window.octoPlannerStore.load) ? window.octoPlannerStore.load() : [];
-    var t = new Date(); t.setHours(0, 0, 0, 0);
-    var tIso = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
-    return list.filter(function (p) { return p.date >= tIso && p.status !== 'posted'; }).length;
-  };
+  
 
   // ── Schedule modal — any screen calls octoOpenSchedule(payload) ─────────────
   // payload: { title, thumb?, mtype?, url?, video_url?, note?, campaignId?, materialId? }
