@@ -115,6 +115,25 @@
     // дозвіл, не-secure контекст, старий браузер) летить повз try/catch — а
     // застосунок далі беззастережно писав «Скопійовано». Тобто брехав.
     // Тут: чесний результат + запасний шлях через приховане поле.
+    // Прокрутка до результату. `scrollIntoView({behavior:'smooth'})` мовчки не
+    // спрацьовує, коли сторінку в цей момент не малюють або поки триває
+    // перекладка вмісту — а від нього залежали 13 місць у застосунку.
+    // Найгірший випадок був у знайомстві: людина тисне «Пройти опитування»,
+    // заголовок міняється на «Крок 2 з 3», а питання лишаються на 1800 px
+    // нижче — екран не рухається, і виглядає це як зламана кнопка.
+    // Тому: пробуємо плавно, а через 400 мс перевіряємо й дотягуємо миттєво.
+    window.octoScrollTo = function (el, block) {
+      if (!el) return;
+      var b = block || 'nearest';
+      try { el.scrollIntoView({ behavior: 'smooth', block: b }); } catch (e) {}
+      setTimeout(function () {
+        try {
+          var r = el.getBoundingClientRect();
+          if (r.top > window.innerHeight * 0.9 || r.bottom < 0) el.scrollIntoView({ block: b });
+        } catch (e) {}
+      }, 400);
+    };
+
     window.octoCopy = function (text) {
       var s = String(text == null ? '' : text);
       function legacy() {
@@ -7413,7 +7432,7 @@
       '📅 ' + dayNames[date.getDay()] + ', ' + d + ' ' + months[calMonth];
     calRenderDayPosts(key);
     document.getElementById('calEditor').style.display = 'block';
-    document.getElementById('calEditor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.octoScrollTo(document.getElementById('calEditor'), 'nearest');
     // Smart time recommendations for the selected day
     const selType = document.querySelector('#calTypeChips .cal-type-chip.selected')?.dataset.type || 'reels';
     calSmartTimeUpdate(selType);
@@ -9762,7 +9781,7 @@
       window.octoSaveIdea('audit', 'Розбір контенту' + (typeof a.score === 'number' ? ' (' + Math.round(a.score) + '/100)' : ''),
         { title: 'Розбір контенту', summary: a.summary || '', items: items }, asv);
     };
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.octoScrollTo(card, 'nearest');
   }
 
   window.octoAuditRun = function () {
@@ -9865,7 +9884,7 @@
       window.octoSaveIdea('post', 'Покращений пост' + (typeof r.score === 'number' ? ' (' + Math.round(r.score) + '→)' : ''),
         { title: 'Покращений пост', summary: r.verdict || '', items: [{ label: 'Хук', text: imp.hook || '' }, { label: 'Підпис', text: imp.caption || '' }], cta: imp.cta, hashtags: imp.hashtags }, sv);
     };
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.octoScrollTo(card, 'nearest');
   }
 })();
 </script>
@@ -10098,7 +10117,7 @@
     window._octoSheetClose();
     var res = $('teamResult');
     res.innerHTML = '<div class="card"><div class="ob-status ob-busy"><span class="ob-spin"></span> ' + esc(s.name) + ' працює над задачею…</div></div>';
-    res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.octoScrollTo(res, 'start');
     fetch('/api/marketing/skill', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
       body: JSON.stringify({ skill: id, input: input, profile: bizProfile() }),
@@ -10179,7 +10198,7 @@
       window.octoSaveIdea('skill', (r.title || s.name),
         { title: (r.title || s.name), summary: r.summary || '', items: items, materials: r.materials }, sv);
     };
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.octoScrollTo(card, 'start');
   }
 })();
 </script>
@@ -10490,7 +10509,7 @@
     _clarifyDone = 0; _clarifyMode = 'quiz';
     var box = $('onClarify'); if (box) box.style.display = '';
     renderClarify();
-    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (box) window.octoScrollTo(box, 'start');
   };
 
   function octoClarify() {
@@ -10498,7 +10517,7 @@
     var box = $('onClarify'); if (!box) { renderDone(); return; }
     box.style.display = '';
     box.innerHTML = window.omLoaderHTML ? window.omLoaderHTML('A18', 'Octo хоче дещо уточнити…', 'Кілька коротких питань саме про тебе') : 'Хвилинку…';
-    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.octoScrollTo(box, 'nearest');
     // Weak fields = empty OR low-confidence imported.
     var b = window.octoBiz.get() || {}, meta = b.field_meta || {}, weak = [];
     activeFields().forEach(function (f) {
@@ -10683,7 +10702,7 @@
         }
         importStatus('warn', msg || 'Не вдалося прочитати сторінку — пройди коротке опитування нижче.');
         var qb = $('onQuizBtn');
-        if (qb) { qb.classList.add('on-quiz-hi'); qb.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        if (qb) { qb.classList.add('on-quiz-hi'); window.octoScrollTo(qb, 'center'); }
         try { if (typeof renderKnown === 'function') renderKnown(); } catch (e) {}
         return;
       }
@@ -10704,7 +10723,7 @@
       importStatus('ok', '✅ Заповнив ' + keys.length + ' полів із ' + (r.source_type === 'social' ? 'соцмережі' : 'сайту') + '. Перевір нижче й виправ, якщо десь не так.');
       renderProfile(prev);
       renderFlags([]);
-      $('onProfileCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      window.octoScrollTo($('onProfileCard'), 'nearest');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
       // Always follow up with clarifications — they fill the empty fields the
       // import didn't get (тематика, аудиторія, формат…), then the first result.
@@ -11009,7 +11028,7 @@
     // real tool (research, product-ads) or generates here; everything lands in
     // this campaign. Only materials we truly produce are offered — no "🔒 скоро".
     renderPlan(s, goalTitle);
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.octoScrollTo(card, 'nearest');
   }
 
   // The action plan: research → materials → product-ad → content-plan.
@@ -11103,7 +11122,7 @@
       + (sub ? '<div class="card-sub" style="margin:0;">' + esc(sub) + '</div>' : '') + '</div></div>'
       + window.octoRenderMaterialBody(material);
     $('ocResult').appendChild(card);
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.octoScrollTo(card, 'nearest');
   }
 
 
@@ -11605,7 +11624,7 @@
       try { window.octoTrack('research_done'); } catch (e) {}
       renderResearch(r, ts);
       var first = $('rsResult').firstChild;
-      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (first) window.octoScrollTo(first, 'nearest');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('analyzer');
     }).catch(function (e) { $('rsResult').innerHTML = ''; status('rsStatus', 'err', netMsg(e.message)); }).finally(function () { btn.disabled = false; });
   };
@@ -11759,7 +11778,7 @@
         window.octoSaveIdea('reels', 'Ідея: ' + String(i.idea || '').slice(0, 60),
           { title: 'Ідея з тренду', summary: i.hook || '', items: (i.script || []).map(function (s, n) { return { label: 'Крок ' + (n + 1), text: s }; }), cta: i.cta, caption: i.caption }, sv);
       };
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      window.octoScrollTo(card, 'nearest');
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('chat');
     }).catch(function (e) { status('trStatus', 'err', netMsg(e.message)); }).finally(function () { btn.disabled = false; });
   };
