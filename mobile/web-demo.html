@@ -3877,7 +3877,7 @@
             <div id="profileAvatar" style="width:56px;height:56px;border-radius:17px;background:linear-gradient(135deg,#7C5CFC,#38BDF8);display:flex;align-items:center;justify-content:center;font:800 21px 'Unbounded','Manrope',sans-serif;color:#fff;flex-shrink:0;">M</div>
             <div style="flex:1;min-width:160px;">
               <div style="font-weight:800;font-size:16px;" id="profileEmail">—</div>
-              <div id="profileSubBadge" style="margin-top:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;display:inline-block;background:rgba(255,255,255,.06);color:var(--text3);">Free Plan</div>
+              <div id="profileSubBadge" style="margin-top:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;display:inline-block;background:rgba(255,255,255,.06);color:var(--text3);"></div>
             </div>
             <button id="profUpgradeBtn" onclick="showScreen('pricing',null)" class="btn btn-primary" style="padding:11px 18px;font-size:13px;" data-i18n="profile_upgrade_btn">Upgrade to Pro</button>
             <button id="profAuthBtn" onclick="logOut()" class="btn btn-secondary" style="padding:11px 18px;font-size:13px;" data-i18n="logout_btn">Вийти</button>
@@ -6931,6 +6931,11 @@
       }
     } else {
       emailEl.textContent = 'Гість (без акаунта)';
+      if (badgeEl) {
+        badgeEl.textContent = 'Гостьовий режим';
+        badgeEl.style.background = '';
+        badgeEl.style.color = '';
+      }
       if (avatarEl) avatarEl.textContent = 'O';
     }
     renderWorkspaces();
