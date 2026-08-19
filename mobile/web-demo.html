@@ -140,10 +140,23 @@
     // «Скопіювати підпис» і отримувала назву матеріалу замість самого поста.
     window.octoMatCaption = function (o) {
       o = o || {};
-      if (o.items && o.items.length) {
-        return o.items.map(function (it) {
-          return (it.label ? it.label + ': ' : '') + (it.text || '');
-        }).join('\n\n');
+      var items = (o.items || []).filter(function (it) { return it && String(it.text || '').trim(); });
+      if (items.length) {
+        var isVar = function (l) { return /вар[иі]ант|версія|option/i.test(String(l || '')); };
+        var vars = items.filter(function (it) { return isVar(it.label); });
+        // У ПЛАН іде рівно один готовий текст. Перша версія цієї функції
+        // склеювала всі частини з мітками — і в картку публікації потрапляло
+        // «Варіант A: … Варіант B: …» одним шматком на 600+ символів.
+        // Людина тисне «Скопіювати підпис» і публікує обидва варіанти разом
+        // із службовим написом. Решта варіантів нікуди не зникає: вони й далі
+        // лежать у матеріалі кампанії, де їх видно всі.
+        var chosen = vars.length > 1
+          ? [vars[0]].concat(items.filter(function (it) { return !isVar(it.label); }))
+          : items;
+        // Мітки прибираємо: у готовому підписі «Хештеги:» чи «Варіант A:» —
+        // це службовий текст, який людина опублікує разом із постом.
+        return chosen.map(function (it) { return String(it.text || '').trim(); })
+          .filter(Boolean).join('\n\n').trim();
       }
       return o.caption || o.summary || o.overlay_text || o.concept || '';
     };
@@ -14836,11 +14849,7 @@
         (c.materials || []).forEach(function (m) {
           if (!m || m.type === 'content_plan') return;   // a plan isn't a single post
           var o = m.output || {};
-          var cap = '';
-          if (o.items && o.items.length) cap = o.items.map(function (it) { return (it.label ? it.label + ': ' : '') + (it.text || ''); }).join('\n\n');
-          else if (o.summary) cap = o.summary;
-          else if (o.overlay_text) cap = o.overlay_text;
-          else if (o.concept) cap = o.concept;
+          var cap = window.octoMatCaption(o);
           var ctype = MAT_CONTENT_TYPE[m.type] || 'post';
           out.push({
             idea: m.title || o.title || 'Матеріал кампанії',
