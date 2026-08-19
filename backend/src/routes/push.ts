@@ -262,6 +262,36 @@ export async function sendPushToAll(payload: object): Promise<{ sent: number; fa
 }
 
 // ── POST /api/push/test ───────────────────────────────────────────────────────
+// POST /api/push/self-test — надіслати сповіщення ЛИШЕ на власну підписку.
+// Потрібне, щоб людина могла перевірити сповіщення сама, з телефона, без
+// адмін-ключа й консолі. Надіслати можна тільки на endpoint, який ти вже
+// маєш (його видає push-сервіс браузера і він не вгадується), і лише якщо
+// така підписка в нас зареєстрована.
+pushRouter.post('/self-test', async (req: Request, res: Response) => {
+  const endpoint = String(req.body?.endpoint || '');
+  if (!endpoint) { res.status(400).json({ error: 'endpoint required' }); return; }
+  const sub = subscriptions.find((x) => x.subscription.endpoint === endpoint);
+  if (!sub) { res.status(404).json({ error: 'Підписки не знайдено — увімкни сповіщення ще раз' }); return; }
+  try {
+    await webpush.sendNotification(sub.subscription, JSON.stringify({
+      title: '🐙 Перевірка',
+      body:  'Сповіщення працюють — нагадування про пости приходитимуть так само.',
+      icon:  '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      url:   '/app?screen=calendar',
+    }));
+    res.json({ ok: true });
+  } catch (err) {
+    // Кажемо правду: доставка не вдалась, а не «надіслано».
+    const code = (err as { statusCode?: number }).statusCode;
+    res.status(502).json({
+      error: code === 410 || code === 404
+        ? 'Підписка застаріла — вимкни й увімкни сповіщення заново'
+        : 'Сервіс сповіщень не прийняв повідомлення',
+    });
+  }
+});
+
 // Розсилка ВСІМ підписникам — і донедавна без жодної перевірки. Поки
 // VAPID-ключів не було, виклик просто падав, тож діра спала. Щойни ключі
 // зʼявились у env (19.08.2026), будь-хто з інтернету міг слати сповіщення
