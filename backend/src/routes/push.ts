@@ -262,7 +262,17 @@ export async function sendPushToAll(payload: object): Promise<{ sent: number; fa
 }
 
 // ── POST /api/push/test ───────────────────────────────────────────────────────
-pushRouter.post('/test', async (_req: Request, res: Response) => {
+// Розсилка ВСІМ підписникам — і донедавна без жодної перевірки. Поки
+// VAPID-ключів не було, виклик просто падав, тож діра спала. Щойни ключі
+// зʼявились у env (19.08.2026), будь-хто з інтернету міг слати сповіщення
+// на пристрої всіх наших клієнтів. Тепер — лише власник, тим самим ключем,
+// що й адмін-статистика. Без ADMIN_KEY ендпоінт вимкнений повністю.
+pushRouter.post('/test', async (req: Request, res: Response) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey || String(req.header('x-admin-key') || '') !== adminKey) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
   const result = await sendPushToAll({
     title: '🐙 OctoMind — тест',
     body:  'Push-сповіщення працюють! Твої нагадування активовані.',
