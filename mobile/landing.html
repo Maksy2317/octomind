@@ -697,6 +697,11 @@
       </div>
 
       <p class="plan-note reveal">Один клієнт, якого приведе кампанія, окупає місяць Pro.</p>
+      <!-- Поки картковий білінг не увімкнено, найцінніший відвідувач — той,
+           хто ГОТОВИЙ платити — впирався у відмову вже після кліку. Тепер він
+           бачить це до кліку і має що зробити. Блок сам зникне, щойно
+           зʼявляться бойові ключі WayForPay. -->
+      <p class="plan-note" id="payNote" style="display:none;"></p>
     </div>
   </section>
 
@@ -869,5 +874,40 @@
   }
 })();
 </script>
+  <script>
+    // Стан білінгу й ціни — з сервера, щоб лендинг не обіцяв того, чого
+    // сьогодні немає, і не розходився з тим, що реально спишеться.
+    (function () {
+      fetch('/api/pay/plans').then(function (r) { return r.json(); }).then(function (d) {
+        if (!d || !d.plans) return;
+        var SYM = { USD: '$', EUR: '€', UAH: '₴' };
+        var prices = document.querySelectorAll('.plan-price');
+        [['pro', 1], ['business', 2]].forEach(function (row) {
+          var pl = d.plans[row[0]], el = prices[row[1]];
+          if (!pl || !el) return;
+          var sym = SYM[pl.currency] || '';
+          el.innerHTML = (sym ? sym + pl.amount : pl.amount + ' ' + pl.currency) + '<small> / міс</small>';
+        });
+        if (d.live === false) {
+          var note = document.getElementById('payNote');
+          if (note) {
+            note.style.display = '';
+            note.innerHTML = 'Оплата картками вмикається найближчими днями. '
+              + 'Хочеш Pro вже зараз — напиши на '
+              + '<a href="mailto:octomind.support@gmail.com?subject=OctoMind%20Pro" '
+              + 'style="color:var(--accent2);font-weight:700;">octomind.support@gmail.com</a>, підключимо вручну.';
+          }
+          document.querySelectorAll('[data-go="pricing"]').forEach(function (b) {
+            b.textContent = 'Написати нам про Pro';
+            b.setAttribute('data-cta', 'contact_pro');
+            b.onclick = function (e) {
+              e.preventDefault(); e.stopPropagation();
+              location.href = 'mailto:octomind.support@gmail.com?subject=OctoMind%20Pro';
+            };
+          });
+        }
+      }).catch(function () {});
+    })();
+  </script>
 </body>
 </html>
