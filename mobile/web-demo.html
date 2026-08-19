@@ -134,6 +134,20 @@
       }, 400);
     };
 
+    // Витяг готового тексту з матеріалу кампанії. Та сама логіка вже жила в
+    // планері (campaignPosts), але міст «Розкласти пакет по днях» її не мав —
+    // і клав у план лише заголовок. Людина відкривала завтрашню картку, тиснула
+    // «Скопіювати підпис» і отримувала назву матеріалу замість самого поста.
+    window.octoMatCaption = function (o) {
+      o = o || {};
+      if (o.items && o.items.length) {
+        return o.items.map(function (it) {
+          return (it.label ? it.label + ': ' : '') + (it.text || '');
+        }).join('\n\n');
+      }
+      return o.caption || o.summary || o.overlay_text || o.concept || '';
+    };
+
     window.octoCopy = function (text) {
       var s = String(text == null ? '' : text);
       function legacy() {
@@ -11156,6 +11170,13 @@
       var r = await api('/api/marketing/strategy', body);
       if (ocBox) ocBox.innerHTML = '';
       renderStrategy(r.strategy);
+      // Кнопка лишалась «→ Отримати стратегію» і висіла ВИЩЕ за результат:
+      // прокрутивши вгору, людина бачила той самий заклик і легко запускала
+      // другу генерацію за гроші, думаючи, що перша не спрацювала. Поруч, у
+      // makeAllText, це вже зроблено правильно — вирівнюємо.
+      btn.textContent = '↻ Переробити стратегію';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
       try { window.octoTrack('strategy_created', { goal: chosen && chosen.id }); } catch (e) {}
       try { if (window.octoCampaignSaveStrategy) window.octoCampaignSaveStrategy(chosen, (($('ocDetails') || {}).value || ''), r.strategy); } catch (e) {}
       status('', '');
@@ -12490,6 +12511,7 @@
             status: 'scheduled',
             mat: {
               title: m.title || 'Матеріал', mtype: m.type || 'post',
+              caption: window.octoMatCaption(o),
               thumb: o.url || o.cover || '', url: o.url || o.video_url || o.link || '',
               campaignId: campaignId, materialId: m.id,
             },
@@ -13754,6 +13776,7 @@
         date: dateKey, time: post.time || '11:00',
         contentType: CT_FROM_OLD[post.type] || 'post',
         idea: mat.title || post.note || 'Публікація',
+        caption: mat.caption || '',
         media: mat.thumb || mat.url || null,
         reminder: post.reminder ? '30m' : null,
         status: post.status === 'published' ? 'posted' : 'ready',
