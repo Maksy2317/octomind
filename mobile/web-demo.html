@@ -280,10 +280,40 @@
     // корінь: у блоці з octoRefreshUsage жодної з них немає в області
     // видимості, тож deviceId() кидав ReferenceError, а зовнішній try/catch
     // його ковтав — і тариф не показувався НІКОЛИ й НІКОМУ.
+    // Ідентифікатор пристрою. РАНІШЕ він складався лише з назви робочого
+    // простору, а стандартний простір у ВСІХ називається 'default' — тобто
+    // кожен гість ходив під одним і тим самим `biz_default`. Один рядок
+    // users на всіх: спільний профіль бізнесу, спільні генерації, спільні
+    // ліміти. Спіймано на живому 19.08.2026: профіль кавʼярні відправив
+    // запит, а Octo адаптував тренд під «nyyuurraa» — дитячий блог іншої
+    // людини, яка заповнила цей самий рядок у липні. Плюс будь-хто міг
+    // прочитати чужий профіль запитом з `x-device-id: biz_default`.
+    //
+    // Тепер до простору додається постійна випадкова сіль цього пристрою.
+    // Локальні ключі (octo_campaigns_<ws> тощо) не змінюються — вони й далі
+    // на назві простору, тож нічого зі збереженого не осиротіє.
+    window.octoDeviceSalt = function () {
+      var s;
+      try { s = localStorage.getItem('octo_device_salt'); } catch (e) { s = null; }
+      if (s) return s;
+      try {
+        s = (window.crypto && crypto.randomUUID ? crypto.randomUUID()
+             : String(Date.now()) + Math.random().toString(36).slice(2))
+            .replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
+        localStorage.setItem('octo_device_salt', s);
+      } catch (e) {
+        // Приватний режим без сховища: сіль живе лише в памʼяті вкладки —
+        // це все одно краще, ніж спільний на всіх `default`.
+        s = 'tmp' + Math.random().toString(36).slice(2, 15);
+        window.__octoSaltMem = window.__octoSaltMem || s;
+        s = window.__octoSaltMem;
+      }
+      return s;
+    };
     window.octoDeviceId = function () {
       var ws;
       try { ws = localStorage.getItem('octo_active_ws') || 'default'; } catch (e) { ws = 'default'; }
-      var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+      var id = 'biz_' + window.octoDeviceSalt() + '_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
       while (id.length < 8) id += '0';
       return id.slice(0, 128);
     };
@@ -9389,7 +9419,7 @@
     var btn = document.getElementById(plan === 'business' ? 'payBtnBusiness' : 'payBtnPro');
     var old = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Готую оплату…'; }
-    var dev = (function () { try { var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-'); while (id.length < 8) id += '0'; return id.slice(0, 128); } catch (e) { return 'biz_default00'; } })();
+        var dev = window.octoDeviceId();
     try { window.octoTrack('upgrade_click', { plan: plan }); } catch (e) {}
     fetch('/api/pay/create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-device-id': dev }, body: JSON.stringify({ plan: plan }) })
       .then(function (r) { return r.json(); })
@@ -10225,8 +10255,7 @@
 
   function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
   function deviceId() {
-    var id = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
+    var id = window.octoDeviceId();
     return id.slice(0, 128);
   }
 
@@ -11913,7 +11942,7 @@
     var dev = '';
     try {
       var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-      dev = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
+      dev = window.octoDeviceId();
     } catch (e) {}
     var act = document.querySelector('.screen.active');
     return [
@@ -12335,8 +12364,7 @@
     var m = (c.materials || []).filter(function (x) { return x.id === materialId; })[0]; if (!m) return;
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo переробляє…'; }
-    var dev = 'biz_' + String((typeof getActiveWsId === 'function') ? getActiveWsId() : 'default').replace(/[^A-Za-z0-9_-]/g, '-');
-    while (dev.length < 8) dev += '0';
+    var dev = window.octoDeviceId();
     var prof = {};
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get();
@@ -12481,8 +12509,7 @@
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo планує тиждень публікацій…'; }
     var mats = c.materials.map(function (m, i) { return { index: i, type: m.type || 'post', title: m.title || 'Матеріал' }; });
-    var dev = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (dev.length < 8) dev += '0';
+    var dev = window.octoDeviceId();
     var prof = {};
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get();
@@ -12540,8 +12567,7 @@
     var c = window.octoCampaigns.get(campaignId); if (!c || !c.strategy) return;
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo переробляє стратегію…'; }
-    var dev = 'biz_' + String((typeof getActiveWsId === 'function') ? getActiveWsId() : 'default').replace(/[^A-Za-z0-9_-]/g, '-');
-    while (dev.length < 8) dev += '0';
+    var dev = window.octoDeviceId();
     var prof = {};
     if (window.octoBiz && window.octoBiz.get()) {
       var b = window.octoBiz.get();
@@ -12906,8 +12932,7 @@
       has_page_audit: !!biz.page_style,
       tiktok_handle: biz.tiktok_handle || null,
     };
-    var dev = 'biz_' + String(wsIdD()).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (dev.length < 8) dev += '0';
+    var dev = window.octoDeviceId();
     var prof = {};
     ['business_name','niche','description','target_audience','geo','goal','tone','brand','page_style'].forEach(function (k) { if (biz[k]) prof[k] = biz[k]; });
     fetch('/api/marketing/weekly', {
@@ -12940,8 +12965,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' })[c]; }); }
   function wsId() { return (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default'; }
   function deviceId() {
-    var id = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
+    var id = window.octoDeviceId();
     return id.slice(0, 128);
   }
   function bizProfile() {
@@ -14653,8 +14677,7 @@
   // Анонімний фолбек для API (для залогінених JWT підставляє глобальна обгортка
   // fetch). Той самий формат, що й в інших екранах.
   function devId() {
-    var id = 'biz_' + String(wsId()).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
+    var id = window.octoDeviceId();
     return id.slice(0, 128);
   }
   function load() { try { return JSON.parse(localStorage.getItem(key()) || '[]'); } catch (e) { return []; } }
@@ -15739,8 +15762,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
   function devId() {
     var ws = (typeof getActiveWsId === 'function') ? getActiveWsId() : 'default';
-    var id = 'biz_' + String(ws).replace(/[^A-Za-z0-9_-]/g, '-');
-    while (id.length < 8) id += '0';
+    var id = window.octoDeviceId();
     return id.slice(0, 128);
   }
 
