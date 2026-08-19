@@ -1547,6 +1547,16 @@
          floor beats hunting each 25px button on surfaces that are on their
          way out of the start flows anyway. */
       #settings button, #photo button, #video button, #caption button { min-height: 44px; }
+      /* Поля профілю в Налаштуваннях були 30 px заввишки — а саме в них
+         людина друкає з телефона. Правило вище накривало лише кнопки. */
+      #settings input, #settings select, #settings textarea { min-height: 44px; }
+      /* Перемикачі лишаються 40×22 на вигляд (це навмисний дизайн), але
+         область натискання розширюємо невидимим шаром. ::after тут зайнятий
+         повзунком, тому ::before. */
+      .toggle, #pushToggle { position: relative; }
+      .toggle::before, #pushToggle::before {
+        content: ''; position: absolute; inset: -12px; border-radius: 22px;
+      }
     }
 
     /* ── Поля вводу ─────────────────────────────────────────────────────────
@@ -6869,7 +6879,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           ${isActive ? `<div style="font-size:11px;color:var(--accent);font-weight:700;">${activeLabel}</div>` : ''}
-          <button onclick="event.stopPropagation();openAcctWizard('${w.id}')" style="background:var(--surface3);border:1px solid var(--border);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:8px;white-space:nowrap;" title="Налаштувати акаунт">⚙️</button>
+          <button class="prof-edit-btn" onclick="event.stopPropagation();openAcctWizard('${w.id}')" style="background:var(--surface3);border:1px solid var(--border);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;padding:4px 10px;border-radius:8px;white-space:nowrap;" title="Налаштувати акаунт">⚙️</button>
           ${w.id!=='default' ? `<button onclick="event.stopPropagation();deleteWorkspace('${w.id}')" style="background:transparent;border:none;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>` : ''}
         </div>
       </div>`;
