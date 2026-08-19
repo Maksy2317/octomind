@@ -10491,18 +10491,22 @@
 
   // Static short quiz — a guided alternative to free-text / import at onboarding.
   var QUIZ_BUSINESS = [
+    { field: 'business_name', question: 'Як називається твій бізнес?', options: [] },
     { field: 'niche', question: 'Яка твоя сфера?', options: ['Краса / б’юті', 'Кафе / їжа', 'Магазин / товари', 'Послуги', 'Експерт / курси', 'Нерухомість', 'Здоров’я'] },
     { field: 'description', question: 'Що саме продаєш або пропонуєш?', options: [], required: true },
     { field: 'target_audience', question: 'Хто твій типовий клієнт?', options: ['Жінки 25-40', 'Чоловіки 25-45', 'Молодь 18-25', 'Сім’ї з дітьми', 'Бізнес / B2B'] },
     { field: 'geo', question: 'Де працюєш?', options: ['По всій Україні', 'Одне місто', 'Онлайн'] },
     { field: 'price_segment', question: 'Ціновий сегмент?', options: ['Бюджетний', 'Середній', 'Преміум'] },
+    { field: 'tone', question: 'Яким тоном писати тексти?', options: ['по-дружньому', 'експертно', 'з гумором', 'стримано й професійно'] },
   ];
   var QUIZ_BLOGGER = [
+    { field: 'business_name', question: 'Яке твоє імʼя або нік?', options: [] },
     { field: 'niche', question: 'Твоя тематика?', options: ['Б’юті', 'Лайфстайл', 'Геймінг', 'Тревел', 'Їжа / кулінарія', 'Фітнес', 'Освіта', 'Гумор'] },
     { field: 'description', question: 'Про що твій контент?', options: [], required: true },
     { field: 'target_audience', question: 'Хто тебе дивиться?', options: ['Дівчата 18-30', 'Хлопці 18-30', 'Підлітки', 'Дорослі 30+', 'Змішана'] },
     { field: 'platforms', question: 'Головна платформа?', options: ['Instagram', 'TikTok', 'YouTube', 'Telegram'] },
     { field: 'monetization', question: 'Як хочеш заробляти?', options: ['Реклама брендів', 'Власний продукт', 'Донати / підписки'] },
+    { field: 'tone', question: 'Яким тоном писати тексти?', options: ['по-дружньому', 'експертно', 'з гумором', 'стримано й професійно'] },
   ];
   window.octoQuizStart = function () {
     _clarifyQs = (acctType() === 'blogger' ? QUIZ_BLOGGER : QUIZ_BUSINESS).slice();
@@ -12605,12 +12609,17 @@
     var a = advice(bizSet ? biz : null, camps);
 
     // ── Профіль: скільки заповнено (hero «Налаштування акаунта · X з 5») ──
+    // Рахуємо саме те, що питає знайомство, і те, що доречне для цього типу
+    // акаунта: у блогера ключове — платформи, а не географія.
+    var isBlogger = biz.account_type === 'blogger';
     var chips = [
-      { t: 'Назва', ok: !!biz.business_name },
-      { t: 'Ніша', ok: !!biz.niche },
+      { t: isBlogger ? 'Імʼя / нік' : 'Назва', ok: !!biz.business_name },
+      { t: isBlogger ? 'Тематика' : 'Ніша', ok: !!biz.niche },
       { t: 'Аудиторія', ok: !!biz.target_audience },
-      { t: 'Гео', ok: !!biz.geo },
-      { t: 'Tone of Voice', ok: !!biz.tone },
+      isBlogger
+        ? { t: 'Платформи', ok: !!(biz.platforms && biz.platforms.length) }
+        : { t: 'Гео', ok: !!biz.geo },
+      { t: 'Тон', ok: !!biz.tone },
     ];
     var done = chips.filter(function (c) { return c.ok; }).length;
     var checkSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-11"/></svg>';
