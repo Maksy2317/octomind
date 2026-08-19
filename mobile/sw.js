@@ -1,4 +1,4 @@
-const CACHE = 'octomind-v9';
+const CACHE = 'octomind-v10';
 // Static assets only. The HTML must never live in here: on a flaky mobile
 // network the fetch below fell back to a cached copy of the whole app, which
 // is why a fresh deploy sometimes "didn't arrive" on the phone.
@@ -24,10 +24,35 @@ function isDocument(request) {
   return request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html');
 }
 
+// Копія оболонки для життя без мережі. Лежить під ОКРЕМИМ ключем, не під
+// '/app', щоб activate вище її не зносив разом зі старим кешем HTML.
+const SHELL = '/__octo_offline_shell';
+
 self.addEventListener('fetch', e => {
   if (e.request.url.includes('/api/')) return;
-  // Documents: network only. A stale app shell is worse than an offline page.
-  if (isDocument(e.request)) { e.respondWith(fetch(e.request)); return; }
+
+  if (isDocument(e.request)) {
+    // Мережа завжди виграє — саме через це колись «не доїжджав» деплой.
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          // Свіжу сторінку тихо відкладаємо на чорний день.
+          if (res && res.ok) { const c = res.clone(); caches.open(CACHE).then(k => k.put(SHELL, c)); }
+          return res;
+        })
+        .catch(async (err) => {
+          // ЛИШЕ якщо браузер певен, що мережі немає. За будь-якого іншого
+          // збою (502, обрив, таймаут) поведінка стара: хай видно помилку,
+          // ніж мовчки підсунути вчорашню версію застосунку.
+          if (self.navigator && self.navigator.onLine === false) {
+            const cached = await caches.match(SHELL);
+            if (cached) return cached;
+          }
+          throw err;
+        })
+    );
+    return;
+  }
   e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
 
