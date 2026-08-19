@@ -111,6 +111,36 @@
       return !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'
                      || e.code === 22 || e.code === 1014);
     }
+    // Копіювання в буфер. writeText повертає ПРОМІС, тож відмова (заборонений
+    // дозвіл, не-secure контекст, старий браузер) летить повз try/catch — а
+    // застосунок далі беззастережно писав «Скопійовано». Тобто брехав.
+    // Тут: чесний результат + запасний шлях через приховане поле.
+    window.octoCopy = function (text) {
+      var s = String(text == null ? '' : text);
+      function legacy() {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = s;
+          ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0;';
+          document.body.appendChild(ta);
+          ta.select();
+          try { ta.setSelectionRange(0, s.length); } catch (e) {}
+          var ok = document.execCommand && document.execCommand('copy');
+          ta.remove();
+          return !!ok;
+        } catch (e) { return false; }
+      }
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          return navigator.clipboard.writeText(s).then(
+            function () { return true; },
+            function () { return legacy(); });
+        }
+      } catch (e) {}
+      return Promise.resolve(legacy());
+    };
+
     window.octoSafeStore = function (key, json) {
       try { localStorage.setItem(key, json); return true; }
       catch (e) {
@@ -7373,10 +7403,17 @@
         }
       }
     } catch (e) {}
-    try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
-    if (p.mat.url) { try { window.open(p.mat.url, '_blank'); } catch (e) {} }
-    const done = confirm('📋 Текст скопійовано, фото відкрито в новій вкладці.\n\nВстав у Instagram/TikTok і опублікуй.\n\nПозначити цю публікацію опублікованою?');
-    if (done) window.calTogglePublished(key, idx);
+    const hadUrl = !!p.mat.url;
+    if (hadUrl) { try { window.open(p.mat.url, '_blank'); } catch (e) {} }
+    window.octoCopy(text).then(function (copied) {
+      // Не кажемо «скопійовано», якщо не скопіювалось.
+      var head = copied
+        ? '📋 Текст скопійовано' + (hadUrl ? ', фото відкрито в новій вкладці.' : '.')
+        : '⚠️ Скопіювати не вдалося — виділи текст вручну'
+          + (hadUrl ? '. Фото відкрито в новій вкладці.' : '.');
+      const done = confirm(head + '\n\nВстав у Instagram/TikTok і опублікуй.\n\nПозначити цю публікацію опублікованою?');
+      if (done) window.calTogglePublished(key, idx);
+    });
   };
 
   function calOpenCaption(type, note) {
@@ -12014,10 +12051,16 @@
   window.octoCopyMat = function (id, btn) {
     var t = window.__octoMatTexts[id] || '';
     var done = function () { if (btn) { btn.textContent = '✓ Скопійовано'; setTimeout(function () { btn.textContent = '📋 Скопіювати текст'; }, 1600); } };
-    try { navigator.clipboard.writeText(t).then(done, done); }
-    catch (e) {
-      try { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); } catch (e2) {}
-    }
+    // Запасний шлях тепер усередині octoCopy — і, головне, підпис кнопки
+    // залежить від того, чи справді скопіювалось.
+    window.octoCopy(t).then(function (ok) {
+      if (ok) { done(); return; }
+      if (btn) {
+        var was = btn.textContent;
+        btn.textContent = '⚠️ Виділи текст вручну';
+        setTimeout(function () { btn.textContent = was; }, 2500);
+      }
+    });
   };
   window.octoMatExpand = function (btn) {
     var p = btn.previousElementSibling; if (!p) return;
@@ -12244,9 +12287,14 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
     } catch (e) {}
-    // …and copy to clipboard as a bonus
-    try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (e) {}
-    if (btn) { var t = btn.textContent; btn.textContent = '✅ Скопійовано + .txt'; setTimeout(function () { btn.textContent = t; }, 2500); }
+    // …і копія в буфер як бонус. Файл уже завантажено, тож підпис має
+    // відрізняти «і те, і те» від «лише файл».
+    window.octoCopy(text).then(function (ok) {
+      if (!btn) return;
+      var t = btn.textContent;
+      btn.textContent = ok ? '✅ Скопійовано + .txt' : '✅ Файл .txt (буфер недоступний)';
+      setTimeout(function () { btn.textContent = t; }, 2500);
+    });
   };
 
   // ── «Розкласти по днях»: Octo schedules ready materials into the calendar
@@ -15362,7 +15410,12 @@
     },
     close: function () { state.detailId = null; paintDetail(); render(); },
     set: function (k, v) { if (!state.detailId) return; upd(state.detailId, (function () { var o = {}; o[k] = v; return o; })()); },
-    copyCaption: function () { var p = get(state.detailId); if (!p) return; try { navigator.clipboard.writeText(p.caption || p.idea); toast('📋 Підпис скопійовано'); } catch (e) { toast('Скопіюй вручну'); } },
+    copyCaption: function () {
+      var p = get(state.detailId); if (!p) return;
+      window.octoCopy(p.caption || p.idea).then(function (ok) {
+        toast(ok ? '📋 Підпис скопійовано' : '⚠️ Буфер недоступний — виділи текст вручну');
+      });
+    },
     downloadMedia: function () { var p = get(state.detailId); if (p && p.media) { window.open(p.media, '_blank'); } else { toast('Спершу додай медіа'); } },
     genCreative: function () { toast('✨ Генерація креативу підключиться незабаром'); },
     uploadMedia: function () {
