@@ -5293,7 +5293,10 @@
     }
     window.scrollTo(0, 0);
     closeSidebar();
-    if (id === 'photo')    photoSwitchTab('carousel');
+    // Екран 'photo' (карусель / фільтри / AI-редактор) прибрано з продукту:
+    // ні самого екрана, ні жодного вузла, якого торкався перемикач вкладок, у
+    // розмітці вже немає. Цей рядок лишався єдиною ниткою, що тримала живим
+    // увесь мертвий кластер.
     if (id === 'calendar') { try { window.octoPlanner && window.octoPlanner.render(); } catch(e){} }
     // caption screen merged into the campaign flow (Rule: маркетолог, не редактор)
     if (id === 'dashboard') {
@@ -5703,92 +5706,7 @@
    * Build live-preview overlay — creates ALL slot elements (all hidden by default).
    * Visibility is controlled by vSyncOverlay() via timeupdate events.
    */
-  function vBuildVideoOverlay() {
-    const video = document.getElementById('vPreviewVideo');
-    const wrap  = document.getElementById('vDoneVideoWrap');
-    if (!video || !wrap || !vS.currentTemplate) return;
-
-    // Remove stale overlay + detach old listeners
-    const old = document.getElementById('vVideoOverlay');
-    if (old) old.remove();
-    video.removeEventListener('timeupdate', vOnVideoTime);
-    video.removeEventListener('play',       vOnVideoPlay);
-
-    const vW = video.offsetWidth;
-    if (!vW) { setTimeout(vBuildVideoOverlay, 150); return; }
-    const vH = video.offsetHeight || Math.round(vW * 16 / 9);
-
-    wrap.style.position = 'relative';
-    const overlay = document.createElement('div');
-    overlay.id = 'vVideoOverlay';
-    overlay.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;`;
-    wrap.appendChild(overlay);
-
-    // Proportional font sizes (exact ASS ratio: PlayResY=1920)
-    const fHook  = Math.max(vH * 0.0365, 10);
-    const fPoint = Math.max(vH * 0.0292, 9);
-    const fLabel = Math.max(vH * 0.0302, 9);
-
-    const ZONES = [
-      { yp:87.5, css:'left:50%;transform:translate(-50%,-100%);text-align:center;' },
-      { yp:83.3, css:'left:7.4%;transform:translateY(-50%);text-align:left;'       },
-      { yp:15.1, css:'left:50%;transform:translate(-50%,0);text-align:center;'     },
-      { yp:87.5, css:'left:92.6%;transform:translate(-100%,-100%);text-align:right;'},
-    ];
-    let pCount = 0;
-
-    // Create an element for EVERY slot (display:none); timeupdate will show them
-    vS.currentTemplate.slots.forEach(slot => {
-      const text = (vS.slotOverrides?.[slot.id]?.text != null
-        ? vS.slotOverrides[slot.id].text
-        : vS.textInputs[slot.id] || slot.defaultText || '').trim();
-
-      const color   = vS.slotOverrides?.[slot.id]?.color || 'white';
-      const fontId  = vS.slotOverrides?.[slot.id]?.font  || 'default';
-      const hex     = vOvColorHex(color);
-      const fontCss = vOvFontCss(fontId);
-      let pos = '', fs = fPoint, hasBg = false, maxW = '90%';
-
-      switch (slot.style) {
-        case 'hook':
-          pos = `top:4.7%;left:50%;transform:translateX(-50%);text-align:center;`;
-          fs = fHook; break;
-        case 'label':
-          pos = `top:4.2%;left:5.6%;text-align:left;`;
-          fs = fLabel; hasBg = true; maxW = '45%'; break;
-        case 'cta':
-          pos = `top:94.8%;left:50%;transform:translate(-50%,-100%);text-align:center;`;
-          hasBg = true; break;
-        case 'point': {
-          const z = ZONES[pCount % 4]; pCount++;
-          pos = `top:${z.yp}%;${z.css}`; break;
-        }
-        default: return;
-      }
-
-      const outline  = `text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000,0 2px 6px rgba(0,0,0,.85)`;
-      const boxStyle = hasBg ? `background:rgba(0,0,0,.72);padding:2px 8px;border-radius:5px;` : '';
-
-      const el = document.createElement('div');
-      el.id = 'vov_' + slot.id;
-      el.dataset.hasBg = hasBg ? '1' : '0';
-      el.style.cssText = `
-        position:absolute;${pos}display:none;
-        color:${hex};font-family:${fontCss};font-size:${fs}px;font-weight:bold;
-        line-height:1.25;word-break:break-word;max-width:${maxW};
-        ${hasBg ? boxStyle : outline}
-      `;
-      el.textContent = text || '';
-      overlay.appendChild(el);
-    });
-
-    // Time-sync listeners
-    video.addEventListener('timeupdate', vOnVideoTime);
-    video.addEventListener('play',       vOnVideoPlay);
-
-    // Sync immediately to current time (or activeSlotOverride if set)
-    vSyncOverlay(video.currentTime);
-  }
+  
 
   /** Show the right slot in overlay based on video time. Called by timeupdate. */
   function vOnVideoTime() { vSyncOverlay(this.currentTime); }
@@ -5880,13 +5798,7 @@
 
   // Mode switcher
 
-  const ssState = {
-    file: null, videoId: null, language: 'auto',
-    segments: [], words: [], wordByWord: true, frameBase64: null,
-    selectedTemplate: 0,
-    _styleCustomised: false,
-    style: { fontSize: 80, fontColor: 'white', position: 'top', background: false, uppercase: true, highlightColor: 'red', mode: 'accumulating', fontName: 'default' },
-  };
+  
 
   // ── Subtitle style templates ──────────────────────────────────────────────
   const SS_TEMPLATES = [
@@ -5969,68 +5881,9 @@
 
   // Return to settings to change style, keeping the transcription result
 
-  function ssRenderSegments(detectedLang) {
-    document.getElementById('ssGenerating').style.display = 'none';
-    document.getElementById('ssSegments').style.display = '';
+  
 
-    // Mode tag
-    const modeTag = document.getElementById('ssModeTag');
-    if (modeTag) {
-      modeTag.textContent = ssState.wordByWord ? '⚡ Слово в слово' : '📝 Речення';
-      modeTag.style.background = ssState.wordByWord ? '#7C3AED' : 'var(--accent)';
-    }
-
-    // Show/hide mode-specific hints
-    const editHint = document.getElementById('ssEditHint');
-    const wordNote = document.getElementById('ssWordNote');
-    if (editHint) editHint.style.display = ssState.wordByWord ? 'none' : '';
-    if (wordNote) wordNote.style.display = ssState.wordByWord ? '' : 'none';
-
-    if (detectedLang) {
-      const names = { uk: '🇺🇦 Українська', ru: '🇷🇺 Русский', en: '🇬🇧 English', de: '🇩🇪 Deutsch', fr: '🇫🇷 Français' };
-      document.getElementById('ssDetLang').textContent = 'Мова: ' + (names[detectedLang] || detectedLang);
-    }
-
-    const list = document.getElementById('ssSegList');
-    list.innerHTML = '';
-
-    if (!ssState.segments.length) {
-      list.innerHTML = '<div class="fb tip"><span>ℹ️</span><span>Субтитри не знайдено — можливо відео без мовлення</span></div>';
-      return;
-    }
-
-    const isWbw = ssState.wordByWord;
-    ssState.segments.forEach((seg, i) => {
-      const fmt = s => {
-        const m = Math.floor(s / 60).toString().padStart(2,'0');
-        const ss = (s % 60).toFixed(1).padStart(4,'0');
-        return `${m}:${ss}`;
-      };
-      const row = document.createElement('div');
-      row.className = 'ss-seg';
-      // In word-by-word mode text editing has no effect, make fields read-only
-      const roAttr  = isWbw ? ' readonly' : '';
-      const roStyle = isWbw ? 'color:var(--text3);cursor:default;' : '';
-      row.innerHTML = `
-        <div class="ss-seg-time">${fmt(seg.start)}<br>${fmt(seg.end)}</div>
-        <textarea class="ss-seg-text" id="ss_seg_${i}" rows="2"${roAttr} style="${roStyle}">${seg.text}</textarea>
-        <div onclick="ssDeleteSeg(${i})" style="color:var(--text4);cursor:pointer;padding:2px 4px;font-size:16px;line-height:1;" title="Видалити">✕</div>
-      `;
-      list.appendChild(row);
-    });
-  }
-
-  function ssDeleteSeg(i) {
-    const removed = ssState.segments.splice(i, 1)[0];
-    // Also remove words that belong to the deleted segment so they don't
-    // end up assigned to the wrong segment in word-by-word mode.
-    if (removed && ssState.words.length) {
-      ssState.words = ssState.words.filter(
-        w => !(w.start >= removed.start - 0.5 && w.start < removed.end + 0.5),
-      );
-    }
-    ssRenderSegments(null);
-  }
+  
 
   // Show segments panel without re-triggering the generate spinner
   // (used by the "Edit" button after a burn error)
@@ -6042,98 +5895,34 @@
   // 🖼️ CAROUSEL BUILDER — AI photo analysis + Canvas
   // =============================================
 
-  let carPhotos = new Array(8).fill(null); // base64 strings or null
-  let carLang    = 'uk';
-  let carThemeId = 'dark';
+   // base64 strings or null
+  
+  
   let carCanvases = [];
-  let carBgImages = [];       // Image objects — kept for re-render on edit
-  let carCaptionTexts = [];   // user-editable captions
-  let carAnalysisData = {};   // full analysis result
-  let carFontStyle = 'modern'; // active font choice
+         // Image objects — kept for re-render on edit
+     // user-editable captions
+     // full analysis result
+   // active font choice
 
-  function carInit() {
-    try {
-      const saved = JSON.parse(localStorage.getItem('octo_carousel') || '{}');
-      if (saved.photos) carPhotos = saved.photos;
-      if (saved.lang)   carLang   = saved.lang;
-      if (saved.theme)  carThemeId = saved.theme;
-    } catch {}
-    carRenderSlots();
-    carInitExtras();
-    carUpdateBuildBtn();
-    // Restore language button highlight
-    document.querySelectorAll('#carLangBtnUk,#carLangBtnRu,#carLangBtnEn').forEach(b => b.classList.remove('active'));
-    const lb = document.getElementById('carLangBtn' + carLang.charAt(0).toUpperCase() + carLang.slice(1));
-    if (lb) lb.classList.add('active');
-  }
+  
 
-  function carSave() {
-    try {
-      localStorage.setItem('octo_carousel', JSON.stringify({ photos: carPhotos, lang: carLang, theme: carThemeId }));
-    } catch {}
-  }
+  
 
   // ── Slot management ──────────────────────────────────────────────────────────
-  function carRenderSlots() {
-    const grid = document.getElementById('carSlots');
-    if (!grid) return;
-    grid.innerHTML = '';
-    for (let i = 0; i < 8; i++) {
-      const slot = document.createElement('label');
-      slot.htmlFor = 'carFile' + i;
-      slot.className = 'pslot' + (carPhotos[i] ? ' filled' : '');
-      if (carPhotos[i]) {
-        slot.innerHTML = `<img src="${carPhotos[i]}" alt=""><div class="pslot-del" onclick="carDelPhoto(${i},event)">✕</div><div class="pslot-num">${i+1}</div>`;
-      } else {
-        slot.innerHTML = `<div class="pslot-add" style="display:flex;flex-direction:column;align-items:center;gap:2px;"><span style="font-size:20px;color:var(--text4)">+</span><span style="font-size:9px;color:var(--text4)">${i+1}</span></div>`;
-      }
-      grid.appendChild(slot);
-    }
-  }
+  
 
 
-  function carDelPhoto(idx, e) {
-    e.stopPropagation();
-    e.preventDefault();
-    carPhotos[idx] = null;
-    const filled = carPhotos.filter(Boolean);
-    carPhotos = [...filled, ...new Array(8 - filled.length).fill(null)];
-    carSave();
-    carRenderSlots();
-    carUpdateBuildBtn();
-    document.getElementById('carRes').style.display = 'none';
-  }
+  
 
-  function carUpdateBuildBtn() {
-    const btn = document.getElementById('carBuildBtn');
-    if (!btn) return;
-    const count = carPhotos.filter(Boolean).length;
-    const ok = count >= 2;
-    btn.disabled = !ok;
-    btn.style.opacity = ok ? '1' : '0.5';
-  }
+  
 
   // ── Lang / Theme / Extras ────────────────────────────────────────────────────
 
-  function carSetTheme(id) {
-    carThemeId = id;
-    carSave();
-    carRenderThemePicker();
-  }
+  
 
-  function carRenderThemePicker() {
-    const wrap = document.getElementById('carThemePicker');
-    if (!wrap || typeof CR_THEMES === 'undefined') return;
-    const labels = { dark:'🌑 Dark', blue:'🔵 Ocean', orange:'🔥 Sunset', green:'🌿 Nature', pink:'💜 Neon', white:'⬜ Clean' };
-    wrap.innerHTML = Object.keys(CR_THEMES).map(id => `
-      <button onclick="carSetTheme('${id}')" style="padding:5px 10px;border-radius:8px;border:2px solid ${id===carThemeId?CR_THEMES[id].accent:'transparent'};background:${CR_THEMES[id].bg1};color:${CR_THEMES[id].text};font-size:11px;font-weight:700;cursor:pointer;transition:border-color .2s;">
-        ${labels[id]||id}
-      </button>`).join('');
-  }
+  
 
-  function carInitExtras() {
-    carRenderThemePicker();
-  }
+  
 
   // ── Build (AI-powered) ───────────────────────────────────────────────────────
 
@@ -6151,9 +5940,7 @@
   let carLbIndex = 0;
 
 
-  function carCloseLightbox() {
-    document.getElementById('carLightbox').style.display = 'none';
-  }
+  
 
   function carLbNav(dir) {
     carLbIndex = (carLbIndex + dir + carCanvases.length) % carCanvases.length;
@@ -6167,12 +5954,7 @@
     document.getElementById('carLbLabel').textContent = `Слайд ${carLbIndex + 1}`;
   }
 
-  function carLbDownload() {
-    const a = document.createElement('a');
-    a.href = carCanvases[carLbIndex].toDataURL('image/png');
-    a.download = `slide_${String(carLbIndex + 1).padStart(2, '0')}.png`;
-    a.click();
-  }
+  
 
 
 
@@ -6235,23 +6017,13 @@
 
 
   // ── Photo tab switcher ────────────────────────────────────────────────────
-  function photoSwitchTab(tab) {
-    document.getElementById('photoCarouselWrap').style.display = tab === 'carousel' ? '' : 'none';
-    document.getElementById('photoFiltersWrap').style.display  = tab === 'filters'  ? '' : 'none';
-    document.getElementById('photoAiWrap').style.display       = tab === 'ai'       ? '' : 'none';
-    document.getElementById('photoTabCarousel').className = 'vstep' + (tab === 'carousel' ? ' active' : '');
-    document.getElementById('photoTabFilters').className  = 'vstep' + (tab === 'filters'  ? ' active' : '');
-    document.getElementById('photoTabAi').className       = 'vstep' + (tab === 'ai'       ? ' active' : '');
-    if (tab === 'carousel') carInit();
-    // Pre-load BodyPix model when user opens AI Editor tab (runs in background)
-    if (tab === 'ai') setTimeout(() => photoAiGetSeg(), 500);
-  }
+  
 
   // =============================================
   // 🤖 AI PHOTO EDITOR
   // =============================================
-  let photoAiOrigDataUrl = null;
-  let photoAiResultDataUrl = null;
+  
+  
 
 
 
@@ -6270,23 +6042,7 @@
    * Lazily load the BodyPix model. Singleton promise — safe to call many times.
    * Resolves with the net or null on failure.
    */
-  function photoAiGetSeg() {
-    if (_bpNetPromise) return _bpNetPromise;
-    // Pull the 1.5MB libs only now — the first moment they're actually needed.
-    _bpNetPromise = Promise.resolve(window.octoLoadBodyPix ? window.octoLoadBodyPix() : null)
-      .then(() => {
-        if (!window.bodyPix) return null;
-        return window.bodyPix.load({
-          architecture: 'MobileNetV1',
-          outputStride: 8,    // finer stride → sharper edges (was 16)
-          multiplier: 1.0,    // largest model → best accuracy (was 0.75)
-          quantBytes: 4,      // full float precision (was 2)
-        });
-      })
-      .catch(() => { _bpNetPromise = null; return null; });
-
-    return _bpNetPromise;
-  }
+  
 
   /**
    * Run person segmentation on a 1024×1024 data URL.
@@ -6376,84 +6132,7 @@
    *  - Ball naturally handled: with hide-player approach AI sees ball and keeps
    *    it in place; no doubling issue without dilation
    */
-  async function photoAiComposite(aiResultDataUrl, orig1024DataUrl, segMask) {
-    const S = 1024;
-
-    // Load both images in parallel
-    const [aiImg, origImg] = await Promise.all([
-      new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = aiResultDataUrl; }),
-      new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = orig1024DataUrl; }),
-    ]);
-    if (!aiImg || !origImg) return aiResultDataUrl;
-
-    const finalCv = document.createElement('canvas');
-    finalCv.width = S; finalCv.height = S;
-    const ctx = finalCv.getContext('2d');
-
-    if (segMask) {
-      // ── STEP 1: Draw AI result as base (new background) ─────────────────
-      ctx.drawImage(aiImg, 0, 0, S, S);
-
-      // ── STEP 2: Stamp original player with tight alpha curve ─────────────
-      // Tight transition 0.25→0.50: eliminates blurry silhouette/ghosting.
-      // Background pixels (segMask < 0.25) → fully transparent → AI background shows.
-      // Core player pixels (segMask > 0.50) → fully opaque → original player shows.
-      const personCv = document.createElement('canvas');
-      personCv.width = S; personCv.height = S;
-      const pCtx = personCv.getContext('2d');
-      pCtx.drawImage(origImg, 0, 0, S, S);
-      const personData = pCtx.getImageData(0, 0, S, S);
-      const d = personData.data;
-      for (let i = 0; i < S * S; i++) {
-        const a = segMask[i];
-        d[i * 4 + 3] = a < 0.25 ? 0
-                      : a > 0.50 ? 255
-                      : Math.round(((a - 0.25) / 0.25) * 255);
-      }
-      pCtx.putImageData(personData, 0, 0);
-
-      // ── STEP 3: Composite person over AI background ──────────────────────
-      ctx.drawImage(personCv, 0, 0, S, S);
-
-    } else {
-      // ── Rectangular zone fallback (no segmentation available) ───────────
-      const aiCv = document.createElement('canvas');
-      aiCv.width = S; aiCv.height = S;
-      aiCv.getContext('2d').drawImage(aiImg, 0, 0, S, S);
-      const aiPx = aiCv.getContext('2d').getImageData(0, 0, S, S).data;
-      const orCv = document.createElement('canvas');
-      orCv.width = S; orCv.height = S;
-      orCv.getContext('2d').drawImage(origImg, 0, 0, S, S);
-      const orPx = orCv.getContext('2d').getImageData(0, 0, S, S).data;
-      const out = new Uint8ClampedArray(S * S * 4);
-      const LF0 = S * 0.15, LF1 = S * 0.20;
-      const RF0 = S * 0.80, RF1 = S * 0.85;
-      const TF0 = S * 0.08, TF1 = S * 0.13;
-      const BF0 = S * 0.87, BF1 = S * 0.92;
-      for (let y = 0; y < S; y++) {
-        for (let x = 0; x < S; x++) {
-          const i = (y * S + x) * 4;
-          let wx = 1, wy = 1;
-          if      (x < LF0) wx = 0;
-          else if (x < LF1) wx = (x - LF0) / (LF1 - LF0);
-          else if (x > RF1) wx = 0;
-          else if (x > RF0) wx = 1 - (x - RF0) / (RF1 - RF0);
-          if      (y < TF0) wy = 0;
-          else if (y < TF1) wy = (y - TF0) / (TF1 - TF0);
-          else if (y > BF1) wy = 0;
-          else if (y > BF0) wy = 1 - (y - BF0) / (BF1 - BF0);
-          const w = wx * wy;
-          out[i]   = orPx[i]   * w + aiPx[i]   * (1 - w);
-          out[i+1] = orPx[i+1] * w + aiPx[i+1] * (1 - w);
-          out[i+2] = orPx[i+2] * w + aiPx[i+2] * (1 - w);
-          out[i+3] = 255;
-        }
-      }
-      ctx.putImageData(new ImageData(out, S, S), 0, 0);
-    }
-
-    return finalCv.toDataURL('image/jpeg', 0.93);
-  }
+  
 
   /**
    * CLIENT-SIDE background blur using MediaPipe segmentation mask.
@@ -6564,7 +6243,7 @@
    */
 
   // Store the 1024×1024 crop so we can composite without re-loading
-  let photoAiOrig1024 = null;
+  
 
   /**
    * Promise-based inline dialog: asks user if they want to edit the main player.
@@ -8390,29 +8069,7 @@
     <div id="vLivePreviewWrap" style="position:relative;width:100%;aspect-ratio:9/16;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 0 40px #0008;">
       <video id="vLivePreviewVid" playsinline controls style="width:100%;height:100%;display:block;object-fit:contain;"></video>
     </div>
-    <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:8px;text-align:center;">Натисни Play · текст змінюється автоматично</div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════
-     CAROUSEL SLIDE LIGHTBOX
-     Full-screen preview when user taps a thumbnail.
-═══════════════════════════════════════════════════ -->
-<div id="carLightbox" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.96);flex-direction:column;align-items:center;justify-content:center;" onclick="if(event.target===this)carCloseLightbox()">
-  <!-- top bar -->
-  <div style="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
-    <span id="carLbLabel" style="color:rgba(255,255,255,.6);font-size:13px;font-weight:700;"></span>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button onclick="carLbDownload()" style="background:rgba(255,255,255,.12);border:none;color:#fff;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;">💾 Скачати</button>
-      <button onclick="carCloseLightbox()" style="background:rgba(255,255,255,.12);border:none;color:#fff;font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;line-height:1;">×</button>
-    </div>
-  </div>
-  <!-- slide image -->
-  <img alt="" id="carLbImg" src="" style="max-width:100%;max-height:calc(100vh - 120px);border-radius:12px;object-fit:contain;">
-  <!-- prev / next arrows -->
-  <div style="position:absolute;bottom:20px;display:flex;gap:16px;align-items:center;">
-    <button onclick="carLbNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:44px;height:44px;border-radius:50%;cursor:pointer;">‹</button>
-    <span id="carLbCounter" style="color:rgba(255,255,255,.5);font-size:13px;min-width:50px;text-align:center;"></span>
+    <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:8px;text-align:center;">Натисни Plze:13px;min-width:50px;text-align:center;"></span>
     <button onclick="carLbNav(1)"  style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;width:44px;height:44px;border-radius:50%;cursor:pointer;">›</button>
   </div>
 </div>
