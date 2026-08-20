@@ -74,6 +74,42 @@ function isApidojoDud(): boolean {
   return Date.now() < apidojoDudUntil;
 }
 
+// Скільки чекаємо на Apify. Раніше акторові давалось 150 с, а нашому запиту —
+// нічого: сервер чекав до кінця, і шлюз Railway обривав усе 502-ю помилкою
+// приблизно на 160-й секунді. Людина бачила не наше пояснення, а сторінку
+// помилки платформи. Заміряно 20.08.2026: два запити поспіль — 160 і 166 с,
+// обидва 502, а в Apify чотири запуски актора підряд TIMED-OUT.
+//
+// Тепер стеля наша і вона нижча за шлюзову: актор має 55 с, наш запит — 60,
+// тож ми ЗАВЖДИ встигаємо відповісти самі й сказати правду.
+const APIFY_ACTOR_TIMEOUT_S = 55;
+const APIFY_FETCH_TIMEOUT_MS = 60_000;
+
+async function apifyRun(actor: string, input: unknown): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), APIFY_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(
+      `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items`
+      + `?token=${APIFY_TOKEN}&timeout=${APIFY_ACTOR_TIMEOUT_S}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input), signal: ctrl.signal },
+    );
+  } catch (e) {
+    // Обрив за часом — це не поломка застосунку, а мовчання джерела.
+    if ((e as Error).name === 'AbortError') throw sourceSlow();
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Джерело не відповіло вчасно. На відміну від sourceOut — тут повтор має сенс. */
+export function sourceSlow(): SourceFailure {
+  return failure(503, 'trends_source_out',
+    'Джерело роликів зараз не відповідає — це буває, коли TikTok навантажений. Спробуй ще раз за кілька хвилин.', true);
+}
+
 export function sourceOut(): SourceFailure {
   return failure(503, 'trends_source_out',
     'Свіжа добірка роликів зараз недоступна — оновлюємо джерело даних. Заглянь трохи пізніше, все повернеться.', false);
@@ -250,10 +286,7 @@ export async function getProfileVideos(handle: string, force = false): Promise<{
   }
 
   const input = { profiles: [clean], resultsPerPage: 20, profileSorting: 'latest' };
-  const res = await fetch(
-    `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) },
-  );
+  const res = await apifyRun(ACTOR, input);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     const stale = readCache(key) as any;
@@ -363,14 +396,7 @@ function stepInput(step: ScrapeStep, list: string[], perQuery: number): Record<s
 
 /** Один запуск актора → нормалізовані ролики. Порожній масив = актор не знайшов. */
 async function scrapeWith(step: ScrapeStep, list: string[], perQuery: number): Promise<TrendVideo[]> {
-  const res = await fetch(
-    `https://api.apify.com/v2/acts/${stepActor(step)}/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=150`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(stepInput(step, list, perQuery)),
-    },
-  );
+  const res = await apifyRun(stepActor(step), stepInput(step, list, perQuery));
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw apifyFailure(res.status, body);
