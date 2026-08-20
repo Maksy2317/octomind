@@ -934,6 +934,11 @@
       color: var(--text3); cursor: pointer; transition: all 0.2s;
     }
     .qp:hover { border-color: var(--accent); color: var(--text2); }
+    .msg-bubble .cmd-h {
+      display: inline-block; margin-top: 10px; font-size: 14.5px;
+      font-weight: 800; color: var(--text);
+    }
+    .msg-bubble .cmd-h:first-child { margin-top: 0; }
     .chat-row { display: flex; gap: 8px; align-items: flex-end; }
     .chat-input {
       flex: 1; background: var(--surface2); border: 1px solid var(--border);
@@ -5323,9 +5328,18 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   };
-  // Дозволяємо лише **жирний** і переноси — вже ПІСЛЯ екранування.
+  // Модель відповідає розміткою: підзаголовки через ###, списки через «-».
+  // Раніше перетворювався лише **жирний**, тож у чаті було видно сирі «###»
+  // — у відповіді на 4000 символів їх шість штук. Обробляємо ПІСЛЯ
+  // екранування, тож жодного HTML з відповіді не виконається.
   window.chMd = function (v) {
-    return window.chEsc(v).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    var s = window.chEsc(v);
+    s = s.replace(/^\s{0,3}#{1,6}\s*(.+?)\s*$/gm, '<b class="cmd-h">$1</b>');
+    // Маркер списку робимо крапкою. Вимога пробілу після дефіса/зірочки
+    // рятує «**Жирний**» на початку рядка від хибного збігу.
+    s = s.replace(/^\s{0,3}[-*]\s+(.+)$/gm, '• $1');
+    s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    return s.replace(/\n/g, '<br>');
   };
 
   function chatKey(e) {
