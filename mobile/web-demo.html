@@ -7562,6 +7562,57 @@
     return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  // ── Заявки на підписку ─────────────────────────────────────────────────────
+  // Головна цифра до появи каси. Воронка каже, скільки людей дійшло; заявки
+  // кажуть, скільки з них готові платити — і скільки саме.
+  window.octoAdminRequests = function () {
+    var box = document.getElementById('admRequests');
+    if (!box) return;
+    var key = '';
+    try { key = localStorage.getItem('octo_admin_key') || ''; } catch (e) {}
+    if (!key) return;
+    box.innerHTML = '<div class="card" style="margin-top:14px;color:var(--text3);font-size:13px;">Читаю заявки…</div>';
+    fetch(admApiBase() + '/api/admin/requests', { headers: { 'x-admin-key': key } })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
+      .then(function (d) {
+        var rows = d.rows || [];
+        var html = '<div class="card" style="margin-top:14px;">'
+          + '<div class="ob-sec" style="margin-top:0;">Заявки на підписку</div>';
+        if (!d.total) {
+          html += '<div style="font-size:13px;color:var(--text3);line-height:1.7;">Заявок ще немає. '
+               + 'Кнопка «Хочу Pro» живе на екрані Тарифи — поки її ніхто не натиснув, '
+               + 'платити ніхто не зголосився. Це теж відповідь.</div></div>';
+          box.innerHTML = html;
+          return;
+        }
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+             + admStat('Заявок усього', d.total)
+             + admStat('За 7 днів', d.last7 != null ? d.last7 : '—')
+             + '</div>';
+        html += '</div>';
+        html += admBars(d.byBudget || {}, 'Скільки готові платити');
+        var list = rows.slice(0, 40).map(function (r) {
+          return '<div style="padding:11px 0;border-top:1px solid var(--border);">'
+            + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
+            + '<b style="font-size:13.5px;">' + admEsc(r.contact) + '</b>'
+            + '<span style="font-size:11.5px;color:var(--text3);">' + admEsc(r.plan) + '</span>'
+            + (r.budget ? '<span style="font-size:11.5px;color:#B5A8FF;font-weight:700;">' + admEsc(r.budget) + '</span>' : '')
+            + '<span style="margin-left:auto;font-size:11px;color:var(--text4);">' + admEsc(String(r.created_at).slice(0, 10)) + '</span>'
+            + '</div>'
+            + (r.note ? '<div style="font-size:12.5px;color:var(--text2);margin-top:4px;line-height:1.6;">' + admEsc(r.note) + '</div>' : '')
+            + '</div>';
+        }).join('');
+        html += '<div class="card" style="margin-top:14px;"><div class="ob-sec" style="margin-top:0;">Хто саме</div>' + list
+             + (rows.length > 40 ? '<div style="font-size:11.5px;color:var(--text4);margin-top:10px;">Показано 40 із ' + rows.length + '</div>' : '')
+             + '</div>';
+        box.innerHTML = html;
+      })
+      .catch(function (e) {
+        box.innerHTML = '<div class="card" style="margin-top:14px;color:var(--text3);font-size:13px;">Заявки не прочитались: '
+          + admEsc(e.message) + '</div>';
+      });
+  };
+
   window.octoAdminFunnel = function (days) {
     var box = document.getElementById('admFunnel');
     if (!box) return;
@@ -7704,8 +7755,10 @@
           admStat('Пристроїв заходило', d.devices != null ? d.devices : '—', 'вкл. гостей') + '</div>';
         html += admBars(act.by_feature, 'Що заходить — дії по фічах');
         html += admBars(d.generations_by_type, 'Генерації по типах');
+        html += '<div id="admRequests"></div>';
         html += '<div id="admFunnel"></div>';
         body.innerHTML = html;
+        window.octoAdminRequests();
         window.octoAdminFunnel(14);
       })
       .catch(function (e) {
@@ -9118,14 +9171,127 @@
             // не зарахує. Кнопка стає чесною, а не зникає.
             var btn = document.getElementById(row[2]);
             if (btn && d.live === false) {
-              btn.textContent = 'Оплата вмикається — напиши нам';
-              btn.setAttribute('onclick', 'octoSupport()');
+              btn.textContent = 'Хочу ' + (row[0] === 'business' ? 'Business' : 'Pro') + ' — лишити заявку';
+              btn.setAttribute('onclick', "octoRequestPro('" + row[0] + "')");
             }
           });
       })
       .catch(function () {});
   };
   document.addEventListener('DOMContentLoaded', function () { window.octoLoadPlans(); });
+
+
+  // ── Заявка на підписку («Хочу Pro») ─────────────────────────────────────────
+  // Поки немає каси, попит міряємо піднятими руками. Питаємо рівно те, чого не
+  // покаже жодна аналітика: скільки людина готова платити і що їй потрібно.
+  // Без контакту заявка марна, тому це єдине обовʼязкове поле.
+  var REQ_BUDGETS = ['до $5', '$5–10', '$10–20', 'понад $20'];
+
+  window.octoReqPick = function (el, val) {
+    var box = document.getElementById('reqBudget');
+    if (box) box.value = val;
+    var wrap = el.parentNode;
+    for (var i = 0; i < wrap.children.length; i++) {
+      var c = wrap.children[i], on = (c === el);
+      c.style.background  = on ? 'rgba(108,99,255,.35)' : 'rgba(255,255,255,.06)';
+      c.style.borderColor = on ? '#8B7BFF' : 'rgba(255,255,255,.16)';
+      c.style.color       = on ? '#fff' : 'rgba(255,255,255,.72)';
+    }
+  };
+
+  window.octoRequestPro = function (plan) {
+    plan = (plan === 'business') ? 'business' : 'pro';
+    var label = plan === 'business' ? 'Business' : 'Pro';
+    var mail = '';
+    try {
+      var u = JSON.parse(localStorage.getItem('octo_user') || 'null');
+      if (u && u.email && u.email.indexOf('@') > 0) mail = u.email;
+    } catch (e) {}
+    try { window.octoTrack('upgrade_click', { plan: plan, via: 'request' }); } catch (e) {}
+
+    var chips = REQ_BUDGETS.map(function (b) {
+      return '<button type="button" onclick="octoReqPick(this,' + JSON.stringify(b).replace(/"/g, '&quot;') + ')" ' +
+        'style="flex:1;min-width:78px;padding:10px 6px;border-radius:12px;border:1px solid rgba(255,255,255,.16);' +
+        'background:rgba(255,255,255,.06);color:rgba(255,255,255,.72);font-size:13px;font-weight:700;cursor:pointer;' +
+        'touch-action:manipulation;-webkit-tap-highlight-color:transparent;">' + b + '</button>';
+    }).join('');
+
+    var inp = 'width:100%;box-sizing:border-box;padding:13px 14px;border-radius:13px;' +
+      'border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;' +
+      'font-size:14px;font-family:inherit;outline:none;';
+
+    window._octoSheet(
+      '<div id="reqSheet" style="background:#1a0d30;border-radius:24px 24px 0 0;padding:26px 20px 40px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;max-height:88vh;overflow-y:auto;">' +
+        '<div style="width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);margin:0 auto 16px;"></div>' +
+        '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;">Хочу ' + label + '</div>' +
+        '<div style="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin:6px 0 20px;line-height:1.6;">' +
+          'Оплата карткою ще вмикається. Лиши заявку — підключимо ' + label + ' вручну й напишемо особисто.' +
+        '</div>' +
+
+        '<div style="font-size:12.5px;font-weight:700;color:#B5A8FF;margin-bottom:8px;">Скільки це варте для тебе на місяць?</div>' +
+        '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px;">' + chips + '</div>' +
+        '<input type="hidden" id="reqBudget" value="">' +
+
+        '<div style="font-size:12.5px;font-weight:700;color:#B5A8FF;margin-bottom:8px;">Куди тобі написати?</div>' +
+        '<input id="reqContact" type="text" inputmode="email" autocomplete="email" placeholder="пошта або @телеграм" ' +
+          'value="' + mail.replace(/"/g, '&quot;') + '" style="' + inp + 'margin-bottom:18px;">' +
+
+        '<div style="font-size:12.5px;font-weight:700;color:#B5A8FF;margin-bottom:8px;">Що потрібно найбільше? <span style="font-weight:600;color:rgba(255,255,255,.4);">(не обовʼязково)</span></div>' +
+        '<textarea id="reqNote" rows="3" placeholder="напр.: більше кампаній і зображень" style="' + inp + 'resize:none;margin-bottom:6px;"></textarea>' +
+
+        '<div id="reqErr" style="display:none;font-size:12.5px;color:#FF8A8A;margin:4px 0 10px;"></div>' +
+
+        '<button id="reqSend" onclick="octoReqSend(' + JSON.stringify(plan).replace(/"/g, '&quot;') + ')" ' +
+          'style="width:100%;padding:15px;margin-top:12px;background:linear-gradient(135deg,#6C63FF,#38BDF8);color:#fff;' +
+          'font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;touch-action:manipulation;' +
+          '-webkit-tap-highlight-color:transparent;">Надіслати заявку</button>' +
+        '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;margin-top:10px;background:transparent;' +
+          'color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;' +
+          'cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">Пізніше</button>' +
+      '</div>');
+  };
+
+  window.octoReqSend = function (plan) {
+    var get = function (id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+    var contact = get('reqContact'), budget = get('reqBudget'), note = get('reqNote');
+    var err = document.getElementById('reqErr'), btn = document.getElementById('reqSend');
+    var fail = function (msg) {
+      if (err) { err.style.display = ''; err.textContent = msg; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Надіслати заявку'; }
+    };
+    if (contact.length < 4) { fail('Лишіть пошту або телеграм — щоб ми могли відповісти.'); return; }
+    if (err) err.style.display = 'none';
+    if (btn) { btn.disabled = true; btn.textContent = 'Надсилаю…'; }
+
+    fetch('/api/pay/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': window.octoDeviceId() },
+      body: JSON.stringify({ plan: plan, contact: contact, budget: budget, note: note }),
+    })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (!r.ok) throw new Error(d.error || ('Не вдалось надіслати (' + r.status + ')'));
+          return d;
+        });
+      })
+      .then(function (d) {
+        try { window.octoTrack('upgrade_request', { plan: plan, budget: budget }); } catch (e) {}
+        var box = document.getElementById('reqSheet');
+        if (!box) return;
+        box.innerHTML =
+          '<div style="width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);margin:0 auto 18px;"></div>' +
+          '<div style="font-size:38px;text-align:center;margin-bottom:10px;">🎟️</div>' +
+          '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;">' +
+            (d && d.updated ? 'Заявку оновлено' : 'Заявку прийнято') + '</div>' +
+          '<div style="font-size:13.5px;color:rgba(255,255,255,.65);text-align:center;margin:10px 0 22px;line-height:1.7;">' +
+            'Напишемо особисто, щойно підключимо оплату. Доти користуйся всім, що вже є — нічого не вимикається.' +
+          '</div>' +
+          '<button onclick="_octoSheetClose()" style="width:100%;padding:15px;background:linear-gradient(135deg,#6C63FF,#38BDF8);' +
+          'color:#fff;font-size:15px;font-weight:800;border:none;border-radius:14px;cursor:pointer;' +
+          'touch-action:manipulation;-webkit-tap-highlight-color:transparent;">Зрозуміло</button>';
+      })
+      .catch(function (e) { fail(e.message || 'Не вдалось надіслати. Спробуй ще раз.'); });
+  };
 
   // ── Checkout: create a WayForPay payment and redirect there ──────────────────
   window.octoOpenCheckout = function (plan) {

@@ -129,3 +129,37 @@ adminRouter.get('/funnel', async (req: Request, res: Response, next: NextFunctio
     next(err);
   }
 });
+
+// GET /api/admin/requests — заявки на підписку: скільки людей підняли руку і
+// скільки готові платити. Це головна цифра до появи каси: воронка показує
+// інтерес, заявки — намір.
+adminRouter.get('/requests', async (req: Request, res: Response, next: NextFunction) => {
+  if (!authorized(req)) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+  if (!isDbConfigured()) {
+    res.status(503).json({ error: 'Database not configured' });
+    return;
+  }
+  try {
+    const rows = await select<{
+      id: number; created_at: string; plan: string;
+      budget: string | null; note: string | null; contact: string;
+    }>('upgrade_requests', 'select=id,created_at,plan,budget,note,contact&order=created_at.desc&limit=300');
+
+    const byBudget: Record<string, number> = {};
+    const byPlan: Record<string, number> = {};
+    const weekAgo = Date.now() - 7 * 86400000;
+    let last7 = 0;
+    for (const r of rows) {
+      const b = r.budget || 'не вказали';
+      byBudget[b] = (byBudget[b] || 0) + 1;
+      byPlan[r.plan] = (byPlan[r.plan] || 0) + 1;
+      if (Date.parse(r.created_at) >= weekAgo) last7++;
+    }
+    res.json({ total: rows.length, last7, byBudget, byPlan, rows });
+  } catch (err) {
+    next(err);
+  }
+});

@@ -166,3 +166,22 @@ create table if not exists public.events (
 create index if not exists events_event_time_idx on public.events (event, created_at desc);
 create index if not exists events_user_time_idx  on public.events (user_id, created_at desc);
 alter table public.events enable row level security;
+
+-- ── Заявки на підписку ────────────────────────────────────────────────────────
+-- Каси ще немає (немає ФОП), тому попит міряємо не оплатами, а піднятими
+-- руками: людина лишає заявку, ми бачимо скільки їх і скільки люди готові
+-- платити. Клік по тарифу нічого не означає — заявка з контактом означає.
+-- RLS увімкнено без політик: пише й читає лише службовий ключ бекенда.
+create table if not exists public.upgrade_requests (
+  id         bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  user_id    uuid references public.users(id) on delete set null,
+  device_id  text,
+  plan       text not null default 'pro',
+  budget     text,          -- скільки готові платити (варіант із форми)
+  note       text,          -- що саме потрібно
+  contact    text not null  -- пошта або телеграм: без нього заявка марна
+);
+create index if not exists upgrade_requests_time_idx on public.upgrade_requests (created_at desc);
+create unique index if not exists upgrade_requests_user_idx on public.upgrade_requests (user_id);
+alter table public.upgrade_requests enable row level security;

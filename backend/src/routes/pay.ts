@@ -7,6 +7,7 @@ import { requireIdentity } from '../middleware/identity';
 import { setUserPlan } from '../services/db/repos';
 import { Plan } from '../services/db/models';
 import { buildPurchase, verifyCallback, callbackResponse, amountMatchesPlan, PLAN_PRICES, isLive } from '../services/payments/wayforpay';
+import { insertOne, selectOne, update } from '../services/db/client';
 
 export const payRouter = Router();
 
@@ -39,6 +40,48 @@ payRouter.post('/create', requireIdentity, (req: Request, res: Response) => {
   const returnUrl = `${base}/?paid=1`;
   const serviceUrl = `${base}/api/pay/callback`;
   res.json(buildPurchase(plan, orderReference, orderDate, returnUrl, serviceUrl));
+});
+
+// POST /api/pay/request — «Хочу Pro», поки каси немає.
+//
+// Каси немає не через код, а через відсутність ФОП. Поки її немає, єдиний
+// чесний спосіб зрозуміти, чи готові платити — рахувати ПІДНЯТІ РУКИ, а не
+// кліки. Клік по тарифу нічого не означає: людина могла просто дивитись ціну.
+// Заявка з контактом і сумою означає рівно те, що написано.
+payRouter.post('/request', requireIdentity, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const clean = (v: unknown, max: number) =>
+      String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
+
+    const plan: 'pro' | 'business' = req.body?.plan === 'business' ? 'business' : 'pro';
+    const contact = clean(req.body?.contact, 160);
+    if (contact.length < 4) {
+      res.status(400).json({ error: 'Лишіть пошту або телеграм — інакше ми не зможемо відповісти.' });
+      return;
+    }
+    const row = {
+      user_id: req.userId,
+      device_id: req.deviceId || null,
+      plan,
+      contact,
+      budget: clean(req.body?.budget, 40) || null,
+      note: clean(req.body?.note, 600) || null,
+    };
+
+    // Одна людина — одна заявка. Без цього повторний дотик роздуває саме ту
+    // цифру, заради якої все й робиться: десять заявок від трьох людей
+    // виглядали б як десять зацікавлених.
+    const existing = await selectOne<{ id: number }>(
+      'upgrade_requests',
+      `select=id&user_id=eq.${encodeURIComponent(String(req.userId))}&limit=1`,
+    );
+    if (existing) await update('upgrade_requests', `id=eq.${existing.id}`, row);
+    else await insertOne('upgrade_requests', row);
+
+    res.json({ ok: true, updated: !!existing });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /api/pay/callback — WayForPay server → verify signature, flip plan on

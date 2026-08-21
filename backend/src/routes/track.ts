@@ -24,7 +24,7 @@ const EVENTS = new Set([
   'prodad_saved',
   'plan_generated', 'post_published',
   'research_done', 'note_saved',
-  'paywall_view', 'upgrade_click',
+  'paywall_view', 'upgrade_click', 'upgrade_request',
 ]);
 
 let tableWarned = false;
