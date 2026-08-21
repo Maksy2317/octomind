@@ -74,9 +74,9 @@ adminRouter.get('/funnel', async (req: Request, res: Response, next: NextFunctio
   try {
     const days = Math.min(90, Math.max(1, Number(req.query.days) || 14));
     const since = new Date(Date.now() - days * 86400000).toISOString();
-    const rows = await select<{ event: string; user_id: string | null; device_id: string | null }>(
+    const rows = await select<{ event: string; user_id: string | null; device_id: string | null; created_at: string }>(
       'events',
-      `select=event,user_id,device_id&created_at=gte.${encodeURIComponent(since)}&limit=50000`,
+      `select=event,user_id,device_id,created_at&created_at=gte.${encodeURIComponent(since)}&limit=50000`,
     );
     const totals: Record<string, number> = {};
     const uniq: Record<string, Set<string>> = {};
@@ -92,7 +92,39 @@ adminRouter.get('/funnel', async (req: Request, res: Response, next: NextFunctio
       step,
       unique: uniq[step]?.size || 0,
     }));
-    res.json({ days, sampled: rows.length, events, funnel });
+    // ── Повернення ───────────────────────────────────────────────────────────
+    // Головне питання «чи піде проєкт» — не скільки прийшло, а скільки
+    // ПОВЕРНУЛОСЬ. Воронка показує лише перший візит: людина може пройти всі
+    // пʼять кроків і зникнути назавжди, і воронка виглядатиме бездоганно.
+    // Рахуємо з тих самих подій — окремих запитів до бази не треба.
+    const daysByWho: Record<string, Set<string>> = {};
+    for (const r of rows) {
+      const who = r.user_id || r.device_id || 'anon';
+      const day = String(r.created_at || '').slice(0, 10);   // UTC-доба
+      if (!day) continue;
+      (daysByWho[who] ||= new Set()).add(day);
+    }
+    const people = Object.values(daysByWho);
+    const dayNum = (d: string) => Math.floor(Date.parse(d + 'T00:00:00Z') / 86400000);
+    let returned = 0, nextDay = 0, weekPlus = 0;
+    for (const set of people) {
+      const sorted = [...set].sort();
+      if (sorted.length > 1) returned++;
+      const first = dayNum(sorted[0]);
+      if (sorted.some((d) => dayNum(d) === first + 1)) nextDay++;
+      if (sorted.some((d) => dayNum(d) - first >= 7)) weekPlus++;
+    }
+    const retention = {
+      people: people.length,
+      returned,          // приходили більш ніж в один день
+      nextDay,           // повернулись саме наступного дня
+      weekPlus,          // ще живі через тиждень і більше
+      // Чесне попередження для малих чисел: на десятці людей відсоток —
+      // це шум, і будувати на ньому рішення не можна.
+      thin: people.length < 20,
+    };
+
+    res.json({ days, sampled: rows.length, events, funnel, retention });
   } catch (err) {
     next(err);
   }

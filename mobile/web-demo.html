@@ -7615,6 +7615,35 @@
         }
         html += '</div>';
 
+        // ── Повернення ───────────────────────────────────────────────────
+        // Воронка показує лише перший візит. Людина може пройти всі пʼять
+        // кроків і зникнути назавжди — воронка виглядатиме бездоганно.
+        // Тому головне число тут окремо: скільки прийшли ЩЕ РАЗ.
+        var ret = d.retention;
+        if (ret && ret.people) {
+          var pct = function (n) { return Math.round(n / ret.people * 100) + '%'; };
+          var cell = function (label, n, hint) {
+            return '<div style="flex:1;min-width:132px;background:var(--surface2);border-radius:12px;padding:12px 14px;">'
+              + '<div style="font-size:22px;font-weight:800;line-height:1;">' + n
+              + '<span style="font-size:13px;color:var(--text3);font-weight:700;"> · ' + pct(n) + '</span></div>'
+              + '<div style="font-size:12.5px;color:var(--text2);margin-top:5px;font-weight:600;">' + label + '</div>'
+              + '<div style="font-size:11.5px;color:var(--text4);margin-top:2px;">' + hint + '</div></div>';
+          };
+          html += '<div class="card" style="margin-top:14px;">'
+            + '<div class="ob-sec" style="margin-top:0;">Повернення</div>'
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+            + cell('Прийшли ще раз', ret.returned, 'були більш ніж в один день')
+            + cell('Наступного дня', ret.nextDay, 'найсильніший сигнал')
+            + cell('Живі через тиждень', ret.weekPlus, 'це вже звичка')
+            + '</div>'
+            + '<div style="font-size:11.5px;color:var(--text4);margin-top:10px;">'
+            + 'Усього людей за період: ' + ret.people + '. '
+            + (ret.thin
+                ? '⚠️ Людей поки замало — на такій вибірці відсотки це шум, дивись на самі числа.'
+                : 'Повернення важливіше за розмір воронки: воронка показує лише перший візит.')
+            + '</div></div>';
+        }
+
         // Решта подій — те, що поза воронкою (імпорт, дослідження, пейволл).
         var ev = d.events || {};
         var rest = Object.keys(ev).filter(function (k) { return !(k in ADM_STEPS); });
