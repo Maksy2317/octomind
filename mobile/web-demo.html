@@ -12444,10 +12444,37 @@
   // (dates + times + push reminders) — the Launch step of the cycle ───────────
   var CAL_TYPE_MAP = { stories: 'stories', reels: 'reels', tiktok: 'reels', video: 'video' };
 
+  // Відкрити контент-план саме там, де щойно зʼявились публікації. Вкладка
+  // «Сьогодні» — типова, а розклад завжди починається ЗАВТРА: людина тиснула
+  // «розкласти», потрапляла на порожній екран і робила єдиний можливий
+  // висновок — «не перенеслося».
+  function openPlanAt(dates) {
+    try { showScreen('calendar', null); } catch (e) { return; }
+    var d = new Date();
+    var today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    var pl = window.octoPlanner;
+    if (!pl) return;
+    if (dates.indexOf(today) >= 0) { pl.setTab('today'); return; }
+    var first = dates.slice().sort()[0];
+    try { if (first && pl.pickDay) pl.pickDay(first); } catch (e) {}
+    pl.setTab('week');
+  }
+
   window.octoScheduleCampaign = function (campaignId, btn) {
-    var c = window.octoCampaigns.get(campaignId);
-    if (!c || !c.materials || !c.materials.length) return;
     var st = document.getElementById('csch-' + campaignId);
+    // Кожен вихід тепер із поясненням. Кнопка, яка на дотик не робить нічого,
+    // читається як зламаний застосунок — і перевірити це неможливо.
+    function fail(msg) {
+      if (st) { st.className = 'ob-status ob-err'; st.textContent = '⚠️ ' + msg; }
+      else { try { alert(msg); } catch (e) {} }
+      if (btn) { btn.disabled = false; btn.textContent = '📅 Розкласти по днях'; }
+    }
+    var c = window.octoCampaigns.get(campaignId);
+    if (!c) { fail('Кампанію не знайдено — відкрий її ще раз у «Мої ідеї».'); return; }
+    if (!c.materials || !c.materials.length) {
+      fail('У цій кампанії ще немає матеріалів — спершу створи пакет, потім розкладай.');
+      return;
+    }
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     if (st) { st.className = 'ob-status ob-busy'; st.innerHTML = '<span class="ob-spin"></span> Octo планує тиждень публікацій…'; }
     var mats = c.materials.map(function (m, i) { return { index: i, type: m.type || 'post', title: m.title || 'Матеріал' }; });
@@ -12464,11 +12491,14 @@
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; }); })
       .then(function (plan) {
         // Schedule the REAL materials (with thumbnail + status) via octoCalStore.
-        var added = 0;
+        var added = 0, addedDates = [];
         (plan.schedule || []).forEach(function (it) {
           var m = c.materials[Number(it.material_index)];
           if (!m) return;
-          var off = Math.min(10, Math.max(1, Number(it.day_offset) || 1));
+          // Вікно плану — рухомі 7 днів від сьогодні. Публікація на +10 днів
+          // просто зникала з вкладки «Тиждень»: формально вона в плані, але
+          // побачити її не можна ніде, крім «Списку».
+          var off = Math.min(6, Math.max(1, Number(it.day_offset) || 1));
           var d = new Date(); d.setDate(d.getDate() + off);
           var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
           var o = m.output || {};
@@ -12486,13 +12516,23 @@
             },
           });
           added++;
+          if (addedDates.indexOf(k) < 0) addedDates.push(k);
         });
+        // Розклад міг не збігтися з матеріалами (індекси від моделі). Раніше це
+        // давало зелене «✅ 0 у плані» — найгірший різновид відповіді: успіх,
+        // за яким нічого не сталося.
+        if (!added) {
+          fail('Octo повернув розклад, який не збігся з матеріалами. Спробуй ще раз.');
+          return;
+        }
         if (btn) { btn.textContent = '✅ ' + added + ' у плані'; }
         if (st) {
           st.className = 'ob-status ob-ok';
           st.innerHTML = '📅 ' + esc(plan.summary || ('Заплановано ' + added + ' публікацій на тиждень.'))
-            + ' <a href="#" style="color:var(--accent2);font-weight:700;" onclick="showScreen(\'calendar\',null);try{window.calRender&&window.calRender();}catch(e){};return false;">Відкрити контент-план →</a>';
+            + ' <a href="#" style="color:var(--accent2);font-weight:700;" onclick="return false;">Відкриваю контент-план…</a>';
         }
+        // Не лишаємо людину шукати результат самотужки.
+        setTimeout(function () { openPlanAt(addedDates); }, 600);
       })
       .catch(function (e) {
         if (btn) { btn.disabled = false; btn.textContent = '📅 Розкласти по днях'; }
@@ -13765,7 +13805,11 @@
     },
     add: function (dateKey, post) {
       var mat = (post && post.mat) || {};
-      if (window.octoPlannerAdd) window.octoPlannerAdd({
+      // Раніше тут стояла тиха перевірка `if (window.octoPlannerAdd)`: якби
+      // блок планера не завантажився, запис просто зникав, а той, хто кликав,
+      // рахував його успішним. Краще гучна помилка, ніж мовчазна втрата.
+      if (!window.octoPlannerAdd) throw new Error('Контент-план не завантажився — онови сторінку.');
+      window.octoPlannerAdd({
         date: dateKey, time: post.time || '11:00',
         contentType: CT_FROM_OLD[post.type] || 'post',
         idea: mat.title || post.note || 'Публікація',
@@ -14890,9 +14934,13 @@
           sourceCampaign: m.sourceCampaign, sourceMaterialId: m.sourceMaterialId,
         };
       });
-      save(existing.concat(campItems, out));
+      var fresh = existing.concat(campItems, out);
+      save(fresh);
       g.busy = false; g.open = false;
-      state.tab = 'today';
+      // «Сьогодні» типово, але якщо на сьогодні план нічого не поставив —
+      // людина побачить порожньо одразу після слів «План готовий».
+      var todayIso = iso(new Date());
+      state.tab = fresh.some(function (p) { return p.date === todayIso; }) ? 'today' : 'week';
       paintGen(); render();
       try { window.octoTrack('material_created', { type: 'content_plan', n: out.length }); } catch (e) {}
       if (typeof octoUseFeature !== 'undefined') octoUseFeature('campaign');
