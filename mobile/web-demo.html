@@ -11456,6 +11456,29 @@
   .ob-more { background:none; border:none; padding:6px 0 0; color:var(--accent2); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
   .ob-copybtn { margin-top:12px; background:var(--surface2); border:1px solid var(--border); border-radius:11px;
     color:var(--text2); font:700 13px 'Manrope',sans-serif; padding:9px 14px; cursor:pointer; }
+  /* Ці класи стояли в розмітці з самого початку, але правил до них не існувало
+     взагалі — мітка розділу («Підпис», «Хук 1») малювалась тим самим кеглем і
+     кольором, що й сам текст. Виходила суцільна стіна, з якої не зрозуміти,
+     ЩО саме копіювати в пост. */
+  .ob-variant { border-top:1px solid var(--border); padding:14px 0 2px; }
+  .ob-variant:first-child { border-top:none; padding-top:2px; }
+  .ob-variant p { font-size:14px; line-height:1.65; color:var(--text); margin:0; }
+  .ob-angle { display:inline-block; margin-bottom:9px; padding:5px 10px;
+    font:800 10.5px/1 'Manrope',sans-serif; letter-spacing:.09em; text-transform:uppercase;
+    color:#B5A8FF; background:rgba(139,123,255,.13);
+    border:1px solid rgba(139,123,255,.24); border-radius:8px; }
+  .ob-angle i { font-style:normal; font-weight:700; letter-spacing:.02em;
+    text-transform:none; color:rgba(255,255,255,.5); }
+  /* Головний блок — той, що людина реально вставляє в пост. */
+  .ob-variant.primary { border-top:none; margin:14px 0 4px; padding:14px 15px 4px;
+    border-radius:16px; background:rgba(108,99,255,.10); border:1px solid rgba(139,123,255,.30); }
+  .ob-variant.primary .ob-angle { color:#fff; background:rgba(139,123,255,.42);
+    border-color:rgba(139,123,255,.55); }
+  .ob-variant.primary .ob-angle i { color:rgba(255,255,255,.72); }
+  .ob-cap { margin-top:8px; font-size:13.5px; line-height:1.6; color:var(--text2); }
+  .ob-tags { font-size:13px; line-height:1.7; color:#8FB7FF; word-break:break-word; }
+  .ob-cta { margin-top:14px; padding:11px 13px; border-radius:13px; font-size:13.5px;
+    background:rgba(63,208,122,.09); border:1px solid rgba(63,208,122,.24); color:var(--text); }
   .ob-copybtn:hover { border-color:var(--accent); color:var(--text); }
   /* Deep sections fold away: the punch (summary + action sheet) reads first,
      the full brief is one tap deeper. */
@@ -12152,8 +12175,9 @@
     }
     // Copy is THE action for a text material — you take it and post it. The
     // text is registered by id (too long/quote-riddled for an attribute).
-    function copyBtn(plain) {
+    function copyBtn(plain, label) {
       if (!plain) return '';
+      label = label || '📋 Скопіювати текст';
       var id = 'mc_' + Math.random().toString(36).slice(2, 9);
       window.__octoMatTexts[id] = plain;
       // Web Share on mobile: one tap to Instagram/Telegram/etc. instead of
@@ -12161,7 +12185,7 @@
       var share = (typeof navigator !== 'undefined' && navigator.share)
         ? '<button class="ob-copybtn" type="button" onclick="octoShareMat(\'' + id + '\')">📤 Поділитися</button>' : '';
       return '<div style="display:flex;flex-wrap:wrap;gap:8px;">'
-        + '<button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + id + '\',this)">📋 Скопіювати текст</button>'
+        + '<button class="ob-copybtn" type="button" onclick="octoCopyMat(\'' + id + '\',this)">' + label + '</button>'
         + share + '</div>';
     }
     if (o.variants) { // legacy text material
@@ -12172,8 +12196,31 @@
           + ((v.hashtags || []).length ? '<div class="ob-tags">' + v.hashtags.map(esc).join(' ') + '</div>' : '') + '</div>';
       }).join('') + (o.cta ? '<div class="ob-cta">🎬 <b>CTA:</b> ' + esc(o.cta) + '</div>' : '') + copyBtn(vPlain);
     }
+    // Мітка сама по собі нічого не пояснює: «Основний текст», «Коротко» і
+    // «Підпис» виглядають рівноцінними, хоча в пост іде рівно один із них.
+    var HINTS = [
+      [/^підпис|caption/i,   'це вставляєш у пост', true],
+      [/^основн/i,           'довгий текст для реклами', false],
+      [/^коротко|short/i,    'коротка версія', false],
+      [/^хук|hook/i,         'перший рядок — щоб зупинити скрол', false],
+      [/^заголов|headline/i, 'назва креативу', false],
+    ];
     var items = (o.items || []).map(function (it) {
-      return '<div class="ob-variant">' + (it.label ? '<span class="ob-angle">' + esc(it.label) + '</span>' : '') + tblock(it.text) + '</div>';
+      var hint = '', primary = false;
+      for (var hi = 0; hi < HINTS.length; hi++) {
+        if (HINTS[hi][0].test(String(it.label || ''))) { hint = HINTS[hi][1]; primary = HINTS[hi][2]; break; }
+      }
+      var head = it.label
+        ? '<span class="ob-angle">' + esc(it.label) + (hint ? ' <i>· ' + esc(hint) + '</i>' : '') + '</span>'
+        : '';
+      // У підпис для Instagram теги йдуть разом із текстом — інакше людина
+      // копіює двічі й половину забуває.
+      var own = '';
+      if (primary) {
+        var tg = (o.hashtags || []).map(function (h) { return String(h)[0] === '#' ? h : '#' + h; }).join(' ');
+        own = copyBtn(String(it.text || '') + (tg ? '\n\n' + tg : ''), '📋 Скопіювати підпис');
+      }
+      return '<div class="ob-variant' + (primary ? ' primary' : '') + '">' + head + tblock(it.text) + own + '</div>';
     }).join('');
     var plain = [o.summary].concat((o.items || []).map(function (it) { return (it.label ? it.label + ': ' : '') + (it.text || ''); }))
       .filter(Boolean).join('\n\n')
