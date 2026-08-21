@@ -8911,7 +8911,46 @@
     incUsage(feature);
     if (typeof octoTrack === 'function') octoTrack(feature);
     octoUpdatePlanUI();
+    try { _maybeNudgePro(); } catch (e) {}
   };
+
+  // ── М'яка пропозиція Pro після реальної роботи ───────────────────────────────
+  // Ліміти зараз не вмикаються (немає каси), тому людина ні в що не впирається
+  // й до екрана Тарифи не доходить. Заявок було б нуль не через відсутність
+  // попиту, а через відсутність питання. Питаємо самі — але ПІСЛЯ того, як
+  // людина вже отримала користь: інакше це просто реклама на порожньому місці.
+  var NUDGE_AT = [3, 10];   // після 3-ї дії, потім ще раз після 10-ї
+
+  function _maybeNudgePro() {
+    var total = 0;
+    try {
+      total = (parseInt(localStorage.getItem('octo_actions_total'), 10) || 0) + 1;
+      localStorage.setItem('octo_actions_total', String(total));
+    } catch (e) { return; }
+
+    // Гостю спершу реєстрація; хто вже платить — не чіпаємо; коли зʼявиться
+    // жива каса, замість заявки має бути справжня оплата.
+    try { if (getPlan() === 'guest') return; } catch (e) { return; }
+    try { if (typeof octoIsPremium === 'function' && octoIsPremium()) return; } catch (e) {}
+    try { if (window.octoBilling && window.octoBilling.live === true) return; } catch (e) {}
+    try { if (localStorage.getItem('octo_req_sent') === '1') return; } catch (e) {}
+
+    var shown = 0;
+    try { shown = parseInt(localStorage.getItem('octo_req_nudge'), 10) || 0; } catch (e) {}
+    var stage = 0;
+    for (var i = 0; i < NUDGE_AT.length; i++) { if (total >= NUDGE_AT[i]) stage = i + 1; }
+    if (!stage || stage <= shown) return;
+    try { localStorage.setItem('octo_req_nudge', String(stage)); } catch (e) {}
+
+    // Не перебиваємо роботу: даємо побачити результат і не лізем поверх
+    // іншого шита, який людина щойно відкрила.
+    setTimeout(function () {
+      if (document.getElementById('_octoSheetOverlay')) return;
+      if (typeof window.octoRequestPro === 'function') {
+        window.octoRequestPro('pro', { via: 'nudge', done: total });
+      }
+    }, 1800);
+  }
 
   // ── Guest block sheet ────────────────────────────────────────────────────────
   function _guestSheet(feature) {
@@ -9199,15 +9238,20 @@
     }
   };
 
-  window.octoRequestPro = function (plan) {
+  window.octoRequestPro = function (plan, opts) {
     plan = (plan === 'business') ? 'business' : 'pro';
+    opts = opts || {};
+    var nudge = opts.via === 'nudge';
     var label = plan === 'business' ? 'Business' : 'Pro';
     var mail = '';
     try {
       var u = JSON.parse(localStorage.getItem('octo_user') || 'null');
       if (u && u.email && u.email.indexOf('@') > 0) mail = u.email;
     } catch (e) {}
-    try { window.octoTrack('upgrade_click', { plan: plan, via: 'request' }); } catch (e) {}
+    try {
+      window.octoTrack(nudge ? 'paywall_view' : 'upgrade_click',
+        { plan: plan, via: nudge ? 'nudge' : 'pricing', done: opts.done || 0 });
+    } catch (e) {}
 
     var chips = REQ_BUDGETS.map(function (b) {
       return '<button type="button" onclick="octoReqPick(this,' + JSON.stringify(b).replace(/"/g, '&quot;') + ')" ' +
@@ -9223,9 +9267,13 @@
     window._octoSheet(
       '<div id="reqSheet" style="background:#1a0d30;border-radius:24px 24px 0 0;padding:26px 20px 40px;width:100%;max-width:600px;border:1px solid #6C63FF55;box-sizing:border-box;max-height:88vh;overflow-y:auto;">' +
         '<div style="width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);margin:0 auto 16px;"></div>' +
-        '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;">Хочу ' + label + '</div>' +
+        '<div style="font-size:19px;font-weight:800;color:#fff;text-align:center;">' +
+          (nudge ? 'Скільки це варте?' : 'Хочу ' + label) + '</div>' +
         '<div style="font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin:6px 0 20px;line-height:1.6;">' +
-          'Оплата карткою ще вмикається. Лиши заявку — підключимо ' + label + ' вручну й напишемо особисто.' +
+          (nudge
+            ? 'Ти вже зробив ' + (opts.done || 0) + ' речей в Octo. Оплата карткою ще вмикається — ' +
+              'скажи, скільки Pro варте для тебе, і ми підключимо його вручну, щойно запустимо.'
+            : 'Оплата карткою ще вмикається. Лиши заявку — підключимо ' + label + ' вручну й напишемо особисто.') +
         '</div>' +
 
         '<div style="font-size:12.5px;font-weight:700;color:#B5A8FF;margin-bottom:8px;">Скільки це варте для тебе на місяць?</div>' +
@@ -9247,7 +9295,8 @@
           '-webkit-tap-highlight-color:transparent;">Надіслати заявку</button>' +
         '<button onclick="_octoSheetClose()" style="width:100%;padding:12px;margin-top:10px;background:transparent;' +
           'color:rgba(255,255,255,.5);font-size:13px;border:1px solid rgba(255,255,255,.15);border-radius:14px;' +
-          'cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">Пізніше</button>' +
+          'cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">' +
+          (nudge ? 'Не зараз' : 'Пізніше') + '</button>' +
       '</div>');
   };
 
@@ -9276,6 +9325,8 @@
       })
       .then(function (d) {
         try { window.octoTrack('upgrade_request', { plan: plan, budget: budget }); } catch (e) {}
+        // Людина відповіла — питати вдруге вже нечемно.
+        try { localStorage.setItem('octo_req_sent', '1'); } catch (e) {}
         var box = document.getElementById('reqSheet');
         if (!box) return;
         box.innerHTML =
