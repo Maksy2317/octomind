@@ -34,36 +34,85 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
 
-<!-- ════════════════════════════════════════════════════════════════════════
-     META PIXEL — вставити ПЕРЕД запуском реклами у Facebook / Instagram.
-
-     Навіщо: без пікселя Meta не бачить, хто дійшов до застосунку, і не може
-     оптимізувати показ. Ти платитимеш за покази без сигналу про конверсії —
-     це найдорожча помилка на старті рекламної кампанії.
-
-     Як увімкнути — ОДИН рядок:
-       1. business.facebook.com → Events Manager → Create Pixel → скопіювати ID.
-       2. Вписати його нижче в META_PIXEL_ID. Все.
-          Нічого розкоментовувати не треба: поки поле порожнє, скрипт Meta
-          навіть не вантажиться. Раніше тут треба було знімати HTML-коментар
-          вручну — легко було лишити в проді рядок «ВСТАВ_СВІЙ_PIXEL_ID»
-          і думати, що піксель працює.
-       3. Решта вже готова: функція track() на цій сторінці сама передасть
-          події у fbq, а CSP на сервері вже пропускає connect.facebook.net.
-     ════════════════════════════════════════════════════════════════════════ -->
+<!-- ── Аналітика Meta: тільки після явної згоди ────────────────────────────────
+     Піксель вантажився одразу при відкритті сторінки — дані про людину йшли в
+     Meta ще до того, як вона щось вирішила. Тепер за замовчуванням він
+     вимкнений: без згоди сторінка працює точно так само, просто мовчки. -->
 <script>
-  // ↓↓↓ ЄДИНЕ, ЩО ТРЕБА ЗМІНИТИ ↓↓↓
-  var META_PIXEL_ID = '1699400137947440';
-  // ↑↑↑ ────────────────────── ↑↑↑
-  if (META_PIXEL_ID && /^\d{6,}$/.test(META_PIXEL_ID)) {
+(function () {
+  var PIXEL_ID = '1699400137947440';
+  var KEY = 'octo_consent';                     // 'yes' | 'no'
+  function got() { try { return localStorage.getItem(KEY); } catch (e) { return 'no'; } }
+  function save(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+
+  function load() {
+    if (window.fbq || !/^\d{6,}$/.test(PIXEL_ID)) return;
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
-    document,'script','https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', META_PIXEL_ID);
-    fbq('track', 'PageView');
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+      n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+      document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', PIXEL_ID);
+    window.fbq('track', 'PageView');
   }
+
+  // Єдина точка виходу назовні. Немає згоди — немає жодного запиту.
+  window.octoPixel = function (name, custom) {
+    if (got() !== 'yes' || !window.fbq) return;
+    try { window.fbq(custom ? 'trackCustom' : 'track', name); } catch (e) {}
+  };
+
+  // Які кроки взагалі варті того, щоб їх бачила Meta. Не всі підряд: реклама
+  // оптимізується лише на ті події, які означають реальний намір.
+  var STD   = { signup: 'CompleteRegistration', upgrade_request: 'Lead' };
+  var FIRST = { strategy_created: 1, material_created: 1, package_done: 1 };
+  window.octoPixelMap = function (event) {
+    if (STD[event]) { window.octoPixel(STD[event]); return; }
+    if (FIRST[event]) {
+      // «Перший результат» — подія про момент, коли людина побачила користь.
+      // Шлемо один раз на людину, інакше Meta оптимізує на тих, хто багато
+      // клікає, а не на тих, хто дійшов до цінності.
+      try {
+        if (localStorage.getItem('octo_px_first')) return;
+        localStorage.setItem('octo_px_first', '1');
+      } catch (e) {}
+      window.octoPixel('FirstResult', true);
+    }
+  };
+
+  function ask() {
+    if (document.getElementById('octoConsent')) return;
+    var b = document.createElement('div');
+    b.id = 'octoConsent';
+    b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:100000;'
+      + 'max-width:540px;margin:0 auto;background:#12121c;color:#DDDCF5;'
+      + 'border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:16px 18px;'
+      + 'box-shadow:0 18px 44px rgba(0,0,0,.55);'
+      + "font:500 13.5px/1.6 Manrope,system-ui,-apple-system,sans-serif;";
+    var btn = 'border:none;border-radius:12px;padding:11px 16px;cursor:pointer;'
+      + "font:800 13px Manrope,system-ui,sans-serif;touch-action:manipulation;";
+    b.innerHTML =
+      '<div style="margin-bottom:13px;">Дозволити аналітику Meta? Вона показує нам, звідки '
+      + 'приходять люди — щоб не витрачати гроші на рекламу наосліп. '
+      + 'Відмовишся — усе працюватиме так само.</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<button id="ocYes" style="' + btn + 'background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;">Дозволити</button>'
+      + '<button id="ocNo" style="' + btn + 'background:rgba(255,255,255,.06);color:#DDDCF5;'
+      + 'border:1px solid rgba(255,255,255,.14);">Тільки необхідне</button>'
+      + '<a href="/privacy" style="margin-left:auto;color:#B5A8FF;font-weight:700;'
+      + 'font-size:12.5px;text-decoration:none;">Докладніше</a></div>';
+    document.body.appendChild(b);
+    document.getElementById('ocYes').onclick = function () { save('yes'); b.remove(); load(); };
+    document.getElementById('ocNo').onclick  = function () { save('no');  b.remove(); };
+  }
+
+  var c = got();
+  if (c === 'yes') load();
+  else if (c !== 'no') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ask);
+    else ask();
+  }
+})();
 </script>
 
 <style>

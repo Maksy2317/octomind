@@ -25,6 +25,112 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&family=Ubuntu:wght@700&display=swap" rel="stylesheet">
+<!-- ── Аналітика Meta: тільки після явної згоди ────────────────────────────────
+     Піксель вантажився одразу при відкритті сторінки — дані про людину йшли в
+     Meta ще до того, як вона щось вирішила. Тепер за замовчуванням він
+     вимкнений: без згоди сторінка працює точно так само, просто мовчки. -->
+<script>
+(function () {
+  var PIXEL_ID = '1699400137947440';
+  var KEY = 'octo_consent';                     // 'yes' | 'no'
+  function got() { try { return localStorage.getItem(KEY); } catch (e) { return 'no'; } }
+  function save(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+
+  function load() {
+    if (window.fbq || !/^\d{6,}$/.test(PIXEL_ID)) return;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+      n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+      document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', PIXEL_ID);
+    window.fbq('track', 'PageView');
+  }
+
+  // Єдина точка виходу назовні. Немає згоди — немає жодного запиту.
+  window.octoPixel = function (name, custom) {
+    if (got() !== 'yes' || !window.fbq) return;
+    try { window.fbq(custom ? 'trackCustom' : 'track', name); } catch (e) {}
+  };
+
+  // Які кроки взагалі варті того, щоб їх бачила Meta. Не всі підряд: реклама
+  // оптимізується лише на ті події, які означають реальний намір.
+  var STD   = { signup: 'CompleteRegistration', upgrade_request: 'Lead' };
+  var FIRST = { strategy_created: 1, material_created: 1, package_done: 1 };
+  window.octoPixelMap = function (event) {
+    if (STD[event]) { window.octoPixel(STD[event]); return; }
+    if (FIRST[event]) {
+      // «Перший результат» — подія про момент, коли людина побачила користь.
+      // Шлемо один раз на людину, інакше Meta оптимізує на тих, хто багато
+      // клікає, а не на тих, хто дійшов до цінності.
+      try {
+        if (localStorage.getItem('octo_px_first')) return;
+        localStorage.setItem('octo_px_first', '1');
+      } catch (e) {}
+      window.octoPixel('FirstResult', true);
+    }
+  };
+
+  function ask() {
+    if (document.getElementById('octoConsent')) return;
+    var b = document.createElement('div');
+    b.id = 'octoConsent';
+    b.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:100000;'
+      + 'max-width:540px;margin:0 auto;background:#12121c;color:#DDDCF5;'
+      + 'border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:16px 18px;'
+      + 'box-shadow:0 18px 44px rgba(0,0,0,.55);'
+      + "font:500 13.5px/1.6 Manrope,system-ui,-apple-system,sans-serif;";
+    var btn = 'border:none;border-radius:12px;padding:11px 16px;cursor:pointer;'
+      + "font:800 13px Manrope,system-ui,sans-serif;touch-action:manipulation;";
+    b.innerHTML =
+      '<div style="margin-bottom:13px;">Дозволити аналітику Meta? Вона показує нам, звідки '
+      + 'приходять люди — щоб не витрачати гроші на рекламу наосліп. '
+      + 'Відмовишся — усе працюватиме так само.</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<button id="ocYes" style="' + btn + 'background:linear-gradient(135deg,#8B7BFF,#6C63FF);color:#fff;">Дозволити</button>'
+      + '<button id="ocNo" style="' + btn + 'background:rgba(255,255,255,.06);color:#DDDCF5;'
+      + 'border:1px solid rgba(255,255,255,.14);">Тільки необхідне</button>'
+      + '<a href="/privacy" style="margin-left:auto;color:#B5A8FF;font-weight:700;'
+      + 'font-size:12.5px;text-decoration:none;">Докладніше</a></div>';
+    document.body.appendChild(b);
+    document.getElementById('ocYes').onclick = function () { save('yes'); b.remove(); load(); };
+    document.getElementById('ocNo').onclick  = function () { save('no');  b.remove(); };
+  }
+
+  // Керування згодою з екрана «Налаштування».
+  window.octoConsentState = got;
+  window.octoConsentToggle = function (btn) {
+    var now = got() === 'yes' ? 'no' : 'yes';
+    save(now);
+    if (now === 'yes') load();
+    // Вимкнення діє з наступного відкриття: прибрати вже завантажений скрипт
+    // Meta зі сторінки неможливо, і вдавати протилежне було б брехнею.
+    window.octoConsentPaint();
+    if (now === 'no' && btn) {
+      var n = document.getElementById('ocConsentState');
+      if (n) n.innerHTML += ' <span style="color:var(--amber);">Повністю набуде чинності після перезавантаження сторінки.</span>';
+    }
+  };
+  window.octoConsentPaint = function () {
+    var on = got() === 'yes';
+    var st = document.getElementById('ocConsentState');
+    var bt = document.getElementById('ocConsentBtn');
+    if (st) st.textContent = on ? '✅ Увімкнено' : '⛔ Вимкнено — нічого нікуди не йде';
+    if (bt) bt.textContent = on ? 'Вимкнути аналітику' : 'Увімкнути аналітику';
+  };
+  document.addEventListener('DOMContentLoaded', function () {
+    try { window.octoConsentPaint(); } catch (e) {}
+  });
+
+  var c = got();
+  if (c === 'yes') load();
+  else if (c !== 'no') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ask);
+    else ask();
+  }
+})();
+</script>
+
   <!-- TensorFlow.js + BodyPix (~1.5MB) load LAZILY on first photo-cutout use.
        Eager <script> tags were both dead weight and dead code: the server CSP
        blocked them anyway, so every visit fired two refused requests while the
@@ -333,6 +439,9 @@
 
     window.octoTrack = function (event, props) {
       try {
+        // Ключові кроки дублюємо в Meta — інакше реклама оптимізується на
+        // кліки, а не на реєстрації. Всередині є перевірка згоди.
+        try { if (window.octoPixelMap) window.octoPixelMap(event); } catch (e) {}
         var dev = window.octoDeviceId();
         // Джерело переходу (?source=…) писалось у localStorage і не йшло
         // НІКУДИ. Без нього воронку неможливо порізати за каналом.
@@ -4032,6 +4141,15 @@
             <div class="card-sub" style="margin-bottom:12px;">Якщо здається, що зміни не доїхали — звір версії й натисни оновлення.</div>
             <div id="buildInfo" style="font:600 12.5px ui-monospace,monospace;color:var(--text3);line-height:1.9;">Перевіряю…</div>
             <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="octoForceUpdate(this)">⬇️ Завантажити свіжу версію</button>
+          </div>
+
+          <!-- Відкликати згоду має бути так само просто, як її дати: інакше
+               «Дозволити» — це пастка, а не вибір. -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title" style="font-size:15px;">📊 Аналітика Meta</div>
+            <div class="card-sub" style="margin-bottom:12px;">Показує нам, звідки приходять люди. На роботу застосунку не впливає — можна вимкнути будь-коли.</div>
+            <div id="ocConsentState" style="font-size:13px;color:var(--text2);margin-bottom:10px;"></div>
+            <button class="btn btn-secondary" style="width:100%;" onclick="octoConsentToggle(this)" id="ocConsentBtn">…</button>
           </div>
 
           <!-- PWA INSTALL — big prominent button -->
