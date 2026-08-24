@@ -9,7 +9,7 @@ import { meter } from '../middleware/quota';
 import { getBusinessProfile, createGeneration } from '../services/db/repos';
 import { BusinessProfile } from '../services/db/models';
 import { getTrendFeed, getProfileVideos, isTrendsConfigured, isInstagramEnabled, isSourceCoolingDown, sourceOut, kvGet, kvSet } from '../services/trends';
-import { analyzeViralVideo, generateTrendQueries, auditOwnPage, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
+import { analyzeViralVideo, generateTrendQueries, auditOwnPage, fitTrendsToCreator, profileToContext, isMarketingConfigured } from '../services/ai/marketing';
 
 export const trendsRouter = Router();
 
@@ -92,6 +92,151 @@ trendsRouter.post('/feed', meter('trend_feed'), async (req: Request, res: Respon
     const feed = await getTrendFeed(queries, force, platform);
     res.json({ ...feed, queries, platform });
   } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/trends/my-feed — стрічка трендів ПІД КОНКРЕТНИЙ АКАУНТ.
+// Body: { handle, query?, intent?, profile?, force? }
+//
+// Звичайна стрічка — це пошук у TikTok: людина бачить чужі ролики і сама
+// здогадується, що з них узяти. Тут ланцюг інший: спершу читаємо СТОРІНКУ
+// автора (що в нього вже працює), потім із цього будуємо пошукові запити,
+// і вже знайдене оцінюємо його ж очима — чи потягне він таке зняти.
+//
+// Три кеші, бо кожен крок коштує грошей: портрет автора живе 7 днів,
+// запити 24 години, сама стрічка — у getTrendFeed.
+trendsRouter.post('/my-feed', meter('trend_feed'), async (req: Request, res: Response, next: NextFunction) => {
+  if (!isTrendsConfigured() || isSourceCoolingDown()) {
+    if (!isTrendsConfigured()) console.error('[Trends] APIFY_TOKEN відсутній — персональна стрічка вимкнена');
+    const off = sourceOut();
+    res.status(503).json({ error: off.message, code: off.code, retryable: false });
+    return;
+  }
+  if (!isMarketingConfigured()) {
+    res.status(503).json({ error: 'Octo зараз не може думати — AI тимчасово недоступний. Спробуй за кілька хвилин.', retryable: true });
+    return;
+  }
+  const handle = typeof req.body?.handle === 'string' ? req.body.handle.trim().slice(0, 120) : '';
+  if (!handle) {
+    res.status(400).json({ error: 'Вкажи свій @нік у TikTok — інакше немає з чим звіряти тренди' });
+    return;
+  }
+
+  try {
+    const { ctx, profileId } = await resolveCtx(req);
+    const force = req.body?.force === true;
+
+    // ── 1. Портрет автора ────────────────────────────────────────────────────
+    const styleKey = `style:${handle.toLowerCase()}`;
+    let style = force ? null : kvGet<{ ctx: string; summary: string; author: unknown }>(styleKey, 7 * 24 * 3_600_000);
+    if (!style) {
+      const page = await getProfileVideos(handle, force);
+      if (!page.videos.length) {
+        res.status(404).json({ error: 'Не знайшов роликів на цій сторінці — перевір нік (як у TikTok, без пробілів)' });
+        return;
+      }
+      const slim = page.videos.map((v) => ({
+        text: v.text.slice(0, 200), views: v.views, likes: v.likes, comments: v.comments,
+        shares: v.shares, created: v.created, duration: v.duration, hashtags: v.hashtags,
+      }));
+      const audit = await auditOwnPage(ctx, page.author as unknown as Record<string, unknown>, slim);
+      // Стислий портрет: у промпт оцінювача йде саме він, а не весь розбір —
+      // інакше половина контексту витрачається на текст, який там не потрібен.
+      const durations = page.videos.map((v) => Number(v.duration) || 0).filter(Boolean);
+      const avgDur = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+      const ctxStr = [
+        `Нік: @${handle.replace(/^@/, '')}`,
+        `Коротко: ${audit.summary || '—'}`,
+        `Що вже працює: ${(audit.what_works || []).join(' | ') || '—'}`,
+        `Що не заходить: ${(audit.weak_spots || []).join(' | ') || '—'}`,
+        avgDur ? `Звична тривалість ролика: ~${avgDur} сек` : '',
+        `Роликів у вибірці: ${page.videos.length}`,
+      ].filter(Boolean).join('\n');
+      style = { ctx: ctxStr, summary: audit.summary || '', author: page.author };
+      kvSet(styleKey, style as unknown as Record<string, unknown>);
+    }
+
+    // ── 2. Що шукати ─────────────────────────────────────────────────────────
+    const intent = typeof req.body?.intent === 'string' ? req.body.intent : 'selling';
+    const topic = (typeof req.body?.query === 'string' && req.body.query.trim())
+      ? req.body.query.trim().slice(0, 120)
+      : String((req.body?.profile || {}).niche || '').slice(0, 120);
+    if (!topic) {
+      res.status(400).json({ error: 'Заповни нішу в профілі бізнесу або вкажи, що шукати' });
+      return;
+    }
+    let queries: string[] = [topic];
+    const expKey = `myexp:${handle.toLowerCase()}:${intent}:${topic.toLowerCase()}`;
+    const pinned = force ? null : kvGet<string[]>(expKey, 24 * 3_600_000);
+    if (pinned && pinned.length) {
+      queries = pinned;
+    } else {
+      try {
+        // Портрет автора йде в контекст запитів: шукаємо не «щось про нішу»,
+        // а те, що близьке до форматів, які в цієї людини вже працюють.
+        const expanded = await generateTrendQueries(`${ctx}\n\nЩо вже працює на сторінці клієнта:\n${style.ctx}`, topic, intent, 'tiktok');
+        if (Array.isArray(expanded.queries) && expanded.queries.length) {
+          queries = expanded.queries.map((q) => String(q).slice(0, 60)).slice(0, 3);
+          kvSet(expKey, queries);
+        }
+      } catch (e) {
+        console.warn('[Trends] my-feed: розширення запитів не вдалось:', (e as Error).message?.slice(0, 120));
+      }
+    }
+
+    // ── 3. Стрічка ───────────────────────────────────────────────────────────
+    const feed = await getTrendFeed(queries, force, 'tiktok');
+    const videos = (feed.videos || []) as unknown as Array<Record<string, unknown>>;
+    if (!videos.length) {
+      res.json({ ...feed, queries, platform: 'tiktok', style: { summary: style.summary }, fitted: false });
+      return;
+    }
+
+    // ── 4. Оцінка під автора ─────────────────────────────────────────────────
+    let fitted = false;
+    try {
+      const slim = videos.slice(0, 24).map((v, i) => ({
+        i,
+        text: String(v.text || '').slice(0, 180),
+        views: Number(v.views) || 0,
+        duration: v.duration == null ? null : Number(v.duration),
+      }));
+      const { items } = await fitTrendsToCreator(style.ctx, ctx, slim);
+      const byIdx: Record<number, { fit: number; idea: string }> = {};
+      (items || []).forEach((it) => {
+        const i = Number(it.i);
+        if (Number.isFinite(i)) {
+          byIdx[i] = { fit: Math.max(1, Math.min(5, Number(it.fit) || 1)), idea: String(it.idea || '').slice(0, 400) };
+        }
+      });
+      videos.forEach((v, i) => {
+        if (byIdx[i]) { v.fit = byIdx[i].fit; v.idea = byIdx[i].idea; }
+      });
+      fitted = Object.keys(byIdx).length > 0;
+    } catch (e) {
+      // Стрічка без оцінок — це просто стара стрічка. Гірше, ніж могло бути,
+      // але не поламано; клієнт покаже її як звичайну і скаже про це чесно.
+      console.warn('[Trends] my-feed: оцінка під автора не вдалась:', (e as Error).message?.slice(0, 160));
+    }
+
+    if (req.userId) {
+      try {
+        await createGeneration({
+          userId: req.userId, businessProfileId: profileId, type: 'trend_my_feed',
+          input: { handle, topic, queries } as unknown as Record<string, unknown>,
+          output: { count: videos.length, fitted } as unknown as Record<string, unknown>,
+        });
+      } catch { /* non-fatal */ }
+    }
+
+    res.json({ ...feed, videos, queries, platform: 'tiktok', style: { summary: style.summary }, fitted });
+  } catch (err) {
+    if ((err as { code?: string }).code === 'trends_source_out') {
+      const off = sourceOut();
+      res.status(503).json({ error: off.message, code: off.code, retryable: false });
+      return;
+    }
     next(err);
   }
 });

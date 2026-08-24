@@ -3963,6 +3963,17 @@
             .tf-an ul { margin:6px 0 0 18px; padding:0; }
             .tf-an li { margin-bottom:4px; color:var(--text2); }
             .tf-adapt { background:rgba(108,99,255,.08); border:1px solid rgba(108,99,255,.3); border-radius:12px; padding:12px; margin-top:10px; }
+          /* Оцінка «чи зніму це я» — головне, заради чого існує персональна
+             стрічка. Тому вона над метриками, а не десь у підвалі картки. */
+          .tf-fit { display:flex; gap:9px; align-items:flex-start; margin:0 0 10px;
+            padding:10px 11px; border-radius:12px; background:rgba(108,99,255,.10);
+            border:1px solid rgba(139,123,255,.28); font-size:13px; line-height:1.55; }
+          .tf-fit-n { flex:none; width:30px; height:30px; border-radius:9px; display:flex;
+            align-items:center; justify-content:center; font:800 13px 'Manrope',sans-serif; color:#fff; }
+          .tf-fit-hi { background:linear-gradient(135deg,#3FD07A,#2FA85E); }
+          .tf-fit-mid{ background:linear-gradient(135deg,#8B7BFF,#6C63FF); }
+          .tf-fit-lo { background:rgba(255,255,255,.10); color:var(--text3); }
+          .tf-mine-hint { font-size:12px; color:var(--text4); margin-top:6px; line-height:1.5; }
           </style>
           <div class="card">
             <div class="on-hero">
@@ -3982,6 +3993,14 @@
               <button class="tf-intent" data-intent="fun" onclick="octoTrendsIntent(this)">😂 Меми й розваги</button>
               <button class="tf-intent" data-intent="raw" onclick="octoTrendsIntent(this)">🔍 Просто за словом</button>
             </div>
+            <!-- Головна відмінність від пошуку в TikTok: стрічка звіряється з
+                 конкретною сторінкою, а не з нішею взагалі. -->
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+              <input id="tfHandle" class="ob-input" style="margin-top:0;flex:1;min-width:170px;" placeholder="@твій нік у TikTok">
+              <button class="btn btn-primary" id="tfMineBtn" style="padding:10px 16px;white-space:nowrap;flex:none;" onclick="octoTrendsMine()">✨ Під мій акаунт</button>
+            </div>
+            <div class="tf-mine-hint">Octo прочитає твою сторінку й залишить лише ті тренди, які ти реально зможеш зняти — з готовою ідеєю під твій товар.</div>
+
             <div style="display:flex;gap:8px;margin-top:10px;">
               <input id="tfQuery" class="ob-input" style="margin-top:0;flex:1;" placeholder="Ніша або ключові слова, напр.: барбершоп">
               <button class="btn btn-primary" id="tfBtn" style="padding:10px 16px;white-space:nowrap;flex:none;" onclick="octoTrendsRun()">Знайти</button>
@@ -14250,6 +14269,78 @@
     return h + ' год тому';
   }
 
+  // ── Стрічка під конкретний акаунт ──────────────────────────────────────────
+  // Звичайний пошук показує чужі ролики й лишає людину наодинці з питанням
+  // «і що?». Тут Octo спершу читає ТВОЮ сторінку, а потім кожен знайдений
+  // ролик оцінює твоїми очима: чи потягнеш зняти — і що саме зняти.
+  var fitted = false;   // чи прийшли оцінки; від цього залежить сортування
+
+  function myHandle() {
+    var el = $('tfHandle');
+    var v = el ? String(el.value || '').trim() : '';
+    if (!v) { try { v = localStorage.getItem('octo_my_tiktok') || ''; } catch (e) {} if (v && el) el.value = v; }
+    return v;
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    try {
+      var v = localStorage.getItem('octo_my_tiktok');
+      var el = $('tfHandle');
+      if (v && el && !el.value) el.value = v;
+    } catch (e) {}
+  });
+
+  window.octoTrendsMine = function (force) {
+    var h = myHandle();
+    if (!h) { status('err', 'Впиши свій нік у TikTok — інакше немає з чим звіряти.'); var el = $('tfHandle'); if (el) el.focus(); return; }
+    try { localStorage.setItem('octo_my_tiktok', h); } catch (e) {}
+    if (typeof octoCanUse === 'function' && !octoCanUse('trend_feed')) return;
+
+    var btn = $('tfMineBtn'); if (btn) btn.disabled = true;
+    var q = ($('tfQuery').value || '').trim();
+    status('busy', 'Octo читає твою сторінку і шукає, що з трендів тобі підійде (30-60 сек)…');
+    var fEl = $('tfFeed');
+    if (fEl) fEl.innerHTML = window.omLoaderHTML('A10', 'Octo вивчає твій акаунт', 'Спершу твоя сторінка, потім тренди під неї — 30-60 сек');
+    var flt = $('tfFilters'); if (flt) flt.style.display = 'none';
+    var qu = $('tfQueriesUsed'); if (qu) qu.style.display = 'none';
+
+    fetch('/api/trends/my-feed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId() },
+      body: JSON.stringify({ handle: h, query: q, intent: curIntent, profile: bizProfile(), force: force === true && isPro() }),
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        if (!r.ok) { var er = new Error(d.error || ('HTTP ' + r.status)); er.code = d.code; throw er; }
+        return d;
+      });
+    })
+      .then(function (d) {
+        if (btn) btn.disabled = false;
+        all = d.videos || [];
+        fitted = d.fitted === true;
+        lastQuery = q || 'мій акаунт';
+        if (typeof octoUseFeature === 'function') octoUseFeature('trend_feed');
+        var qu2 = $('tfQueriesUsed');
+        if (qu2) {
+          qu2.style.display = '';
+          qu2.innerHTML = (d.style && d.style.summary ? '🧭 ' + esc(String(d.style.summary).slice(0, 180)) + '<br>' : '')
+            + '🔎 Шукав: ' + (d.queries || []).map(esc).join(' · ');
+        }
+        var flt2 = $('tfFilters'); if (flt2) flt2.style.display = '';
+        // Чесно кажемо, коли оцінок немає: інакше людина вирішить, що фіча
+        // просто не працює, хоча стрічка перед нею — звичайна й робоча.
+        status(fitted ? 'ok' : 'warn',
+          fitted ? '✅ Відсортовано за тим, що ти реально зможеш зняти'
+                 : '⚠️ Ролики знайшлись, але оцінити під твій акаунт не вдалось — показую як звичайну стрічку');
+        window.octoTrendsRender();
+      })
+      .catch(function (e) {
+        if (btn) btn.disabled = false;
+        if (fEl) fEl.innerHTML = '';
+        var msg = /Failed to fetch|NetworkError/i.test(e.message) ? 'Немає звʼязку з сервером.' : e.message;
+        status('err', '⚠️ ' + msg);
+      });
+  };
+
   window.octoTrendsRun = function (force) {
     var q = ($('tfQuery').value || '').trim();
     if (!q) { status('err', 'Напиши нішу або ключові слова.'); return; }
@@ -14273,6 +14364,7 @@
     })
       .then(function (d) {
         all = d.videos || [];
+        fitted = false;          // звичайний пошук оцінок не дає
         lastQuery = q + ':' + curIntent;
         // Variety day-to-day: videos the user has already seen get demoted to
         // the end of the feed, so each visit leads with something new.
@@ -14360,9 +14452,28 @@
     btn.parentNode.replaceChild(fr, btn);
   };
 
+  // Оцінка «чи зніму це я»: 5 — телефоном за пів години, 1 — потрібні актори
+  // й бюджет. Показуємо цифру, а не слово: людина порівнює картки очима.
+  function fitBlock(v) {
+    if (!v || !v.idea) return '';
+    var n = Number(v.fit) || 0;
+    var cls = n >= 4 ? 'tf-fit-hi' : n >= 3 ? 'tf-fit-mid' : 'tf-fit-lo';
+    return '<div class="tf-fit">'
+      + '<span class="tf-fit-n ' + cls + '" title="Наскільки це реально зняти тобі">' + (n || '—') + '</span>'
+      + '<span>' + esc(v.idea) + '</span></div>';
+  }
+
   window.octoTrendsRender = function () {
     var el = $('tfFeed'); if (!el) return;
     var list = all.filter(passes);
+    // Сортуємо лише коли оцінки справді прийшли. Інакше стрічка мовчки
+    // перемішалась би без причини, а порядок джерела теж має сенс.
+    if (fitted) {
+      list = list.slice().sort(function (a, b) {
+        var d = (Number(b.fit) || 0) - (Number(a.fit) || 0);
+        return d !== 0 ? d : (Number(b.views) || 0) - (Number(a.views) || 0);
+      });
+    }
     if (!list.length) {
       // Порожній екран БЕЗ пояснення читався як «пошук зламався». Тепер обидва
       // випадки говорять: або фільтри занадто вузькі, або джерело нічого не дало.
@@ -14401,6 +14512,7 @@
           + '<div style="font-size:12px;color:var(--text3);">' + fmt(v.views) + ' переглядів чекають на тебе</div>'
           + '<button class="btn btn-primary" style="padding:8px 18px;font-size:13px;" onclick="showScreen(\'pricing\',null)">Розблокувати</button></div></div>';
       var body = '<div class="tf-body">'
+        + fitBlock(v)
         + '<div class="tf-metrics"><span>👁 ' + fmt(v.views) + '</span><span>❤️ ' + fmt(v.likes) + '</span><span>💬 ' + fmt(v.comments) + '</span>' + (v.shares ? '<span>↗️ ' + fmt(v.shares) + '</span>' : '') + '</div>'
         + '<div class="tf-meta">' + (v.created ? fmtDate(v.created) + ' · ' : '') + (v.duration != null ? v.duration + ' сек · ' : '') + (v.lang || '') + (v.author ? ' · <a href="' + esc(v.url) + '" target="_blank" rel="noopener" style="color:var(--accent2);">@' + esc(v.author) + '</a>' : '') + '</div>'
         + (v.text ? '<div class="tf-text">' + esc(v.text) + '</div>' : '')
