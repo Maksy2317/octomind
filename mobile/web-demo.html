@@ -5653,12 +5653,18 @@
               bubble.innerHTML = '❌ Не вдалося отримати відповідь — спробуй ще раз';
               return;
             }
-            if (parsed.text) { fullText += parsed.text; bubble.innerHTML = window.chMd(fullText); }
+            if (parsed.text) { fullText += parsed.text; bubble.innerHTML = window.chMd(window.octoChatStrip(fullText)); }
           } catch {}
         }
         chatScrollBottom(msgs);
       }
 
+      var actKind = window.octoChatMark(fullText);
+      if (actKind) {
+        fullText = window.octoChatStrip(fullText);
+        bubble.innerHTML = window.chMd(fullText) + window.octoChatCardHtml(actKind);
+        chatScrollBottom(msgs);
+      }
       if (fullText && !fullText.startsWith('❌')) {
         chatHistory.push({ role: 'assistant', content: fullText });
         const toSave = chatHistory.filter(m => typeof m.content === 'string').slice(-40);
@@ -5672,6 +5678,59 @@
     }
     chatScrollBottom(msgs);
   }
+
+  // ── Чат → розділ застосунку ────────────────────────────────────────────────
+  // Людина просить у чаті те, для чого в застосунку є окремий розділ. Раніше
+  // Octo просто відповідав текстом, і результат нікуди не зберігався: ні в
+  // план, ні в «Мої ідеї». Тепер модель ставить мітку першим рядком, ми її
+  // ховаємо й показуємо кнопку, яка веде рівно туди — з тим самим запитом.
+  var OCTO_ACTIONS = {
+    content_plan: { icon: '📅', title: 'Скласти контент-план',
+      note: 'Тиждень по днях, із кадрами й підписами — і одразу в календар',
+      run: function () { showScreen('calendar', null); try { window.octoPlanner.openGen(); } catch (e) {} } },
+    campaign: { icon: '🎯', title: 'Зібрати кампанію',
+      note: 'Стратегія під ціль + план дій + матеріали',
+      run: function () { showScreen('campaign', null); } },
+    product_ad: { icon: '📦', title: 'Реклама з фото товару',
+      note: 'Одне фото — і готові креативи за 40 секунд',
+      run: function () { showScreen('prodads', null); } },
+    page_audit: { icon: '🔍', title: 'Розібрати мою сторінку',
+      note: 'Що працює, що провалюється і що знімати далі',
+      run: function () { showScreen('audit', null); } },
+    research: { icon: '🔎', title: 'Дослідити ринок',
+      note: 'Octo пошукає, що зараз працює у твоїй ніші',
+      run: function () { showScreen('research', null); } },
+    trends: { icon: '🔥', title: 'Відкрити тренди',
+      note: 'Вірусні ролики, відсортовані під твій акаунт',
+      run: function () { showScreen('trends', null); } },
+    team: { icon: '👥', title: 'Команда Octo',
+      note: '12 фахівців: реферали, колаби, оффер, ціни, запуск',
+      run: function () { showScreen('team', null); } },
+  };
+
+  // Мітка мусить бути ПЕРШИМ рядком — так модель її не загубить у середині
+  // тексту, а ми не виріжемо випадкову згадку з відповіді.
+  window.octoChatMark = function (t) {
+    var m = /^\s*\[\[OCTO:([a-z_]+)\]\]\s*/.exec(t || '');
+    return m && OCTO_ACTIONS[m[1]] ? m[1] : null;
+  };
+  window.octoChatStrip = function (t) {
+    return String(t || '').replace(/^\s*\[\[OCTO:[a-z_]+\]\]\s*/, '');
+  };
+  window.octoChatRun = function (kind) {
+    var a = OCTO_ACTIONS[kind]; if (!a) return;
+    try { window.octoTrack('material_created', { type: 'chat_action', kind: kind }); } catch (e) {}
+    a.run();
+  };
+  window.octoChatCardHtml = function (kind) {
+    var a = OCTO_ACTIONS[kind]; if (!a) return '';
+    return '<div class="oc-chatact">'
+      + '<div class="oc-chatact-ico">' + a.icon + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div class="oc-chatact-t">' + a.title + '</div>'
+      + '<div class="oc-chatact-n">' + a.note + '</div></div>'
+      + '<button class="oc-chatact-b" onclick="octoChatRun(\'' + kind + '\')">Відкрити →</button></div>';
+  };
 
   // Analyzer
 
@@ -11594,6 +11653,16 @@
   .ob-vtext { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
   .ob-vtext.open { display:block; }
   .ob-more { background:none; border:none; padding:6px 0 0; color:var(--accent2); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
+  .oc-chatact { display:flex; align-items:center; gap:12px; margin-top:12px; padding:12px 14px;
+    border-radius:16px; background:rgba(108,99,255,.12); border:1px solid rgba(139,123,255,.32); }
+  .oc-chatact-ico { flex:none; width:40px; height:40px; border-radius:12px; display:flex;
+    align-items:center; justify-content:center; font-size:19px;
+    background:rgba(139,123,255,.18); border:1px solid rgba(139,123,255,.26); }
+  .oc-chatact-t { font-size:14px; font-weight:800; color:var(--text); }
+  .oc-chatact-n { font-size:12px; color:var(--text3); line-height:1.45; margin-top:2px; }
+  .oc-chatact-b { flex:none; border:none; border-radius:11px; padding:9px 14px; cursor:pointer;
+    font:800 12.5px 'Manrope',sans-serif; color:#fff; background:linear-gradient(135deg,#8B7BFF,#6C63FF);
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .ob-copybtn { margin-top:12px; background:var(--surface2); border:1px solid var(--border); border-radius:11px;
     color:var(--text2); font:700 13px 'Manrope',sans-serif; padding:9px 14px; cursor:pointer; }
   /* Ці класи стояли в розмітці з самого початку, але правил до них не існувало
