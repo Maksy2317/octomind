@@ -5662,8 +5662,10 @@
       var actKind = window.octoChatMark(fullText);
       if (actKind) {
         fullText = window.octoChatStrip(fullText);
-        bubble.innerHTML = window.chMd(fullText) + window.octoChatCardHtml(actKind);
+        var actId = 'act-' + Date.now();
+        bubble.innerHTML = window.chMd(fullText) + window.octoChatCardHtml(actKind, actId);
         chatScrollBottom(msgs);
+        try { window.octoChatAuto(actKind, actId); } catch (e) {}
       }
       if (fullText && !fullText.startsWith('❌')) {
         chatHistory.push({ role: 'assistant', content: fullText });
@@ -5684,32 +5686,35 @@
   // Octo просто відповідав текстом, і результат нікуди не зберігався: ні в
   // план, ні в «Мої ідеї». Тепер модель ставить мітку першим рядком, ми її
   // ховаємо й показуємо кнопку, яка веде рівно туди — з тим самим запитом.
+  // auto  — можна запустити одразу: усі дані вже є в профілі
+  // needs — чого бракує; такі дії лише відкривають розділ, бо без цього
+  //         запуск нічого не дасть (фото, нік, вибір цілі)
   var OCTO_ACTIONS = {
-    content_plan: { icon: '📅', title: 'Скласти контент-план',
-      note: 'Тиждень по днях, із кадрами й підписами — і одразу в календар',
-      run: function () { showScreen('calendar', null); try { window.octoPlanner.openGen(); } catch (e) {} } },
-    campaign: { icon: '🎯', title: 'Зібрати кампанію',
-      note: 'Стратегія під ціль + план дій + матеріали',
-      run: function () { showScreen('campaign', null); } },
-    product_ad: { icon: '📦', title: 'Реклама з фото товару',
-      note: 'Одне фото — і готові креативи за 40 секунд',
-      run: function () { showScreen('prodads', null); } },
-    page_audit: { icon: '🔍', title: 'Розібрати мою сторінку',
-      note: 'Що працює, що провалюється і що знімати далі',
-      run: function () { showScreen('audit', null); } },
-    research: { icon: '🔎', title: 'Дослідити ринок',
-      note: 'Octo пошукає, що зараз працює у твоїй ніші',
-      run: function () { showScreen('research', null); } },
-    trends: { icon: '🔥', title: 'Відкрити тренди',
-      note: 'Вірусні ролики, відсортовані під твій акаунт',
-      run: function () { showScreen('trends', null); } },
-    team: { icon: '👥', title: 'Команда Octo',
-      note: '12 фахівців: реферали, колаби, оффер, ціни, запуск',
-      run: function () { showScreen('team', null); } },
+    content_plan: { icon: '📅', title: 'Контент-план на тиждень',
+      note: 'По днях, із кадрами й підписами — одразу в календар',
+      screen: 'calendar',
+      auto: function () { try { window.octoPlanner.genRun(); return true; } catch (e) { return false; } },
+      ready: function (n) { try { return window.octoPlannerStore.load().length > n; } catch (e) { return false; } },
+      count: function () { try { return window.octoPlannerStore.load().length; } catch (e) { return 0; } } },
+    research: { icon: '🔎', title: 'Дослідження ринку',
+      note: 'Реальний пошук у мережі — що зараз працює у твоїй ніші',
+      screen: 'research',
+      auto: function () { try { window.octoResearchRun(); return true; } catch (e) { return false; } },
+      ready: function () { var el = document.getElementById('rsResult');
+        return !!el && el.innerHTML.length > 400 && !/om-loader|Octo досліджує/.test(el.innerHTML); },
+      count: function () { return 0; } },
+    campaign:   { icon: '🎯', title: 'Зібрати кампанію', screen: 'campaign',
+      note: 'Стратегія під ціль, план дій і матеріали', needs: 'треба обрати ціль' },
+    product_ad: { icon: '📦', title: 'Реклама з фото товару', screen: 'prodads',
+      note: 'Одне фото — і готові креативи за 40 секунд', needs: 'потрібне фото товару' },
+    page_audit: { icon: '🔍', title: 'Розбір моєї сторінки', screen: 'audit',
+      note: 'Що працює, що провалюється і що знімати далі', needs: 'потрібен нік сторінки' },
+    trends:     { icon: '🔥', title: 'Тренди', screen: 'trends',
+      note: 'Вірусні ролики, відсортовані під твій акаунт', needs: 'треба вказати нішу або нік' },
+    team:       { icon: '👥', title: 'Команда Octo', screen: 'team',
+      note: '12 фахівців: реферали, колаби, оффер, ціни, запуск', needs: 'треба обрати фахівця' },
   };
 
-  // Мітка мусить бути ПЕРШИМ рядком — так модель її не загубить у середині
-  // тексту, а ми не виріжемо випадкову згадку з відповіді.
   window.octoChatMark = function (t) {
     var m = /^\s*\[\[OCTO:([a-z_]+)\]\]\s*/.exec(t || '');
     return m && OCTO_ACTIONS[m[1]] ? m[1] : null;
@@ -5720,16 +5725,41 @@
   window.octoChatRun = function (kind) {
     var a = OCTO_ACTIONS[kind]; if (!a) return;
     try { window.octoTrack('material_created', { type: 'chat_action', kind: kind }); } catch (e) {}
-    a.run();
+    showScreen(a.screen, null);
   };
-  window.octoChatCardHtml = function (kind) {
+
+  window.octoChatCardHtml = function (kind, id) {
     var a = OCTO_ACTIONS[kind]; if (!a) return '';
-    return '<div class="oc-chatact">'
+    var body = a.auto
+      ? '<div class="oc-chatact-n" id="' + id + '-st">⏳ Роблю просто зараз…</div>'
+      : '<div class="oc-chatact-n">' + a.note + ' · <i>' + a.needs + '</i></div>';
+    return '<div class="oc-chatact" id="' + id + '">'
       + '<div class="oc-chatact-ico">' + a.icon + '</div>'
-      + '<div style="flex:1;min-width:0;">'
-      + '<div class="oc-chatact-t">' + a.title + '</div>'
-      + '<div class="oc-chatact-n">' + a.note + '</div></div>'
+      + '<div style="flex:1;min-width:0;"><div class="oc-chatact-t">' + a.title + '</div>' + body + '</div>'
       + '<button class="oc-chatact-b" onclick="octoChatRun(\'' + kind + '\')">Відкрити →</button></div>';
+  };
+
+  // Повний автозапуск: дію стартуємо одразу, але екран НЕ підміняємо — людина
+  // ще читає відповідь. Ліміти перевіряють самі функції, тож тихої витрати
+  // квоти тут не буде: якщо ліміт вичерпано, вискочить звичайний шит.
+  window.octoChatAuto = function (kind, id) {
+    var a = OCTO_ACTIONS[kind];
+    if (!a || !a.auto) return;
+    var before = a.count ? a.count() : 0;
+    var st = function (html) { var n = document.getElementById(id + '-st'); if (n) n.innerHTML = html; };
+    if (!a.auto()) { st('Відкрий розділ — там усе готово'); return; }
+    var t0 = Date.now();
+    var tick = setInterval(function () {
+      var done = false;
+      try { done = a.ready(before); } catch (e) {}
+      if (done) {
+        clearInterval(tick);
+        st('<b style="color:var(--green);">✅ Готово — відкривай</b>');
+      } else if (Date.now() - t0 > 120000) {
+        clearInterval(tick);
+        st('Триває довше звичного — загляни в розділ');
+      }
+    }, 1500);
   };
 
   // Analyzer
