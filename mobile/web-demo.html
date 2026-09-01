@@ -5703,8 +5703,12 @@
       ready: function () { var el = document.getElementById('rsResult');
         return !!el && el.innerHTML.length > 400 && !/om-loader|Octo досліджує/.test(el.innerHTML); },
       count: function () { return 0; } },
-    campaign:   { icon: '🎯', title: 'Зібрати кампанію', screen: 'campaign',
-      note: 'Стратегія під ціль, план дій і матеріали', needs: 'треба обрати ціль' },
+    campaign: { icon: '🎯', title: 'Кампанія під ціль',
+      note: 'Стратегія, план дій і матеріали — ціль беремо з профілю',
+      screen: 'campaign',
+      auto: function () { try { return window.octoCampaignAuto(); } catch (e) { return false; } },
+      count: function () { try { return window.octoCampaigns.all().filter(function (c) { return c.strategy; }).length; } catch (e) { return 0; } },
+      ready: function (n) { try { return window.octoCampaigns.all().filter(function (c) { return c.strategy; }).length > n; } catch (e) { return false; } } },
     product_ad: { icon: '📦', title: 'Реклама з фото товару', screen: 'prodads',
       note: 'Одне фото — і готові креативи за 40 секунд', needs: 'потрібне фото товару' },
     page_audit: { icon: '🔍', title: 'Розбір моєї сторінки', screen: 'audit',
@@ -11460,6 +11464,22 @@
       '<span class="rz-go">Відкрити →</span></button>';
     bar.querySelector('button').onclick = function () { window.octoResumeCampaign(c.id); };
   }
+
+  // Автозапуск кампанії з чату. Ціль не питаємо — вона вже є в профілі
+  // (goal_30d, її обирають у «Знайомстві»). Якщо там порожньо, беремо ту,
+  // яку продукт сам рекомендує для цієї ніші: краще стартувати з розумного
+  // припущення й дати переробити, ніж зупинитись і нічого не зробити.
+  window.octoCampaignAuto = function () {
+    try {
+      var list = activeGoals();
+      if (!list || !list.length) return false;
+      var biz = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+      var g = list.filter(function (x) { return x.id === biz.goal_30d; })[0] || list[0];
+      pickGoal(g.id);
+      window.octoCampaignStrategy();
+      return true;
+    } catch (e) { return false; }
+  };
 
   // Rebuild the strategy + plan view from a saved campaign.
   window.octoResumeCampaign = function (id) {
