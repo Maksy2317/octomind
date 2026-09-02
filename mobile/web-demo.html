@@ -12516,7 +12516,10 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
       // У планері «навіщо» показується як звичайний текст, тож зірочки й решітки
       // з відповіді моделі туди їхати не мають — вони там просто сміття.
       date: iso, idea: ntTitle(n.text),
-      why: String(n.text || '').replace(/\*\*/g, '').replace(/^\s{0,3}#{1,6}\s*/gm, '').slice(0, 1200),
+      why: String(n.text || '').replace(/\*\*/g, '')
+        .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+        .replace(/^([ \t]*)[-*]\s+/gm, '$1• ')
+        .slice(0, 1200),
       status: 'idea', category: 'education', goal: 'awareness',
     });
     try { window.octoTrack('note_to_plan', {}); } catch (e) {}
