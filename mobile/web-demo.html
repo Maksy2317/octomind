@@ -11513,6 +11513,26 @@
     } catch (e) { return false; }
   };
 
+  // Кампанія з нотатки. Порожньої оболонки з назвою тут не створюємо: нотатка
+  // лягає у ті самі «деталі», які людина пише руками, і стратегію генерує той
+  // самий виклик. Поле лишаємо відкритим — має бути видно, з чого це зроблено.
+  window.octoCampaignFromNote = function (text) {
+    try {
+      var list = activeGoals();
+      if (!list || !list.length) return false;
+      var biz = (window.octoBiz && window.octoBiz.get && window.octoBiz.get()) || {};
+      var g = list.filter(function (x) { return x.id === biz.goal_30d; })[0] || list[0];
+      pickGoal(g.id);
+      var ta = $('ocDetails');
+      if (ta) ta.value = String(text || '').slice(0, 1500);
+      var box = $('ocDetailsBox'), more = $('ocMoreBtn');
+      if (box) box.style.display = '';
+      if (more) more.classList.add('open');
+      window.octoCampaignStrategy();
+      return true;
+    } catch (e) { return false; }
+  };
+
   // Rebuild the strategy + plan view from a saved campaign.
   window.octoResumeCampaign = function (id) {
     var c = window.octoCampaigns && window.octoCampaigns.get(id);
@@ -11744,7 +11764,7 @@
   .nt-body { font-size:13px; line-height:1.55; color:var(--text3); white-space:pre-line; margin:0; }
   .nt-more { background:none; border:none; color:var(--accent); font-size:12px; font-weight:700; padding:5px 0 0; cursor:pointer; }
   .nt-acts { display:flex; gap:7px; margin-top:10px; flex-wrap:wrap; }
-  .nt-act { flex:1 1 auto; min-height:34px; border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--text2);
+  .nt-act { flex:1 1 calc(50% - 4px); min-height:34px; border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--text2);
             border-radius:10px; font-size:12px; font-weight:700; padding:0 11px; cursor:pointer; }
   .nt-act-p { border-color:rgba(245,180,80,.4); color:var(--accent); }
   .nt-act-x { flex:0 0 auto; min-width:38px; color:var(--text4); }
@@ -12483,6 +12503,7 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
             + (cut ? '<button class="nt-more" onclick="octoNoteExpand(\'' + n.id + '\')">Показати повністю</button>' : '')
             + '<div class="nt-acts">'
             + '<button class="nt-act nt-act-p" onclick="octoNoteToPlan(\'' + n.id + '\')">📅 У план</button>'
+            + '<button class="nt-act" onclick="octoNoteToCampaign(\'' + n.id + '\')">🎯 Кампанія</button>'
             + '<button class="nt-act" onclick="octoNoteToChat(\'' + n.id + '\')">💬 Розписати</button>'
             + '<button class="nt-act nt-act-x" onclick="octoNoteDel(\'' + n.id + '\')" title="Видалити">✕</button>'
             + '</div></div>';
@@ -12525,6 +12546,28 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
     try { window.octoTrack('note_to_plan', {}); } catch (e) {}
     try { window.octoToast('Додано в план на завтра'); } catch (e) {}
     try { openPlanAt([iso]); } catch (e) {}
+  };
+
+  // Нотатка → кампанія: та сама стратегія, що й з екрана «Просування», але
+  // з нотаткою у вхідних даних. Ціль беремо з профілю — питати її вдруге
+  // після того, як людина вже обрала її при знайомстві, зайве.
+  window.octoNoteToCampaign = function (id) {
+    var n = ntFind(id); if (!n) return;
+    if (!window.octoCampaignFromNote) {
+      try { window.octoToast('Екран кампанії ще не завантажився — спробуй за мить'); } catch (e) {}
+      return;
+    }
+    var clean = String(n.text || '').replace(/\*\*/g, '')
+      .replace(/^\s{0,3}#{1,6}\s*/gm, '').replace(/^([ \t]*)[-*]\s+/gm, '$1• ');
+    try { showScreen('campaign', null); } catch (e) { return; }
+    setTimeout(function () {
+      // Генерація коштує запит, тож про невдачу говоримо вголос, а не мовчимо.
+      if (!window.octoCampaignFromNote(clean)) {
+        try { window.octoToast('Не вдалося зібрати кампанію — постав ціль на екрані «Просування»'); } catch (e) {}
+      } else {
+        try { window.octoTrack('note_to_campaign', {}); } catch (e) {}
+      }
+    }, 140);
   };
 
   // «Розписати» веде в чат із готовим запитом, але НЕ надсилає: запит коштує
