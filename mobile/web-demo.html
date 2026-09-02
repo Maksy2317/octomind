@@ -12436,15 +12436,23 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
   // а не лише всередині «Дослідження ринку», де вони жили досі.
   // Заголовок нотатки: перший змістовний рядок без розмітки. Нотатка з чату —
   // це шматок відповіді, і в план має поїхати щось читабельне, а не «**Крок 1:**».
-  function ntTitle(text) {
+  function ntSplit(text) {
     var lines = String(text || '').split('\n');
     for (var i = 0; i < lines.length; i++) {
       var l = lines[i].replace(/^[\s\u00a0]*[•\-*#\d.)]+[\s\u00a0]*/, '').replace(/\*\*/g, '').trim();
       l = l.replace(/[:\s]+$/, '');
-      if (l.length >= 4) return l.length > 80 ? l.slice(0, 79) + '…' : l;
+      if (l.length >= 4) {
+        return {
+          title: l.length > 80 ? l.slice(0, 79) + '…' : l,
+          // Тіло — усе після заголовка. Інакше однорядкова нотатка показувала б
+          // той самий текст двічі: великим і сірим.
+          body: lines.slice(i + 1).join('\n').trim(),
+        };
+      }
     }
-    return 'Ідея з чату';
+    return { title: 'Ідея з чату', body: String(text || '').trim() };
   }
+  function ntTitle(text) { return ntSplit(text).title; }
 
   window.octoRenderIdeaNotes = function () {
     var el = $('cmpList'); if (!el) return;
@@ -12462,11 +12470,14 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
       + '<div class="card-sub" style="margin:0;">' + notes.length + ' '
       + (notes.length === 1 ? 'нотатка' : (notes.length < 5 ? 'нотатки' : 'нотаток')) + '</div></div></div>'
       + notes.slice(0, 12).map(function (n) {
-          var full = String(n.text || '');
-          var cut = full.length > 260;
+          var sp = ntSplit(n.text);
+          var cut = sp.body.length > 260;
+          // Нотатка — це шматок відповіді з чату, тобто розмітка. Проганяємо її
+          // тим самим рендером, що й сам чат: інакше на екрані сирі «**».
+          var md = function (t) { return window.chMd ? window.chMd(t) : esc(t); };
           return '<div class="nt-item">'
-            + '<div class="nt-title">' + esc(ntTitle(full)) + '</div>'
-            + '<p class="nt-body" id="ntb-' + n.id + '">' + esc(cut ? full.slice(0, 260) + '…' : full) + '</p>'
+            + '<div class="nt-title">' + esc(sp.title) + '</div>'
+            + (sp.body ? '<p class="nt-body" id="ntb-' + n.id + '">' + md(cut ? sp.body.slice(0, 260) + '…' : sp.body) + '</p>' : '')
             + (cut ? '<button class="nt-more" onclick="octoNoteExpand(\'' + n.id + '\')">Показати повністю</button>' : '')
             + '<div class="nt-acts">'
             + '<button class="nt-act nt-act-p" onclick="octoNoteToPlan(\'' + n.id + '\')">📅 У план</button>'
@@ -12485,7 +12496,8 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
   window.octoNoteExpand = function (id) {
     var n = ntFind(id); if (!n) return;
     var el = document.getElementById('ntb-' + id); if (!el) return;
-    el.textContent = String(n.text || '');
+    var body = ntSplit(n.text).body;
+    el.innerHTML = window.chMd ? window.chMd(body) : esc(body);
     var b = el.nextElementSibling;
     if (b && b.className === 'nt-more') b.remove();
   };
