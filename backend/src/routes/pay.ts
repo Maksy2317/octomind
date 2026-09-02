@@ -78,6 +78,27 @@ payRouter.post('/request', requireIdentity, async (req: Request, res: Response, 
     if (existing) await update('upgrade_requests', `id=eq.${existing.id}`, row);
     else await insertOne('upgrade_requests', row);
 
+    // Заявка лягала в базу мовчки — власник дізнавався про неї, тільки якщо сам
+    // відкривав адмін-екран. Пуш іде лише на пристрої, позначені як власникові
+    // (POST /api/push/owner), і ніколи на пристрої користувачів.
+    if (!existing) {
+      void (async () => {
+        try {
+          const { sendPushToOwner } = await import('./push');
+          await sendPushToOwner({
+            title: '🐙 Заявка на Pro',
+            body:  `${plan === 'business' ? 'Business' : 'Pro'} · ${contact}`
+                   + (row.budget ? ` · ${row.budget}` : ''),
+            icon:  '/icons/icon.svg',
+            badge: '/icons/icon.svg',
+            url:   '/app#admin',
+          });
+        } catch (e) {
+          console.warn('[Pay] сповіщення про заявку не надіслано:', e);
+        }
+      })();
+    }
+
     res.json({ ok: true, updated: !!existing });
   } catch (err) {
     next(err);

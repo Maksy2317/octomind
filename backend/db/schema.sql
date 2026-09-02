@@ -185,3 +185,10 @@ create table if not exists public.upgrade_requests (
 create index if not exists upgrade_requests_time_idx on public.upgrade_requests (created_at desc);
 create unique index if not exists upgrade_requests_user_idx on public.upgrade_requests (user_id);
 alter table public.upgrade_requests enable row level security;
+
+-- Прапорець власника на підписці: саме на ці пристрої йдуть сповіщення про
+-- заявки на Pro. Вмикається кнопкою в адмін-екрані (POST /api/push/owner),
+-- захищеною тим самим ключем, що й статистика. За замовчуванням false —
+-- жоден користувач випадково не почне отримувати чужі заявки.
+alter table if exists public.push_subscriptions
+  add column if not exists is_owner boolean not null default false;

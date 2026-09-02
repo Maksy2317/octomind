@@ -29,6 +29,9 @@ type PushSub = {
   subscription: webpush.PushSubscription;
   userId?:      string;
   createdAt:    string;
+  // Підписка власника: саме на неї йдуть сповіщення про заявки. Прапорець у
+  // тій самій таблиці, бо окрема таблиця заради одного булеана — зайве.
+  isOwner?:     boolean;
 };
 const subscriptions: PushSub[] = [];
 
@@ -51,6 +54,7 @@ export async function loadSubscriptionsFromDB(): Promise<void> {
       subscription: webpush.PushSubscription;
       user_id?:     string;
       created_at:   string;
+      is_owner?:    boolean;
     }>;
 
     subscriptions.length = 0;
@@ -59,6 +63,7 @@ export async function loadSubscriptionsFromDB(): Promise<void> {
         subscription: row.subscription,
         userId:       row.user_id,
         createdAt:    row.created_at,
+        isOwner:      row.is_owner === true,
       });
     }
     console.log(`[Push] Loaded ${subscriptions.length} subscription(s) from Supabase`);
@@ -79,6 +84,7 @@ async function saveSubToDB(sub: PushSub): Promise<void> {
         subscription: sub.subscription,
         user_id:      sub.userId || null,
         created_at:   sub.createdAt,
+        is_owner:     sub.isOwner === true,
       }),
     });
   } catch (e) {
@@ -131,6 +137,10 @@ pushRouter.post('/subscribe', async (req: Request, res: Response) => {
   };
   const exists = subscriptions.findIndex(s => s.subscription.endpoint === subscription.endpoint);
   if (exists >= 0) {
+    // Клієнт переприсилає підписку на кожному завантаженні сторінки. Якщо тут
+    // просто перезаписати запис, прапорець власника мовчки згасне — і заявки
+    // перестануть приходити рівно тоді, коли власник відкриє застосунок.
+    entry.isOwner = subscriptions[exists].isOwner === true;
     subscriptions[exists] = entry;
   } else {
     subscriptions.push(entry);
@@ -260,6 +270,67 @@ export async function sendPushToAll(payload: object): Promise<{ sent: number; fa
   }
   return { sent, failed };
 }
+
+// ── Сповіщення власнику ──────────────────────────────────────────────────────
+// Заявка на Pro лягала в базу мовчки: ніхто не дізнавався про неї, поки не
+// відкриє адмін-екран. Перші заявки — найцінніші контакти, і відповідати на
+// них треба того ж дня, поки людина ще памʼятає продукт.
+export async function sendPushToOwner(payload: object): Promise<{ sent: number; failed: number }> {
+  const owners = subscriptions.filter((s) => s.isOwner === true);
+  if (!owners.length) {
+    console.warn('[Push] заявка є, але жодна підписка не позначена як власникова — сповіщення нікому слати');
+    return { sent: 0, failed: 0 };
+  }
+  let sent = 0; let failed = 0;
+  for (const sub of owners) {
+    try {
+      await webpush.sendNotification(sub.subscription, JSON.stringify(payload));
+      sent++;
+    } catch (err) {
+      failed++;
+      const code = (err as { statusCode?: number }).statusCode;
+      console.warn('[Push] власнику не доставлено:', code);
+      if (code === 410 || code === 404) {
+        const idx = subscriptions.findIndex((x) => x.subscription.endpoint === sub.subscription.endpoint);
+        if (idx >= 0) subscriptions.splice(idx, 1);
+        deleteSubFromDB(sub.subscription.endpoint);
+      }
+    }
+  }
+  return { sent, failed };
+}
+
+// POST /api/push/owner — позначити ЦЕЙ пристрій як власників.
+// Body: { endpoint, on?: boolean }. Захищено тим самим ключем, що й адмінка:
+// інакше будь-хто підписав би себе на чужі заявки з контактами людей.
+pushRouter.post('/owner', async (req: Request, res: Response) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey || String(req.header('x-admin-key') || '') !== adminKey) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+  const endpoint = String(req.body?.endpoint || '');
+  const on = req.body?.on !== false;
+  if (!endpoint) { res.status(400).json({ error: 'endpoint required' }); return; }
+  const sub = subscriptions.find((x) => x.subscription.endpoint === endpoint);
+  if (!sub) {
+    res.status(404).json({ error: 'Спершу увімкни сповіщення на цьому пристрої' });
+    return;
+  }
+  sub.isOwner = on;
+  await saveSubToDB(sub);
+  res.json({ ok: true, owner: on, owners: subscriptions.filter((x) => x.isOwner).length });
+});
+
+// GET /api/push/owner — чи слухає хтось заявки взагалі.
+pushRouter.get('/owner', (req: Request, res: Response) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey || String(req.header('x-admin-key') || '') !== adminKey) {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+  res.json({ owners: subscriptions.filter((x) => x.isOwner).length });
+});
 
 // ── POST /api/push/test ───────────────────────────────────────────────────────
 // POST /api/push/self-test — надіслати сповіщення ЛИШЕ на власну підписку.

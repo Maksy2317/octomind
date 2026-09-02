@@ -7830,6 +7830,61 @@
   // ── Заявки на підписку ─────────────────────────────────────────────────────
   // Головна цифра до появи каси. Воронка каже, скільки людей дійшло; заявки
   // кажуть, скільки з них готові платити — і скільки саме.
+  // Заявка на Pro — найцінніший контакт, який у нас зʼявляється, і відповідати
+  // на неї треба того ж дня. Досі вона лягала в базу мовчки. Цей блок вмикає
+  // пуш саме на цей пристрій; на пристрої користувачів такі сповіщення не йдуть.
+  window.octoAdminOwnerPush = function () {
+    var box = document.getElementById('admOwnerPush'); if (!box) return;
+    var key = '';
+    try { key = localStorage.getItem('octo_admin_key') || ''; } catch (e) {}
+    fetch(admApiBase() + '/api/push/owner', { headers: { 'x-admin-key': key } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var n = d && d.owners ? d.owners : 0;
+        box.innerHTML = '<div class="ob-sec" style="margin-top:18px;">Сповіщення про заявки</div>'
+          + '<div class="card" style="margin-top:8px;">'
+          + '<div class="card-sub" id="admOwnStatus" style="margin:0 0 10px;">'
+          + (n ? '✅ Увімкнено на ' + n + ' пристр' + (n === 1 ? 'ої' : 'оях') + ' — заявка прийде пушем одразу.'
+              : '⚠️ Вимкнено. Заявки лежатимуть у базі, поки ти сам не відкриєш цей екран.')
+          + '</div>'
+          + '<button class="btn btn-primary" style="width:100%;" onclick="octoAdminOwnerToggle(true,this)">🔔 Сповіщати мене на цьому пристрої</button>'
+          + (n ? '<button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="octoAdminOwnerToggle(false,this)">Вимкнути на цьому пристрої</button>' : '')
+          + '</div>';
+      })
+      .catch(function () { box.innerHTML = ''; });
+  };
+
+  window.octoAdminOwnerToggle = async function (on, btn) {
+    var st = document.getElementById('admOwnStatus');
+    function say(t) { if (st) st.textContent = t; }
+    var was = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      if (!('serviceWorker' in navigator)) { say('Цей браузер не вміє пуші — відкрий застосунок у Chrome або Safari.'); return; }
+      if (on && Notification.permission !== 'granted') {
+        say('Спершу увімкни тумблер «Сповіщення» в налаштуваннях і дозволь їх у браузері.');
+        return;
+      }
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) { say('Підписки немає — увімкни «Сповіщення» в налаштуваннях, потім повернись сюди.'); return; }
+      var key = '';
+      try { key = localStorage.getItem('octo_admin_key') || ''; } catch (e) {}
+      var r = await fetch(admApiBase() + '/api/push/owner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify({ endpoint: sub.endpoint, on: !!on }),
+      });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) { say(d.error || 'Сервер не прийняв запит.'); return; }
+      window.octoAdminOwnerPush();
+    } catch (e) {
+      say('Не вдалося: ' + (e && e.message ? String(e.message).slice(0, 80) : 'невідома помилка'));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = was; }
+    }
+  };
+
   window.octoAdminRequests = function () {
     var box = document.getElementById('admRequests');
     if (!box) return;
@@ -8020,9 +8075,11 @@
           admStat('Пристроїв заходило', d.devices != null ? d.devices : '—', 'вкл. гостей') + '</div>';
         html += admBars(act.by_feature, 'Що заходить — дії по фічах');
         html += admBars(d.generations_by_type, 'Генерації по типах');
+        html += '<div id="admOwnerPush"></div>';
         html += '<div id="admRequests"></div>';
         html += '<div id="admFunnel"></div>';
         body.innerHTML = html;
+        window.octoAdminOwnerPush();
         window.octoAdminRequests();
         window.octoAdminFunnel(14);
       })
