@@ -11737,6 +11737,16 @@
     border-radius:11px; color:var(--accent2); font:800 12.5px 'Manrope',sans-serif;
     padding:8px 13px; cursor:pointer; touch-action:manipulation; }
   .oc-chatsave:disabled { color:var(--green); border-color:rgba(63,208,122,.34); cursor:default; }
+  .nt-item { border:1px solid var(--border); border-radius:14px; padding:12px 13px; margin-bottom:9px; background:rgba(255,255,255,.02); }
+  .nt-title { font-weight:750; font-size:14px; line-height:1.35; margin-bottom:5px; }
+  .nt-body { font-size:13px; line-height:1.55; color:var(--text3); white-space:pre-line; margin:0; }
+  .nt-more { background:none; border:none; color:var(--accent); font-size:12px; font-weight:700; padding:5px 0 0; cursor:pointer; }
+  .nt-acts { display:flex; gap:7px; margin-top:10px; flex-wrap:wrap; }
+  .nt-act { flex:1 1 auto; min-height:34px; border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--text2);
+            border-radius:10px; font-size:12px; font-weight:700; padding:0 11px; cursor:pointer; }
+  .nt-act-p { border-color:rgba(245,180,80,.4); color:var(--accent); }
+  .nt-act-x { flex:0 0 auto; min-width:38px; color:var(--text4); }
+  .nt-act:active { transform:scale(.97); }
   .oc-chatact { display:flex; align-items:center; gap:12px; margin-top:12px; padding:12px 14px;
     border-radius:16px; background:rgba(108,99,255,.12); border:1px solid rgba(139,123,255,.32); }
   .oc-chatact-ico { flex:none; width:40px; height:40px; border-radius:12px; display:flex;
@@ -12023,6 +12033,9 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
   window.octoNoteDel = function (id) {
     ntSave(ntLoad().filter(function (n) { return n.id !== id; }));
     renderNotes();
+    // Нотатки видно у двох місцях — «Дослідження» і «Мої ідеї». Оновлюємо обидва,
+    // інакше видалене лишається на екрані, з якого його щойно видалили.
+    try { if (window.octoRenderIdeaNotes) window.octoRenderIdeaNotes(); } catch (e) {}
   };
   // Selection → floating «В нотатки» chip. Works for mouse and long-press.
   function killChip() { var c = document.getElementById('rsNoteChip'); if (c) c.remove(); }
@@ -12421,6 +12434,17 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
   window.renderList = renderList;   // (оголошення функції спливає, тож рядок валідний тут)
   // Нотатки з чату мусять бути видні там, де людина їх шукає — у «Моїх ідеях»,
   // а не лише всередині «Дослідження ринку», де вони жили досі.
+  // Заголовок нотатки: перший змістовний рядок без розмітки. Нотатка з чату —
+  // це шматок відповіді, і в план має поїхати щось читабельне, а не «**Крок 1:**».
+  function ntTitle(text) {
+    var lines = String(text || '').split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i].replace(/^[\s\u00a0]*[•\-*#\d.)]+[\s\u00a0]*/, '').replace(/\*\*/g, '').trim();
+      if (l.length >= 4) return l.length > 80 ? l.slice(0, 79) + '…' : l;
+    }
+    return 'Ідея з чату';
+  }
+
   window.octoRenderIdeaNotes = function () {
     var el = $('cmpList'); if (!el) return;
     var box = document.getElementById('cmpNotes');
@@ -12436,12 +12460,64 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
       + '<div class="card-title" style="margin:0;">Збережене з чату</div>'
       + '<div class="card-sub" style="margin:0;">' + notes.length + ' '
       + (notes.length === 1 ? 'нотатка' : (notes.length < 5 ? 'нотатки' : 'нотаток')) + '</div></div></div>'
-      + notes.slice(0, 8).map(function (n) {
-          return '<div class="ob-variant"><p style="white-space:pre-line;">'
-            + esc(String(n.text).slice(0, 420)) + (String(n.text).length > 420 ? '…' : '')
-            + '</p></div>';
+      + notes.slice(0, 12).map(function (n) {
+          var full = String(n.text || '');
+          var cut = full.length > 260;
+          return '<div class="nt-item">'
+            + '<div class="nt-title">' + esc(ntTitle(full)) + '</div>'
+            + '<p class="nt-body" id="ntb-' + n.id + '">' + esc(cut ? full.slice(0, 260) + '…' : full) + '</p>'
+            + (cut ? '<button class="nt-more" onclick="octoNoteExpand(\'' + n.id + '\')">Показати повністю</button>' : '')
+            + '<div class="nt-acts">'
+            + '<button class="nt-act nt-act-p" onclick="octoNoteToPlan(\'' + n.id + '\')">📅 У план</button>'
+            + '<button class="nt-act" onclick="octoNoteToChat(\'' + n.id + '\')">💬 Розписати</button>'
+            + '<button class="nt-act nt-act-x" onclick="octoNoteDel(\'' + n.id + '\')" title="Видалити">✕</button>'
+            + '</div></div>';
         }).join('')
       + '</div>';
+  };
+
+  function ntFind(id) {
+    var a = (window.octoNotesAll ? window.octoNotesAll() : []) || [];
+    return a.filter(function (n) { return n.id === id; })[0] || null;
+  }
+
+  window.octoNoteExpand = function (id) {
+    var n = ntFind(id); if (!n) return;
+    var el = document.getElementById('ntb-' + id); if (!el) return;
+    el.textContent = String(n.text || '');
+    var b = el.nextElementSibling;
+    if (b && b.className === 'nt-more') b.remove();
+  };
+
+  // Нотатка → пункт плану на завтра. Саме завтра, а не сьогодні: збережене
+  // ввечері реально знімають наступного дня, і вкладка «Сьогодні» не має
+  // обростати тим, чого людина вже не встигне.
+  window.octoNoteToPlan = function (id) {
+    var n = ntFind(id); if (!n) return;
+    if (!window.octoPlannerAdd) { try { window.octoToast('Планер ще не завантажився — спробуй за мить'); } catch (e) {} return; }
+    var d = new Date(); d.setDate(d.getDate() + 1);
+    var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    window.octoPlannerAdd({
+      date: iso, idea: ntTitle(n.text), why: String(n.text || '').slice(0, 1200),
+      status: 'idea', category: 'education', goal: 'awareness',
+    });
+    try { window.octoTrack('note_to_plan', {}); } catch (e) {}
+    try { window.octoToast('Додано в план на завтра'); } catch (e) {}
+    try { openPlanAt([iso]); } catch (e) {}
+  };
+
+  // «Розписати» веде в чат із готовим запитом, але НЕ надсилає: запит коштує
+  // грошей, і людина має право дописати деталі перед відправкою.
+  window.octoNoteToChat = function (id) {
+    var n = ntFind(id); if (!n) return;
+    try { showScreen('advisor', null); } catch (e) { return; }
+    setTimeout(function () {
+      var input = document.getElementById('chatInput'); if (!input) return;
+      input.value = 'Розпиши це детальніше — конкретні кроки на цей тиждень:\n\n' + String(n.text || '').slice(0, 1500);
+      input.focus();
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }, 100);
   };
 
   function renderList() {
