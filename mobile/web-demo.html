@@ -12534,7 +12534,11 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
     try { showScreen('advisor', null); } catch (e) { return; }
     setTimeout(function () {
       var input = document.getElementById('chatInput'); if (!input) return;
-      input.value = 'Розпиши це детальніше — конкретні кроки на цей тиждень:\n\n' + String(n.text || '').slice(0, 1500);
+      // Розмітку прибираємо: людина читає це поле перед відправкою, і «**» там
+      // виглядають як сміття, хоч моделі й байдуже.
+      var clean = String(n.text || '').replace(/\*\*/g, '')
+        .replace(/^\s{0,3}#{1,6}\s*/gm, '').replace(/^([ \t]*)[-*]\s+/gm, '$1• ');
+      input.value = 'Розпиши це детальніше — конкретні кроки на цей тиждень:\n\n' + clean.slice(0, 1500);
       input.focus();
       try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
       input.dispatchEvent(new Event('input', { bubbles: true }));
