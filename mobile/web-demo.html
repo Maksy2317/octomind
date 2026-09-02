@@ -5659,13 +5659,20 @@
         chatScrollBottom(msgs);
       }
 
+      // Корисну відповідь треба мати куди подіти: без цього вона живе рівно
+      // до наступного питання й губиться у стрічці чату.
+      window.__octoChatLast = window.__octoChatLast || {};
+      window.__octoChatLast[aiId] = window.octoChatStrip(fullText);
+      var saveBtn = '<button class="oc-chatsave" onclick="octoChatSaveIdea(\'' + aiId + '\',this)">💡 Зберегти в ідеї</button>';
       var actKind = window.octoChatMark(fullText);
       if (actKind) {
         fullText = window.octoChatStrip(fullText);
         var actId = 'act-' + Date.now();
-        bubble.innerHTML = window.chMd(fullText) + window.octoChatCardHtml(actKind, actId);
+        bubble.innerHTML = window.chMd(fullText) + window.octoChatCardHtml(actKind, actId) + saveBtn;
         chatScrollBottom(msgs);
         try { window.octoChatAuto(actKind, actId); } catch (e) {}
+      } else if (fullText && !fullText.startsWith('❌')) {
+        bubble.innerHTML = window.chMd(fullText) + saveBtn;
       }
       if (fullText && !fullText.startsWith('❌')) {
         chatHistory.push({ role: 'assistant', content: fullText });
@@ -5730,6 +5737,16 @@
     var a = OCTO_ACTIONS[kind]; if (!a) return;
     try { window.octoTrack('material_created', { type: 'chat_action', kind: kind }); } catch (e) {}
     showScreen(a.screen, null);
+  };
+
+  window.octoChatSaveIdea = function (aiId, btn) {
+    var t = (window.__octoChatLast || {})[aiId];
+    if (!t || !window.octoNoteAdd) return;
+    var ok = window.octoNoteAdd(t, 'chat');
+    if (btn) {
+      btn.textContent = ok ? '✅ Збережено в «Мої ідеї»' : '⚠️ Не вдалось';
+      btn.disabled = true;
+    }
   };
 
   window.octoChatCardHtml = function (kind, id) {
@@ -11703,6 +11720,10 @@
   .ob-vtext { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
   .ob-vtext.open { display:block; }
   .ob-more { background:none; border:none; padding:6px 0 0; color:var(--accent2); font:700 12.5px 'Manrope',sans-serif; cursor:pointer; }
+  .oc-chatsave { margin-top:10px; background:transparent; border:1px solid rgba(139,123,255,.34);
+    border-radius:11px; color:var(--accent2); font:800 12.5px 'Manrope',sans-serif;
+    padding:8px 13px; cursor:pointer; touch-action:manipulation; }
+  .oc-chatsave:disabled { color:var(--green); border-color:rgba(63,208,122,.34); cursor:default; }
   .oc-chatact { display:flex; align-items:center; gap:12px; margin-top:12px; padding:12px 14px;
     border-radius:16px; background:rgba(108,99,255,.12); border:1px solid rgba(139,123,255,.32); }
   .oc-chatact-ico { flex:none; width:40px; height:40px; border-radius:12px; display:flex;
@@ -11950,7 +11971,24 @@
 
   // ── Нотатки: виділив → зберіг. Перший цеглик «структурованого мозку» ────────
   function ntKey() { return 'octo_notes_' + rsWs(); }
-  function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]'); } catch (e) { return []; } }
+  // Нотатки жили лише всередині «Дослідження ринку»: зберегти щось із чату було
+// нікуди. Відкриваємо доступ назовні — і показуємо їх у «Моїх ідеях», де людина
+// їх і шукає.
+window.octoNoteAdd = function (text, source) {
+  var t = String(text || '').trim();
+  if (!t) return false;
+  var a = ntLoad();
+  a.unshift({ id: 'n_' + Math.random().toString(36).slice(2, 9), text: t.slice(0, 6000),
+              ts: Date.now(), source: source || 'chat' });
+  ntSave(a);
+  try { window.octoTrack('note_saved', { source: source || 'chat' }); } catch (e) {}
+  try { renderNotes(); } catch (e) {}
+  try { if (window.octoRenderIdeaNotes) window.octoRenderIdeaNotes(); } catch (e) {}
+  return true;
+};
+window.octoNotesAll = function () { try { return ntLoad(); } catch (e) { return []; } };
+
+function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]'); } catch (e) { return []; } }
   function ntSave(a) {
     window.octoSafeStore(ntKey(), JSON.stringify(a));
     try { if (window.dbSync) window.dbSync('notes_' + rsWs(), a); } catch (e) {}
@@ -12368,7 +12406,33 @@
   // <script>-блоки його не бачать — саме тому їхні перевірки
   // `typeof renderList === 'function'` завжди були хибними.
   window.renderList = renderList;   // (оголошення функції спливає, тож рядок валідний тут)
+  // Нотатки з чату мусять бути видні там, де людина їх шукає — у «Моїх ідеях»,
+  // а не лише всередині «Дослідження ринку», де вони жили досі.
+  window.octoRenderIdeaNotes = function () {
+    var el = $('cmpList'); if (!el) return;
+    var box = document.getElementById('cmpNotes');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'cmpNotes';
+      el.parentNode.insertBefore(box, el);
+    }
+    var notes = (window.octoNotesAll ? window.octoNotesAll() : []) || [];
+    if (!notes.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="card" style="margin-bottom:14px;">'
+      + '<div class="ob-rc-head"><div class="ob-ico">💡</div><div>'
+      + '<div class="card-title" style="margin:0;">Збережене з чату</div>'
+      + '<div class="card-sub" style="margin:0;">' + notes.length + ' '
+      + (notes.length === 1 ? 'нотатка' : (notes.length < 5 ? 'нотатки' : 'нотаток')) + '</div></div></div>'
+      + notes.slice(0, 8).map(function (n) {
+          return '<div class="ob-variant"><p style="white-space:pre-line;">'
+            + esc(String(n.text).slice(0, 420)) + (String(n.text).length > 420 ? '…' : '')
+            + '</p></div>';
+        }).join('')
+      + '</div>';
+  };
+
   function renderList() {
+    try { window.octoRenderIdeaNotes(); } catch (e) {}
     var el = $('cmpList'); if (!el) return;
     var all = window.octoCampaigns.all();
     if (!all.length) {
