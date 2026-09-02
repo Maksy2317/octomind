@@ -1979,7 +1979,9 @@
       border: 1px solid var(--border); background: transparent; color: var(--text3); display: grid; place-items: center; }
     .pl-bmore svg { width: 15px; height: 15px; }
     .pl-bidea { font: 800 17px/1.3 'Manrope', sans-serif; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
-    .pl-why { font-size: 12.5px; color: var(--text3); line-height: 1.5; margin-top: 5px; }
+    .pl-dwhy { font-size:13px; line-height:1.6; color:var(--text3); white-space:pre-line;
+             border-left:2px solid rgba(139,123,255,.4); padding:2px 0 2px 12px; margin-bottom:18px; }
+  .pl-why { font-size: 12.5px; color: var(--text3); line-height: 1.5; margin-top: 5px; }
 
     .pl-sec { margin-top: 15px; }
     .pl-sec-h { font: 800 10px 'Manrope', sans-serif; letter-spacing: .14em; text-transform: uppercase;
@@ -16037,6 +16039,10 @@ function ntLoad() { try { return JSON.parse(localStorage.getItem(ntKey()) || '[]
     return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">'
       + '<div style="font-size:17px;font-weight:800;">Деталі публікації</div>'
       + '<button onclick="octoPlanner.close()" style="background:none;border:none;color:#9a9ac4;font-size:22px;cursor:pointer;">✕</button></div>'
+      // «Навіщо» видно лише у брифі на «Сьогодні». Якщо пункт стоїть на майбутній
+      // день, увесь контекст — чому саме ця ідея — був невидимий: у деталях його
+      // не показували, і нотатка з чату виглядала як порожній заголовок.
+      + (p.why ? '<div class="pl-dwhy">' + esc(p.why) + '</div>' : '')
       + '<div class="pl-fields">'
       + '<div>' + field('Дата', '<input type="date" value="' + esc(p.date) + '" onchange="octoPlanner.set(\'date\',this.value)" style="' + inputStyle() + '">') + '</div>'
       + '<div>' + field('Час', '<input type="time" value="' + esc(p.time) + '" onchange="octoPlanner.set(\'time\',this.value)" style="' + inputStyle() + '">') + '</div>'
